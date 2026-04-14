@@ -37,7 +37,7 @@ const FAQS = [
   {
     question: 'How do I get started?',
     answer:
-      'Contact our team at contact@eonpro.io to schedule a demo. We\'ll walk you through the platform, discuss your clinic\'s needs, and help you get set up. Onboarding typically takes 1-2 weeks depending on your existing workflows.',
+      "Contact our team at contact@eonpro.io to schedule a demo. We'll walk you through the platform, discuss your clinic's needs, and help you get set up. Onboarding typically takes 1-2 weeks depending on your existing workflows.",
   },
 ];
 
@@ -50,9 +50,7 @@ function FAQItem({ question, answer }: { question: string; answer: string }) {
         onClick={() => setOpen(!open)}
         className="flex w-full items-center justify-between gap-4 py-6 text-left transition-colors hover:text-[#4fa77e]"
       >
-        <span className="text-base font-semibold text-[#1f2933] sm:text-lg">
-          {question}
-        </span>
+        <span className="text-base font-semibold text-[#1f2933] sm:text-lg">{question}</span>
         <ChevronDown
           className={`h-5 w-5 flex-shrink-0 text-[#1f2933]/30 transition-transform duration-300 ${
             open ? 'rotate-180' : ''

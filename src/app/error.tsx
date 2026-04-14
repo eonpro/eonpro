@@ -23,11 +23,7 @@ export default function Error({
       <div className="w-full max-w-lg text-center">
         {/* EonPro Logo */}
         <div className="mb-12">
-          <img
-            src={EONPRO_LOGO}
-            alt="EONPRO"
-            className="mx-auto h-8 w-auto opacity-90"
-          />
+          <img src={EONPRO_LOGO} alt="EONPRO" className="mx-auto h-8 w-auto opacity-90" />
         </div>
 
         {/* Error Illustration */}
@@ -54,20 +50,16 @@ export default function Error({
           Something went wrong
         </h1>
         <p className="mx-auto mb-10 max-w-sm text-base leading-relaxed text-gray-500">
-          We apologize for the inconvenience. An unexpected error occurred while
-          processing your request.
+          We apologize for the inconvenience. An unexpected error occurred while processing your
+          request.
         </p>
 
         {/* Error Details (Development only) */}
         {process.env.NODE_ENV === 'development' && error.message && (
           <div className="mb-8 rounded-2xl border border-red-200/60 bg-white/60 p-5 text-left backdrop-blur-sm">
-            <p className="break-words font-mono text-sm text-red-700">
-              {error.message}
-            </p>
+            <p className="break-words font-mono text-sm text-red-700">{error.message}</p>
             {error.digest && (
-              <p className="mt-2 font-mono text-xs text-red-400">
-                Error ID: {error.digest}
-              </p>
+              <p className="mt-2 font-mono text-xs text-red-400">Error ID: {error.digest}</p>
             )}
           </div>
         )}
@@ -117,9 +109,15 @@ export default function Error({
               support@eonpro.io
             </a>
           </p>
-          <div className="flex items-center justify-center gap-1.5 text-xs text-gray-400 whitespace-nowrap">
+          <div className="flex items-center justify-center gap-1.5 whitespace-nowrap text-xs text-gray-400">
             Powered by
-            <img src={EONPRO_LOGO} alt="EONPRO" width={60} height={18} className="h-[18px] w-auto opacity-50" />
+            <img
+              src={EONPRO_LOGO}
+              alt="EONPRO"
+              width={60}
+              height={18}
+              className="h-[18px] w-auto opacity-50"
+            />
           </div>
         </div>
       </div>

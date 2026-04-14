@@ -1,11 +1,22 @@
-import { getStripeForClinic, getStripeForPlatform, withConnectedAccount } from '@/lib/stripe/connect';
+import {
+  getStripeForClinic,
+  getStripeForPlatform,
+  withConnectedAccount,
+} from '@/lib/stripe/connect';
 import type Stripe from 'stripe';
-import type { DataSourceAdapter, ReportConfig, ReportResult, DataSourceDef, ReportRow } from '../types';
+import type {
+  DataSourceAdapter,
+  ReportConfig,
+  ReportResult,
+  DataSourceDef,
+  ReportRow,
+} from '../types';
 
 const definition: DataSourceDef = {
   id: 'stripe-transactions',
   name: 'Stripe Charges & Refunds',
-  description: 'Detailed charge and refund transactions with customer, payment method, and fee data',
+  description:
+    'Detailed charge and refund transactions with customer, payment method, and fee data',
   icon: 'CreditCard',
   columns: [
     { id: 'date', label: 'Date', type: 'date', sortable: true, filterable: true, groupable: true },
@@ -13,7 +24,14 @@ const definition: DataSourceDef = {
     { id: 'amount', label: 'Amount', type: 'currency', sortable: true },
     { id: 'fees', label: 'Fees', type: 'currency', sortable: true },
     { id: 'net', label: 'Net', type: 'currency', sortable: true },
-    { id: 'status', label: 'Status', type: 'string', sortable: true, filterable: true, groupable: true },
+    {
+      id: 'status',
+      label: 'Status',
+      type: 'string',
+      sortable: true,
+      filterable: true,
+      groupable: true,
+    },
     { id: 'customerEmail', label: 'Customer Email', type: 'string' },
     { id: 'paymentMethod', label: 'Payment Method', type: 'string', groupable: true },
     { id: 'description', label: 'Description', type: 'string' },
@@ -21,10 +39,16 @@ const definition: DataSourceDef = {
     { id: 'disputed', label: 'Disputed', type: 'boolean', filterable: true },
   ],
   filters: [
-    { field: 'status', label: 'Status', type: 'multi_select', options: [
-      { value: 'succeeded', label: 'Succeeded' }, { value: 'pending', label: 'Pending' },
-      { value: 'failed', label: 'Failed' },
-    ]},
+    {
+      field: 'status',
+      label: 'Status',
+      type: 'multi_select',
+      options: [
+        { value: 'succeeded', label: 'Succeeded' },
+        { value: 'pending', label: 'Pending' },
+        { value: 'failed', label: 'Failed' },
+      ],
+    },
     { field: 'dateRange', label: 'Date Range', type: 'date_range' },
     { field: 'amountRange', label: 'Amount Range', type: 'number_range' },
   ],
@@ -36,7 +60,11 @@ const definition: DataSourceDef = {
   ],
 };
 
-async function fetchAllCharges(stripe: Stripe, params: Stripe.ChargeListParams, limit: number): Promise<Stripe.Charge[]> {
+async function fetchAllCharges(
+  stripe: Stripe,
+  params: Stripe.ChargeListParams,
+  limit: number
+): Promise<Stripe.Charge[]> {
   const all: Stripe.Charge[] = [];
   let hasMore = true;
   let startingAfter: string | undefined;
@@ -145,7 +173,14 @@ function groupRows(rows: ReportRow[], groupBy: string): ReportRow[] {
   for (const row of rows) {
     const key = String(row[groupBy] ?? 'Unknown');
     if (!groups.has(key)) {
-      groups.set(key, { [groupBy]: key, count: 0, totalAmount: 0, totalFees: 0, totalNet: 0, totalRefunded: 0 });
+      groups.set(key, {
+        [groupBy]: key,
+        count: 0,
+        totalAmount: 0,
+        totalFees: 0,
+        totalNet: 0,
+        totalRefunded: 0,
+      });
     }
     const g = groups.get(key)!;
     g.count++;

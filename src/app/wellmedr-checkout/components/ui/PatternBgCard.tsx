@@ -11,8 +11,8 @@ export default function PatternBgCard({
   return (
     <div
       className={cn(
-        'relative rounded-smooth text-white w-full p-8 h-[60dvh] sm:h-[65dvh] flex items-center justify-center max-w-5xl',
-        className,
+        'rounded-smooth relative flex h-[60dvh] w-full max-w-5xl items-center justify-center p-8 text-white sm:h-[65dvh]',
+        className
       )}
     >
       <Image
@@ -20,7 +20,7 @@ export default function PatternBgCard({
         alt="Background pattern"
         fill
         sizes="(max-width: 768px) 100vw, (max-width: 1024px) 100vw, 1536px"
-        className="absolute inset-0 w-full h-full object-cover rounded-smooth -z-10"
+        className="rounded-smooth absolute inset-0 -z-10 h-full w-full object-cover"
       />
 
       {children}

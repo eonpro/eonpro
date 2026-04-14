@@ -283,11 +283,7 @@ function createEncryptedClinicCode(clinicKey: string, phrase: string): string {
   return phrase + sha512Base64(phrase + clinicKey);
 }
 
-function createEncryptedUserIdVerify(
-  userId: string,
-  clinicKey: string,
-  phrase: string
-): string {
+function createEncryptedUserIdVerify(userId: string, clinicKey: string, phrase: string): string {
   const phrase22 = phrase.substring(0, 22);
   return sha512Base64(userId + phrase22 + clinicKey);
 }
@@ -439,18 +435,14 @@ export function createDoseSpotClient(credentials: DoseSpotCredentials) {
     addPatient: (patient: DoseSpotPatientPayload): Promise<string> =>
       callDoseSpot<Record<string, unknown>>(
         credentials,
-        (client, token) =>
-          client.post('/api/patients', patient, { headers: authHeaders(token) }),
+        (client, token) => client.post('/api/patients', patient, { headers: authHeaders(token) }),
         'addPatient'
       ).then((data) => {
         if (data && typeof data.Id !== 'undefined') return String(data.Id);
         throw new Error('DoseSpot addPatient: unexpected response');
       }),
 
-    updatePatient: (
-      doseSpotPatientId: string,
-      patient: DoseSpotPatientPayload
-    ): Promise<void> =>
+    updatePatient: (doseSpotPatientId: string, patient: DoseSpotPatientPayload): Promise<void> =>
       callDoseSpot<unknown>(
         credentials,
         (client, token) =>

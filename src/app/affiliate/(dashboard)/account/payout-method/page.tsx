@@ -56,7 +56,8 @@ export default function PayoutMethodPage() {
           }
         }
       } catch (error) {
-        process.env.NODE_ENV === 'development' && console.error('Failed to fetch payout method:', error);
+        process.env.NODE_ENV === 'development' &&
+          console.error('Failed to fetch payout method:', error);
       } finally {
         setIsLoading(false);
       }
@@ -182,7 +183,12 @@ export default function PayoutMethodPage() {
                     />
                   </svg>
                 ) : (
-                  <svg className="h-6 w-6" style={{ color: 'var(--brand-accent)' }} viewBox="0 0 24 24" fill="currentColor">
+                  <svg
+                    className="h-6 w-6"
+                    style={{ color: 'var(--brand-accent)' }}
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
                     <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.983 5.05-4.349 6.797-8.647 6.797h-2.19c-.524 0-.968.382-1.05.9l-1.12 7.106z" />
                   </svg>
                 )}
@@ -365,7 +371,10 @@ export default function PayoutMethodPage() {
                     </div>
                   </div>
 
-                  <div className="rounded-xl p-4 text-sm text-gray-800" style={{ backgroundColor: 'var(--brand-accent-light)' }}>
+                  <div
+                    className="rounded-xl p-4 text-sm text-gray-800"
+                    style={{ backgroundColor: 'var(--brand-accent-light)' }}
+                  >
                     <p className="mb-1 font-medium">Your information is secure</p>
                     <p className="text-gray-600">
                       Bank details are encrypted and stored securely. We use bank-level security.
@@ -401,7 +410,10 @@ export default function PayoutMethodPage() {
                     </p>
                   </div>
 
-                  <div className="rounded-xl p-4 text-sm text-gray-800" style={{ backgroundColor: 'var(--brand-accent-light)' }}>
+                  <div
+                    className="rounded-xl p-4 text-sm text-gray-800"
+                    style={{ backgroundColor: 'var(--brand-accent-light)' }}
+                  >
                     <p className="mb-1 font-medium">Instant Payouts</p>
                     <p className="text-gray-600">
                       PayPal payouts are typically processed instantly once approved.

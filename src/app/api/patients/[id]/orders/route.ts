@@ -7,11 +7,7 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-async function handler(
-  req: NextRequest,
-  user: AuthUser,
-  context?: RouteParams,
-) {
+async function handler(req: NextRequest, user: AuthUser, context?: RouteParams) {
   if (!context?.params) {
     return NextResponse.json({ error: 'Missing ID parameter' }, { status: 400 });
   }
@@ -22,10 +18,7 @@ async function handler(
       return NextResponse.json({ error: 'Invalid patient ID' }, { status: 400 });
     }
 
-    const take = Math.min(
-      parseInt(req.nextUrl.searchParams.get('take') || '50', 10),
-      100
-    );
+    const take = Math.min(parseInt(req.nextUrl.searchParams.get('take') || '50', 10), 100);
 
     const orders = await prisma.order.findMany({
       where: { patientId },

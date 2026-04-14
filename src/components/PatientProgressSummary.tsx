@@ -17,7 +17,10 @@ interface ProgressSnapshot {
   nutrition: { todayCalories: number; entries: number } | null;
 }
 
-export default function PatientProgressSummary({ patientId, basePath = '/patients' }: PatientProgressSummaryProps) {
+export default function PatientProgressSummary({
+  patientId,
+  basePath = '/patients',
+}: PatientProgressSummaryProps) {
   const [data, setData] = useState<ProgressSnapshot>({
     water: null,
     exercise: null,
@@ -36,9 +39,7 @@ export default function PatientProgressSummary({ patientId, basePath = '/patient
         if (!r.ok) return null;
         const body = await r.json();
         const entries = Array.isArray(body.data) ? body.data.length : 0;
-        return entries > 0
-          ? { todayTotal: body.meta?.todayTotal ?? 0, unit: 'oz', entries }
-          : null;
+        return entries > 0 ? { todayTotal: body.meta?.todayTotal ?? 0, unit: 'oz', entries } : null;
       })
       .catch(() => null);
 
@@ -48,8 +49,14 @@ export default function PatientProgressSummary({ patientId, basePath = '/patient
         const body = await r.json();
         const logs = Array.isArray(body.data) ? body.data : [];
         if (logs.length === 0) return null;
-        const weeklyMinutes = body.meta?.weeklyMinutes ?? logs.reduce((s: number, l: { duration?: number }) => s + (l.duration ?? 0), 0);
-        return { weeklyMinutes, entries: logs.length, latestType: logs[0]?.activityType ?? 'Exercise' };
+        const weeklyMinutes =
+          body.meta?.weeklyMinutes ??
+          logs.reduce((s: number, l: { duration?: number }) => s + (l.duration ?? 0), 0);
+        return {
+          weeklyMinutes,
+          entries: logs.length,
+          latestType: logs[0]?.activityType ?? 'Exercise',
+        };
       })
       .catch(() => null);
 
@@ -59,9 +66,16 @@ export default function PatientProgressSummary({ patientId, basePath = '/patient
         const body = await r.json();
         const logs = Array.isArray(body.data) ? body.data : [];
         if (logs.length === 0) return null;
-        const avgQuality = body.meta?.averageQuality ?? logs.reduce((s: number, l: { quality?: number }) => s + (l.quality ?? 0), 0) / logs.length;
+        const avgQuality =
+          body.meta?.averageQuality ??
+          logs.reduce((s: number, l: { quality?: number }) => s + (l.quality ?? 0), 0) /
+            logs.length;
         const avgHours = body.meta?.averageHours ?? 0;
-        return { avgQuality: Math.round(avgQuality * 10) / 10, avgHours: Math.round(avgHours * 10) / 10, entries: logs.length };
+        return {
+          avgQuality: Math.round(avgQuality * 10) / 10,
+          avgHours: Math.round(avgHours * 10) / 10,
+          entries: logs.length,
+        };
       })
       .catch(() => null);
 
@@ -140,7 +154,9 @@ export default function PatientProgressSummary({ patientId, basePath = '/patient
         {/* Exercise */}
         <div className="rounded-lg bg-white p-3 text-center">
           <Dumbbell className="mx-auto mb-1 h-4 w-4 text-emerald-500" />
-          <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-gray-500">Exercise</p>
+          <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-gray-500">
+            Exercise
+          </p>
           {data.exercise ? (
             <>
               <p className="text-lg font-bold text-gray-900">{data.exercise.weeklyMinutes}</p>
@@ -168,7 +184,9 @@ export default function PatientProgressSummary({ patientId, basePath = '/patient
         {/* Nutrition */}
         <div className="rounded-lg bg-white p-3 text-center">
           <Utensils className="mx-auto mb-1 h-4 w-4 text-amber-500" />
-          <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-gray-500">Nutrition</p>
+          <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-gray-500">
+            Nutrition
+          </p>
           {data.nutrition ? (
             <>
               <p className="text-lg font-bold text-gray-900">{data.nutrition.todayCalories}</p>

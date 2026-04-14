@@ -47,7 +47,6 @@ export const GET = withProviderAuth(async (req: NextRequest, user, context?: unk
 
     return NextResponse.json({ template });
   } catch (error: unknown) {
-
     logger.error('Failed to get form template', error);
     return NextResponse.json({ error: 'Failed to get form template' }, { status: 500 });
   }
@@ -126,7 +125,6 @@ export const PUT = withProviderAuth(async (req: NextRequest, user, context?: unk
       message: 'Template updated successfully',
     });
   } catch (error: unknown) {
-
     logger.error('Failed to update form template', error);
     return NextResponse.json({ error: 'Failed to update form template' }, { status: 500 });
   }
@@ -183,7 +181,6 @@ export const DELETE = withProviderAuth(async (req: NextRequest, user, context?: 
       message: 'Template deleted successfully',
     });
   } catch (error: unknown) {
-
     logger.error('Failed to delete form template', error);
     return NextResponse.json({ error: 'Failed to delete form template' }, { status: 500 });
   }

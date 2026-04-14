@@ -7,7 +7,10 @@ import { logger } from '@/lib/logger';
 
 const updateSchema = z.object({
   action: z.enum(['reschedule', 'cancel', 'process']),
-  scheduledDate: z.string().refine((d) => !isNaN(Date.parse(d)), 'Invalid date').optional(),
+  scheduledDate: z
+    .string()
+    .refine((d) => !isNaN(Date.parse(d)), 'Invalid date')
+    .optional(),
   notes: z.string().optional(),
 });
 
@@ -54,11 +57,17 @@ async function handlePatch(
     switch (validated.action) {
       case 'reschedule': {
         if (!validated.scheduledDate) {
-          return NextResponse.json({ error: 'scheduledDate is required for reschedule' }, { status: 400 });
+          return NextResponse.json(
+            { error: 'scheduledDate is required for reschedule' },
+            { status: 400 }
+          );
         }
         const newDate = new Date(validated.scheduledDate);
         if (newDate <= new Date()) {
-          return NextResponse.json({ error: 'Scheduled date must be in the future' }, { status: 400 });
+          return NextResponse.json(
+            { error: 'Scheduled date must be in the future' },
+            { status: 400 }
+          );
         }
 
         const updated = await prisma.scheduledPayment.update({
@@ -95,14 +104,17 @@ async function handlePatch(
             status: 'PROCESSED',
             processedAt: new Date(),
             metadata: {
-              ...(scheduled.metadata as object || {}),
+              ...((scheduled.metadata as object) || {}),
               manuallyProcessedBy: user.id,
               manuallyProcessedAt: new Date().toISOString(),
             },
           },
         });
 
-        logger.info('[ScheduledPayment] Manually marked as processed', { id, processedBy: user.id });
+        logger.info('[ScheduledPayment] Manually marked as processed', {
+          id,
+          processedBy: user.id,
+        });
         return NextResponse.json({ success: true, scheduledPayment: updated });
       }
 

@@ -1248,9 +1248,7 @@ export default function PrescriptionQueuePage() {
 
       closePrescriptionPanel();
       setShowConfirmation(false);
-      setSuccessMessage(
-        `Prescription for ${item.patientName} sent to pharmacy successfully!`
-      );
+      setSuccessMessage(`Prescription for ${item.patientName} sent to pharmacy successfully!`);
       setSuccessLifefileId(lifefileId ? String(lifefileId) : null);
       void fetchStats();
       void fetchQueue();

@@ -30,11 +30,27 @@ interface SessionQueueProps {
 
 const STATUS_CONFIG: Record<string, { icon: typeof Clock; color: string; label: string }> = {
   SCHEDULED: { icon: Clock, color: 'text-blue-700 bg-blue-50 ring-blue-200', label: 'Scheduled' },
-  WAITING: { icon: Users, color: 'text-amber-700 bg-amber-50 ring-amber-200', label: 'Patient Waiting' },
-  IN_PROGRESS: { icon: Video, color: 'text-emerald-700 bg-emerald-50 ring-emerald-200', label: 'In Progress' },
-  COMPLETED: { icon: CheckCircle, color: 'text-gray-600 bg-gray-50 ring-gray-200', label: 'Completed' },
+  WAITING: {
+    icon: Users,
+    color: 'text-amber-700 bg-amber-50 ring-amber-200',
+    label: 'Patient Waiting',
+  },
+  IN_PROGRESS: {
+    icon: Video,
+    color: 'text-emerald-700 bg-emerald-50 ring-emerald-200',
+    label: 'In Progress',
+  },
+  COMPLETED: {
+    icon: CheckCircle,
+    color: 'text-gray-600 bg-gray-50 ring-gray-200',
+    label: 'Completed',
+  },
   CANCELLED: { icon: XCircle, color: 'text-red-600 bg-red-50 ring-red-200', label: 'Cancelled' },
-  NO_SHOW: { icon: AlertCircle, color: 'text-orange-600 bg-orange-50 ring-orange-200', label: 'No Show' },
+  NO_SHOW: {
+    icon: AlertCircle,
+    color: 'text-orange-600 bg-orange-50 ring-orange-200',
+    label: 'No Show',
+  },
 };
 
 export default function SessionQueue({ onSelectSession, onScheduleNew }: SessionQueueProps) {
@@ -88,7 +104,12 @@ export default function SessionQueue({ onSelectSession, onScheduleNew }: Session
 
   const cancelSession = async (session: TelehealthSessionData) => {
     if (!session.appointment?.id) return;
-    if (!window.confirm(`Cancel the telehealth session with ${session.patient.firstName} ${session.patient.lastName}?`)) return;
+    if (
+      !window.confirm(
+        `Cancel the telehealth session with ${session.patient.firstName} ${session.patient.lastName}?`
+      )
+    )
+      return;
 
     try {
       const res = await apiFetch(
@@ -176,7 +197,10 @@ export default function SessionQueue({ onSelectSession, onScheduleNew }: Session
           <AlertCircle className="h-5 w-5 shrink-0 text-red-500" />
           <p className="flex-1 text-sm text-red-700">{error}</p>
           <button
-            onClick={() => { setError(null); void fetchSessions(); }}
+            onClick={() => {
+              setError(null);
+              void fetchSessions();
+            }}
             className="flex shrink-0 items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-700"
           >
             <RefreshCw className="h-3.5 w-3.5" />
@@ -333,9 +357,12 @@ function SessionCard({
   const isProvisioning = provisioningId === session.id;
 
   const formatTime = (dateStr: string) =>
-    new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit' }).format(new Date(dateStr));
+    new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit' }).format(
+      new Date(dateStr)
+    );
 
-  const isToday = (dateStr: string) => new Date(dateStr).toDateString() === new Date().toDateString();
+  const isToday = (dateStr: string) =>
+    new Date(dateStr).toDateString() === new Date().toDateString();
 
   const getActionLabel = () => {
     if (session.status === 'WAITING') return 'Join Now';
@@ -361,26 +388,31 @@ function SessionCard({
             <span className="truncate text-sm font-semibold text-gray-900">
               {session.patient.firstName} {session.patient.lastName}
             </span>
-            <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ${badge.color}`}>
+            <span
+              className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ${badge.color}`}
+            >
               <Icon className="h-3 w-3" />
               {badge.label}
             </span>
-            {!hasMeetingData && (session.status === 'SCHEDULED' || session.status === 'WAITING') && (
-              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-medium text-orange-700 ring-1 ring-inset ring-orange-200">
-                <AlertCircle className="h-3 w-3" />
-                Video link pending
-              </span>
-            )}
+            {!hasMeetingData &&
+              (session.status === 'SCHEDULED' || session.status === 'WAITING') && (
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-medium text-orange-700 ring-1 ring-inset ring-orange-200">
+                  <AlertCircle className="h-3 w-3" />
+                  Video link pending
+                </span>
+              )}
           </div>
 
           <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
-            {session.topic && (
-              <span className="truncate">{session.topic}</span>
-            )}
+            {session.topic && <span className="truncate">{session.topic}</span>}
             <span className="flex items-center gap-1">
               <Calendar className="h-3 w-3" />
-              {isToday(session.scheduledAt) ? 'Today' : new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(new Date(session.scheduledAt))}
-              {' '}at {formatTime(session.scheduledAt)}
+              {isToday(session.scheduledAt)
+                ? 'Today'
+                : new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(
+                    new Date(session.scheduledAt)
+                  )}{' '}
+              at {formatTime(session.scheduledAt)}
             </span>
             <span className="flex items-center gap-1">
               <Clock className="h-3 w-3" />
@@ -390,11 +422,16 @@ function SessionCard({
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          {(session.status === 'SCHEDULED' || session.status === 'WAITING' || session.status === 'IN_PROGRESS') && (
+          {(session.status === 'SCHEDULED' ||
+            session.status === 'WAITING' ||
+            session.status === 'IN_PROGRESS') && (
             <>
               {session.status === 'SCHEDULED' && session.appointment && (
                 <button
-                  onClick={(e) => { e.stopPropagation(); void onCancel(session); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void onCancel(session);
+                  }}
                   className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
                   title="Cancel session"
                 >
@@ -405,7 +442,10 @@ function SessionCard({
               {hasMeetingData ? (
                 <>
                   <button
-                    onClick={(e) => { e.stopPropagation(); onCopy(session); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onCopy(session);
+                    }}
                     className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
                     title="Copy patient link"
                   >
@@ -429,7 +469,10 @@ function SessionCard({
                     <span className="text-[11px] font-medium text-red-600">Failed</span>
                   )}
                   <button
-                    onClick={(e) => { e.stopPropagation(); void onProvision(session); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void onProvision(session);
+                    }}
                     disabled={isProvisioning}
                     className={`flex items-center gap-1.5 rounded-lg border px-4 py-2 text-xs font-semibold shadow-sm transition-all disabled:opacity-60 ${
                       provisionError === session.id
@@ -442,7 +485,11 @@ function SessionCard({
                     ) : (
                       <LinkIcon className="h-3.5 w-3.5" />
                     )}
-                    {isProvisioning ? 'Generating...' : provisionError === session.id ? 'Retry' : 'Generate Link'}
+                    {isProvisioning
+                      ? 'Generating...'
+                      : provisionError === session.id
+                        ? 'Retry'
+                        : 'Generate Link'}
                   </button>
                 </div>
               ) : null}

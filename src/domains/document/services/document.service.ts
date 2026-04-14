@@ -73,7 +73,9 @@ export interface DocumentService {
   listByPatient(patientId: number, clinicId?: number): Promise<DocumentListItem[]>;
   getById(id: number): Promise<DocumentListItem | null>;
   getByIdWithData(id: number): Promise<DocumentWithData | null>;
-  getDataById(id: number): Promise<{ data: Buffer | null; mimeType: string; filename: string } | null>;
+  getDataById(
+    id: number
+  ): Promise<{ data: Buffer | null; mimeType: string; filename: string } | null>;
   findBySourceSubmissionId(sourceSubmissionId: string): Promise<DocumentListItem | null>;
   create(data: Prisma.PatientDocumentCreateInput): Promise<DocumentListItem>;
   update(id: number, data: Prisma.PatientDocumentUpdateInput): Promise<DocumentListItem>;

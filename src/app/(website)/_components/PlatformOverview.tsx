@@ -1,12 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import {
-  Video,
-  Pill,
-  HeartPulse,
-  Users,
-} from 'lucide-react';
+import { Video, Pill, HeartPulse, Users } from 'lucide-react';
 
 const PILLARS = [
   {
@@ -39,19 +34,17 @@ export default function PlatformOverview() {
     const el = ref.current;
     if (!el) return;
     const obs = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) setVisible(true); },
-      { threshold: 0.15 },
+      ([entry]) => {
+        if (entry.isIntersecting) setVisible(true);
+      },
+      { threshold: 0.15 }
     );
     obs.observe(el);
     return () => obs.disconnect();
   }, []);
 
   return (
-    <section
-      id="platform"
-      ref={ref}
-      className="bg-white py-24 sm:py-32"
-    >
+    <section id="platform" ref={ref} className="bg-white py-24 sm:py-32">
       <div className="mx-auto max-w-7xl px-6">
         <div
           className={`mx-auto max-w-3xl text-center transition-all duration-700 ${
@@ -65,11 +58,10 @@ export default function PlatformOverview() {
             Meet EonPro
           </h2>
           <p className="mt-6 text-lg leading-relaxed text-[#1f2933]/60">
-            EonPro vertically integrates the core parts of healthcare — bringing
-            together nationwide telehealth, pharmacy, and patient engagement
-            services on one platform. The result? It&apos;s easier for patients to
-            access and providers to deliver high-quality care, thousands of times
-            over.
+            EonPro vertically integrates the core parts of healthcare — bringing together nationwide
+            telehealth, pharmacy, and patient engagement services on one platform. The result?
+            It&apos;s easier for patients to access and providers to deliver high-quality care,
+            thousands of times over.
           </p>
         </div>
 
@@ -79,12 +71,12 @@ export default function PlatformOverview() {
             return (
               <div
                 key={pillar.title}
-                className={`group rounded-2xl border border-gray-100 bg-[#fafaf8] p-8 transition-all duration-500 hover:border-[#4fa77e]/20 hover:-translate-y-1 hover:shadow-lg hover:shadow-[#4fa77e]/5 ${
+                className={`group rounded-2xl border border-gray-100 bg-[#fafaf8] p-8 transition-all duration-500 hover:-translate-y-1 hover:border-[#4fa77e]/20 hover:shadow-lg hover:shadow-[#4fa77e]/5 ${
                   visible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
                 }`}
                 style={{ transitionDelay: `${200 + i * 120}ms` }}
               >
-                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-[#4fa77e]/10 text-[#4fa77e] transition-all duration-300 group-hover:bg-[#4fa77e] group-hover:text-white group-hover:scale-110">
+                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-[#4fa77e]/10 text-[#4fa77e] transition-all duration-300 group-hover:scale-110 group-hover:bg-[#4fa77e] group-hover:text-white">
                   <Icon className="h-6 w-6" />
                 </div>
                 <h3 className="text-lg font-semibold text-[#1f2933]">{pillar.title}</h3>

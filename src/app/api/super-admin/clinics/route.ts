@@ -15,108 +15,110 @@ function withSuperAdminAuth(handler: (req: NextRequest, user: AuthUser) => Promi
  * GET /api/super-admin/clinics
  * Get all clinics with stats
  */
-export const GET = superAdminRateLimit(withSuperAdminAuth(async (req: NextRequest, user: AuthUser) => {
-  try {
-    logger.info('Super-admin clinics list', { userId: user.id, role: user.role });
+export const GET = superAdminRateLimit(
+  withSuperAdminAuth(async (req: NextRequest, user: AuthUser) => {
+    try {
+      logger.info('Super-admin clinics list', { userId: user.id, role: user.role });
 
-    // Fetch clinics with counts in a single query (eliminates N+1 pattern).
-    // Previously this was N+3 queries (1 findMany + N provider counts + 2 global counts).
-    // Now it's 3 queries total: 1 findMany with _count, 1 patient count, 1 provider count.
-    const [clinics, totalPatients, totalProviders] = await Promise.all([
-      prisma.clinic.findMany({
-        select: {
-          id: true,
-          name: true,
-          subdomain: true,
-          customDomain: true,
-          status: true,
-          adminEmail: true,
-          billingPlan: true,
-          primaryColor: true,
-          secondaryColor: true,
-          accentColor: true,
-          logoUrl: true,
-          iconUrl: true,
-          faviconUrl: true,
-          createdAt: true,
-          _count: {
-            select: {
-              patients: true,
-              users: true,
+      // Fetch clinics with counts in a single query (eliminates N+1 pattern).
+      // Previously this was N+3 queries (1 findMany + N provider counts + 2 global counts).
+      // Now it's 3 queries total: 1 findMany with _count, 1 patient count, 1 provider count.
+      const [clinics, totalPatients, totalProviders] = await Promise.all([
+        prisma.clinic.findMany({
+          select: {
+            id: true,
+            name: true,
+            subdomain: true,
+            customDomain: true,
+            status: true,
+            adminEmail: true,
+            billingPlan: true,
+            primaryColor: true,
+            secondaryColor: true,
+            accentColor: true,
+            logoUrl: true,
+            iconUrl: true,
+            faviconUrl: true,
+            createdAt: true,
+            _count: {
+              select: {
+                patients: true,
+                users: true,
+              },
             },
           },
+          orderBy: { createdAt: 'desc' },
+        }),
+        prisma.patient.count(),
+        prisma.user.count({ where: { role: 'PROVIDER' } }),
+      ]);
+
+      logger.debug('Super-admin clinics fetched', { count: clinics.length });
+
+      // Provider count per clinic: includes primary clinicId providers + multi-clinic via UserClinic
+      const [primaryProviderCounts, multiClinicProviderCounts] = await Promise.all([
+        prisma.user.groupBy({
+          by: ['clinicId'],
+          where: { role: 'PROVIDER' },
+          _count: true,
+        }),
+        prisma.userClinic.groupBy({
+          by: ['clinicId'],
+          where: { role: 'PROVIDER', isActive: true },
+          _count: true,
+        }),
+      ]);
+
+      const providerCountMap = new Map<number, Set<string>>();
+      for (const pc of primaryProviderCounts) {
+        if (pc.clinicId != null) {
+          providerCountMap.set(pc.clinicId, new Set());
+        }
+      }
+
+      // Merge: use the larger of the two counts per clinic (UserClinic is superset when populated)
+      const providerNumMap = new Map<number, number>();
+      for (const pc of primaryProviderCounts) {
+        if (pc.clinicId != null) {
+          providerNumMap.set(pc.clinicId, pc._count);
+        }
+      }
+      for (const uc of multiClinicProviderCounts) {
+        const current = providerNumMap.get(uc.clinicId) || 0;
+        if (uc._count > current) {
+          providerNumMap.set(uc.clinicId, uc._count);
+        }
+      }
+
+      const clinicsWithProviderCount = clinics.map((clinic) => ({
+        ...clinic,
+        _count: {
+          ...clinic._count,
+          providers: providerNumMap.get(clinic.id) || 0,
         },
-        orderBy: { createdAt: 'desc' },
-      }),
-      prisma.patient.count(),
-      prisma.user.count({ where: { role: 'PROVIDER' } }),
-    ]);
+      }));
 
-    logger.debug('Super-admin clinics fetched', { count: clinics.length });
-
-    // Provider count per clinic: includes primary clinicId providers + multi-clinic via UserClinic
-    const [primaryProviderCounts, multiClinicProviderCounts] = await Promise.all([
-      prisma.user.groupBy({
-        by: ['clinicId'],
-        where: { role: 'PROVIDER' },
-        _count: true,
-      }),
-      prisma.userClinic.groupBy({
-        by: ['clinicId'],
-        where: { role: 'PROVIDER', isActive: true },
-        _count: true,
-      }),
-    ]);
-
-    const providerCountMap = new Map<number, Set<string>>();
-    for (const pc of primaryProviderCounts) {
-      if (pc.clinicId != null) {
-        providerCountMap.set(pc.clinicId, new Set());
-      }
+      return NextResponse.json({
+        clinics: clinicsWithProviderCount,
+        totalPatients,
+        totalProviders,
+        totalClinics: clinics.length,
+      });
+    } catch (error) {
+      logger.error('Error fetching clinics', error instanceof Error ? error : undefined, {
+        route: 'GET /api/super-admin/clinics',
+        userId: user.id,
+      });
+      return NextResponse.json(
+        {
+          error: 'Failed to fetch clinics',
+          details: error instanceof Error ? error.message : String(error),
+        },
+        { status: 500 }
+      );
     }
-
-    // Merge: use the larger of the two counts per clinic (UserClinic is superset when populated)
-    const providerNumMap = new Map<number, number>();
-    for (const pc of primaryProviderCounts) {
-      if (pc.clinicId != null) {
-        providerNumMap.set(pc.clinicId, pc._count);
-      }
-    }
-    for (const uc of multiClinicProviderCounts) {
-      const current = providerNumMap.get(uc.clinicId) || 0;
-      if (uc._count > current) {
-        providerNumMap.set(uc.clinicId, uc._count);
-      }
-    }
-
-    const clinicsWithProviderCount = clinics.map((clinic) => ({
-      ...clinic,
-      _count: {
-        ...clinic._count,
-        providers: providerNumMap.get(clinic.id) || 0,
-      },
-    }));
-
-    return NextResponse.json({
-      clinics: clinicsWithProviderCount,
-      totalPatients,
-      totalProviders,
-      totalClinics: clinics.length,
-    });
-  } catch (error) {
-    logger.error('Error fetching clinics', error instanceof Error ? error : undefined, {
-      route: 'GET /api/super-admin/clinics',
-      userId: user.id,
-    });
-    return NextResponse.json(
-      {
-        error: 'Failed to fetch clinics',
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 }
-    );
-  }
-}));
+  })
+);
 
 /**
  * POST /api/super-admin/clinics
@@ -231,7 +233,10 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
         // User not in DB - audit log skipped for this clinic creation
       }
     } catch (auditError) {
-      logger.error('Failed to create audit log', auditError instanceof Error ? auditError : undefined);
+      logger.error(
+        'Failed to create audit log',
+        auditError instanceof Error ? auditError : undefined
+      );
     }
 
     return NextResponse.json({

@@ -88,7 +88,9 @@ export default function InvoicesPage() {
   }, []);
 
   useEffect(() => {
-    return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    };
   }, []);
 
   const loadInvoices = useCallback(async () => {

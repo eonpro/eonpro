@@ -57,16 +57,12 @@ export default function FileUploadField({
   return (
     <div className="w-full">
       {label && (
-        <label htmlFor={id} className="block text-sm text-gray-600 mb-2">
+        <label htmlFor={id} className="mb-2 block text-sm text-gray-600">
           {label}
         </label>
       )}
       <div
-        className={`
-          border-2 border-dashed rounded-2xl p-6 text-center transition-all
-          ${displayError ? 'border-red-500' : 'border-gray-200 hover:border-gray-300'}
-          ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-        `}
+        className={`rounded-2xl border-2 border-dashed p-6 text-center transition-all ${displayError ? 'border-red-500' : 'border-gray-200 hover:border-gray-300'} ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} `}
         onClick={() => !disabled && inputRef.current?.click()}
         role="button"
         tabIndex={disabled ? -1 : 0}
@@ -84,7 +80,7 @@ export default function FileUploadField({
         {value && fileName ? (
           <div className="flex items-center justify-center gap-2">
             <svg
-              className="w-5 h-5 text-green-500"
+              className="h-5 w-5 text-green-500"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -111,7 +107,7 @@ export default function FileUploadField({
         ) : (
           <div>
             <svg
-              className="w-8 h-8 mx-auto text-gray-300 mb-2"
+              className="mx-auto mb-2 h-8 w-8 text-gray-300"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -123,9 +119,7 @@ export default function FileUploadField({
                 d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
               />
             </svg>
-            <p className="text-sm text-gray-500">
-              Click to upload (max {maxSizeMB}MB)
-            </p>
+            <p className="text-sm text-gray-500">Click to upload (max {maxSizeMB}MB)</p>
           </div>
         )}
       </div>

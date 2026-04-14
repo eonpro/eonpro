@@ -231,7 +231,9 @@ async function markNotificationsReadHandler(req: NextRequest, user: AuthUser): P
       unreadCount,
     });
   } catch (error) {
-    logger.error('[Notifications PUT] Error', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('[Notifications PUT] Error', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     // Return success on any error - notifications are non-critical
     return NextResponse.json({
       success: true,
@@ -277,7 +279,9 @@ async function archiveNotificationsHandler(req: NextRequest, user: AuthUser): Pr
       unreadCount,
     });
   } catch (error) {
-    logger.error('[Notifications DELETE] Error', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('[Notifications DELETE] Error', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     // Return success on any error - notifications are non-critical
     return NextResponse.json({
       success: true,

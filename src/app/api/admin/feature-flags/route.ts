@@ -57,10 +57,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
 
   // Validate enabled is boolean
   if (typeof enabled !== 'boolean') {
-    return NextResponse.json(
-      { error: '`enabled` must be a boolean' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: '`enabled` must be a boolean' }, { status: 400 });
   }
 
   const result = await setFeatureFlag(flag as FeatureFlag, enabled);

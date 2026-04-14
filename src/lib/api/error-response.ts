@@ -18,11 +18,14 @@ interface ErrorBody {
   retryAfter?: number;
 }
 
-function buildErrorBody(message: string, opts?: {
-  code?: string;
-  details?: unknown;
-  retryAfter?: number;
-}): ErrorBody {
+function buildErrorBody(
+  message: string,
+  opts?: {
+    code?: string;
+    details?: unknown;
+    retryAfter?: number;
+  }
+): ErrorBody {
   const requestId = getRequestId();
   return {
     error: message,
@@ -35,72 +38,56 @@ function buildErrorBody(message: string, opts?: {
 
 /** 400 Bad Request */
 export function badRequest(message: string, details?: unknown) {
-  return NextResponse.json(
-    buildErrorBody(message, { code: 'BAD_REQUEST', details }),
-    { status: 400 }
-  );
+  return NextResponse.json(buildErrorBody(message, { code: 'BAD_REQUEST', details }), {
+    status: 400,
+  });
 }
 
 /** 401 Unauthorized */
 export function unauthorized(message: string = 'Authentication required') {
-  return NextResponse.json(
-    buildErrorBody(message, { code: 'UNAUTHORIZED' }),
-    { status: 401 }
-  );
+  return NextResponse.json(buildErrorBody(message, { code: 'UNAUTHORIZED' }), { status: 401 });
 }
 
 /** 403 Forbidden */
 export function forbidden(message: string = 'Insufficient permissions') {
-  return NextResponse.json(
-    buildErrorBody(message, { code: 'FORBIDDEN' }),
-    { status: 403 }
-  );
+  return NextResponse.json(buildErrorBody(message, { code: 'FORBIDDEN' }), { status: 403 });
 }
 
 /** 404 Not Found */
 export function notFound(message: string = 'Resource not found') {
-  return NextResponse.json(
-    buildErrorBody(message, { code: 'NOT_FOUND' }),
-    { status: 404 }
-  );
+  return NextResponse.json(buildErrorBody(message, { code: 'NOT_FOUND' }), { status: 404 });
 }
 
 /** 409 Conflict */
 export function conflict(message: string, details?: unknown) {
-  return NextResponse.json(
-    buildErrorBody(message, { code: 'CONFLICT', details }),
-    { status: 409 }
-  );
+  return NextResponse.json(buildErrorBody(message, { code: 'CONFLICT', details }), { status: 409 });
 }
 
 /** 422 Unprocessable Entity (validation errors) */
 export function unprocessable(message: string, details?: unknown) {
-  return NextResponse.json(
-    buildErrorBody(message, { code: 'VALIDATION_ERROR', details }),
-    { status: 422 }
-  );
+  return NextResponse.json(buildErrorBody(message, { code: 'VALIDATION_ERROR', details }), {
+    status: 422,
+  });
 }
 
 /** 429 Too Many Requests */
 export function tooManyRequests(message: string = 'Too many requests', retryAfter?: number) {
-  return NextResponse.json(
-    buildErrorBody(message, { code: 'RATE_LIMIT_EXCEEDED', retryAfter }),
-    { status: 429 }
-  );
+  return NextResponse.json(buildErrorBody(message, { code: 'RATE_LIMIT_EXCEEDED', retryAfter }), {
+    status: 429,
+  });
 }
 
 /** 500 Internal Server Error */
 export function serverError(message: string = 'Internal server error') {
-  return NextResponse.json(
-    buildErrorBody(message, { code: 'INTERNAL_ERROR' }),
-    { status: 500 }
-  );
+  return NextResponse.json(buildErrorBody(message, { code: 'INTERNAL_ERROR' }), { status: 500 });
 }
 
 /** 503 Service Unavailable */
-export function serviceUnavailable(message: string = 'Service temporarily unavailable', retryAfter?: number) {
-  return NextResponse.json(
-    buildErrorBody(message, { code: 'SERVICE_UNAVAILABLE', retryAfter }),
-    { status: 503 }
-  );
+export function serviceUnavailable(
+  message: string = 'Service temporarily unavailable',
+  retryAfter?: number
+) {
+  return NextResponse.json(buildErrorBody(message, { code: 'SERVICE_UNAVAILABLE', retryAfter }), {
+    status: 503,
+  });
 }

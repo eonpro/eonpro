@@ -10,9 +10,7 @@ import { useFormContext } from 'react-hook-form';
 export default function BillingSection() {
   const { watch, setValue, getValues } = useFormContext<CheckoutFormData>();
 
-  const billingAddressSameAsShipment = watch(
-    'shippingAddress.billingAddressSameAsShipment',
-  );
+  const billingAddressSameAsShipment = watch('shippingAddress.billingAddressSameAsShipment');
 
   // Sync billing address when checkbox is toggled
   useEffect(() => {
@@ -50,23 +48,11 @@ export default function BillingSection() {
 
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
-          <InputField
-            name="billingAddress.firstName"
-            placeholder="First name"
-            type="text"
-          />
-          <InputField
-            name="billingAddress.lastName"
-            placeholder="Last name"
-            type="text"
-          />
+          <InputField name="billingAddress.firstName" placeholder="First name" type="text" />
+          <InputField name="billingAddress.lastName" placeholder="Last name" type="text" />
         </div>
 
-        <InputField
-          name="billingAddress.address"
-          placeholder="Address"
-          type="text"
-        />
+        <InputField name="billingAddress.address" placeholder="Address" type="text" />
 
         <InputField
           name="billingAddress.apt"
@@ -74,18 +60,10 @@ export default function BillingSection() {
           type="text"
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <InputField
-            name="billingAddress.city"
-            placeholder="City"
-            type="text"
-          />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <InputField name="billingAddress.city" placeholder="City" type="text" />
           <StateSelectField />
-          <InputField
-            name="billingAddress.zipCode"
-            placeholder="Zip Code"
-            type="text"
-          />
+          <InputField name="billingAddress.zipCode" placeholder="Zip Code" type="text" />
         </div>
       </div>
     </div>

@@ -10,10 +10,23 @@ function withSuperAdminAuth(handler: (req: NextRequest, user: AuthUser) => Promi
 }
 
 const exportSchema = z.object({
-  type: z.enum(['invoice-html', 'report-excel', 'report-csv', 'quickbooks', 'xero', 'stripe-accounting']),
+  type: z.enum([
+    'invoice-html',
+    'report-excel',
+    'report-csv',
+    'quickbooks',
+    'xero',
+    'stripe-accounting',
+  ]),
   invoiceId: z.number().int().positive().optional(),
-  startDate: z.string().optional().transform((v) => (v ? new Date(v) : undefined)),
-  endDate: z.string().optional().transform((v) => (v ? new Date(v) : undefined)),
+  startDate: z
+    .string()
+    .optional()
+    .transform((v) => (v ? new Date(v) : undefined)),
+  endDate: z
+    .string()
+    .optional()
+    .transform((v) => (v ? new Date(v) : undefined)),
   clinicId: z.number().int().positive().optional(),
 });
 
@@ -53,7 +66,11 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
       }
 
       case 'report-excel': {
-        const buffer = await billingExportService.generateExcelReport(defaultStart, defaultEnd, clinicId);
+        const buffer = await billingExportService.generateExcelReport(
+          defaultStart,
+          defaultEnd,
+          clinicId
+        );
         return new NextResponse(new Uint8Array(buffer), {
           headers: {
             'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -63,7 +80,11 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
       }
 
       case 'report-csv': {
-        const csv = await billingExportService.generateCSVReport(defaultStart, defaultEnd, clinicId);
+        const csv = await billingExportService.generateCSVReport(
+          defaultStart,
+          defaultEnd,
+          clinicId
+        );
         return new NextResponse(csv, {
           headers: {
             'Content-Type': 'text/csv',

@@ -46,10 +46,7 @@ const CATEGORY: NotificationCategory = 'SYSTEM';
 class TicketNotificationService {
   private notificationService = NotificationService;
 
-  async notify(
-    event: TicketEventType,
-    payload: TicketEventPayload
-  ): Promise<void> {
+  async notify(event: TicketEventType, payload: TicketEventPayload): Promise<void> {
     try {
       switch (event) {
         case 'assigned':

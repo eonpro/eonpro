@@ -18,7 +18,6 @@ export default function OrdersStatusPage() {
       const data = await res.json();
       setResult(data as Record<string, unknown>);
     } catch (err: unknown) {
-      
       logger.error(String(err));
       setResult({ error: 'Failed to fetch order status' });
     } finally {

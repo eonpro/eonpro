@@ -40,7 +40,6 @@ export async function POST(req: NextRequest) {
       mock: isMock, // Indicate if using mock service
     });
   } catch (error: unknown) {
-
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[SEND_SMS_API_ERROR]', error);
     return NextResponse.json({ error: errorMessage || 'Failed to send SMS' }, { status: 500 });

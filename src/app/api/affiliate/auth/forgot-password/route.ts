@@ -157,7 +157,10 @@ async function handler(request: NextRequest) {
         hint: 'Set NEXT_PUBLIC_ENABLE_AWS_SES_EMAIL=true and configure AWS SES credentials',
       });
       return NextResponse.json(
-        { error: 'Email service is temporarily unavailable. Please try again later or contact support.' },
+        {
+          error:
+            'Email service is temporarily unavailable. Please try again later or contact support.',
+        },
         { status: 503 }
       );
     }

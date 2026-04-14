@@ -2,7 +2,7 @@ export default function FooterCTA() {
   return (
     <section className="relative overflow-hidden bg-white py-24 sm:py-32">
       {/* Gradient orbs */}
-      <div className="pointer-events-none absolute -left-20 top-0 h-[400px] w-[400px] rounded-full bg-[#4fa77e]/8 blur-3xl" />
+      <div className="bg-[#4fa77e]/8 pointer-events-none absolute -left-20 top-0 h-[400px] w-[400px] rounded-full blur-3xl" />
       <div className="pointer-events-none absolute -right-20 bottom-0 h-[300px] w-[300px] rounded-full bg-[#4fa77e]/5 blur-3xl" />
 
       <div className="relative mx-auto max-w-3xl px-6 text-center">
@@ -13,8 +13,8 @@ export default function FooterCTA() {
           </span>
         </h2>
         <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-[#1f2933]/55">
-          Join the growing network of clinics that trust EonPro to power their
-          telehealth operations. Schedule a demo and see the platform in action.
+          Join the growing network of clinics that trust EonPro to power their telehealth
+          operations. Schedule a demo and see the platform in action.
         </p>
         <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <a

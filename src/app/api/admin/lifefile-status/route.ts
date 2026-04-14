@@ -40,9 +40,9 @@ async function handleGet(req: NextRequest, user: AuthUser) {
               lifefileEnabled: true,
               lifefilePracticeId: true,
             },
-          }),
+          })
         ),
-      'adminLifefileStatus:findClinic',
+      'adminLifefileStatus:findClinic'
     );
     if (!clinicResult.success) {
       throw new Error(clinicResult.error?.message ?? 'Failed to load clinic');
@@ -80,9 +80,9 @@ async function handleGet(req: NextRequest, user: AuthUser) {
               errorMessage: true,
               clinicId: true,
             },
-          }),
+          })
         ),
-      'adminLifefileStatus:webhookLogs',
+      'adminLifefileStatus:webhookLogs'
     );
     if (!webhookLogsResult.success) {
       throw new Error(webhookLogsResult.error?.message ?? 'Failed to load webhook logs');
@@ -129,74 +129,78 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     }
 
     // Get shipping updates for clinic
-    const [shippingUpdatesResult, ordersWithTrackingResult, ordersWithLifefileIdResult, ordersMissingTrackingResult] =
-      await Promise.all([
-        executeDbRead(
-          () =>
-            withReadFallback((db) =>
-              db.patientShippingUpdate.findMany({
-                where: {
-                  clinicId: clinic.id,
-                  createdAt: { gte: lookbackDate },
+    const [
+      shippingUpdatesResult,
+      ordersWithTrackingResult,
+      ordersWithLifefileIdResult,
+      ordersMissingTrackingResult,
+    ] = await Promise.all([
+      executeDbRead(
+        () =>
+          withReadFallback((db) =>
+            db.patientShippingUpdate.findMany({
+              where: {
+                clinicId: clinic.id,
+                createdAt: { gte: lookbackDate },
+              },
+              orderBy: { createdAt: 'desc' },
+              take: 20,
+              include: {
+                patient: {
+                  select: { firstName: true, lastName: true, patientId: true },
                 },
-                orderBy: { createdAt: 'desc' },
-                take: 20,
-                include: {
-                  patient: {
-                    select: { firstName: true, lastName: true, patientId: true },
-                  },
+              },
+            })
+          ),
+        'adminLifefileStatus:shippingUpdates'
+      ),
+      executeDbRead(
+        () =>
+          withReadFallback((db) =>
+            db.order.findMany({
+              where: {
+                clinicId: clinic.id,
+                trackingNumber: { not: null },
+                createdAt: { gte: lookbackDate },
+              },
+              orderBy: { createdAt: 'desc' },
+              take: 20,
+              include: {
+                patient: {
+                  select: { firstName: true, lastName: true, patientId: true },
                 },
-              }),
-            ),
-          'adminLifefileStatus:shippingUpdates',
-        ),
-        executeDbRead(
-          () =>
-            withReadFallback((db) =>
-              db.order.findMany({
-                where: {
-                  clinicId: clinic.id,
-                  trackingNumber: { not: null },
-                  createdAt: { gte: lookbackDate },
-                },
-                orderBy: { createdAt: 'desc' },
-                take: 20,
-                include: {
-                  patient: {
-                    select: { firstName: true, lastName: true, patientId: true },
-                  },
-                },
-              }),
-            ),
-          'adminLifefileStatus:ordersWithTracking',
-        ),
-        executeDbRead(
-          () =>
-            withReadFallback((db) =>
-              db.order.count({
-                where: {
-                  clinicId: clinic.id,
-                  lifefileOrderId: { not: null },
-                },
-              }),
-            ),
-          'adminLifefileStatus:ordersWithLifefileId',
-        ),
-        executeDbRead(
-          () =>
-            withReadFallback((db) =>
-              db.order.count({
-                where: {
-                  clinicId: clinic.id,
-                  trackingNumber: null,
-                  status: { notIn: ['CANCELLED', 'FAILED'] },
-                  createdAt: { gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) }, // Last 90 days
-                },
-              }),
-            ),
-          'adminLifefileStatus:ordersMissingTracking',
-        ),
-      ]);
+              },
+            })
+          ),
+        'adminLifefileStatus:ordersWithTracking'
+      ),
+      executeDbRead(
+        () =>
+          withReadFallback((db) =>
+            db.order.count({
+              where: {
+                clinicId: clinic.id,
+                lifefileOrderId: { not: null },
+              },
+            })
+          ),
+        'adminLifefileStatus:ordersWithLifefileId'
+      ),
+      executeDbRead(
+        () =>
+          withReadFallback((db) =>
+            db.order.count({
+              where: {
+                clinicId: clinic.id,
+                trackingNumber: null,
+                status: { notIn: ['CANCELLED', 'FAILED'] },
+                createdAt: { gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) }, // Last 90 days
+              },
+            })
+          ),
+        'adminLifefileStatus:ordersMissingTracking'
+      ),
+    ]);
     if (
       !shippingUpdatesResult.success ||
       !ordersWithTrackingResult.success ||

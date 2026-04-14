@@ -124,7 +124,6 @@ class WebSocketService {
 
         next();
       } catch (error: unknown) {
-        
         logger.error('WebSocket authentication error:', error);
         next(new Error('Authentication failed'));
       }
@@ -283,7 +282,6 @@ class WebSocketService {
         });
       }
     } catch (error: unknown) {
-      
       logger.error('Authentication error:', error);
       socket.emit(EventType.UNAUTHORIZED, {
         message: 'Authentication failed',

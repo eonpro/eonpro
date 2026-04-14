@@ -71,7 +71,6 @@ export class PerformanceMonitor {
           }
           return result;
         } catch (error: unknown) {
-          
           if (span) {
             span.setStatus({ code: 2 }); // ERROR status
           }
@@ -109,7 +108,6 @@ export class PerformanceMonitor {
           }
           return result;
         } catch (error: unknown) {
-          
           if (span) {
             span.setStatus({ code: 2 }); // ERROR status
           }
@@ -206,7 +204,9 @@ export class UserActivityTracker {
 
   static trackFeatureUsage(feature: string, variant?: string) {
     try {
-      const metrics = Sentry.metrics as unknown as { increment?: (name: string, value: number) => void };
+      const metrics = Sentry.metrics as unknown as {
+        increment?: (name: string, value: number) => void;
+      };
       if (metrics && typeof metrics.increment === 'function') {
         metrics.increment('feature.usage', 1);
       }
@@ -338,7 +338,6 @@ export function useMonitoring() {
       monitor.endTransaction(name, 'ok');
       return result;
     } catch (error: unknown) {
-      
       monitor.endTransaction(name, 'error');
       throw error;
     }

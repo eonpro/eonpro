@@ -28,10 +28,7 @@ export const GET = withAdminAuth(async (request: NextRequest, user) => {
     const format = searchParams.get('format') || 'json';
 
     if (!startParam || !endParam) {
-      return NextResponse.json(
-        { error: 'startDate and endDate required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'startDate and endDate required' }, { status: 400 });
     }
 
     const startDate = new Date(startParam);
@@ -121,9 +118,6 @@ export const GET = withAdminAuth(async (request: NextRequest, user) => {
     });
   } catch (error) {
     logger.error('[Revenue Transactions] Error', { error });
-    return NextResponse.json(
-      { error: 'Failed to fetch transactions' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch transactions' }, { status: 500 });
   }
 });

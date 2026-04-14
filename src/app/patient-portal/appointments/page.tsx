@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useTransition } from 'react';
 import Link from 'next/link';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { portalFetch, getPortalResponseError } from '@/lib/api/patient-portal-client';
@@ -173,7 +173,9 @@ export default function AppointmentsPage() {
 
   const loadAppointmentTypes = async () => {
     try {
-      const response = await portalFetch('/api/patient-portal/appointments?action=appointment-types');
+      const response = await portalFetch(
+        '/api/patient-portal/appointments?action=appointment-types'
+      );
       const sessionErr = getPortalResponseError(response);
       if (sessionErr) return;
       if (response.ok) {
@@ -509,27 +511,27 @@ export default function AppointmentsPage() {
                 <div className="relative flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <div className="flex h-14 w-14 flex-col items-center justify-center rounded-2xl bg-white/20 text-white backdrop-blur-sm">
-                      {appointment.startTime ? (() => {
-                        const date = new Date(appointment.startTime);
-                        return isNaN(date.getTime()) ? (
-                          <>
-                            <span className="text-xs font-medium uppercase">—</span>
-                            <span className="text-2xl font-bold">—</span>
-                          </>
-                        ) : (
-                          <>
-                            <span className="text-xs font-medium uppercase">
-                              {date.toLocaleDateString('en-US', {
-                                timeZone: EASTERN_TZ,
-                                month: 'short',
-                              })}
-                            </span>
-                            <span className="text-2xl font-bold">
-                              {date.getDate()}
-                            </span>
-                          </>
-                        );
-                      })() : (
+                      {appointment.startTime ? (
+                        (() => {
+                          const date = new Date(appointment.startTime);
+                          return isNaN(date.getTime()) ? (
+                            <>
+                              <span className="text-xs font-medium uppercase">—</span>
+                              <span className="text-2xl font-bold">—</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-xs font-medium uppercase">
+                                {date.toLocaleDateString('en-US', {
+                                  timeZone: EASTERN_TZ,
+                                  month: 'short',
+                                })}
+                              </span>
+                              <span className="text-2xl font-bold">{date.getDate()}</span>
+                            </>
+                          );
+                        })()
+                      ) : (
                         <>
                           <span className="text-xs font-medium uppercase">—</span>
                           <span className="text-2xl font-bold">—</span>
@@ -557,7 +559,7 @@ export default function AppointmentsPage() {
 
               {/* Appointment Details */}
               <div className="p-5">
-                <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="flex items-center gap-3 rounded-xl bg-gray-50 p-3">
                     <User className="h-5 w-5 text-gray-400" />
                     <div>
@@ -581,15 +583,16 @@ export default function AppointmentsPage() {
                 </div>
 
                 {/* Video Link for Telehealth */}
-                {appointment.type?.toUpperCase() === 'VIDEO' && (appointment.videoLink || appointment.zoomJoinUrl) && (
-                  <a
-                    href={`/patient-portal/telehealth?appointmentId=${appointment.id}`}
-                    className="mb-4 flex items-center justify-center gap-2 rounded-xl bg-blue-50 p-4 font-semibold text-blue-600 transition-all hover:bg-blue-100"
-                  >
-                    <Video className="h-5 w-5" />
-                    Join Video Call
-                  </a>
-                )}
+                {appointment.type?.toUpperCase() === 'VIDEO' &&
+                  (appointment.videoLink || appointment.zoomJoinUrl) && (
+                    <a
+                      href={`/patient-portal/telehealth?appointmentId=${appointment.id}`}
+                      className="mb-4 flex items-center justify-center gap-2 rounded-xl bg-blue-50 p-4 font-semibold text-blue-600 transition-all hover:bg-blue-100"
+                    >
+                      <Video className="h-5 w-5" />
+                      Join Video Call
+                    </a>
+                  )}
 
                 {/* Location for In-Person */}
                 {appointment.type?.toUpperCase() === 'IN_PERSON' && appointment.location && (

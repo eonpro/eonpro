@@ -86,7 +86,9 @@ export const GET = withSuperAdminAuth(
 
       return NextResponse.json({ affiliate });
     } catch (error) {
-      logger.error('Failed to fetch affiliate', { error: error instanceof Error ? error.message : String(error) });
+      logger.error('Failed to fetch affiliate', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return NextResponse.json({ error: 'Failed to fetch affiliate' }, { status: 500 });
     }
   }
@@ -190,7 +192,9 @@ export const PUT = withSuperAdminAuth(
 
       return NextResponse.json({ success: true });
     } catch (error) {
-      logger.error('Failed to update affiliate', { error: error instanceof Error ? error.message : String(error) });
+      logger.error('Failed to update affiliate', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       return NextResponse.json(
         { error: errorMessage || 'Failed to update affiliate' },
@@ -253,50 +257,53 @@ export const DELETE = withSuperAdminAuth(
       }
 
       // Hard delete - no commission/payout history
-      await basePrisma.$transaction(async (tx) => {
-        // 1. Delete all affiliate-related child records
-        await tx.affiliateTouch.deleteMany({ where: { affiliateId } });
-        await tx.affiliateCommissionEvent.deleteMany({ where: { affiliateId } });
-        await tx.affiliateFraudAlert.deleteMany({ where: { affiliateId } });
-        await tx.affiliateTaxDocument.deleteMany({ where: { affiliateId } });
-        await tx.affiliatePayoutMethod.deleteMany({ where: { affiliateId } });
-        await tx.affiliatePayout.deleteMany({ where: { affiliateId } });
-        await tx.affiliatePlanAssignment.deleteMany({ where: { affiliateId } });
-        await tx.affiliateRefCode.deleteMany({ where: { affiliateId } });
-        // Competition entries cascade automatically (onDelete: Cascade)
-        // OTP codes cascade automatically (onDelete: Cascade)
+      await basePrisma.$transaction(
+        async (tx) => {
+          // 1. Delete all affiliate-related child records
+          await tx.affiliateTouch.deleteMany({ where: { affiliateId } });
+          await tx.affiliateCommissionEvent.deleteMany({ where: { affiliateId } });
+          await tx.affiliateFraudAlert.deleteMany({ where: { affiliateId } });
+          await tx.affiliateTaxDocument.deleteMany({ where: { affiliateId } });
+          await tx.affiliatePayoutMethod.deleteMany({ where: { affiliateId } });
+          await tx.affiliatePayout.deleteMany({ where: { affiliateId } });
+          await tx.affiliatePlanAssignment.deleteMany({ where: { affiliateId } });
+          await tx.affiliateRefCode.deleteMany({ where: { affiliateId } });
+          // Competition entries cascade automatically (onDelete: Cascade)
+          // OTP codes cascade automatically (onDelete: Cascade)
 
-        // 2. Unlink attributed patients (nullable FK)
-        await tx.patient.updateMany({
-          where: { attributionAffiliateId: affiliateId },
-          data: {
-            attributionAffiliateId: null,
-            attributionRefCode: null,
-            attributionFirstTouchAt: null,
-          },
-        });
+          // 2. Unlink attributed patients (nullable FK)
+          await tx.patient.updateMany({
+            where: { attributionAffiliateId: affiliateId },
+            data: {
+              attributionAffiliateId: null,
+              attributionRefCode: null,
+              attributionFirstTouchAt: null,
+            },
+          });
 
-        // 3. Unlink application if one exists (nullable FK)
-        await tx.affiliateApplication.updateMany({
-          where: { affiliateId },
-          data: { affiliateId: null },
-        });
+          // 3. Unlink application if one exists (nullable FK)
+          await tx.affiliateApplication.updateMany({
+            where: { affiliateId },
+            data: { affiliateId: null },
+          });
 
-        // 4. Delete the affiliate record
-        await tx.affiliate.delete({ where: { id: affiliateId } });
+          // 4. Delete the affiliate record
+          await tx.affiliate.delete({ where: { id: affiliateId } });
 
-        // 5. Clean up user-related records before deleting the user
-        const userId = affiliate.userId;
-        await tx.userSession.deleteMany({ where: { userId } });
-        await tx.userAuditLog.deleteMany({ where: { userId } });
-        await tx.passwordResetToken.deleteMany({ where: { userId } });
-        await tx.emailVerificationToken.deleteMany({ where: { userId } });
-        await tx.apiKey.deleteMany({ where: { userId } });
-        await tx.userClinic.deleteMany({ where: { userId } });
+          // 5. Clean up user-related records before deleting the user
+          const userId = affiliate.userId;
+          await tx.userSession.deleteMany({ where: { userId } });
+          await tx.userAuditLog.deleteMany({ where: { userId } });
+          await tx.passwordResetToken.deleteMany({ where: { userId } });
+          await tx.emailVerificationToken.deleteMany({ where: { userId } });
+          await tx.apiKey.deleteMany({ where: { userId } });
+          await tx.userClinic.deleteMany({ where: { userId } });
 
-        // 6. Delete the user
-        await tx.user.delete({ where: { id: userId } });
-      }, { timeout: 30000 });
+          // 6. Delete the user
+          await tx.user.delete({ where: { id: userId } });
+        },
+        { timeout: 30000 }
+      );
 
       return NextResponse.json({
         success: true,
@@ -309,7 +316,10 @@ export const DELETE = withSuperAdminAuth(
         error: error instanceof Error ? error.message : String(error),
       });
       return NextResponse.json(
-        { error: 'Failed to delete affiliate', details: error instanceof Error ? error.message : 'Unknown error' },
+        {
+          error: 'Failed to delete affiliate',
+          details: error instanceof Error ? error.message : 'Unknown error',
+        },
         { status: 500 }
       );
     }
@@ -369,30 +379,33 @@ export const PATCH = withSuperAdminAuth(
 
       const passwordHash = await bcrypt.hash(password, 12);
 
-      await basePrisma.$transaction(async (tx) => {
-        await tx.user.update({
-          where: { id: affiliate.userId },
-          data: {
-            passwordHash,
-            lastPasswordChange: new Date(),
-            failedLoginAttempts: 0,
-            lockedUntil: null,
-          },
-        });
-
-        await tx.userAuditLog.create({
-          data: {
-            userId: affiliate.userId,
-            action: 'PASSWORD_RESET',
-            details: {
-              resetBy: user.email,
-              resetByUserId: user.id,
-              affiliateId,
-              timestamp: new Date().toISOString(),
+      await basePrisma.$transaction(
+        async (tx) => {
+          await tx.user.update({
+            where: { id: affiliate.userId },
+            data: {
+              passwordHash,
+              lastPasswordChange: new Date(),
+              failedLoginAttempts: 0,
+              lockedUntil: null,
             },
-          },
-        });
-      }, { timeout: 15000 });
+          });
+
+          await tx.userAuditLog.create({
+            data: {
+              userId: affiliate.userId,
+              action: 'PASSWORD_RESET',
+              details: {
+                resetBy: user.email,
+                resetByUserId: user.id,
+                affiliateId,
+                timestamp: new Date().toISOString(),
+              },
+            },
+          });
+        },
+        { timeout: 15000 }
+      );
 
       logger.info('Affiliate password reset', {
         affiliateId,
@@ -416,10 +429,7 @@ export const PATCH = withSuperAdminAuth(
         affiliateId: params.id,
         error: error instanceof Error ? error.message : String(error),
       });
-      return NextResponse.json(
-        { error: 'Failed to reset password' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to reset password' }, { status: 500 });
     }
   }
 );

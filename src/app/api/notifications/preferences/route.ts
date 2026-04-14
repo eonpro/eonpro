@@ -227,27 +227,30 @@ async function updatePreferencesHandler(req: NextRequest, user: AuthUser): Promi
     // Try to update in database - if tables don't exist, silently succeed
     // (preferences are also stored in localStorage as backup)
     try {
-      await prisma.$transaction(async (tx) => {
-        // Update User email preferences
-        if (Object.keys(emailUpdates).length > 0) {
-          await tx.user.update({
-            where: { id: user.id },
-            data: emailUpdates,
-          });
-        }
+      await prisma.$transaction(
+        async (tx) => {
+          // Update User email preferences
+          if (Object.keys(emailUpdates).length > 0) {
+            await tx.user.update({
+              where: { id: user.id },
+              data: emailUpdates,
+            });
+          }
 
-        // Upsert notification preferences
-        if (Object.keys(notificationUpdates).length > 0) {
-          await tx.userNotificationPreference.upsert({
-            where: { userId: user.id },
-            create: {
-              userId: user.id,
-              ...notificationUpdates,
-            },
-            update: notificationUpdates,
-          });
-        }
-      }, { timeout: 15000 });
+          // Upsert notification preferences
+          if (Object.keys(notificationUpdates).length > 0) {
+            await tx.userNotificationPreference.upsert({
+              where: { userId: user.id },
+              create: {
+                userId: user.id,
+                ...notificationUpdates,
+              },
+              update: notificationUpdates,
+            });
+          }
+        },
+        { timeout: 15000 }
+      );
 
       logger.info('Notification preferences updated', {
         userId: user.id,

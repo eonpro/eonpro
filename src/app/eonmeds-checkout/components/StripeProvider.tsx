@@ -49,7 +49,18 @@ if (!STRIPE_PUBLISHABLE_KEY) {
   console.error('Stripe publishable key not found in environment');
 }
 
-export function StripeProvider({ children, amount, appearance, customerEmail, customerName, customerPhone, shippingAddress, orderData, language = 'en', intakeId }: StripeProviderProps) {
+export function StripeProvider({
+  children,
+  amount,
+  appearance,
+  customerEmail,
+  customerName,
+  customerPhone,
+  shippingAddress,
+  orderData,
+  language = 'en',
+  intakeId,
+}: StripeProviderProps) {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +68,10 @@ export function StripeProvider({ children, amount, appearance, customerEmail, cu
   // Memoize amount in cents - ONLY dependency for creating new intent
   const amountInCents = useMemo(() => Math.round(amount * 100), [amount]);
 
-  const normalizedCustomerEmail = useMemo(() => (customerEmail || '').trim().toLowerCase(), [customerEmail]);
+  const normalizedCustomerEmail = useMemo(
+    () => (customerEmail || '').trim().toLowerCase(),
+    [customerEmail]
+  );
   const normalizedCustomerName = useMemo(() => (customerName || '').trim(), [customerName]);
   const normalizedCustomerPhoneDigits = useMemo(() => {
     const digits = (customerPhone || '').replace(/\D/g, '');
@@ -73,9 +87,13 @@ export function StripeProvider({ children, amount, appearance, customerEmail, cu
       addressLine1: String(shippingAddress.addressLine1 || '').trim(),
       addressLine2: String(shippingAddress.addressLine2 || '').trim(),
       city: String(shippingAddress.city || '').trim(),
-      state: String(shippingAddress.state || '').trim().toUpperCase(),
+      state: String(shippingAddress.state || '')
+        .trim()
+        .toUpperCase(),
       zipCode: String(shippingAddress.zipCode || '').trim(),
-      country: String(shippingAddress.country || 'US').trim().toUpperCase(),
+      country: String(shippingAddress.country || 'US')
+        .trim()
+        .toUpperCase(),
     };
   }, [
     shippingAddress?.addressLine1,
@@ -113,9 +131,9 @@ export function StripeProvider({ children, amount, appearance, customerEmail, cu
     if (!normalizedShippingAddress) return false;
     return Boolean(
       normalizedShippingAddress.addressLine1 &&
-        normalizedShippingAddress.city &&
-        normalizedShippingAddress.state &&
-        normalizedShippingAddress.zipCode
+      normalizedShippingAddress.city &&
+      normalizedShippingAddress.state &&
+      normalizedShippingAddress.zipCode
     );
   }, [
     normalizedShippingAddress?.addressLine1,
@@ -132,7 +150,7 @@ export function StripeProvider({ children, amount, appearance, customerEmail, cu
 
   // Minimum amount in cents (Stripe requires at least $0.50)
   const MIN_AMOUNT_CENTS = 50;
-  
+
   const isReadyToCreateIntent = useMemo(() => {
     return amountInCents >= MIN_AMOUNT_CENTS && isCustomerInfoComplete && isShippingAddressComplete;
   }, [amountInCents, isCustomerInfoComplete, isShippingAddressComplete]);
@@ -195,7 +213,10 @@ export function StripeProvider({ children, amount, appearance, customerEmail, cu
       customer_name: normalizedCustomerName,
       customer_phone: normalizedCustomerPhoneE164,
       shipping_address: normalizedShippingAddress,
-      order_data: normalizedOrderData && Object.keys(normalizedOrderData).length > 0 ? normalizedOrderData : undefined,
+      order_data:
+        normalizedOrderData && Object.keys(normalizedOrderData).length > 0
+          ? normalizedOrderData
+          : undefined,
       language,
       // Meta CAPI tracking fields
       lead_id: identity.lead_id || undefined,
@@ -214,113 +235,133 @@ export function StripeProvider({ children, amount, appearance, customerEmail, cu
     // Debounce to avoid creating multiple intents while user is typing
     const debounceMs = 350;
     const timeoutId = setTimeout(() => {
-    console.log('[StripeProvider] Creating PaymentIntent with:', {
-      amount: amountInCents,
-      email: normalizedCustomerEmail,
-      hasName: !!normalizedCustomerName,
-      hasPhone: !!normalizedCustomerPhoneE164,
-      hasShipping: !!normalizedShippingAddress,
-      shippingAddress: normalizedShippingAddress,
-      hasOrderData: !!normalizedOrderData,
-      meta_event_id: identity.meta_event_id,
-    });
-    fetch(getApiUrl('createPaymentIntent'), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-        body: JSON.stringify(payload),
-      signal: controller.signal,
-    })
-      .then(async (res) => {
-        if (!res.ok) {
-          // Try to get error details from response
-          const errorData = await res.json().catch(() => ({}));
-          console.error('[StripeProvider] API error:', {
-            status: res.status,
-            error: errorData.error,
-            message: errorData.message,
-          });
-          throw new Error(errorData.message || errorData.error || `Failed to create payment intent: ${res.status}`);
-        }
-        return res.json();
-      })
-      .then((data) => {
-        if (data.clientSecret) {
-            currentIntentKeyRef.current = intentRequestKey;
-          setClientSecret(data.clientSecret);
-          setLoading(false);
-        } else {
-          throw new Error('No client secret received from server');
-        }
-      })
-      .catch((err) => {
-        if (err.name === 'AbortError') return;
-        console.error('[StripeProvider] Error creating payment intent:', err);
-        // Show more specific error message to user based on API response
-        const msg = (err.message || '').toLowerCase();
-        let userMessage: string;
-        if (msg.includes('shipping') || msg.includes('address')) {
-          userMessage = language === 'es' 
-            ? 'Por favor complete su dirección de envío e intente de nuevo.'
-            : 'Please complete your shipping address and try again.';
-        } else if (msg.includes('amount') || msg.includes('invalid')) {
-          userMessage = language === 'es'
-            ? 'Total del pedido inválido. Por favor actualice la página e intente de nuevo.'
-            : 'Invalid order total. Please refresh and try again.';
-        } else {
-          // Show the actual error message for debugging, or a generic fallback
-          userMessage = err.message || (language === 'es' 
-            ? 'Error al inicializar el pago. Por favor actualice la página e intente de nuevo.'
-            : 'Failed to initialize payment. Please refresh and try again.');
-        }
-        setError(userMessage);
-        setLoading(false);
+      console.log('[StripeProvider] Creating PaymentIntent with:', {
+        amount: amountInCents,
+        email: normalizedCustomerEmail,
+        hasName: !!normalizedCustomerName,
+        hasPhone: !!normalizedCustomerPhoneE164,
+        hasShipping: !!normalizedShippingAddress,
+        shippingAddress: normalizedShippingAddress,
+        hasOrderData: !!normalizedOrderData,
+        meta_event_id: identity.meta_event_id,
       });
+      fetch(getApiUrl('createPaymentIntent'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      })
+        .then(async (res) => {
+          if (!res.ok) {
+            // Try to get error details from response
+            const errorData = await res.json().catch(() => ({}));
+            console.error('[StripeProvider] API error:', {
+              status: res.status,
+              error: errorData.error,
+              message: errorData.message,
+            });
+            throw new Error(
+              errorData.message ||
+                errorData.error ||
+                `Failed to create payment intent: ${res.status}`
+            );
+          }
+          return res.json();
+        })
+        .then((data) => {
+          if (data.clientSecret) {
+            currentIntentKeyRef.current = intentRequestKey;
+            setClientSecret(data.clientSecret);
+            setLoading(false);
+          } else {
+            throw new Error('No client secret received from server');
+          }
+        })
+        .catch((err) => {
+          if (err.name === 'AbortError') return;
+          console.error('[StripeProvider] Error creating payment intent:', err);
+          // Show more specific error message to user based on API response
+          const msg = (err.message || '').toLowerCase();
+          let userMessage: string;
+          if (msg.includes('shipping') || msg.includes('address')) {
+            userMessage =
+              language === 'es'
+                ? 'Por favor complete su dirección de envío e intente de nuevo.'
+                : 'Please complete your shipping address and try again.';
+          } else if (msg.includes('amount') || msg.includes('invalid')) {
+            userMessage =
+              language === 'es'
+                ? 'Total del pedido inválido. Por favor actualice la página e intente de nuevo.'
+                : 'Invalid order total. Please refresh and try again.';
+          } else {
+            // Show the actual error message for debugging, or a generic fallback
+            userMessage =
+              err.message ||
+              (language === 'es'
+                ? 'Error al inicializar el pago. Por favor actualice la página e intente de nuevo.'
+                : 'Failed to initialize payment. Please refresh and try again.');
+          }
+          setError(userMessage);
+          setLoading(false);
+        });
     }, debounceMs);
 
     return () => {
       clearTimeout(timeoutId);
       controller.abort();
     };
-  }, [isReadyToCreateIntent, intentRequestKey, language, normalizedCustomerEmail, normalizedCustomerName, normalizedCustomerPhoneE164, normalizedOrderData, normalizedShippingAddress]);
+  }, [
+    isReadyToCreateIntent,
+    intentRequestKey,
+    language,
+    normalizedCustomerEmail,
+    normalizedCustomerName,
+    normalizedCustomerPhoneE164,
+    normalizedOrderData,
+    normalizedShippingAddress,
+  ]);
 
   // Memoize Elements options to prevent unnecessary re-renders
-  const options = useMemo(() => ({
-    clientSecret: clientSecret || undefined,
-    appearance: appearance || {
-      theme: 'stripe' as const,
-      variables: {
-        colorPrimary: '#13a97b',
-        colorBackground: '#ffffff',
-        colorText: '#1a1a1a',
-        colorDanger: '#df1c41',
-        fontFamily: '\'Sofia Pro\', Poppins, system-ui, sans-serif',
-        spacingUnit: '4px',
-        borderRadius: '8px',
-        fontSizeBase: '16px',
+  const options = useMemo(
+    () => ({
+      clientSecret: clientSecret || undefined,
+      appearance: appearance || {
+        theme: 'stripe' as const,
+        variables: {
+          colorPrimary: '#13a97b',
+          colorBackground: '#ffffff',
+          colorText: '#1a1a1a',
+          colorDanger: '#df1c41',
+          fontFamily: "'Sofia Pro', Poppins, system-ui, sans-serif",
+          spacingUnit: '4px',
+          borderRadius: '8px',
+          fontSizeBase: '16px',
+        },
+        rules: {
+          '.Label': {
+            fontWeight: '500',
+          },
+          '.Input': {
+            boxShadow: 'none',
+            border: '1px solid #e5e7eb',
+          },
+          '.Input:focus': {
+            border: '1px solid #13a97b',
+            boxShadow: '0 0 0 3px rgba(19, 169, 123, 0.1)',
+          },
+        },
       },
-      rules: {
-        '.Label': {
-          fontWeight: '500',
-        },
-        '.Input': {
-          boxShadow: 'none',
-          border: '1px solid #e5e7eb',
-        },
-        '.Input:focus': {
-          border: '1px solid #13a97b',
-          boxShadow: '0 0 0 3px rgba(19, 169, 123, 0.1)',
-        },
-      },
-    },
-  }), [clientSecret, appearance]);
+    }),
+    [clientSecret, appearance]
+  );
 
   // Show loading spinner while fetching payment intent
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-gray-900"></div>
       </div>
     );
   }
@@ -328,7 +369,7 @@ export function StripeProvider({ children, amount, appearance, customerEmail, cu
   // Show error message if payment intent creation failed
   if (error) {
     return (
-      <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+      <div className="rounded-lg border border-red-200 bg-red-50 p-4">
         <p className="text-red-600">{error}</p>
       </div>
     );
@@ -339,25 +380,27 @@ export function StripeProvider({ children, amount, appearance, customerEmail, cu
     // Determine what's missing for a more helpful message
     let helperText: string;
     if (amountInCents < MIN_AMOUNT_CENTS) {
-      helperText = language === 'es'
-        ? 'Seleccione un plan para continuar con el pago.'
-        : 'Please select a plan to continue with payment.';
+      helperText =
+        language === 'es'
+          ? 'Seleccione un plan para continuar con el pago.'
+          : 'Please select a plan to continue with payment.';
     } else if (!normalizedCustomerEmail) {
-      helperText = language === 'es'
-        ? 'Se requiere un correo electrónico para procesar el pago.'
-        : 'An email address is required to process payment.';
+      helperText =
+        language === 'es'
+          ? 'Se requiere un correo electrónico para procesar el pago.'
+          : 'An email address is required to process payment.';
     } else if (!isShippingAddressComplete) {
-      helperText = language === 'es'
-        ? 'Complete su dirección de envío para cargar las opciones de pago.'
-        : 'Complete your shipping address to load payment options.';
+      helperText =
+        language === 'es'
+          ? 'Complete su dirección de envío para cargar las opciones de pago.'
+          : 'Complete your shipping address to load payment options.';
     } else {
-      helperText = language === 'es'
-        ? 'Cargando opciones de pago...'
-        : 'Loading payment options...';
+      helperText =
+        language === 'es' ? 'Cargando opciones de pago...' : 'Loading payment options...';
     }
 
     return (
-      <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+      <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
         <p className="text-gray-700">{helperText}</p>
       </div>
     );

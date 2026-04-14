@@ -179,7 +179,9 @@ async function handler(req: NextRequest, user: AuthUser) {
       },
     });
   } catch (error: unknown) {
-    logger.error('Error creating test user', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('Error creating test user', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
   }
 }

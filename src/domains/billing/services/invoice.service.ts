@@ -141,20 +141,11 @@ export interface InvoiceService {
     user?: UserContext
   ): Promise<PaginatedInvoices>;
 
-  getInvoiceById(
-    id: number,
-    user: UserContext
-  ): Promise<InvoiceDetailItem | null>;
+  getInvoiceById(id: number, user: UserContext): Promise<InvoiceDetailItem | null>;
 
-  markPrescriptionProcessed(
-    invoiceId: number,
-    providerId: number | null
-  ): Promise<void>;
+  markPrescriptionProcessed(invoiceId: number, providerId: number | null): Promise<void>;
 
-  countByStatus(
-    clinicId: number | undefined,
-    status: string
-  ): Promise<number>;
+  countByStatus(clinicId: number | undefined, status: string): Promise<number>;
 }
 
 export function createInvoiceService(): InvoiceService {

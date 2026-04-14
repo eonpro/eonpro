@@ -16,18 +16,26 @@ import { logger } from '@/lib/logger';
 // ---------------------------------------------------------------------------
 
 export type CustomFeeRuleConditionField =
-  | 'feeType'           // PRESCRIPTION | TRANSMISSION
-  | 'orderTotalCents'   // number
-  | 'medicationKey'      // string (normalized)
-  | 'medName'           // string (primary rx med name)
-  | 'form'              // string (e.g. INJECTION, CAPSULE)
-  | 'rxCount'           // number of rxs on order
-  | 'providerType';     // EONPRO | CLINIC
+  | 'feeType' // PRESCRIPTION | TRANSMISSION
+  | 'orderTotalCents' // number
+  | 'medicationKey' // string (normalized)
+  | 'medName' // string (primary rx med name)
+  | 'form' // string (e.g. INJECTION, CAPSULE)
+  | 'rxCount' // number of rxs on order
+  | 'providerType'; // EONPRO | CLINIC
 
 export type CustomFeeRuleConditionOperator =
-  | 'eq' | 'neq' | 'gte' | 'lte' | 'gt' | 'lt'
-  | 'in' | 'notIn'
-  | 'contains' | 'startsWith' | 'endsWith';
+  | 'eq'
+  | 'neq'
+  | 'gte'
+  | 'lte'
+  | 'gt'
+  | 'lt'
+  | 'in'
+  | 'notIn'
+  | 'contains'
+  | 'startsWith'
+  | 'endsWith';
 
 export interface CustomFeeRuleCondition {
   field: CustomFeeRuleConditionField;
@@ -111,10 +119,7 @@ function getContextValue(
   }
 }
 
-function evaluateCondition(
-  condition: CustomFeeRuleCondition,
-  ctx: CustomFeeRuleContext
-): boolean {
+function evaluateCondition(condition: CustomFeeRuleCondition, ctx: CustomFeeRuleContext): boolean {
   const actual = getContextValue(ctx, condition.field);
   const expected = condition.value;
   const op = condition.operator;

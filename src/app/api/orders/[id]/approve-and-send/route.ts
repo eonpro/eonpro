@@ -39,7 +39,8 @@ async function handler(req: NextRequest, user: AuthUser, context?: Params) {
     }
 
     const providerClinicIds = await providerService.getClinicIdsForProviderUser(
-      user.id, user.providerId ?? null
+      user.id,
+      user.providerId ?? null
     );
 
     const order = await runWithClinicContext(user.clinicId, () =>
@@ -74,12 +75,18 @@ async function handler(req: NextRequest, user: AuthUser, context?: Params) {
     if (claimed.count === 0) {
       if (order.status !== 'queued_for_provider') {
         return NextResponse.json(
-          { error: 'Order is not awaiting provider approval. Only queued prescriptions can be approved and sent.' },
+          {
+            error:
+              'Order is not awaiting provider approval. Only queued prescriptions can be approved and sent.',
+          },
           { status: 400 }
         );
       }
       return NextResponse.json(
-        { error: 'This prescription is already being processed by another provider.', code: 'DUPLICATE_BLOCKED' },
+        {
+          error: 'This prescription is already being processed by another provider.',
+          code: 'DUPLICATE_BLOCKED',
+        },
         { status: 409 }
       );
     }
@@ -121,7 +128,8 @@ async function handler(req: NextRequest, user: AuthUser, context?: Params) {
         await rollbackClaim();
         return NextResponse.json(
           {
-            error: 'Pharmacy requires biological sex (Male or Female) for this patient. Please update patient gender and re-queue.',
+            error:
+              'Pharmacy requires biological sex (Male or Female) for this patient. Please update patient gender and re-queue.',
             code: 'INVALID_PHARMACY_GENDER',
           },
           { status: 400 }
@@ -170,8 +178,7 @@ async function handler(req: NextRequest, user: AuthUser, context?: Params) {
 
     // Lifefile returns orderId nested: { data: { orderId: 100719360 } }
     // Also check top-level for forward compatibility
-    const lifefileOrderId =
-      orderResponse?.data?.orderId ?? orderResponse?.orderId ?? null;
+    const lifefileOrderId = orderResponse?.data?.orderId ?? orderResponse?.orderId ?? null;
 
     logger.info('[APPROVE-AND-SEND] Lifefile response', {
       orderId: order.id,
@@ -229,4 +236,7 @@ async function handler(req: NextRequest, user: AuthUser, context?: Params) {
   }
 }
 
-export const POST = (req: NextRequest, context: Params) => withProviderAuth(handler as (req: NextRequest, user: AuthUser, context?: unknown) => Promise<Response>)(req, context);
+export const POST = (req: NextRequest, context: Params) =>
+  withProviderAuth(
+    handler as (req: NextRequest, user: AuthUser, context?: unknown) => Promise<Response>
+  )(req, context);

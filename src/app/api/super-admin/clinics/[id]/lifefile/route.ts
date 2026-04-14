@@ -245,7 +245,10 @@ export const GET = withAuth(
     } catch (error: unknown) {
       logger.error(`[LIFEFILE GET] Unexpected error:`, error);
       return Response.json(
-        { error: 'Internal server error', detail: error instanceof Error ? error.message : String(error) },
+        {
+          error: 'Internal server error',
+          detail: error instanceof Error ? error.message : String(error),
+        },
         { status: 500 }
       );
     }
@@ -580,7 +583,7 @@ export const PUT = withAuth(
     });
 
     // Log the update
-        logger.info('[SUPER-ADMIN] Lifefile settings updated for clinic', {
+    logger.info('[SUPER-ADMIN] Lifefile settings updated for clinic', {
       clinicId,
       userId: user.id,
     });

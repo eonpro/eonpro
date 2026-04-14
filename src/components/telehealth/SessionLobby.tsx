@@ -34,7 +34,13 @@ interface SessionLobbyProps {
   onSessionUpdated?: (updates: Partial<TelehealthSessionData>) => void;
 }
 
-export default function SessionLobby({ session, userName, onJoinCall, onBack, onSessionUpdated }: SessionLobbyProps) {
+export default function SessionLobby({
+  session,
+  userName,
+  onJoinCall,
+  onBack,
+  onSessionUpdated,
+}: SessionLobbyProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [devices, setDevices] = useState<DeviceStatus>({
@@ -67,7 +73,7 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack, on
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ appointmentId: session.appointment.id }),
       });
-        if (res.ok) {
+      if (res.ok) {
         const data = await res.json();
         if (data.appointment?.zoomMeetingId) {
           const newMeetingId = data.appointment.zoomMeetingId;
@@ -145,9 +151,14 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack, on
         setClinicalContext({
           medications: (patient.rxs ?? patient.prescriptions ?? [])
             .slice(0, 5)
-            .map((rx: { medicationName?: string; name?: string }) => rx.medicationName ?? rx.name ?? 'Unknown'),
+            .map(
+              (rx: { medicationName?: string; name?: string }) =>
+                rx.medicationName ?? rx.name ?? 'Unknown'
+            ),
           allergies: patient.allergies
-            ? (typeof patient.allergies === 'string' ? patient.allergies.split(',').map((a: string) => a.trim()) : patient.allergies)
+            ? typeof patient.allergies === 'string'
+              ? patient.allergies.split(',').map((a: string) => a.trim())
+              : patient.allergies
             : [],
           recentWeight: patient.weightLogs?.[0]?.weight ?? patient.currentWeight,
           lastVisit: patient.lastVisitDate ?? patient.appointments?.[0]?.startTime,
@@ -166,7 +177,8 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack, on
         const res = await apiFetch('/api/provider/telehealth/upcoming');
         if (!res.ok) return;
         const data = await res.json();
-        const sessions: Array<{ id: number; status: string; appointment?: { id: number } }> = data.sessions ?? [];
+        const sessions: Array<{ id: number; status: string; appointment?: { id: number } }> =
+          data.sessions ?? [];
         const match = sessions.find(
           (s) => s.appointment?.id === session.appointment?.id || s.id === session.id
         );
@@ -185,7 +197,9 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack, on
               osc.start();
               gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
               osc.stop(ctx.currentTime + 0.5);
-            } catch { /* audio not supported */ }
+            } catch {
+              /* audio not supported */
+            }
             if ('Notification' in window && Notification.permission === 'granted') {
               new Notification('Patient Waiting', {
                 body: `${session.patient.firstName} ${session.patient.lastName} is in the waiting room`,
@@ -235,17 +249,24 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack, on
       if (parsed?.date === new Date().toISOString().slice(0, 10)) {
         return parsed.choice;
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     return null;
   };
 
   const saveConsentChoice = (choice: 'enabled' | 'disabled') => {
     try {
-      localStorage.setItem('telehealth_scribe_consent', JSON.stringify({
-        choice,
-        date: new Date().toISOString().slice(0, 10),
-      }));
-    } catch { /* ignore */ }
+      localStorage.setItem(
+        'telehealth_scribe_consent',
+        JSON.stringify({
+          choice,
+          date: new Date().toISOString().slice(0, 10),
+        })
+      );
+    } catch {
+      /* ignore */
+    }
   };
 
   const handleJoinClick = () => {
@@ -383,8 +404,8 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack, on
               <div className="text-xs text-amber-800">
                 <p className="font-medium">Device access required</p>
                 <p className="mt-0.5">
-                  Allow camera and microphone access in your browser settings to join the call.
-                  You can still join without them, but video/audio won't work.
+                  Allow camera and microphone access in your browser settings to join the call. You
+                  can still join without them, but video/audio won't work.
                 </p>
               </div>
             </div>
@@ -410,13 +431,17 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack, on
             <div className="space-y-3 border-t border-gray-100 pt-4">
               {session.topic && (
                 <div>
-                  <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">Topic</p>
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
+                    Topic
+                  </p>
                   <p className="mt-0.5 text-sm text-gray-700">{session.topic}</p>
                 </div>
               )}
 
               <div>
-                <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">Scheduled</p>
+                <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
+                  Scheduled
+                </p>
                 <p className="mt-0.5 flex items-center gap-1.5 text-sm text-gray-700">
                   <Calendar className="h-3.5 w-3.5 text-gray-400" />
                   {formatDateTime(session.scheduledAt)}
@@ -424,7 +449,9 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack, on
               </div>
 
               <div>
-                <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">Duration</p>
+                <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
+                  Duration
+                </p>
                 <p className="mt-0.5 flex items-center gap-1.5 text-sm text-gray-700">
                   <Clock className="h-3.5 w-3.5 text-gray-400" />
                   {session.duration} minutes
@@ -433,7 +460,9 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack, on
 
               {session.appointment?.reason && (
                 <div>
-                  <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">Reason</p>
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
+                    Reason
+                  </p>
                   <p className="mt-0.5 text-sm text-gray-700">{session.appointment.reason}</p>
                 </div>
               )}
@@ -444,7 +473,9 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack, on
           {clinicalContext && (
             <div className="rounded-2xl border border-gray-200 bg-white p-4">
               <div className="mb-3 flex items-center justify-between">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Patient Snapshot</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                  Patient Snapshot
+                </p>
                 <a
                   href={`/patients/${session.patient.id}`}
                   target="_blank"
@@ -460,7 +491,9 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack, on
                     <Pill className="mt-0.5 h-3.5 w-3.5 shrink-0 text-purple-500" />
                     <div>
                       <p className="text-[10px] font-medium text-gray-400">Medications</p>
-                      <p className="text-xs text-gray-700">{clinicalContext.medications.join(', ')}</p>
+                      <p className="text-xs text-gray-700">
+                        {clinicalContext.medications.join(', ')}
+                      </p>
                     </div>
                   </div>
                 )}
@@ -488,14 +521,20 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack, on
                     <div>
                       <p className="text-[10px] font-medium text-gray-400">Last Visit</p>
                       <p className="text-xs text-gray-700">
-                        {new Date(clinicalContext.lastVisit).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        {new Date(clinicalContext.lastVisit).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
                       </p>
                     </div>
                   </div>
                 )}
-                {!clinicalContext.medications?.length && !clinicalContext.allergies?.length && !clinicalContext.recentWeight && (
-                  <p className="text-xs italic text-gray-400">No clinical data available</p>
-                )}
+                {!clinicalContext.medications?.length &&
+                  !clinicalContext.allergies?.length &&
+                  !clinicalContext.recentWeight && (
+                    <p className="text-xs italic text-gray-400">No clinical data available</p>
+                  )}
               </div>
             </div>
           )}
@@ -523,18 +562,12 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack, on
 
           {/* Device Status */}
           <div className="rounded-xl border border-gray-200 bg-white p-4">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Devices</p>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+              Devices
+            </p>
             <div className="space-y-2">
-              <DeviceRow
-                label="Camera"
-                status={devices.camera}
-                checking={checking}
-              />
-              <DeviceRow
-                label="Microphone"
-                status={devices.microphone}
-                checking={checking}
-              />
+              <DeviceRow label="Camera" status={devices.camera} checking={checking} />
+              <DeviceRow label="Microphone" status={devices.microphone} checking={checking} />
             </div>
           </div>
 
@@ -554,8 +587,8 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack, on
                 <div className="text-xs text-amber-800">
                   <p className="font-medium">Video link not ready</p>
                   <p className="mt-0.5">
-                    The Zoom meeting for this session hasn&apos;t been created yet.
-                    Click below to generate it now.
+                    The Zoom meeting for this session hasn&apos;t been created yet. Click below to
+                    generate it now.
                   </p>
                 </div>
               </div>
@@ -617,11 +650,7 @@ function DeviceRow({
         </span>
       );
     }
-    return (
-      <span className="flex items-center gap-1 text-xs text-gray-400">
-        Not found
-      </span>
-    );
+    return <span className="flex items-center gap-1 text-xs text-gray-400">Not found</span>;
   };
 
   return (

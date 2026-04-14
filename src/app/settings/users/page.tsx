@@ -159,7 +159,7 @@ export default function UserManagementPage() {
       setUsers(data.users || []);
     } catch (err: unknown) {
       console.error('Error fetching users:', err);
-      setError((err instanceof Error ? err.message : String(err)));
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
@@ -288,7 +288,9 @@ export default function UserManagementPage() {
       );
       fetchUsers();
     } catch (err: unknown) {
-      toast.error((err instanceof Error ? err.message : String(err)) || 'Failed to update user status');
+      toast.error(
+        (err instanceof Error ? err.message : String(err)) || 'Failed to update user status'
+      );
     }
   };
 

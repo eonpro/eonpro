@@ -120,9 +120,7 @@ function isInjectableMedication(name: string): boolean {
 
 function parseDoseFromDirections(directions: string): { mg: string; units: string } | null {
   if (!directions) return null;
-  const match = directions.match(
-    /inject\s+([\d.]+)\s*mg\s*\([^)]*?(\d+)\s*units?\)/i
-  );
+  const match = directions.match(/inject\s+([\d.]+)\s*mg\s*\([^)]*?(\d+)\s*units?\)/i);
   if (match?.[1] && match?.[2]) return { mg: match[1], units: match[2] };
   const unitsWithMg = directions.match(/inject\s+(\d+)\s*units?\s*\(([\d.]+)\s*mg\)/i);
   if (unitsWithMg?.[1] && unitsWithMg?.[2]) return { mg: unitsWithMg[2], units: unitsWithMg[1] };
@@ -141,7 +139,11 @@ function reformatDirectionsUnitsFirst(directions: string): string {
   );
 }
 
-function rewriteDirectionsForMonth(directions: string, monthLabel: string, weeksInMonth: number): string {
+function rewriteDirectionsForMonth(
+  directions: string,
+  monthLabel: string,
+  weeksInMonth: number
+): string {
   let d = reformatDirectionsUnitsFirst(directions);
   d = d.replace(/month\s+\d+(?:\s*[-–]\s*\d+)?:/i, `${monthLabel}:`);
   d = d.replace(/for\s+\d+\s+weeks/i, `for ${weeksInMonth} weeks`);
@@ -227,7 +229,9 @@ function getMedicationDisplayName(med: RxMedication): string {
     return 'Semaglutide';
   }
 
-  const cleanedName = medName.replace(/\s+/g, ' ').trim()
+  const cleanedName = medName
+    .replace(/\s+/g, ' ')
+    .trim()
     .replace(/\s+solution\s+\d+mg\/\d+mg\/ml/i, '');
   const normalizedName = toTitleCase(cleanedName);
   const normalizedStrength = med.strength ? med.strength.toLowerCase().trim() : '';
@@ -316,7 +320,9 @@ export default function MedicationsPage() {
         }
       })
       .catch((err) => {
-        logger.error('[Medications] Prescriptions fetch failed', { error: err instanceof Error ? err.message : String(err) });
+        logger.error('[Medications] Prescriptions fetch failed', {
+          error: err instanceof Error ? err.message : String(err),
+        });
         setLoadError('Unable to load prescriptions. Please try again.');
       });
 
@@ -329,20 +335,21 @@ export default function MedicationsPage() {
               activeShipments?: TrackingShipment[];
               deliveredShipments?: TrackingShipment[];
             };
-            const all = [
-              ...(d.activeShipments || []),
-              ...(d.deliveredShipments || []),
-            ];
+            const all = [...(d.activeShipments || []), ...(d.deliveredShipments || [])];
             all.sort((a, b) => new Date(b.orderedAt).getTime() - new Date(a.orderedAt).getTime());
             setTrackingShipments(all);
           }
         }
       })
       .catch((err) => {
-        logger.error('[Medications] Tracking fetch failed', { error: err instanceof Error ? err.message : String(err) });
+        logger.error('[Medications] Tracking fetch failed', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       });
 
-    const remindersPromise = portalFetch(`/api/patient-progress/medication-reminders?patientId=${patientId}`)
+    const remindersPromise = portalFetch(
+      `/api/patient-progress/medication-reminders?patientId=${patientId}`
+    )
       .then(async (res) => {
         const err = getPortalResponseError(res);
         if (err) {
@@ -355,7 +362,7 @@ export default function MedicationsPage() {
             result !== null
               ? Array.isArray(result)
                 ? result
-                : (result as { data?: unknown[] })?.data ?? []
+                : ((result as { data?: unknown[] })?.data ?? [])
               : [];
           setReminders(data);
         }
@@ -530,9 +537,15 @@ END:VCALENDAR`;
   );
   const pastPrescriptions = prescriptions.filter(
     (p) =>
-      !['pending', 'processing', 'shipped', 'active', 'approved', 'submitted', 'in_progress'].includes(
-        (p.status || '').toLowerCase()
-      )
+      ![
+        'pending',
+        'processing',
+        'shipped',
+        'active',
+        'approved',
+        'submitted',
+        'in_progress',
+      ].includes((p.status || '').toLowerCase())
   );
 
   const allActiveMeds = activePrescriptions.flatMap((p) =>
@@ -542,8 +555,7 @@ END:VCALENDAR`;
   );
 
   const isMultiMonthPlan =
-    billingPlan &&
-    (billingPlan.interval === '6-month' || billingPlan.interval === 'annual');
+    billingPlan && (billingPlan.interval === '6-month' || billingPlan.interval === 'annual');
 
   const shipmentSchedule = useMemo(() => {
     if (!isMultiMonthPlan || !billingPlan?.startDate) return null;
@@ -588,7 +600,8 @@ END:VCALENDAR`;
     let monthNum = 0;
     let weekCursor = 1;
     let prevDoseKey = '';
-    const firstPrescribedDate = allOrders.length > 0 ? new Date(allOrders[0].prescribedDate) : new Date();
+    const firstPrescribedDate =
+      allOrders.length > 0 ? new Date(allOrders[0].prescribedDate) : new Date();
     const WEEKS_PER_MONTH = 4;
 
     for (const order of allOrders) {
@@ -666,7 +679,10 @@ END:VCALENDAR`;
           for (let m = 0; m < monthsCovered; m++) {
             monthNum++;
             const mWeekStart = weekCursor + m * WEEKS_PER_MONTH;
-            const mWeekEnd = Math.min(mWeekStart + WEEKS_PER_MONTH - 1, weekCursor + weeksInSupply - 1);
+            const mWeekEnd = Math.min(
+              mWeekStart + WEEKS_PER_MONTH - 1,
+              weekCursor + weeksInSupply - 1
+            );
 
             const periodStart = new Date(firstPrescribedDate);
             periodStart.setDate(periodStart.getDate() + (mWeekStart - 1) * 7);
@@ -676,7 +692,7 @@ END:VCALENDAR`;
             const monthDirections = rewriteDirectionsForMonth(
               med.directions,
               `Month ${monthNum}`,
-              mWeekEnd - mWeekStart + 1,
+              mWeekEnd - mWeekStart + 1
             );
 
             items.push({
@@ -708,6 +724,40 @@ END:VCALENDAR`;
   const currentDoseIndex = dosingScheduleItems.findIndex(
     (d) => now >= d.periodStart && now < d.periodEnd
   );
+
+  const nonInjectableActiveMeds = useMemo(() => {
+    const allOrders = [...prescriptions];
+    const meds: Array<{
+      id: number;
+      medName: string;
+      directions: string;
+      quantity: string;
+      daysSupply: number;
+      prescribedDate: string;
+    }> = [];
+    for (const order of allOrders) {
+      for (const med of order.medications ?? []) {
+        if (isSupplyMedication(med.name)) continue;
+        if (isInjectableMedication(med.name)) continue;
+        if (!med.directions) continue;
+        meds.push({
+          id: med.id,
+          medName: getMedicationDisplayName(med),
+          directions: med.directions,
+          quantity: med.quantity,
+          daysSupply: med.daysSupply,
+          prescribedDate: order.prescribedDate,
+        });
+      }
+    }
+    const seen = new Set<string>();
+    return meds.filter((m) => {
+      const key = `${m.medName}|${m.directions}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [prescriptions]);
 
   const primaryGlp1Medication = useMemo(() => {
     const sorted = [...prescriptions].sort(
@@ -744,7 +794,9 @@ END:VCALENDAR`;
 
       <div
         className={`flex items-center gap-3 rounded-xl border p-4 transition-all duration-150 ${
-          loadError ? 'mb-6 border-amber-200 bg-amber-50 opacity-100' : 'pointer-events-none h-0 overflow-hidden border-transparent p-0 opacity-0'
+          loadError
+            ? 'mb-6 border-amber-200 bg-amber-50 opacity-100'
+            : 'pointer-events-none h-0 overflow-hidden border-transparent p-0 opacity-0'
         }`}
         role="alert"
       >
@@ -796,28 +848,48 @@ END:VCALENDAR`;
                   {billingPlan.vialCount} {billingPlan.vialCount === 1 ? 'vial' : 'vials'}
                 </span>
                 <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm sm:px-4 sm:py-1.5 sm:text-sm">
-                  {formatCurrency(billingPlan.amount)}/{billingPlan.interval === 'annual' ? 'yr' : billingPlan.interval === '6-month' ? '6mo' : billingPlan.interval === 'quarterly' ? 'qtr' : 'mo'}
+                  {formatCurrency(billingPlan.amount)}/
+                  {billingPlan.interval === 'annual'
+                    ? 'yr'
+                    : billingPlan.interval === '6-month'
+                      ? '6mo'
+                      : billingPlan.interval === 'quarterly'
+                        ? 'qtr'
+                        : 'mo'}
                 </span>
               </div>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-px bg-gray-100 sm:grid-cols-3">
             <div className="bg-white p-3 text-center sm:p-4">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 sm:text-xs">Status</p>
-              <p className="mt-0.5 text-xs font-bold sm:mt-1 sm:text-sm" style={{ color: primaryColor }}>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 sm:text-xs">
+                Status
+              </p>
+              <p
+                className="mt-0.5 text-xs font-bold sm:mt-1 sm:text-sm"
+                style={{ color: primaryColor }}
+              >
                 {billingPlan.status}
               </p>
             </div>
             {billingPlan.nextBillingDate && (
               <div className="bg-white p-3 text-center sm:p-4">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 sm:text-xs">Next Billing</p>
-                <p className="mt-0.5 text-xs font-bold text-gray-900 sm:mt-1 sm:text-sm">{formatDate(billingPlan.nextBillingDate)}</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 sm:text-xs">
+                  Next Billing
+                </p>
+                <p className="mt-0.5 text-xs font-bold text-gray-900 sm:mt-1 sm:text-sm">
+                  {formatDate(billingPlan.nextBillingDate)}
+                </p>
               </div>
             )}
             {billingPlan.startDate && (
               <div className="col-span-2 bg-white p-3 text-center sm:col-span-1 sm:p-4">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 sm:text-xs">Started</p>
-                <p className="mt-0.5 text-xs font-bold text-gray-900 sm:mt-1 sm:text-sm">{formatDate(billingPlan.startDate)}</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 sm:text-xs">
+                  Started
+                </p>
+                <p className="mt-0.5 text-xs font-bold text-gray-900 sm:mt-1 sm:text-sm">
+                  {formatDate(billingPlan.startDate)}
+                </p>
               </div>
             )}
           </div>
@@ -836,9 +908,9 @@ END:VCALENDAR`;
                 {shipmentSchedule.totalMonths}-Month Plan &mdash; Shipping Schedule
               </h3>
               <p className="mt-1.5 text-sm leading-relaxed text-blue-800">
-                Compounded medication vials have a <span className="font-semibold">90-day best use date</span>.
-                To ensure freshness and potency, your treatment is shipped in 90-day intervals rather than
-                all at once.
+                Compounded medication vials have a{' '}
+                <span className="font-semibold">90-day best use date</span>. To ensure freshness and
+                potency, your treatment is shipped in 90-day intervals rather than all at once.
               </p>
               <div className="mt-3 rounded-xl bg-white/60 p-3">
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-blue-600">
@@ -969,7 +1041,8 @@ END:VCALENDAR`;
                       </span>
                     )}
                     <span className="flex items-center gap-1">
-                      <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> {formatDate(med.prescription.prescribedDate)}
+                      <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5" />{' '}
+                      {formatDate(med.prescription.prescribedDate)}
                     </span>
                   </div>
 
@@ -1015,7 +1088,8 @@ END:VCALENDAR`;
                 style={{ backgroundColor: `${primaryColor}08` }}
               >
                 <p className="text-xs font-medium text-gray-500 sm:text-sm">
-                  Each month below covers 4 weekly injections at the listed dose. Your provider may adjust the dose after 4+ weeks based on your progress.
+                  Each month below covers 4 weekly injections at the listed dose. Your provider may
+                  adjust the dose after 4+ weeks based on your progress.
                 </p>
               </div>
               <div className="divide-y divide-gray-50">
@@ -1039,9 +1113,7 @@ END:VCALENDAR`;
                                 ? 'bg-gray-100 text-gray-400'
                                 : 'bg-gray-100 text-gray-500'
                           }`}
-                          style={
-                            isCurrent ? { backgroundColor: primaryColor } : undefined
-                          }
+                          style={isCurrent ? { backgroundColor: primaryColor } : undefined}
                         >
                           {item.monthNumber}
                         </div>
@@ -1050,9 +1122,7 @@ END:VCALENDAR`;
                             className={`mt-1 w-0.5 flex-1 ${
                               isGrayed ? 'bg-gray-200' : 'bg-gray-100'
                             }`}
-                            style={
-                              isCurrent ? { backgroundColor: `${primaryColor}40` } : undefined
-                            }
+                            style={isCurrent ? { backgroundColor: `${primaryColor}40` } : undefined}
                           />
                         )}
                       </div>
@@ -1062,7 +1132,11 @@ END:VCALENDAR`;
                         <div className="flex flex-wrap items-center gap-2">
                           <span
                             className={`text-sm font-semibold sm:text-base ${
-                              isCurrent ? 'text-gray-900' : isGrayed ? 'text-gray-400' : 'text-gray-700'
+                              isCurrent
+                                ? 'text-gray-900'
+                                : isGrayed
+                                  ? 'text-gray-400'
+                                  : 'text-gray-700'
                             }`}
                           >
                             Month {item.monthNumber}
@@ -1155,8 +1229,8 @@ END:VCALENDAR`;
                           </p>
                           {isCurrent && (
                             <p className="mt-2 flex items-center gap-1.5 text-[10px] font-medium text-gray-400 sm:text-xs">
-                              <Calendar className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                              1 injection per week &middot; {item.weekEnd - item.weekStart + 1} weeks at this dose
+                              <Calendar className="h-3 w-3 sm:h-3.5 sm:w-3.5" />1 injection per week
+                              &middot; {item.weekEnd - item.weekStart + 1} weeks at this dose
                             </p>
                           )}
                         </div>
@@ -1167,6 +1241,63 @@ END:VCALENDAR`;
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── Other Medication Directions (non-injectable meds with a sig) ── */}
+      {nonInjectableActiveMeds.length > 0 && (
+        <div className="mb-8">
+          <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
+            <Pill className="h-5 w-5 shrink-0" style={{ color: primaryColor }} />
+            <span>Additional Medication Directions</span>
+            <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-600">
+              {nonInjectableActiveMeds.length}
+            </span>
+          </h2>
+          <div className="overflow-hidden rounded-2xl bg-white shadow-lg shadow-gray-200/40">
+            <div className="divide-y divide-gray-50">
+              {nonInjectableActiveMeds.map((med) => (
+                <div key={med.id} className="px-4 py-4 sm:px-5 sm:py-5">
+                  <div className="flex items-start gap-3">
+                    <div
+                      className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+                      style={{ backgroundColor: `${primaryColor}15` }}
+                    >
+                      <Pill className="h-5 w-5" style={{ color: primaryColor }} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-gray-900 sm:text-base">
+                        {med.medName}
+                      </p>
+                      <div className="mt-2 rounded-xl bg-gray-50 p-3">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 sm:text-xs">
+                          Directions
+                        </p>
+                        <p className="mt-1 text-xs font-medium leading-relaxed text-gray-700 sm:text-sm">
+                          {med.directions}
+                        </p>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-500 sm:text-xs">
+                        {med.quantity && (
+                          <span className="flex items-center gap-1">
+                            <Package className="h-3 w-3" /> Qty: {med.quantity}
+                          </span>
+                        )}
+                        {med.daysSupply > 0 && (
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" /> {med.daysSupply}d supply
+                          </span>
+                        )}
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" /> Prescribed {formatDate(med.prescribedDate)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
@@ -1192,38 +1323,42 @@ END:VCALENDAR`;
           </button>
           {showHistory && (
             <div className="space-y-3">
-              {pastPrescriptions.map((rx) => (
-                <div
-                  key={rx.id}
-                  className="overflow-hidden rounded-2xl border border-gray-100 bg-white p-3 shadow-sm sm:p-4"
-                >
-                  <div className="mb-2 flex items-center justify-between gap-2">
-                    <p className="text-xs text-gray-500">{formatDate(rx.prescribedDate)}</p>
-                    <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase sm:text-xs ${statusColor(rx.status)}`}
-                    >
-                      {rx.status}
-                    </span>
-                  </div>
-                  {((rx.medications ?? []).filter((m) => !isSupplyMedication(m.name)).length ?? 0) > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {rx.medications
-                        ?.filter((m) => !isSupplyMedication(m.name))
-                        .map((m) => (
-                        <span
-                          key={m.id}
-                          className="break-words rounded-lg bg-gray-50 px-2 py-1 text-xs leading-tight text-gray-700"
-                        >
-                          {getMedicationDisplayName(m)}
-                        </span>
-                      ))}
+              {pastPrescriptions.map((rx) => {
+                const meds = (rx.medications ?? []).filter((m) => !isSupplyMedication(m.name));
+                return (
+                  <div
+                    key={rx.id}
+                    className="overflow-hidden rounded-2xl border border-gray-100 bg-white p-3 shadow-sm sm:p-4"
+                  >
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <p className="text-xs text-gray-500">{formatDate(rx.prescribedDate)}</p>
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase sm:text-xs ${statusColor(rx.status)}`}
+                      >
+                        {rx.status}
+                      </span>
                     </div>
-                  )}
-                  {((rx.medications ?? []).filter((m) => !isSupplyMedication(m.name)).length ?? 0) === 0 && (
-                    <p className="text-sm font-medium text-gray-900">Prescription</p>
-                  )}
-                </div>
-              ))}
+                    {meds.length > 0 ? (
+                      <div className="space-y-2">
+                        {meds.map((m) => (
+                          <div key={m.id} className="rounded-xl bg-gray-50 px-3 py-2">
+                            <p className="break-words text-sm font-medium leading-tight text-gray-900">
+                              {getMedicationDisplayName(m)}
+                            </p>
+                            {m.directions && (
+                              <p className="mt-1 text-xs leading-relaxed text-gray-500">
+                                {m.directions}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm font-medium text-gray-900">Prescription</p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -1313,89 +1448,87 @@ END:VCALENDAR`;
 
       {/* ── Reminders Section (always visible) ── */}
       <div className="mb-10 overflow-hidden rounded-3xl bg-white shadow-xl shadow-gray-200/50">
-          <div className="border-b border-gray-100 p-6">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-2">
-                <Bell className="h-5 w-5 text-gray-400" />
-                <span className="text-lg font-semibold text-gray-900">{t('medsReminders')}</span>
-                {reminders.length > 0 && (
-                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600">
-                    {reminders.length}
-                  </span>
-                )}
-              </div>
-              <button
-                onClick={() => {
-                  setCustomMedicationName('');
-                  setShowReminderModal(true);
-                }}
-                className="flex items-center gap-2 rounded-xl px-4 py-2 font-semibold text-white transition-all hover:scale-105"
-                style={{ backgroundColor: primaryColor }}
-              >
-                <Plus className="h-4 w-4" />
-                {t('medsAddReminder')}
-              </button>
+        <div className="border-b border-gray-100 p-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <Bell className="h-5 w-5 text-gray-400" />
+              <span className="text-lg font-semibold text-gray-900">{t('medsReminders')}</span>
+              {reminders.length > 0 && (
+                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600">
+                  {reminders.length}
+                </span>
+              )}
             </div>
-            {prescriptions.length === 0 && (
-              <p className="mt-2 text-sm text-gray-500">
-                {t('medsNoPrescriptions')}
-              </p>
-            )}
+            <button
+              onClick={() => {
+                setCustomMedicationName('');
+                setShowReminderModal(true);
+              }}
+              className="flex items-center gap-2 rounded-xl px-4 py-2 font-semibold text-white transition-all hover:scale-105"
+              style={{ backgroundColor: primaryColor }}
+            >
+              <Plus className="h-4 w-4" />
+              {t('medsAddReminder')}
+            </button>
           </div>
-          <div className="p-6">
-            {reminders.length === 0 ? (
-              <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50/50 p-8 text-center">
-                <Bell className="mx-auto mb-2 h-10 w-10 text-gray-300" />
-                <p className="font-medium text-gray-600">{t('medsNoReminders')}</p>
-                <p className="mt-1 text-sm text-gray-500">{t('medsNoRemindersDesc')}</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {reminders.map((reminder) => (
-                  <div
-                    key={reminder.id}
-                    className="group flex items-center justify-between rounded-2xl bg-gray-50 p-4 transition-all hover:bg-gray-100"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div
-                        className="flex h-12 w-12 items-center justify-center rounded-xl"
-                        style={{ backgroundColor: accentColor }}
-                      >
-                        <Bell className="h-5 w-5" style={{ color: accentIconColor }} />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-gray-900">{reminder.medicationName}</p>
-                        <p className="text-sm text-gray-500">
-                          {daysOfWeek.find((d) => d.value === reminder.dayOfWeek)?.full} at{' '}
-                          {reminder.timeOfDay}
-                        </p>
-                      </div>
+          {prescriptions.length === 0 && (
+            <p className="mt-2 text-sm text-gray-500">{t('medsNoPrescriptions')}</p>
+          )}
+        </div>
+        <div className="p-6">
+          {reminders.length === 0 ? (
+            <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50/50 p-8 text-center">
+              <Bell className="mx-auto mb-2 h-10 w-10 text-gray-300" />
+              <p className="font-medium text-gray-600">{t('medsNoReminders')}</p>
+              <p className="mt-1 text-sm text-gray-500">{t('medsNoRemindersDesc')}</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {reminders.map((reminder) => (
+                <div
+                  key={reminder.id}
+                  className="group flex items-center justify-between rounded-2xl bg-gray-50 p-4 transition-all hover:bg-gray-100"
+                >
+                  <div className="flex items-center gap-4">
+                    <div
+                      className="flex h-12 w-12 items-center justify-center rounded-xl"
+                      style={{ backgroundColor: accentColor }}
+                    >
+                      <Bell className="h-5 w-5" style={{ color: accentIconColor }} />
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() =>
-                          generateICS({ name: reminder.medicationName, instructions: '' }, reminder)
-                        }
-                        className="rounded-xl p-3 text-gray-400 transition-all hover:bg-blue-50 hover:text-blue-600"
-                        title="Download to calendar"
-                        aria-label="Download to calendar"
-                      >
-                        <Download className="h-5 w-5" />
-                      </button>
-                      <button
-                        onClick={() => removeReminder(reminder.id)}
-                        className="rounded-xl p-3 text-gray-400 transition-all hover:bg-red-50 hover:text-red-600"
-                        aria-label="Remove reminder"
-                      >
-                        <Trash2 className="h-5 w-5" />
-                      </button>
+                    <div>
+                      <p className="font-semibold text-gray-900">{reminder.medicationName}</p>
+                      <p className="text-sm text-gray-500">
+                        {daysOfWeek.find((d) => d.value === reminder.dayOfWeek)?.full} at{' '}
+                        {reminder.timeOfDay}
+                      </p>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() =>
+                        generateICS({ name: reminder.medicationName, instructions: '' }, reminder)
+                      }
+                      className="rounded-xl p-3 text-gray-400 transition-all hover:bg-blue-50 hover:text-blue-600"
+                      title="Download to calendar"
+                      aria-label="Download to calendar"
+                    >
+                      <Download className="h-5 w-5" />
+                    </button>
+                    <button
+                      onClick={() => removeReminder(reminder.id)}
+                      className="rounded-xl p-3 text-gray-400 transition-all hover:bg-red-50 hover:text-red-600"
+                      aria-label="Remove reminder"
+                    >
+                      <Trash2 className="h-5 w-5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
+      </div>
 
       {/* Medications (when we have a list from API in the future) */}
       {/* Quick Actions */}
@@ -1463,8 +1596,12 @@ END:VCALENDAR`;
               >
                 <div className="flex items-start justify-between">
                   <div>
-                    <h2 className="text-2xl font-semibold" style={{ color: accentIconColor }}>{t('medsAddReminderTitle')}</h2>
-                    <p className="mt-1 text-sm" style={{ color: accentIconColor, opacity: 0.7 }}>{t('medsEnterNameBelow')}</p>
+                    <h2 className="text-2xl font-semibold" style={{ color: accentIconColor }}>
+                      {t('medsAddReminderTitle')}
+                    </h2>
+                    <p className="mt-1 text-sm" style={{ color: accentIconColor, opacity: 0.7 }}>
+                      {t('medsEnterNameBelow')}
+                    </p>
                   </div>
                   <button
                     onClick={() => {

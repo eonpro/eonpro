@@ -47,7 +47,7 @@ export const GET = withAuthParams(async (req: NextRequest, user: any, context: R
       });
       return NextResponse.json(
         { error: 'Unable to resolve clinic context for this patient' },
-        { status: 403 },
+        { status: 403 }
       );
     }
 

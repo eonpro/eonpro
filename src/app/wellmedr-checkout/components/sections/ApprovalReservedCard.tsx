@@ -6,16 +6,14 @@ import { useTimerContext } from '@/app/wellmedr-checkout/providers/TimerProvider
 export default function ApprovalReservedCard() {
   const { formattedTime: timer } = useTimerContext();
   return (
-    <PatternBgCard className="w-full flex flex-col gap-8 text-center h-auto sm:h-auto py-12 px-6">
+    <PatternBgCard className="flex h-auto w-full flex-col gap-8 px-6 py-12 text-center sm:h-auto">
       <p>
         <span className="text-base">Your approval is reserved for</span>{' '}
-        <span className="font-medium text-lg">{timer}</span>
+        <span className="text-lg font-medium">{timer}</span>
       </p>
       <h3 className="text-3xl sm:text-[2rem]">
         Save Over $100 <br />
-        <span className="underline italic font-serif underline-offset-2">
-          Instantly
-        </span>
+        <span className="font-serif italic underline underline-offset-2">Instantly</span>
       </h3>
 
       <div>
@@ -25,7 +23,7 @@ export default function ApprovalReservedCard() {
         </p>
       </div>
 
-      <p className="sm:text-lg font-medium">
+      <p className="font-medium sm:text-lg">
         24/7 Support + unlimited doctor visits + medication{' '}
         <span className="italic">all included</span>
       </p>

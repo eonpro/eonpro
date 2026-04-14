@@ -45,10 +45,7 @@ export const POST = withSuperAdminAuth(
       const targetUser = await prisma.user.findFirst({
         where: {
           id: userId,
-          OR: [
-            { clinicId },
-            { userClinics: { some: { clinicId, isActive: true } } },
-          ],
+          OR: [{ clinicId }, { userClinics: { some: { clinicId, isActive: true } } }],
         },
         select: { id: true, email: true, firstName: true, lastName: true, role: true, phone: true },
       });

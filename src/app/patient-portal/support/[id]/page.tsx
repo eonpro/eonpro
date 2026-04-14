@@ -7,7 +7,7 @@
  * Shows ticket description, status, non-internal comments, and reply form.
  */
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import { ArrowLeft, Send, Loader2, CheckCircle, MessageSquare } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
@@ -78,12 +78,15 @@ export default function PatientTicketDetailPage() {
   const [reply, setReply] = useState('');
   const [sending, setSending] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
 
   const {
     data: ticketData,
     error: ticketError,
     isLoading: isTicketLoading,
-  } = usePortalSWR<{ ticket: TicketDetail }>(ticketId ? `/api/patient-portal/tickets/${ticketId}` : null);
+  } = usePortalSWR<{ ticket: TicketDetail }>(
+    ticketId ? `/api/patient-portal/tickets/${ticketId}` : null
+  );
 
   const {
     data: commentsData,
@@ -91,7 +94,7 @@ export default function PatientTicketDetailPage() {
     isLoading: isCommentsLoading,
     mutate: mutateComments,
   } = usePortalSWR<{ comments: Comment[] }>(
-    ticketId ? `/api/patient-portal/tickets/${ticketId}/comments` : null,
+    ticketId ? `/api/patient-portal/tickets/${ticketId}/comments` : null
   );
 
   const ticket = ticketData?.ticket ?? null;
@@ -111,18 +114,17 @@ export default function PatientTicketDetailPage() {
       });
       if (!res.ok) throw new Error('Failed to send reply');
       const result = await safeParseJson(res);
-      const createdComment = (
-        result && typeof result === 'object' && 'comment' in result
+      const createdComment =
+        (result && typeof result === 'object' && 'comment' in result
           ? (result as { comment?: Comment }).comment
-          : null
-      ) ?? null;
+          : null) ?? null;
 
       if (createdComment) {
         await mutateComments(
           (current) => ({
             comments: [...(current?.comments ?? []), createdComment],
           }),
-          { revalidate: false },
+          { revalidate: false }
         );
       } else {
         await mutateComments();
@@ -131,7 +133,9 @@ export default function PatientTicketDetailPage() {
       setReply('');
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Failed');
-    } finally { setSending(false); }
+    } finally {
+      setSending(false);
+    }
   };
 
   if (loading) {
@@ -147,7 +151,7 @@ export default function PatientTicketDetailPage() {
             <div className="h-5 w-3/4 rounded bg-gray-200" />
           </div>
         </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-3">
+        <div className="space-y-3 rounded-xl border border-gray-200 bg-white p-5">
           <div className="h-3 w-32 rounded bg-gray-100" />
           <div className="h-4 w-full rounded bg-gray-200" />
           <div className="h-4 w-4/5 rounded bg-gray-200" />
@@ -166,14 +170,14 @@ export default function PatientTicketDetailPage() {
                   <div className="h-3 w-24 rounded bg-gray-200" />
                   <div className="h-3 w-12 rounded bg-gray-100" />
                 </div>
-                <div className="mt-2 pl-9 space-y-1.5">
+                <div className="mt-2 space-y-1.5 pl-9">
                   <div className="h-3 w-full rounded bg-gray-100" />
                   <div className="h-3 w-3/4 rounded bg-gray-100" />
                 </div>
               </div>
             ))}
           </div>
-          <div className="border-t border-gray-100 p-5 space-y-3">
+          <div className="space-y-3 border-t border-gray-100 p-5">
             <div className="h-20 w-full rounded-xl bg-gray-100" />
             <div className="flex justify-end">
               <div className="h-10 w-32 rounded-xl bg-gray-200" />
@@ -188,7 +192,9 @@ export default function PatientTicketDetailPage() {
     return (
       <div className="flex flex-col items-center py-16">
         <p className="text-gray-500">{error || 'Ticket not found'}</p>
-        <Link href="/patient-portal/support" className="mt-4 text-blue-600 hover:underline">Back to Support</Link>
+        <Link href="/patient-portal/support" className="mt-4 text-blue-600 hover:underline">
+          Back to Support
+        </Link>
       </div>
     );
   }
@@ -204,7 +210,9 @@ export default function PatientTicketDetailPage() {
         <div className="flex-1">
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-500">{ticket.ticketNumber}</span>
-            <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[ticket.status] || 'bg-gray-100 text-gray-700'}`}>
+            <span
+              className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[ticket.status] || 'bg-gray-100 text-gray-700'}`}
+            >
               {STATUS_LABELS[ticket.status] || ticket.status}
             </span>
           </div>
@@ -225,7 +233,9 @@ export default function PatientTicketDetailPage() {
             <CheckCircle className="h-4 w-4" />
             Resolution
           </div>
-          <div className="mt-2 whitespace-pre-wrap text-sm text-green-700">{ticket.resolutionNotes}</div>
+          <div className="mt-2 whitespace-pre-wrap text-sm text-green-700">
+            {ticket.resolutionNotes}
+          </div>
         </div>
       )}
 
@@ -249,8 +259,11 @@ export default function PatientTicketDetailPage() {
               return (
                 <div key={c.id} className={`px-5 py-4 ${isStaff ? 'bg-blue-50/50' : ''}`}>
                   <div className="flex items-center gap-2 text-sm">
-                    <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium ${isStaff ? 'bg-blue-200 text-blue-700' : 'bg-gray-200 text-gray-600'}`}>
-                      {c.author.firstName[0]}{c.author.lastName[0]}
+                    <span
+                      className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium ${isStaff ? 'bg-blue-200 text-blue-700' : 'bg-gray-200 text-gray-600'}`}
+                    >
+                      {c.author.firstName[0]}
+                      {c.author.lastName[0]}
                     </span>
                     <span className="font-medium text-gray-900">
                       {isStaff ? 'Support Team' : `${c.author.firstName} ${c.author.lastName}`}
@@ -258,7 +271,9 @@ export default function PatientTicketDetailPage() {
                     <span className="text-gray-400">&middot;</span>
                     <span className="text-gray-500">{formatRelative(c.createdAt)}</span>
                   </div>
-                  <div className="mt-2 whitespace-pre-wrap pl-9 text-sm text-gray-700">{c.comment}</div>
+                  <div className="mt-2 whitespace-pre-wrap pl-9 text-sm text-gray-700">
+                    {c.comment}
+                  </div>
                 </div>
               );
             })
@@ -270,7 +285,7 @@ export default function PatientTicketDetailPage() {
           <form onSubmit={handleReply} className="border-t border-gray-100 p-5">
             <textarea
               value={reply}
-              onChange={(e) => setReply(e.target.value)}
+              onChange={(e) => startTransition(() => setReply(e.target.value))}
               placeholder="Type your reply..."
               rows={3}
               className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -281,7 +296,11 @@ export default function PatientTicketDetailPage() {
                 disabled={sending || !reply.trim()}
                 className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
               >
-                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                {sending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
                 Send Reply
               </button>
             </div>

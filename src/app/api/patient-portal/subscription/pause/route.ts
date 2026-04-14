@@ -49,10 +49,7 @@ async function handler(req: NextRequest, user: AuthUser) {
     });
 
     if (!subscription) {
-      return NextResponse.json(
-        { error: 'No active subscription found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'No active subscription found' }, { status: 404 });
     }
 
     const result = await pauseSubscription({

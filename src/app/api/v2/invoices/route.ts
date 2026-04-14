@@ -135,7 +135,12 @@ async function getInvoicesHandler(req: NextRequest, user: AuthUser): Promise<Res
         } catch (decryptErr) {
           logger.warn('[v2 Invoices] Failed to decrypt patient PHI', {
             patientId: inv.patient?.id,
-            error: decryptErr instanceof Error ? (decryptErr instanceof Error ? decryptErr.message : String(decryptErr)) : String(decryptErr),
+            error:
+              decryptErr instanceof Error
+                ? decryptErr instanceof Error
+                  ? decryptErr.message
+                  : String(decryptErr)
+                : String(decryptErr),
           });
         }
       }
@@ -145,7 +150,10 @@ async function getInvoicesHandler(req: NextRequest, user: AuthUser): Promise<Res
     return NextResponse.json({ ...result, invoices });
   } catch (error: unknown) {
     logger.error('Failed to get invoices', error);
-    return NextResponse.json({ error: (error as any).message || 'Failed to get invoices' }, { status: 500 });
+    return NextResponse.json(
+      { error: (error as any).message || 'Failed to get invoices' },
+      { status: 500 }
+    );
   }
 }
 

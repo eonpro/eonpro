@@ -19,7 +19,8 @@ import { logger } from '@/lib/logger';
 import { BRAND } from '@/lib/constants/brand-assets';
 
 const fmtCurrency = (cents: number) => (cents / 100).toFixed(2);
-const fmtDate = (d: Date) => d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+const fmtDate = (d: Date) =>
+  d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 
 // ============================================================================
 // PDF Invoice (HTML string for server-side rendering)
@@ -110,11 +111,7 @@ export const billingExportService = {
   // Excel Report
   // ============================================================================
 
-  async generateExcelReport(
-    startDate: Date,
-    endDate: Date,
-    clinicId?: number
-  ): Promise<Buffer> {
+  async generateExcelReport(startDate: Date, endDate: Date, clinicId?: number): Promise<Buffer> {
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'EONPRO Platform';
     workbook.created = new Date();
@@ -135,7 +132,9 @@ export const billingExportService = {
     summarySheet.addRow([`Period: ${fmtDate(startDate)} - ${fmtDate(endDate)}`]);
     summarySheet.addRow([]);
     summarySheet.addRow(['Metric', 'Value']);
-    summarySheet.getRow(4).eachCell((cell) => { cell.style = headerStyle; });
+    summarySheet.getRow(4).eachCell((cell) => {
+      cell.style = headerStyle;
+    });
     summarySheet.addRow(['Prescription Fees', `$${fmtCurrency(feeBreakdown.prescriptionFees)}`]);
     summarySheet.addRow(['Transmission Fees', `$${fmtCurrency(feeBreakdown.transmissionFees)}`]);
     summarySheet.addRow(['Admin Fees', `$${fmtCurrency(feeBreakdown.adminFees)}`]);
@@ -174,7 +173,9 @@ export const billingExportService = {
       { header: 'Status', width: 14 },
       { header: 'Due Date', width: 14 },
     ];
-    invSheet.getRow(1).eachCell((cell) => { cell.style = headerStyle; });
+    invSheet.getRow(1).eachCell((cell) => {
+      cell.style = headerStyle;
+    });
 
     for (const inv of invoices) {
       invSheet.addRow([
@@ -200,7 +201,9 @@ export const billingExportService = {
       { header: 'Invoices', width: 12 },
       { header: 'Amount', width: 16 },
     ];
-    arSheet.getRow(1).eachCell((cell) => { cell.style = headerStyle; });
+    arSheet.getRow(1).eachCell((cell) => {
+      cell.style = headerStyle;
+    });
     for (const b of aging) {
       arSheet.addRow([b.label, b.range, b.invoiceCount, `$${fmtCurrency(b.amountCents)}`]);
     }
@@ -231,19 +234,31 @@ export const billingExportService = {
     ];
 
     for (const inv of invoices) {
-      const dt = new Date(inv.createdAt).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+      const dt = new Date(inv.createdAt).toLocaleDateString('en-US', {
+        month: '2-digit',
+        day: '2-digit',
+        year: 'numeric',
+      });
       const total = (inv.totalAmountCents / 100).toFixed(2);
 
-      lines.push(`TRNS\tINVOICE\t${dt}\tAccounts Receivable\t${inv.clinic.name}\t${total}\t${inv.invoiceNumber}\tPlatform fees`);
+      lines.push(
+        `TRNS\tINVOICE\t${dt}\tAccounts Receivable\t${inv.clinic.name}\t${total}\t${inv.invoiceNumber}\tPlatform fees`
+      );
 
       if (inv.prescriptionFeeTotal > 0) {
-        lines.push(`SPL\tINVOICE\t${dt}\tPrescription Fee Income\t${inv.clinic.name}\t-${fmtCurrency(inv.prescriptionFeeTotal)}\t${inv.invoiceNumber}\tRx fees (${inv.prescriptionCount})`);
+        lines.push(
+          `SPL\tINVOICE\t${dt}\tPrescription Fee Income\t${inv.clinic.name}\t-${fmtCurrency(inv.prescriptionFeeTotal)}\t${inv.invoiceNumber}\tRx fees (${inv.prescriptionCount})`
+        );
       }
       if (inv.transmissionFeeTotal > 0) {
-        lines.push(`SPL\tINVOICE\t${dt}\tTransmission Fee Income\t${inv.clinic.name}\t-${fmtCurrency(inv.transmissionFeeTotal)}\t${inv.invoiceNumber}\tTx fees (${inv.transmissionCount})`);
+        lines.push(
+          `SPL\tINVOICE\t${dt}\tTransmission Fee Income\t${inv.clinic.name}\t-${fmtCurrency(inv.transmissionFeeTotal)}\t${inv.invoiceNumber}\tTx fees (${inv.transmissionCount})`
+        );
       }
       if (inv.adminFeeTotal > 0) {
-        lines.push(`SPL\tINVOICE\t${dt}\tAdmin Fee Income\t${inv.clinic.name}\t-${fmtCurrency(inv.adminFeeTotal)}\t${inv.invoiceNumber}\tAdmin fees`);
+        lines.push(
+          `SPL\tINVOICE\t${dt}\tAdmin Fee Income\t${inv.clinic.name}\t-${fmtCurrency(inv.adminFeeTotal)}\t${inv.invoiceNumber}\tAdmin fees`
+        );
       }
 
       lines.push('ENDTRNS');
@@ -271,7 +286,19 @@ export const billingExportService = {
     });
 
     const escCSV = (s: string) => `"${s.replace(/"/g, '""')}"`;
-    const header = ['ContactName', 'EmailAddress', 'InvoiceNumber', 'InvoiceDate', 'DueDate', 'Description', 'Quantity', 'UnitAmount', 'AccountCode', 'TaxType', 'Currency'];
+    const header = [
+      'ContactName',
+      'EmailAddress',
+      'InvoiceNumber',
+      'InvoiceDate',
+      'DueDate',
+      'Description',
+      'Quantity',
+      'UnitAmount',
+      'AccountCode',
+      'TaxType',
+      'Currency',
+    ];
     const rows: string[] = [header.join(',')];
 
     for (const inv of invoices) {
@@ -280,25 +307,55 @@ export const billingExportService = {
       const due = new Date(inv.dueDate).toLocaleDateString('en-US');
 
       if (inv.prescriptionFeeTotal > 0) {
-        rows.push([
-          escCSV(inv.clinic.name), escCSV(email), inv.invoiceNumber, dt, due,
-          escCSV(`Medical Prescription Fees (${inv.prescriptionCount})`),
-          '1', fmtCurrency(inv.prescriptionFeeTotal), '200', 'Tax Exempt', 'USD',
-        ].join(','));
+        rows.push(
+          [
+            escCSV(inv.clinic.name),
+            escCSV(email),
+            inv.invoiceNumber,
+            dt,
+            due,
+            escCSV(`Medical Prescription Fees (${inv.prescriptionCount})`),
+            '1',
+            fmtCurrency(inv.prescriptionFeeTotal),
+            '200',
+            'Tax Exempt',
+            'USD',
+          ].join(',')
+        );
       }
       if (inv.transmissionFeeTotal > 0) {
-        rows.push([
-          escCSV(inv.clinic.name), escCSV(email), inv.invoiceNumber, dt, due,
-          escCSV(`Transmission Fees (${inv.transmissionCount})`),
-          '1', fmtCurrency(inv.transmissionFeeTotal), '200', 'Tax Exempt', 'USD',
-        ].join(','));
+        rows.push(
+          [
+            escCSV(inv.clinic.name),
+            escCSV(email),
+            inv.invoiceNumber,
+            dt,
+            due,
+            escCSV(`Transmission Fees (${inv.transmissionCount})`),
+            '1',
+            fmtCurrency(inv.transmissionFeeTotal),
+            '200',
+            'Tax Exempt',
+            'USD',
+          ].join(',')
+        );
       }
       if (inv.adminFeeTotal > 0) {
-        rows.push([
-          escCSV(inv.clinic.name), escCSV(email), inv.invoiceNumber, dt, due,
-          escCSV('Weekly Admin/Platform Fee'),
-          '1', fmtCurrency(inv.adminFeeTotal), '200', 'Tax Exempt', 'USD',
-        ].join(','));
+        rows.push(
+          [
+            escCSV(inv.clinic.name),
+            escCSV(email),
+            inv.invoiceNumber,
+            dt,
+            due,
+            escCSV('Weekly Admin/Platform Fee'),
+            '1',
+            fmtCurrency(inv.adminFeeTotal),
+            '200',
+            'Tax Exempt',
+            'USD',
+          ].join(',')
+        );
       }
     }
 
@@ -328,31 +385,52 @@ export const billingExportService = {
 
     const esc = (v: string | number | null | undefined) => {
       const s = String(v ?? '');
-      return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
+      return s.includes(',') || s.includes('"') || s.includes('\n')
+        ? `"${s.replace(/"/g, '""')}"`
+        : s;
     };
 
-    const header = ['Invoice #', 'Clinic', 'Billing Email', 'Period Start', 'Period End', 'Period Type',
-      'Rx Fees', 'Rx Count', 'Tx Fees', 'Tx Count', 'Admin Fees', 'Total', 'Paid', 'Balance', 'Status', 'Due Date', 'Created'];
+    const header = [
+      'Invoice #',
+      'Clinic',
+      'Billing Email',
+      'Period Start',
+      'Period End',
+      'Period Type',
+      'Rx Fees',
+      'Rx Count',
+      'Tx Fees',
+      'Tx Count',
+      'Admin Fees',
+      'Total',
+      'Paid',
+      'Balance',
+      'Status',
+      'Due Date',
+      'Created',
+    ];
 
-    const rows = invoices.map((inv) => [
-      inv.invoiceNumber,
-      esc(inv.clinic.name),
-      esc(inv.config.billingEmail ?? ''),
-      fmtDate(inv.periodStart),
-      fmtDate(inv.periodEnd),
-      inv.periodType,
-      fmtCurrency(inv.prescriptionFeeTotal),
-      inv.prescriptionCount,
-      fmtCurrency(inv.transmissionFeeTotal),
-      inv.transmissionCount,
-      fmtCurrency(inv.adminFeeTotal),
-      fmtCurrency(inv.totalAmountCents),
-      fmtCurrency(inv.paidAmountCents ?? 0),
-      fmtCurrency(inv.totalAmountCents - (inv.paidAmountCents ?? 0)),
-      inv.status,
-      fmtDate(inv.dueDate),
-      fmtDate(inv.createdAt),
-    ].join(','));
+    const rows = invoices.map((inv) =>
+      [
+        inv.invoiceNumber,
+        esc(inv.clinic.name),
+        esc(inv.config.billingEmail ?? ''),
+        fmtDate(inv.periodStart),
+        fmtDate(inv.periodEnd),
+        inv.periodType,
+        fmtCurrency(inv.prescriptionFeeTotal),
+        inv.prescriptionCount,
+        fmtCurrency(inv.transmissionFeeTotal),
+        inv.transmissionCount,
+        fmtCurrency(inv.adminFeeTotal),
+        fmtCurrency(inv.totalAmountCents),
+        fmtCurrency(inv.paidAmountCents ?? 0),
+        fmtCurrency(inv.totalAmountCents - (inv.paidAmountCents ?? 0)),
+        inv.status,
+        fmtDate(inv.dueDate),
+        fmtDate(inv.createdAt),
+      ].join(',')
+    );
 
     return [header.join(','), ...rows].join('\n');
   },
@@ -366,12 +444,11 @@ export const billingExportService = {
     startDate: Date,
     endDate: Date
   ): Promise<string> {
-    const { getStripeForClinic, getStripeForPlatform, withConnectedAccount } = await import('@/lib/stripe/connect');
+    const { getStripeForClinic, getStripeForPlatform, withConnectedAccount } =
+      await import('@/lib/stripe/connect');
     const Stripe = (await import('stripe')).default;
 
-    const context = clinicId
-      ? await getStripeForClinic(clinicId)
-      : getStripeForPlatform();
+    const context = clinicId ? await getStripeForClinic(clinicId) : getStripeForPlatform();
 
     const { stripe } = context;
     const connOpts = context.stripeAccountId ? { stripeAccount: context.stripeAccountId } : {};
@@ -400,13 +477,25 @@ export const billingExportService = {
 
     const esc = (v: string | number | null | undefined) => {
       const s = String(v ?? '');
-      return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
+      return s.includes(',') || s.includes('"') || s.includes('\n')
+        ? `"${s.replace(/"/g, '""')}"`
+        : s;
     };
 
     const header = [
-      'Date', 'Transaction ID', 'Type', 'Description', 'Gross Amount', 'Stripe Fee',
-      'Net Amount', 'Currency', 'Source ID', 'Payout ID', 'Customer Email',
-      'Fee Breakdown', 'Account Code',
+      'Date',
+      'Transaction ID',
+      'Type',
+      'Description',
+      'Gross Amount',
+      'Stripe Fee',
+      'Net Amount',
+      'Currency',
+      'Source ID',
+      'Payout ID',
+      'Customer Email',
+      'Fee Breakdown',
+      'Account Code',
     ];
 
     const rows = allTxns.map((tx) => {

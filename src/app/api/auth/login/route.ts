@@ -22,7 +22,11 @@ import { JWT_SECRET, JWT_REFRESH_SECRET, AUTH_CONFIG } from '@/lib/auth/config';
 import { createSessionRecord } from '@/lib/auth/session-manager';
 import { authRateLimiter } from '@/lib/security/enterprise-rate-limiter';
 import { logger } from '@/lib/logger';
-import { getRequestHost, getRequestHostWithUrlFallback, shouldUseEonproCookieDomain } from '@/lib/request-host';
+import {
+  getRequestHost,
+  getRequestHostWithUrlFallback,
+  shouldUseEonproCookieDomain,
+} from '@/lib/request-host';
 import { hashRefreshToken } from '@/lib/auth/refresh-token-rotation';
 import { decryptPHI } from '@/lib/security/phi-encryption';
 import { withApiHandler } from '@/domains/shared/errors';
@@ -36,7 +40,17 @@ const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(1, 'Password is required'),
   role: z
-    .enum(['patient', 'provider', 'admin', 'super_admin', 'affiliate', 'staff', 'support', 'pharmacy_rep', 'sales_rep'])
+    .enum([
+      'patient',
+      'provider',
+      'admin',
+      'super_admin',
+      'affiliate',
+      'staff',
+      'support',
+      'pharmacy_rep',
+      'sales_rep',
+    ])
     .default('patient'),
   clinicId: z.number().nullable().optional(), // Accept null, undefined, or number
   captchaToken: z.string().optional(), // For CAPTCHA verification when required
@@ -56,7 +70,11 @@ const loginSchema = z.object({
  * Supports multi-clinic users - returns clinics array for selection
  */
 /** Derive clinicId from request context (header from middleware or body). Avoids null. */
-function getClinicIdFromRequest(req: NextRequest, selectedClinicId?: number | null, userClinicId?: number | null): number | null {
+function getClinicIdFromRequest(
+  req: NextRequest,
+  selectedClinicId?: number | null,
+  userClinicId?: number | null
+): number | null {
   const fromHeader = req.headers.get('x-clinic-id');
   if (fromHeader) {
     const n = parseInt(fromHeader, 10);
@@ -96,362 +114,308 @@ async function loginHandler(req: NextRequest) {
   // after authentication. Bypass the automatic clinic filter for all queries
   // in this handler; clinic isolation is enforced manually via activeClinicId.
   return withoutClinicFilter(async () => {
-  const startTime = Date.now();
-  let debugInfo: Record<string, unknown> = { step: 'start' };
-  const clientIp = authRateLimiter.getClientIp(req);
-  const requestId = req.headers.get('x-request-id') || crypto.randomUUID();
+    const startTime = Date.now();
+    let debugInfo: Record<string, unknown> = { step: 'start' };
+    const clientIp = authRateLimiter.getClientIp(req);
+    const requestId = req.headers.get('x-request-id') || crypto.randomUUID();
 
-  try {
-    const body = await req.json();
+    try {
+      const body = await req.json();
 
-    // Validate input with Zod schema
-    const validationResult = loginSchema.safeParse(body);
-    if (!validationResult.success) {
-      return NextResponse.json(
-        { error: 'Invalid email or password', details: validationResult.error.flatten() },
-        { status: 400 }
-      );
-    }
+      // Validate input with Zod schema
+      const validationResult = loginSchema.safeParse(body);
+      if (!validationResult.success) {
+        return NextResponse.json(
+          { error: 'Invalid email or password', details: validationResult.error.flatten() },
+          { status: 400 }
+        );
+      }
 
-    const {
-      email,
-      password,
-      role,
-      clinicId: selectedClinicId,
-      captchaToken,
-      deviceFingerprint,
-    } = validationResult.data;
+      const {
+        email,
+        password,
+        role,
+        clinicId: selectedClinicId,
+        captchaToken,
+        deviceFingerprint,
+      } = validationResult.data;
 
-    // ============================================================================
-    // ENTERPRISE RATE LIMITING - Check before any database operations
-    // ============================================================================
-    const rateLimitResult = await authRateLimiter.checkAndRecord(clientIp, email, false);
+      // ============================================================================
+      // ENTERPRISE RATE LIMITING - Check before any database operations
+      // ============================================================================
+      const rateLimitResult = await authRateLimiter.checkAndRecord(clientIp, email, false);
 
-    if (!rateLimitResult.allowed) {
-      logger.warn('[Login] Rate limit exceeded', {
-        ip: clientIp,
-        email: email.substring(0, 3) + '***',
-        attempts: rateLimitResult.attempts,
-        securityLevel: rateLimitResult.securityLevel,
-        isLocked: rateLimitResult.isLocked,
-      });
-      prisma.loginAudit
-        .create({
-          data: createLoginAuditData(email, 'FAILURE', {
-            failureReason: 'Rate limit exceeded',
-            ipAddress: clientIp,
-            userAgent: req.headers.get('user-agent') || undefined,
-            clinicId: getClinicIdFromRequest(req, validationResult.data.clinicId),
-            deviceFingerprint: validationResult.data.deviceFingerprint || undefined,
-            requestId,
-          }),
-        })
-        .catch((e) => logger.debug('[Login] LoginAudit create failed', { error: e }));
-
-      // Return progressive security response
-      return NextResponse.json(
-        {
-          error: rateLimitResult.message,
-          code: 'RATE_LIMIT_EXCEEDED',
+      if (!rateLimitResult.allowed) {
+        logger.warn('[Login] Rate limit exceeded', {
+          ip: clientIp,
+          email: email.substring(0, 3) + '***',
+          attempts: rateLimitResult.attempts,
           securityLevel: rateLimitResult.securityLevel,
-          requiresCaptcha: rateLimitResult.requiresCaptcha,
-          requiresEmailVerification: rateLimitResult.requiresEmailVerification,
           isLocked: rateLimitResult.isLocked,
-          unlockMethods: rateLimitResult.unlockMethods,
-          remainingAttempts: rateLimitResult.remainingAttempts,
-          retryAfter: rateLimitResult.resetInSeconds,
-        },
-        {
-          status: 429,
-          headers: {
-            'X-RateLimit-Remaining': rateLimitResult.remainingAttempts.toString(),
-            'X-RateLimit-Reset': new Date(
-              Date.now() + rateLimitResult.resetInSeconds * 1000
-            ).toISOString(),
-            'Retry-After': rateLimitResult.resetInSeconds.toString(),
-            'X-Security-Level': rateLimitResult.securityLevel.toString(),
+        });
+        prisma.loginAudit
+          .create({
+            data: createLoginAuditData(email, 'FAILURE', {
+              failureReason: 'Rate limit exceeded',
+              ipAddress: clientIp,
+              userAgent: req.headers.get('user-agent') || undefined,
+              clinicId: getClinicIdFromRequest(req, validationResult.data.clinicId),
+              deviceFingerprint: validationResult.data.deviceFingerprint || undefined,
+              requestId,
+            }),
+          })
+          .catch((e) => logger.debug('[Login] LoginAudit create failed', { error: e }));
+
+        // Return progressive security response
+        return NextResponse.json(
+          {
+            error: rateLimitResult.message,
+            code: 'RATE_LIMIT_EXCEEDED',
+            securityLevel: rateLimitResult.securityLevel,
+            requiresCaptcha: rateLimitResult.requiresCaptcha,
+            requiresEmailVerification: rateLimitResult.requiresEmailVerification,
+            isLocked: rateLimitResult.isLocked,
+            unlockMethods: rateLimitResult.unlockMethods,
+            remainingAttempts: rateLimitResult.remainingAttempts,
+            retryAfter: rateLimitResult.resetInSeconds,
           },
-        }
-      );
-    }
-
-    // TODO: Verify CAPTCHA if required by security level
-    // if (rateLimitResult.requiresCaptcha && !captchaToken) {
-    //   return NextResponse.json(
-    //     {
-    //       error: 'Security verification required',
-    //       code: 'CAPTCHA_REQUIRED',
-    //       requiresCaptcha: true,
-    //       remainingAttempts: rateLimitResult.remainingAttempts,
-    //     },
-    //     { status: 403 }
-    //   );
-    // }
-
-    // Debug info only in development
-    if (process.env.NODE_ENV === 'development') {
-      debugInfo = { step: 'parsed_body', email, role, hasPassword: !!password };
-      logger.debug('[Login] Starting login', debugInfo);
-    }
-
-    // Find user from unified User table first
-    // Define a flexible type that can hold various user shapes from different queries
-    type FlexibleUser = Awaited<ReturnType<typeof prisma.user.findUnique>> & {
-      provider?: unknown;
-      patient?: unknown;
-      permissions?: unknown;
-      features?: unknown;
-    };
-
-    let user: FlexibleUser | null = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
-      include: {
-        provider: true,
-        patient: true,
-      },
-    });
-
-    // Track whether the user was found in the unified User table.
-    // Legacy mock users (Provider/Patient table only) lack a real User row,
-    // so operations like failedLoginAttempts and userSession must be skipped.
-    let isRealUserRecord = !!user;
-
-    // Debug logging only in development
-    if (process.env.NODE_ENV === 'development') {
-      debugInfo.step = 'user_found';
-      debugInfo.userFound = !!user;
-      logger.debug('[Login] User lookup result', { found: !!user, role: user?.role });
-    }
-
-    let passwordHash: string | null = null;
-
-    if (user) {
-      // User exists in unified system
-      passwordHash = user.passwordHash;
-    } else {
-      // Fallback to legacy tables for backward compatibility
-      switch (role) {
-        case 'provider':
-          // Legacy provider lookup - use basePrisma to bypass clinic filtering
-          // since providers can be shared across clinics
-          const provider = await basePrisma.provider.findFirst({
-            where: { email: email.toLowerCase() },
-          });
-          if (provider) {
-            // Map provider to user-like structure for token generation
-            const providerData = provider as typeof provider & {
-              passwordHash?: string;
-              firstName?: string;
-              lastName?: string;
-              clinicId?: number;
-            };
-            user = {
-              id: providerData.id,
-              email: providerData.email || '',
-              firstName: providerData.firstName || '',
-              lastName: providerData.lastName || '',
-              role: 'provider',
-              status: 'ACTIVE',
-              providerId: providerData.id,
-              clinicId: providerData.clinicId,
-            } as unknown as FlexibleUser;
-            passwordHash = providerData.passwordHash || null;
+          {
+            status: 429,
+            headers: {
+              'X-RateLimit-Remaining': rateLimitResult.remainingAttempts.toString(),
+              'X-RateLimit-Reset': new Date(
+                Date.now() + rateLimitResult.resetInSeconds * 1000
+              ).toISOString(),
+              'Retry-After': rateLimitResult.resetInSeconds.toString(),
+              'X-Security-Level': rateLimitResult.securityLevel.toString(),
+            },
           }
-          break;
+        );
+      }
 
-        case 'patient':
-          // Patient login from legacy Patient table — use basePrisma (no clinic context during login)
-          const patientRecord = await basePrisma.patient.findFirst({
-            where: { email: email.toLowerCase() },
-          });
-          // Note: Patients typically don't have passwords in legacy system
-          // They use email magic link or are created via User table now
-          if (patientRecord) {
-            // Check if there's an associated User record
-            const patientUser = await prisma.user.findFirst({
-              where: { patientId: patientRecord.id },
+      // TODO: Verify CAPTCHA if required by security level
+      // if (rateLimitResult.requiresCaptcha && !captchaToken) {
+      //   return NextResponse.json(
+      //     {
+      //       error: 'Security verification required',
+      //       code: 'CAPTCHA_REQUIRED',
+      //       requiresCaptcha: true,
+      //       remainingAttempts: rateLimitResult.remainingAttempts,
+      //     },
+      //     { status: 403 }
+      //   );
+      // }
+
+      // Debug info only in development
+      if (process.env.NODE_ENV === 'development') {
+        debugInfo = { step: 'parsed_body', email, role, hasPassword: !!password };
+        logger.debug('[Login] Starting login', debugInfo);
+      }
+
+      // Find user from unified User table first
+      // Define a flexible type that can hold various user shapes from different queries
+      type FlexibleUser = Awaited<ReturnType<typeof prisma.user.findUnique>> & {
+        provider?: unknown;
+        patient?: unknown;
+        permissions?: unknown;
+        features?: unknown;
+      };
+
+      let user: FlexibleUser | null = await prisma.user.findUnique({
+        where: { email: email.toLowerCase() },
+        include: {
+          provider: true,
+          patient: true,
+        },
+      });
+
+      // Track whether the user was found in the unified User table.
+      // Legacy mock users (Provider/Patient table only) lack a real User row,
+      // so operations like failedLoginAttempts and userSession must be skipped.
+      let isRealUserRecord = !!user;
+
+      // Debug logging only in development
+      if (process.env.NODE_ENV === 'development') {
+        debugInfo.step = 'user_found';
+        debugInfo.userFound = !!user;
+        logger.debug('[Login] User lookup result', { found: !!user, role: user?.role });
+      }
+
+      let passwordHash: string | null = null;
+
+      if (user) {
+        // User exists in unified system
+        passwordHash = user.passwordHash;
+      } else {
+        // Fallback to legacy tables for backward compatibility
+        switch (role) {
+          case 'provider':
+            // Legacy provider lookup - use basePrisma to bypass clinic filtering
+            // since providers can be shared across clinics
+            const provider = await basePrisma.provider.findFirst({
+              where: { email: email.toLowerCase() },
             });
-            if (patientUser) {
-              user = patientUser as FlexibleUser;
-              passwordHash = patientUser.passwordHash;
+            if (provider) {
+              // Map provider to user-like structure for token generation
+              const providerData = provider as typeof provider & {
+                passwordHash?: string;
+                firstName?: string;
+                lastName?: string;
+                clinicId?: number;
+              };
+              user = {
+                id: providerData.id,
+                email: providerData.email || '',
+                firstName: providerData.firstName || '',
+                lastName: providerData.lastName || '',
+                role: 'provider',
+                status: 'ACTIVE',
+                providerId: providerData.id,
+                clinicId: providerData.clinicId,
+              } as unknown as FlexibleUser;
+              passwordHash = providerData.passwordHash || null;
+            }
+            break;
+
+          case 'patient':
+            // Patient login from legacy Patient table — use basePrisma (no clinic context during login)
+            const patientRecord = await basePrisma.patient.findFirst({
+              where: { email: email.toLowerCase() },
+            });
+            // Note: Patients typically don't have passwords in legacy system
+            // They use email magic link or are created via User table now
+            if (patientRecord) {
+              // Check if there's an associated User record
+              const patientUser = await prisma.user.findFirst({
+                where: { patientId: patientRecord.id },
+              });
+              if (patientUser) {
+                user = patientUser as FlexibleUser;
+                passwordHash = patientUser.passwordHash;
+                isRealUserRecord = true;
+              }
+            }
+            break;
+
+          case 'admin':
+          case 'super_admin':
+            // SECURITY: Admin users must exist in the database
+            // No hardcoded credentials - all admins must be created via proper user management
+            const adminUser = await prisma.user.findFirst({
+              where: {
+                email: email.toLowerCase(),
+                role: { in: ['ADMIN', 'SUPER_ADMIN'] },
+              },
+              include: {
+                provider: true,
+              },
+            });
+            if (adminUser) {
+              user = adminUser as FlexibleUser;
+              passwordHash = adminUser.passwordHash;
               isRealUserRecord = true;
             }
-          }
-          break;
+            break;
 
-        case 'admin':
-        case 'super_admin':
-          // SECURITY: Admin users must exist in the database
-          // No hardcoded credentials - all admins must be created via proper user management
+          case 'staff':
+          case 'support':
+          case 'pharmacy_rep':
+          case 'sales_rep':
+            // Staff, support, pharmacy reps, and sales reps
+            const staffUser = await prisma.user.findFirst({
+              where: {
+                email: email.toLowerCase(),
+                role: { in: ['STAFF', 'SUPPORT', 'PHARMACY_REP', 'SALES_REP'] },
+              },
+            });
+            if (staffUser) {
+              user = staffUser as FlexibleUser;
+              passwordHash = staffUser.passwordHash;
+              isRealUserRecord = true;
+            }
+            break;
+
+          default:
+            // For any unrecognized role, try to find user by email only
+            // This provides fallback compatibility
+            break;
+        }
+      }
+
+      // When frontend doesn't send role (e.g. main login page), default is 'patient'
+      // so legacy providers/admins would not be found. Try legacy lookups by email once.
+      if (!user) {
+        const legacyProvider = await basePrisma.provider.findFirst({
+          where: { email: email.toLowerCase() },
+        });
+        if (legacyProvider) {
+          const providerData = legacyProvider as typeof legacyProvider & {
+            passwordHash?: string;
+            firstName?: string;
+            lastName?: string;
+            clinicId?: number;
+          };
+          user = {
+            id: providerData.id,
+            email: providerData.email || '',
+            firstName: providerData.firstName || '',
+            lastName: providerData.lastName || '',
+            role: 'provider',
+            status: 'ACTIVE',
+            providerId: providerData.id,
+            clinicId: providerData.clinicId,
+          } as unknown as FlexibleUser;
+          passwordHash = providerData.passwordHash || null;
+        }
+        if (!user) {
           const adminUser = await prisma.user.findFirst({
             where: {
               email: email.toLowerCase(),
               role: { in: ['ADMIN', 'SUPER_ADMIN'] },
             },
-            include: {
-              provider: true,
-            },
+            include: { provider: true },
           });
           if (adminUser) {
             user = adminUser as FlexibleUser;
             passwordHash = adminUser.passwordHash;
             isRealUserRecord = true;
           }
-          break;
-
-        case 'staff':
-        case 'support':
-        case 'pharmacy_rep':
-        case 'sales_rep':
-          // Staff, support, pharmacy reps, and sales reps
-          const staffUser = await prisma.user.findFirst({
-            where: {
-              email: email.toLowerCase(),
-              role: { in: ['STAFF', 'SUPPORT', 'PHARMACY_REP', 'SALES_REP'] },
-            },
-          });
-          if (staffUser) {
-            user = staffUser as FlexibleUser;
-            passwordHash = staffUser.passwordHash;
-            isRealUserRecord = true;
-          }
-          break;
-
-        default:
-          // For any unrecognized role, try to find user by email only
-          // This provides fallback compatibility
-          break;
+        }
       }
-    }
 
-    // When frontend doesn't send role (e.g. main login page), default is 'patient'
-    // so legacy providers/admins would not be found. Try legacy lookups by email once.
-    if (!user) {
-      const legacyProvider = await basePrisma.provider.findFirst({
-        where: { email: email.toLowerCase() },
-      });
-      if (legacyProvider) {
-        const providerData = legacyProvider as typeof legacyProvider & {
-          passwordHash?: string;
-          firstName?: string;
-          lastName?: string;
-          clinicId?: number;
-        };
-        user = {
-          id: providerData.id,
-          email: providerData.email || '',
-          firstName: providerData.firstName || '',
-          lastName: providerData.lastName || '',
-          role: 'provider',
-          status: 'ACTIVE',
-          providerId: providerData.id,
-          clinicId: providerData.clinicId,
-        } as unknown as FlexibleUser;
-        passwordHash = providerData.passwordHash || null;
-      }
+      const auditClinicId = () =>
+        getClinicIdFromRequest(req, selectedClinicId, (user as { clinicId?: number })?.clinicId);
+      const auditIp = clientIp;
+      const auditUserAgent = req.headers.get('user-agent') || undefined;
+
+      // Check if user exists (generic 401 to avoid enumeration)
       if (!user) {
-        const adminUser = await prisma.user.findFirst({
-          where: {
-            email: email.toLowerCase(),
-            role: { in: ['ADMIN', 'SUPER_ADMIN'] },
-          },
-          include: { provider: true },
-        });
-        if (adminUser) {
-          user = adminUser as FlexibleUser;
-          passwordHash = adminUser.passwordHash;
-          isRealUserRecord = true;
-        }
-      }
-    }
-
-    const auditClinicId = () => getClinicIdFromRequest(req, selectedClinicId, (user as { clinicId?: number })?.clinicId);
-    const auditIp = clientIp;
-    const auditUserAgent = req.headers.get('user-agent') || undefined;
-
-    // Check if user exists (generic 401 to avoid enumeration)
-    if (!user) {
-      logger.warn('Failed login attempt', { emailPrefix: email.substring(0, 3) + '***', role });
-      prisma.loginAudit
-        .create({
-          data: createLoginAuditData(email, 'FAILURE', {
-            failureReason: 'Invalid credentials',
-            ipAddress: auditIp,
-            userAgent: auditUserAgent,
-            clinicId: getClinicIdFromRequest(req, selectedClinicId),
-            deviceFingerprint: deviceFingerprint || undefined,
-            requestId,
-          }),
-        })
-        .catch((e) => logger.debug('[Login] LoginAudit create failed', { error: e }));
-      return NextResponse.json({ error: 'Incorrect email or password' }, { status: 401 });
-    }
-
-    // Durable lockout: check User.lockedUntil (generic 401 to avoid enumeration)
-    const userWithLock = user as typeof user & { lockedUntil?: Date | null };
-    if (userWithLock.lockedUntil && new Date(userWithLock.lockedUntil) > new Date()) {
-      logger.warn('[Login] Locked account attempt', { emailPrefix: email.substring(0, 3) + '***' });
-      prisma.loginAudit
-        .create({
-          data: createLoginAuditData(email, 'LOCKOUT', {
-            failureReason: 'Account locked',
-            ipAddress: auditIp,
-            userAgent: auditUserAgent,
-            clinicId: auditClinicId(),
-            deviceFingerprint: deviceFingerprint || undefined,
-            requestId,
-          }),
-        })
-        .catch((e) => logger.debug('[Login] LoginAudit create failed', { error: e }));
-      return NextResponse.json({ error: 'Incorrect email or password' }, { status: 401 });
-    }
-
-    // Password is REQUIRED — reject accounts without a stored hash (legacy migration gap)
-    if (!passwordHash) {
-      logger.security('Login rejected: account has no password hash', {
-        userId: user?.id,
-        role,
-        requestId,
-      });
-      return NextResponse.json({ error: 'Incorrect email or password' }, { status: 401 });
-    }
-
-    // Verify password; atomic lockout via transaction
-    {
-      const isValid = await bcrypt.compare(password, passwordHash);
-      if (!isValid) {
-        logger.warn('Invalid password for login attempt', {
-          emailPrefix: email.substring(0, 3) + '***',
-          role,
-          isRealUserRecord,
-        });
-
-        // Only update failedLoginAttempts for real User table records.
-        // Legacy mock users (Provider/Patient table) don't have a User row,
-        // so the update would throw P2025 "Record to update not found".
-        let failedAttempts = 0;
-        if (isRealUserRecord) {
-          const updated = await prisma.$transaction(async (tx) => {
-            const u = await tx.user.update({
-              where: { id: user!.id },
-              data: { failedLoginAttempts: { increment: 1 } },
-            });
-            const nextCount = u.failedLoginAttempts;
-            if (nextCount >= AUTH_LOCKOUT_AFTER_ATTEMPTS) {
-              await tx.user.update({
-                where: { id: user!.id },
-                data: { lockedUntil: new Date(Date.now() + LOCKOUT_DURATION_MS) },
-              });
-            }
-            return u;
-          }, { timeout: 15000 });
-          failedAttempts = updated.failedLoginAttempts;
-        }
-
+        logger.warn('Failed login attempt', { emailPrefix: email.substring(0, 3) + '***', role });
         prisma.loginAudit
           .create({
-            data: createLoginAuditData(email, failedAttempts >= AUTH_LOCKOUT_AFTER_ATTEMPTS ? 'LOCKOUT' : 'FAILURE', {
+            data: createLoginAuditData(email, 'FAILURE', {
               failureReason: 'Invalid credentials',
+              ipAddress: auditIp,
+              userAgent: auditUserAgent,
+              clinicId: getClinicIdFromRequest(req, selectedClinicId),
+              deviceFingerprint: deviceFingerprint || undefined,
+              requestId,
+            }),
+          })
+          .catch((e) => logger.debug('[Login] LoginAudit create failed', { error: e }));
+        return NextResponse.json({ error: 'Incorrect email or password' }, { status: 401 });
+      }
+
+      // Durable lockout: check User.lockedUntil (generic 401 to avoid enumeration)
+      const userWithLock = user as typeof user & { lockedUntil?: Date | null };
+      if (userWithLock.lockedUntil && new Date(userWithLock.lockedUntil) > new Date()) {
+        logger.warn('[Login] Locked account attempt', {
+          emailPrefix: email.substring(0, 3) + '***',
+        });
+        prisma.loginAudit
+          .create({
+            data: createLoginAuditData(email, 'LOCKOUT', {
+              failureReason: 'Account locked',
               ipAddress: auditIp,
               userAgent: auditUserAgent,
               clinicId: auditClinicId(),
@@ -460,151 +424,160 @@ async function loginHandler(req: NextRequest) {
             }),
           })
           .catch((e) => logger.debug('[Login] LoginAudit create failed', { error: e }));
+        return NextResponse.json({ error: 'Incorrect email or password' }, { status: 401 });
+      }
 
+      // Password is REQUIRED — reject accounts without a stored hash (legacy migration gap)
+      if (!passwordHash) {
+        logger.security('Login rejected: account has no password hash', {
+          userId: user?.id,
+          role,
+          requestId,
+        });
+        return NextResponse.json({ error: 'Incorrect email or password' }, { status: 401 });
+      }
+
+      // Verify password; atomic lockout via transaction
+      {
+        const isValid = await bcrypt.compare(password, passwordHash);
+        if (!isValid) {
+          logger.warn('Invalid password for login attempt', {
+            emailPrefix: email.substring(0, 3) + '***',
+            role,
+            isRealUserRecord,
+          });
+
+          // Only update failedLoginAttempts for real User table records.
+          // Legacy mock users (Provider/Patient table) don't have a User row,
+          // so the update would throw P2025 "Record to update not found".
+          let failedAttempts = 0;
+          if (isRealUserRecord) {
+            const updated = await prisma.$transaction(
+              async (tx) => {
+                const u = await tx.user.update({
+                  where: { id: user!.id },
+                  data: { failedLoginAttempts: { increment: 1 } },
+                });
+                const nextCount = u.failedLoginAttempts;
+                if (nextCount >= AUTH_LOCKOUT_AFTER_ATTEMPTS) {
+                  await tx.user.update({
+                    where: { id: user!.id },
+                    data: { lockedUntil: new Date(Date.now() + LOCKOUT_DURATION_MS) },
+                  });
+                }
+                return u;
+              },
+              { timeout: 15000 }
+            );
+            failedAttempts = updated.failedLoginAttempts;
+          }
+
+          prisma.loginAudit
+            .create({
+              data: createLoginAuditData(
+                email,
+                failedAttempts >= AUTH_LOCKOUT_AFTER_ATTEMPTS ? 'LOCKOUT' : 'FAILURE',
+                {
+                  failureReason: 'Invalid credentials',
+                  ipAddress: auditIp,
+                  userAgent: auditUserAgent,
+                  clinicId: auditClinicId(),
+                  deviceFingerprint: deviceFingerprint || undefined,
+                  requestId,
+                }
+              ),
+            })
+            .catch((e) => logger.debug('[Login] LoginAudit create failed', { error: e }));
+
+          return NextResponse.json(
+            {
+              error: 'Incorrect email or password',
+              remainingAttempts: rateLimitResult.remainingAttempts - 1,
+              requiresCaptcha: rateLimitResult.requiresCaptcha,
+              securityLevel: rateLimitResult.securityLevel,
+            },
+            {
+              status: 401,
+              headers: {
+                'X-RateLimit-Remaining': Math.max(
+                  0,
+                  rateLimitResult.remainingAttempts - 1
+                ).toString(),
+                'X-Security-Level': rateLimitResult.securityLevel.toString(),
+              },
+            }
+          );
+        }
+      }
+
+      // ============================================================================
+      // SUCCESS - Clear rate limit for this email/IP combination (non-blocking)
+      // ============================================================================
+      try {
+        await authRateLimiter.clearRateLimit(clientIp, email);
+        logger.info('[Login] Rate limit cleared on successful login', {
+          ip: clientIp,
+          email: email.substring(0, 3) + '***',
+        });
+      } catch (clearErr: unknown) {
+        logger.warn('[Login] Rate limit clear failed (login continues)', {
+          error: clearErr instanceof Error ? clearErr.message : 'Unknown error',
+        });
+      }
+
+      // Check if email is verified for patients
+      const userWithEmail = user as typeof user & { emailVerified?: boolean };
+      if (user.role === 'PATIENT' && userWithEmail.emailVerified === false) {
+        logger.warn('Unverified email login attempt', {
+          emailPrefix: email.substring(0, 3) + '***',
+        });
         return NextResponse.json(
           {
-            error: 'Incorrect email or password',
-            remainingAttempts: rateLimitResult.remainingAttempts - 1,
-            requiresCaptcha: rateLimitResult.requiresCaptcha,
-            securityLevel: rateLimitResult.securityLevel,
+            error: 'Please verify your email before logging in.',
+            code: 'EMAIL_NOT_VERIFIED',
+            email: user.email,
           },
-          {
-            status: 401,
-            headers: {
-              'X-RateLimit-Remaining': Math.max(0, rateLimitResult.remainingAttempts - 1).toString(),
-              'X-Security-Level': rateLimitResult.securityLevel.toString(),
-            },
-          }
+          { status: 403 }
         );
       }
-    }
 
-    // ============================================================================
-    // SUCCESS - Clear rate limit for this email/IP combination (non-blocking)
-    // ============================================================================
-    try {
-      await authRateLimiter.clearRateLimit(clientIp, email);
-      logger.info('[Login] Rate limit cleared on successful login', {
-        ip: clientIp,
-        email: email.substring(0, 3) + '***',
-      });
-    } catch (clearErr: unknown) {
-      logger.warn('[Login] Rate limit clear failed (login continues)', {
-        error: clearErr instanceof Error ? clearErr.message : 'Unknown error',
-      });
-    }
+      // Normalize role to lowercase for consistency (Prisma enum may be string e.g. SUPER_ADMIN)
+      const userRole = String(user.role ?? role).toLowerCase();
 
-    // Check if email is verified for patients
-    const userWithEmail = user as typeof user & { emailVerified?: boolean };
-    if (user.role === 'PATIENT' && userWithEmail.emailVerified === false) {
-      logger.warn('Unverified email login attempt', { emailPrefix: email.substring(0, 3) + '***' });
-      return NextResponse.json(
-        {
-          error: 'Please verify your email before logging in.',
-          code: 'EMAIL_NOT_VERIFIED',
-          email: user.email,
-        },
-        { status: 403 }
-      );
-    }
+      // Fetch user's clinics for multi-clinic support
+      let clinics: Array<{
+        id: number;
+        name: string;
+        subdomain: string | null;
+        logoUrl: string | null;
+        iconUrl: string | null;
+        faviconUrl: string | null;
+        role: string;
+        isPrimary: boolean;
+      }> = [];
 
-    // Normalize role to lowercase for consistency (Prisma enum may be string e.g. SUPER_ADMIN)
-    const userRole = String(user.role ?? role).toLowerCase();
-
-    // Fetch user's clinics for multi-clinic support
-    let clinics: Array<{
-      id: number;
-      name: string;
-      subdomain: string | null;
-      logoUrl: string | null;
-      iconUrl: string | null;
-      faviconUrl: string | null;
-      role: string;
-      isPrimary: boolean;
-    }> = [];
-
-    // Fetch primary clinic and additional clinics in parallel
-    const [primaryClinic, userClinicsResult] = await Promise.all([
-      user.clinicId
-        ? prisma.clinic.findUnique({
-            where: { id: user.clinicId },
-            select: {
-              id: true,
-              name: true,
-              subdomain: true,
-              logoUrl: true,
-              iconUrl: true,
-              faviconUrl: true,
+      // Fetch primary clinic and additional clinics in parallel
+      const [primaryClinic, userClinicsResult] = await Promise.all([
+        user.clinicId
+          ? prisma.clinic.findUnique({
+              where: { id: user.clinicId },
+              select: {
+                id: true,
+                name: true,
+                subdomain: true,
+                logoUrl: true,
+                iconUrl: true,
+                faviconUrl: true,
+              },
+            })
+          : Promise.resolve(null),
+        prisma.userClinic
+          .findMany({
+            where: {
+              userId: user.id,
+              isActive: true,
             },
-          })
-        : Promise.resolve(null),
-      prisma.userClinic.findMany({
-        where: {
-          userId: user.id,
-          isActive: true,
-        },
-        include: {
-          clinic: {
-            select: {
-              id: true,
-              name: true,
-              subdomain: true,
-              logoUrl: true,
-              iconUrl: true,
-              faviconUrl: true,
-            },
-          },
-        },
-        orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
-      }).catch((error: unknown) => {
-        // UserClinic might not exist (pre-migration), continue with primary clinic
-        logger.debug('[Login] UserClinic lookup skipped', {
-          error: error instanceof Error ? error.message : 'Unknown error',
-          userId: user.id,
-        });
-        return [];
-      }),
-    ]);
-
-    if (primaryClinic) {
-      clinics.push({
-        ...primaryClinic,
-        role: userRole,
-        isPrimary: true,
-      });
-    }
-
-    for (const uc of userClinicsResult) {
-      if (!clinics.find((c) => c.id === uc.clinic.id)) {
-        clinics.push({
-          ...uc.clinic,
-          role: uc.role,
-          isPrimary: uc.isPrimary,
-        });
-      }
-    }
-
-    // PROVIDER FIX: If provider has no clinics from User/UserClinic, use ProviderClinic assignments
-    // (e.g. gsiglemd@eonmedicalcenter.com when User exists but has no clinicId/UserClinic)
-    if (userRole === 'provider' && clinics.length === 0) {
-      let providerIdForClinics: number | null = null;
-      if ('providerId' in user && user.providerId) {
-        providerIdForClinics = user.providerId as number;
-      } else if ('provider' in user && user.provider && typeof user.provider === 'object') {
-        providerIdForClinics = (user.provider as { id: number }).id;
-      } else {
-        const providerByEmail = await basePrisma.provider.findFirst({
-          where: { email: user.email.toLowerCase() },
-          select: { id: true },
-        });
-        if (providerByEmail) providerIdForClinics = providerByEmail.id;
-      }
-      if (providerIdForClinics && basePrisma.providerClinic) {
-        try {
-          const assignments = await basePrisma.providerClinic.findMany({
-            where: { providerId: providerIdForClinics, isActive: true },
-            select: {
-              isPrimary: true,
+            include: {
               clinic: {
                 select: {
                   id: true,
@@ -616,617 +589,677 @@ async function loginHandler(req: NextRequest) {
                 },
               },
             },
-            orderBy: { isPrimary: 'desc' },
-          });
-          for (const a of assignments) {
-            clinics.push({
-              ...a.clinic,
-              role: userRole,
-              isPrimary: a.isPrimary,
-            });
-          }
-          if (clinics.length > 0) {
-            logger.info('[Login] Populated provider clinics from ProviderClinic', {
-              providerId: providerIdForClinics,
-              clinicCount: clinics.length,
-            });
-          }
-        } catch (err) {
-          logger.debug('[Login] ProviderClinic lookup for clinics failed', {
-            error: err instanceof Error ? err.message : 'Unknown error',
-          });
-        }
-      }
-    }
-
-    // Determine active clinic: subdomain wins when user is on a clinic subdomain (e.g. ot.eonpro.io), then body selectedClinicId, then fallback
-    let activeClinicId: number | undefined = undefined;
-    if (userRole !== 'super_admin') {
-      const host = getRequestHost(req);
-      const subdomain = extractSubdomain(host);
-
-      // 1) When Host is a clinic subdomain and user has access, use that clinic (so "landed on ot.eonpro.io" always means OT)
-      if (subdomain) {
-        const subdomainClinic = await basePrisma.clinic.findFirst({
-          where: { subdomain: { equals: subdomain, mode: 'insensitive' }, status: 'ACTIVE' },
-          select: { id: true },
-        });
-
-        if (subdomainClinic) {
-          const hasAccess =
-            clinics.some((c) => c.id === subdomainClinic.id) ||
-            user.clinicId === subdomainClinic.id;
-
-          if (hasAccess) {
-            activeClinicId = subdomainClinic.id;
-            logger.info('[Login] Using subdomain clinic', {
-              subdomain,
-              clinicId: subdomainClinic.id,
-              userId: user.id,
-            });
-          } else {
-            const primaryOrFirst = clinics.find((c) => c.isPrimary) || clinics[0];
-            const correctSubdomain = primaryOrFirst?.subdomain;
-            const correctLoginUrl = correctSubdomain
-              ? buildClinicLoginUrl(host, correctSubdomain)
-              : null;
-
-            logger.warn('[Login] Login rejected: user on wrong clinic domain', {
-              subdomain,
-              subdomainClinicId: subdomainClinic.id,
-              userId: user.id,
-              userClinicId: user.clinicId,
-            });
-
-            return NextResponse.json(
-              {
-                error:
-                  "This login page is for a different clinic. Use your clinic's login URL to sign in.",
-                code: 'WRONG_CLINIC_DOMAIN',
-                correctLoginUrl,
-                clinicName: primaryOrFirst?.name ?? undefined,
-              },
-              { status: 403 }
-            );
-          }
-        }
-      }
-
-      // 2) Else use body selectedClinicId if valid
-      if (!activeClinicId && selectedClinicId && clinics.find((c) => c.id === selectedClinicId)) {
-        activeClinicId = selectedClinicId;
-      }
-
-      // 3) Fallback to user's primary or first available
-      if (!activeClinicId) {
-        activeClinicId = user.clinicId || clinics[0]?.id;
-      }
-
-      // Require a clinic for non–super_admin so the session is usable (avoids "No clinic context" on every API call)
-      if (activeClinicId == null && userRole !== 'super_admin') {
-        logger.warn('[Login] No clinic assigned', {
-          userId: user.id,
-          role: userRole,
-          emailPrefix: user.email?.substring(0, 3) + '***',
-        });
-        return NextResponse.json(
-          {
-            error:
-              'No clinic is assigned to your account. Please contact your administrator to be assigned to a clinic.',
-            code: 'NO_CLINIC_ASSIGNED',
-          },
-          { status: 403 }
-        );
-      }
-
-      // Observability: clinic context for eonpro.io (no PHI) for production diagnosis
-      if (host && host.includes('eonpro.io')) {
-        logger.info('[Login] clinic context', {
-          host,
-          subdomain: subdomain ?? null,
-          activeClinicId: activeClinicId ?? null,
-        });
-      }
-    }
-
-    // Create JWT token payload (populated below)
-    const tokenPayload: {
-      id: number;
-      email: string;
-      name: string;
-      role: string;
-      clinicId?: number;
-      providerId?: number;
-      patientId?: number;
-      permissions?: string[];
-      features?: string[];
-      sessionId?: string;
-    } = {
-      id: user.id,
-      email: user.email,
-      name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
-      role: userRole,
-      clinicId: activeClinicId,
-    };
-
-    // Add providerId/patientId from the user record if already linked
-    if ('providerId' in user && user.providerId) {
-      tokenPayload.providerId = user.providerId as number;
-    } else if ('provider' in user && user.provider && typeof user.provider === 'object') {
-      const provider = user.provider as { id: number };
-      tokenPayload.providerId = provider.id;
-    }
-    if ('patientId' in user && user.patientId) {
-      tokenPayload.patientId = user.patientId;
-    }
-
-    // Determine if we need fallback DB lookups for provider/patient
-    const needsProviderFallback =
-      userRole === 'provider' && !tokenPayload.providerId;
-    const needsPatientFallback =
-      userRole === 'patient' && !tokenPayload.patientId;
-
-    // Parallelize session creation with provider/patient fallback lookups
-    // These are independent DB calls: session creation needs user/clinic info (already known),
-    // provider/patient lookups only need user email (already known).
-    const [{ sessionId }, providerFallback, patientFallback] = await Promise.all([
-      // Create session record so production auth (validateSession) can find it
-      createSessionRecord(
-        String(user.id),
-        userRole,
-        activeClinicId ?? undefined,
-        req
-      ),
-      // FALLBACK: Look up provider by email if not already linked
-      // This handles cases where the User record exists but providerId wasn't set
-      // Use basePrisma to bypass clinic filtering since providers can be shared
-      needsProviderFallback
-        ? basePrisma.provider.findFirst({
-            where: { email: user.email.toLowerCase() },
-            select: { id: true, clinicId: true },
-          }).catch((error: unknown) => {
-            logger.debug('[Login] Provider fallback lookup failed', {
-              error: error instanceof Error ? error.message : 'Unknown error',
-              email: user.email,
-            });
-            return null;
+            orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
           })
-        : Promise.resolve(null),
-      // FALLBACK: Look up patient by email if not already linked
-      // Patient.email is AES-256-GCM encrypted — direct WHERE on email will NOT match.
-      // Strategy: (1) try plain email match (non-encrypted legacy), (2) searchIndex + decrypt verify.
-      needsPatientFallback
-        ? (async (): Promise<{ id: number } | null> => {
-            const emailLower = user.email.toLowerCase();
-            try {
-              // 1) Plain text email lookup (works for non-encrypted records)
-              const directMatch = await basePrisma.patient.findFirst({
-                where: { email: emailLower, ...(activeClinicId ? { clinicId: activeClinicId } : {}) },
-                select: { id: true },
-              });
-              if (directMatch) return directMatch;
+          .catch((error: unknown) => {
+            // UserClinic might not exist (pre-migration), continue with primary clinic
+            logger.debug('[Login] UserClinic lookup skipped', {
+              error: error instanceof Error ? error.message : 'Unknown error',
+              userId: user.id,
+            });
+            return [];
+          }),
+      ]);
 
-              // 2) searchIndex contains lowercase plaintext of email — use it as a candidate filter,
-              //    then verify by decrypting the actual email field.
-              const candidates = await basePrisma.patient.findMany({
-                where: {
-                  ...(activeClinicId ? { clinicId: activeClinicId } : {}),
-                  searchIndex: { contains: emailLower, mode: 'insensitive' },
-                },
-                select: { id: true, email: true },
-                take: 10,
-              });
-              for (const candidate of candidates) {
-                try {
-                  const decryptedEmail = decryptPHI(candidate.email);
-                  if (decryptedEmail && decryptedEmail.toLowerCase() === emailLower) {
-                    return { id: candidate.id };
-                  }
-                } catch {
-                  if (candidate.email.toLowerCase() === emailLower) {
-                    return { id: candidate.id };
-                  }
-                }
-              }
-              return null;
-            } catch (error: unknown) {
-              logger.debug('[Login] Patient fallback lookup failed', {
-                error: error instanceof Error ? error.message : 'Unknown error',
-              });
-              return null;
-            }
-          })()
-        : Promise.resolve(null),
-    ]);
-
-    // Apply provider fallback result
-    if (providerFallback) {
-      tokenPayload.providerId = providerFallback.id;
-      // Also set clinicId if not already set
-      if (!tokenPayload.clinicId && providerFallback.clinicId) {
-        tokenPayload.clinicId = providerFallback.clinicId;
-      }
-      logger.info('[Login] Found provider by email fallback', {
-        userId: user.id,
-        providerId: providerFallback.id,
-        email: user.email,
-      });
-    }
-
-    // Apply patient fallback result and persist the link so future logins skip the fallback
-    // and the provider-side "Portal access" block shows "Activated".
-    if (patientFallback) {
-      tokenPayload.patientId = patientFallback.id;
-      logger.info('[Login] Found patient by email fallback', {
-        userId: user.id,
-        patientId: patientFallback.id,
-      });
-      basePrisma.user.update({
-        where: { id: user.id },
-        data: { patientId: patientFallback.id },
-      }).catch((err: unknown) => {
-        logger.warn('[Login] Failed to persist User.patientId link', {
-          userId: user.id,
-          patientId: patientFallback.id,
-          error: err instanceof Error ? err.message : String(err),
+      if (primaryClinic) {
+        clinics.push({
+          ...primaryClinic,
+          role: userRole,
+          isPrimary: true,
         });
-      });
-    }
+      }
 
-    // Compute effective permissions from role defaults + per-user overrides.
-    // User.permissions / User.features are JSON objects { granted: [], revoked: [] }
-    // used by the additive/subtractive override model.
-    {
-      const {
-        getEffectivePermissionStrings,
-        getEffectiveFeatureStrings,
-        parseOverrides,
-      } = await import('@/lib/auth/permissions');
+      for (const uc of userClinicsResult) {
+        if (!clinics.find((c) => c.id === uc.clinic.id)) {
+          clinics.push({
+            ...uc.clinic,
+            role: uc.role,
+            isPrimary: uc.isPrimary,
+          });
+        }
+      }
 
-      const permOverrides = parseOverrides(
-        ('permissions' in user && user.permissions) ? user.permissions : null,
-      );
-      const featOverrides = parseOverrides(
-        ('features' in user && user.features) ? user.features : null,
-      );
-
-      tokenPayload.permissions = getEffectivePermissionStrings(userRole, permOverrides);
-      tokenPayload.features = getEffectiveFeatureStrings(userRole, featOverrides);
-    }
-
-    tokenPayload.sessionId = sessionId;
-
-    const tokenExpiry =
-      userRole === 'patient'
-        ? AUTH_CONFIG.tokenExpiry.patient
-        : userRole === 'provider'
-          ? AUTH_CONFIG.tokenExpiry.provider
-          : AUTH_CONFIG.tokenExpiry.access;
-
-    const token = await new SignJWT(tokenPayload)
-      .setProtectedHeader({ alg: 'HS256' })
-      .setIssuedAt()
-      .setExpirationTime(tokenExpiry)
-      .sign(JWT_SECRET);
-
-    // Create refresh token (signed with dedicated refresh secret)
-    const refreshToken = await new SignJWT({
-      id: user.id,
-      type: 'refresh',
-    })
-      .setProtectedHeader({ alg: 'HS256' })
-      .setIssuedAt()
-      .setExpirationTime(AUTH_CONFIG.tokenExpiry.refresh)
-      .sign(JWT_REFRESH_SECRET);
-
-    // Log successful login
-    logger.debug(`Successful login: ${email} (${role})`);
-
-    // Run providerClinics fetch IN PARALLEL with post-auth writes (login speed: was sequential, now parallel)
-    const loginTime = new Date();
-
-    const providerClinicsPromise: Promise<
-      Array<{
-        id: number;
-        clinicId: number;
-        isPrimary: boolean;
-        clinic: { id: number; name: string; subdomain: string | null };
-      }>
-    > =
-      tokenPayload.providerId && prisma.providerClinic
-        ? prisma.providerClinic
-            .findMany({
-              where: {
-                providerId: tokenPayload.providerId,
-                isActive: true,
-              },
+      // PROVIDER FIX: If provider has no clinics from User/UserClinic, use ProviderClinic assignments
+      // (e.g. gsiglemd@eonmedicalcenter.com when User exists but has no clinicId/UserClinic)
+      if (userRole === 'provider' && clinics.length === 0) {
+        let providerIdForClinics: number | null = null;
+        if ('providerId' in user && user.providerId) {
+          providerIdForClinics = user.providerId as number;
+        } else if ('provider' in user && user.provider && typeof user.provider === 'object') {
+          providerIdForClinics = (user.provider as { id: number }).id;
+        } else {
+          const providerByEmail = await basePrisma.provider.findFirst({
+            where: { email: user.email.toLowerCase() },
+            select: { id: true },
+          });
+          if (providerByEmail) providerIdForClinics = providerByEmail.id;
+        }
+        if (providerIdForClinics && basePrisma.providerClinic) {
+          try {
+            const assignments = await basePrisma.providerClinic.findMany({
+              where: { providerId: providerIdForClinics, isActive: true },
               select: {
-                id: true,
-                clinicId: true,
                 isPrimary: true,
                 clinic: {
-                  select: { id: true, name: true, subdomain: true },
+                  select: {
+                    id: true,
+                    name: true,
+                    subdomain: true,
+                    logoUrl: true,
+                    iconUrl: true,
+                    faviconUrl: true,
+                  },
                 },
               },
               orderBy: { isPrimary: 'desc' },
-            })
-            .catch(() => {
-              logger.debug('ProviderClinic fetch skipped - table may not exist');
-              return [];
-            })
-        : Promise.resolve([]);
+            });
+            for (const a of assignments) {
+              clinics.push({
+                ...a.clinic,
+                role: userRole,
+                isPrimary: a.isPrimary,
+              });
+            }
+            if (clinics.length > 0) {
+              logger.info('[Login] Populated provider clinics from ProviderClinic', {
+                providerId: providerIdForClinics,
+                clinicCount: clinics.length,
+              });
+            }
+          } catch (err) {
+            logger.debug('[Login] ProviderClinic lookup for clinics failed', {
+              error: err instanceof Error ? err.message : 'Unknown error',
+            });
+          }
+        }
+      }
 
-    const postAuthWritesPromise =
-      user && isRealUserRecord
-        ? (async () => {
-            try {
-              await Promise.all([
-                prisma.user.update({
-                  where: { id: user.id },
-                  data: {
-                    lastLogin: loginTime,
-                    failedLoginAttempts: 0,
-                    lockedUntil: null,
-                  },
-                }),
-                tokenPayload.providerId
-                  ? basePrisma.provider.update({
-                      where: { id: tokenPayload.providerId },
-                      data: { lastLogin: loginTime },
-                    })
-                  : Promise.resolve(),
-                prisma.userAuditLog.create({
-                  data: {
-                    userId: user.id,
-                    action: 'LOGIN',
-                    ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
-                    userAgent: req.headers.get('user-agent'),
-                    details: {
-                      role: userRole,
-                      clinicId: activeClinicId,
-                      providerId: tokenPayload.providerId,
-                      loginMethod: 'password',
-                      deviceFingerprint: deviceFingerprint || undefined,
-                    },
-                  },
-                }),
-                prisma.loginAudit.create({
-                  data: createLoginAuditData(email, 'SUCCESS', {
-                    ipAddress: clientIp,
-                    userAgent: req.headers.get('user-agent') || undefined,
-                    clinicId: activeClinicId ?? undefined,
-                    deviceFingerprint: deviceFingerprint || undefined,
-                    requestId,
-                    userId: user.id,
-                  }),
-                }),
-                prisma.userSession.create({
-                  data: {
-                    userId: user.id,
-                    token: token.substring(0, 64),
-                    refreshToken: refreshToken.substring(0, 64),
-                    refreshTokenHash: hashRefreshToken(refreshToken),
-                    ipAddress:
-                      req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown',
-                    userAgent: req.headers.get('user-agent') || 'unknown',
-                    deviceFingerprint: deviceFingerprint || undefined,
-                    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-                    lastActivity: loginTime,
-                  },
-                }),
-              ]);
-            } catch (err: unknown) {
-              logger.warn('Post-auth writes failed (login succeeded)', {
+      // Determine active clinic: subdomain wins when user is on a clinic subdomain (e.g. ot.eonpro.io), then body selectedClinicId, then fallback
+      let activeClinicId: number | undefined = undefined;
+      if (userRole !== 'super_admin') {
+        const host = getRequestHost(req);
+        const subdomain = extractSubdomain(host);
+
+        // 1) When Host is a clinic subdomain and user has access, use that clinic (so "landed on ot.eonpro.io" always means OT)
+        if (subdomain) {
+          const subdomainClinic = await basePrisma.clinic.findFirst({
+            where: { subdomain: { equals: subdomain, mode: 'insensitive' }, status: 'ACTIVE' },
+            select: { id: true },
+          });
+
+          if (subdomainClinic) {
+            const hasAccess =
+              clinics.some((c) => c.id === subdomainClinic.id) ||
+              user.clinicId === subdomainClinic.id;
+
+            if (hasAccess) {
+              activeClinicId = subdomainClinic.id;
+              logger.info('[Login] Using subdomain clinic', {
+                subdomain,
+                clinicId: subdomainClinic.id,
                 userId: user.id,
-                error: err instanceof Error ? err.message : 'Unknown error',
               });
-            }
-          })()
-        : (async () => {
-            // Legacy mock user: only update Provider.lastLogin and write audit (fire-and-forget)
-            try {
-              await Promise.all([
-                tokenPayload.providerId
-                  ? basePrisma.provider.update({
-                      where: { id: tokenPayload.providerId },
-                      data: { lastLogin: loginTime },
-                    })
-                  : Promise.resolve(),
-                prisma.loginAudit.create({
-                  data: createLoginAuditData(email, 'SUCCESS', {
-                    ipAddress: clientIp,
-                    userAgent: req.headers.get('user-agent') || undefined,
-                    clinicId: activeClinicId ?? undefined,
-                    deviceFingerprint: deviceFingerprint || undefined,
-                    requestId,
-                  }),
-                }),
-              ]);
-            } catch (err: unknown) {
-              logger.warn('Legacy post-auth writes failed (login succeeded)', {
-                providerId: tokenPayload.providerId,
-                error: err instanceof Error ? err.message : 'Unknown error',
+            } else {
+              const primaryOrFirst = clinics.find((c) => c.isPrimary) || clinics[0];
+              const correctSubdomain = primaryOrFirst?.subdomain;
+              const correctLoginUrl = correctSubdomain
+                ? buildClinicLoginUrl(host, correctSubdomain)
+                : null;
+
+              logger.warn('[Login] Login rejected: user on wrong clinic domain', {
+                subdomain,
+                subdomainClinicId: subdomainClinic.id,
+                userId: user.id,
+                userClinicId: user.clinicId,
               });
+
+              return NextResponse.json(
+                {
+                  error:
+                    "This login page is for a different clinic. Use your clinic's login URL to sign in.",
+                  code: 'WRONG_CLINIC_DOMAIN',
+                  correctLoginUrl,
+                  clinicName: primaryOrFirst?.name ?? undefined,
+                },
+                { status: 403 }
+              );
             }
-          })();
+          }
+        }
 
-    const [providerClinics] = await Promise.all([
-      providerClinicsPromise,
-      postAuthWritesPromise,
-    ]);
+        // 2) Else use body selectedClinicId if valid
+        if (!activeClinicId && selectedClinicId && clinics.find((c) => c.id === selectedClinicId)) {
+          activeClinicId = selectedClinicId;
+        }
 
-    // Return tokens with clinic information
-    const response = NextResponse.json({
-      success: true,
-      user: {
+        // 3) Fallback to user's primary or first available
+        if (!activeClinicId) {
+          activeClinicId = user.clinicId || clinics[0]?.id;
+        }
+
+        // Require a clinic for non–super_admin so the session is usable (avoids "No clinic context" on every API call)
+        if (activeClinicId == null && userRole !== 'super_admin') {
+          logger.warn('[Login] No clinic assigned', {
+            userId: user.id,
+            role: userRole,
+            emailPrefix: user.email?.substring(0, 3) + '***',
+          });
+          return NextResponse.json(
+            {
+              error:
+                'No clinic is assigned to your account. Please contact your administrator to be assigned to a clinic.',
+              code: 'NO_CLINIC_ASSIGNED',
+            },
+            { status: 403 }
+          );
+        }
+
+        // Observability: clinic context for eonpro.io (no PHI) for production diagnosis
+        if (host && host.includes('eonpro.io')) {
+          logger.info('[Login] clinic context', {
+            host,
+            subdomain: subdomain ?? null,
+            activeClinicId: activeClinicId ?? null,
+          });
+        }
+      }
+
+      // Create JWT token payload (populated below)
+      const tokenPayload: {
+        id: number;
+        email: string;
+        name: string;
+        role: string;
+        clinicId?: number;
+        providerId?: number;
+        patientId?: number;
+        permissions?: string[];
+        features?: string[];
+        sessionId?: string;
+      } = {
         id: user.id,
         email: user.email,
-        firstName: user.firstName || '',
-        lastName: user.lastName || '',
         name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
         role: userRole,
         clinicId: activeClinicId,
-        providerId: tokenPayload.providerId,
-        patientId: tokenPayload.patientId,
-        permissions: tokenPayload.permissions,
-        features: tokenPayload.features,
-      },
-      clinics,
-      activeClinicId,
-      hasMultipleClinics: clinics.length > 1,
-      // If multi-clinic and no clinic selected, client should show selection UI
-      requiresClinicSelection: clinics.length > 1 && !selectedClinicId,
-      // ENTERPRISE: Provider's clinic assignments
-      providerClinics,
-      hasMultipleProviderClinics: providerClinics.length > 1,
-      token,
-      refreshToken,
-    });
+      };
 
-    // Share auth across *.eonpro.io so one login works on wellmedr, ot, eonmeds, app
-    const host = getRequestHostWithUrlFallback(req);
-    const cookieDomain = shouldUseEonproCookieDomain(host) ? '.eonpro.io' : undefined;
+      // Add providerId/patientId from the user record if already linked
+      if ('providerId' in user && user.providerId) {
+        tokenPayload.providerId = user.providerId as number;
+      } else if ('provider' in user && user.provider && typeof user.provider === 'object') {
+        const provider = user.provider as { id: number };
+        tokenPayload.providerId = provider.id;
+      }
+      if ('patientId' in user && user.patientId) {
+        tokenPayload.patientId = user.patientId;
+      }
 
-    // Clear existing auth cookies on BOTH the shared domain (.eonpro.io) AND the
-    // hostname (e.g. app.eonpro.io). Hostname-only cookies take precedence over
-    // domain cookies in the browser's Cookie header, so a stale hostname-only
-    // auth-token from a previous login (possibly with a different role) would
-    // shadow the new .eonpro.io cookie and cause 403 "Insufficient permissions".
-    // Since these are httpOnly, client-side JS cannot clear them.
-    //
-    // NOTE: response.cookies.set() uses name as key and would overwrite, so we
-    // use response.headers.append('Set-Cookie', ...) for hostname-only clearing
-    // and response.cookies.set() for the domain clearing.
-    const authCookieNames = [
-      'auth-token',
-      'admin-token',
-      'provider-token',
-      'patient-token',
-      'affiliate-token',
-      'super_admin-token',
-      'staff-token',
-      'support-token',
-      'sales_rep-token',
-      'pharmacy_rep-token',
-      'selected-clinic',
-    ];
+      // Determine if we need fallback DB lookups for provider/patient
+      const needsProviderFallback = userRole === 'provider' && !tokenPayload.providerId;
+      const needsPatientFallback = userRole === 'patient' && !tokenPayload.patientId;
 
-    // Step 1: Clear hostname-only cookies (no domain attribute = current hostname)
-    const isSecure = process.env.NODE_ENV === 'production';
-    for (const name of authCookieNames) {
-      response.headers.append(
-        'Set-Cookie',
-        `${name}=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax${isSecure ? '; Secure' : ''}`
-      );
-    }
+      // Parallelize session creation with provider/patient fallback lookups
+      // These are independent DB calls: session creation needs user/clinic info (already known),
+      // provider/patient lookups only need user email (already known).
+      const [{ sessionId }, providerFallback, patientFallback] = await Promise.all([
+        // Create session record so production auth (validateSession) can find it
+        createSessionRecord(String(user.id), userRole, activeClinicId ?? undefined, req),
+        // FALLBACK: Look up provider by email if not already linked
+        // This handles cases where the User record exists but providerId wasn't set
+        // Use basePrisma to bypass clinic filtering since providers can be shared
+        needsProviderFallback
+          ? basePrisma.provider
+              .findFirst({
+                where: { email: user.email.toLowerCase() },
+                select: { id: true, clinicId: true },
+              })
+              .catch((error: unknown) => {
+                logger.debug('[Login] Provider fallback lookup failed', {
+                  error: error instanceof Error ? error.message : 'Unknown error',
+                  email: user.email,
+                });
+                return null;
+              })
+          : Promise.resolve(null),
+        // FALLBACK: Look up patient by email if not already linked
+        // Patient.email is AES-256-GCM encrypted — direct WHERE on email will NOT match.
+        // Strategy: (1) try plain email match (non-encrypted legacy), (2) searchIndex + decrypt verify.
+        needsPatientFallback
+          ? (async (): Promise<{ id: number } | null> => {
+              const emailLower = user.email.toLowerCase();
+              try {
+                // 1) Plain text email lookup (works for non-encrypted records)
+                const directMatch = await basePrisma.patient.findFirst({
+                  where: {
+                    email: emailLower,
+                    ...(activeClinicId ? { clinicId: activeClinicId } : {}),
+                  },
+                  select: { id: true },
+                });
+                if (directMatch) return directMatch;
 
-    // Step 2: Clear domain cookies (.eonpro.io) via response.cookies API
-    if (cookieDomain) {
-      for (const name of authCookieNames) {
-        response.cookies.set({
-          name,
-          value: '',
-          path: '/',
-          maxAge: 0,
-          expires: new Date(0),
-          domain: cookieDomain,
+                // 2) searchIndex contains lowercase plaintext of email — use it as a candidate filter,
+                //    then verify by decrypting the actual email field.
+                const candidates = await basePrisma.patient.findMany({
+                  where: {
+                    ...(activeClinicId ? { clinicId: activeClinicId } : {}),
+                    searchIndex: { contains: emailLower, mode: 'insensitive' },
+                  },
+                  select: { id: true, email: true },
+                  take: 10,
+                });
+                for (const candidate of candidates) {
+                  try {
+                    const decryptedEmail = decryptPHI(candidate.email);
+                    if (decryptedEmail && decryptedEmail.toLowerCase() === emailLower) {
+                      return { id: candidate.id };
+                    }
+                  } catch {
+                    if (candidate.email.toLowerCase() === emailLower) {
+                      return { id: candidate.id };
+                    }
+                  }
+                }
+                return null;
+              } catch (error: unknown) {
+                logger.debug('[Login] Patient fallback lookup failed', {
+                  error: error instanceof Error ? error.message : 'Unknown error',
+                });
+                return null;
+              }
+            })()
+          : Promise.resolve(null),
+      ]);
+
+      // Apply provider fallback result
+      if (providerFallback) {
+        tokenPayload.providerId = providerFallback.id;
+        // Also set clinicId if not already set
+        if (!tokenPayload.clinicId && providerFallback.clinicId) {
+          tokenPayload.clinicId = providerFallback.clinicId;
+        }
+        logger.info('[Login] Found provider by email fallback', {
+          userId: user.id,
+          providerId: providerFallback.id,
+          email: user.email,
         });
       }
-    }
 
-    response.cookies.set({
-      name: `${userRole}-token`,
-      value: token,
-      ...AUTH_CONFIG.cookie,
-      maxAge: 60 * 60 * 24, // 24 hours
-      ...(cookieDomain && { domain: cookieDomain }),
-    });
+      // Apply patient fallback result and persist the link so future logins skip the fallback
+      // and the provider-side "Portal access" block shows "Activated".
+      if (patientFallback) {
+        tokenPayload.patientId = patientFallback.id;
+        logger.info('[Login] Found patient by email fallback', {
+          userId: user.id,
+          patientId: patientFallback.id,
+        });
+        basePrisma.user
+          .update({
+            where: { id: user.id },
+            data: { patientId: patientFallback.id },
+          })
+          .catch((err: unknown) => {
+            logger.warn('[Login] Failed to persist User.patientId link', {
+              userId: user.id,
+              patientId: patientFallback.id,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          });
+      }
 
-    response.cookies.set({
-      name: 'auth-token',
-      value: token,
-      ...AUTH_CONFIG.cookie,
-      maxAge: 60 * 60 * 24, // 24 hours
-      ...(cookieDomain && { domain: cookieDomain }),
-    });
+      // Compute effective permissions from role defaults + per-user overrides.
+      // User.permissions / User.features are JSON objects { granted: [], revoked: [] }
+      // used by the additive/subtractive override model.
+      {
+        const { getEffectivePermissionStrings, getEffectiveFeatureStrings, parseOverrides } =
+          await import('@/lib/auth/permissions');
 
-    // Set selected-clinic so middleware and client stay in sync with JWT clinic (critical for ot.eonpro.io and other clinic subdomains)
-    if (activeClinicId != null) {
+        const permOverrides = parseOverrides(
+          'permissions' in user && user.permissions ? user.permissions : null
+        );
+        const featOverrides = parseOverrides(
+          'features' in user && user.features ? user.features : null
+        );
+
+        tokenPayload.permissions = getEffectivePermissionStrings(userRole, permOverrides);
+        tokenPayload.features = getEffectiveFeatureStrings(userRole, featOverrides);
+      }
+
+      tokenPayload.sessionId = sessionId;
+
+      const tokenExpiry =
+        userRole === 'patient'
+          ? AUTH_CONFIG.tokenExpiry.patient
+          : userRole === 'provider'
+            ? AUTH_CONFIG.tokenExpiry.provider
+            : AUTH_CONFIG.tokenExpiry.access;
+
+      const token = await new SignJWT(tokenPayload)
+        .setProtectedHeader({ alg: 'HS256' })
+        .setIssuedAt()
+        .setExpirationTime(tokenExpiry)
+        .sign(JWT_SECRET);
+
+      // Create refresh token (signed with dedicated refresh secret)
+      const refreshToken = await new SignJWT({
+        id: user.id,
+        type: 'refresh',
+      })
+        .setProtectedHeader({ alg: 'HS256' })
+        .setIssuedAt()
+        .setExpirationTime(AUTH_CONFIG.tokenExpiry.refresh)
+        .sign(JWT_REFRESH_SECRET);
+
+      // Log successful login
+      logger.debug(`Successful login: ${email} (${role})`);
+
+      // Run providerClinics fetch IN PARALLEL with post-auth writes (login speed: was sequential, now parallel)
+      const loginTime = new Date();
+
+      const providerClinicsPromise: Promise<
+        Array<{
+          id: number;
+          clinicId: number;
+          isPrimary: boolean;
+          clinic: { id: number; name: string; subdomain: string | null };
+        }>
+      > =
+        tokenPayload.providerId && prisma.providerClinic
+          ? prisma.providerClinic
+              .findMany({
+                where: {
+                  providerId: tokenPayload.providerId,
+                  isActive: true,
+                },
+                select: {
+                  id: true,
+                  clinicId: true,
+                  isPrimary: true,
+                  clinic: {
+                    select: { id: true, name: true, subdomain: true },
+                  },
+                },
+                orderBy: { isPrimary: 'desc' },
+              })
+              .catch(() => {
+                logger.debug('ProviderClinic fetch skipped - table may not exist');
+                return [];
+              })
+          : Promise.resolve([]);
+
+      const postAuthWritesPromise =
+        user && isRealUserRecord
+          ? (async () => {
+              try {
+                await Promise.all([
+                  prisma.user.update({
+                    where: { id: user.id },
+                    data: {
+                      lastLogin: loginTime,
+                      failedLoginAttempts: 0,
+                      lockedUntil: null,
+                    },
+                  }),
+                  tokenPayload.providerId
+                    ? basePrisma.provider.update({
+                        where: { id: tokenPayload.providerId },
+                        data: { lastLogin: loginTime },
+                      })
+                    : Promise.resolve(),
+                  prisma.userAuditLog.create({
+                    data: {
+                      userId: user.id,
+                      action: 'LOGIN',
+                      ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
+                      userAgent: req.headers.get('user-agent'),
+                      details: {
+                        role: userRole,
+                        clinicId: activeClinicId,
+                        providerId: tokenPayload.providerId,
+                        loginMethod: 'password',
+                        deviceFingerprint: deviceFingerprint || undefined,
+                      },
+                    },
+                  }),
+                  prisma.loginAudit.create({
+                    data: createLoginAuditData(email, 'SUCCESS', {
+                      ipAddress: clientIp,
+                      userAgent: req.headers.get('user-agent') || undefined,
+                      clinicId: activeClinicId ?? undefined,
+                      deviceFingerprint: deviceFingerprint || undefined,
+                      requestId,
+                      userId: user.id,
+                    }),
+                  }),
+                  prisma.userSession.create({
+                    data: {
+                      userId: user.id,
+                      token: token.substring(0, 64),
+                      refreshToken: refreshToken.substring(0, 64),
+                      refreshTokenHash: hashRefreshToken(refreshToken),
+                      ipAddress:
+                        req.headers.get('x-forwarded-for') ||
+                        req.headers.get('x-real-ip') ||
+                        'unknown',
+                      userAgent: req.headers.get('user-agent') || 'unknown',
+                      deviceFingerprint: deviceFingerprint || undefined,
+                      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+                      lastActivity: loginTime,
+                    },
+                  }),
+                ]);
+              } catch (err: unknown) {
+                logger.warn('Post-auth writes failed (login succeeded)', {
+                  userId: user.id,
+                  error: err instanceof Error ? err.message : 'Unknown error',
+                });
+              }
+            })()
+          : (async () => {
+              // Legacy mock user: only update Provider.lastLogin and write audit (fire-and-forget)
+              try {
+                await Promise.all([
+                  tokenPayload.providerId
+                    ? basePrisma.provider.update({
+                        where: { id: tokenPayload.providerId },
+                        data: { lastLogin: loginTime },
+                      })
+                    : Promise.resolve(),
+                  prisma.loginAudit.create({
+                    data: createLoginAuditData(email, 'SUCCESS', {
+                      ipAddress: clientIp,
+                      userAgent: req.headers.get('user-agent') || undefined,
+                      clinicId: activeClinicId ?? undefined,
+                      deviceFingerprint: deviceFingerprint || undefined,
+                      requestId,
+                    }),
+                  }),
+                ]);
+              } catch (err: unknown) {
+                logger.warn('Legacy post-auth writes failed (login succeeded)', {
+                  providerId: tokenPayload.providerId,
+                  error: err instanceof Error ? err.message : 'Unknown error',
+                });
+              }
+            })();
+
+      const [providerClinics] = await Promise.all([providerClinicsPromise, postAuthWritesPromise]);
+
+      // Return tokens with clinic information
+      const response = NextResponse.json({
+        success: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName || '',
+          lastName: user.lastName || '',
+          name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
+          role: userRole,
+          clinicId: activeClinicId,
+          providerId: tokenPayload.providerId,
+          patientId: tokenPayload.patientId,
+          permissions: tokenPayload.permissions,
+          features: tokenPayload.features,
+        },
+        clinics,
+        activeClinicId,
+        hasMultipleClinics: clinics.length > 1,
+        // If multi-clinic and no clinic selected, client should show selection UI
+        requiresClinicSelection: clinics.length > 1 && !selectedClinicId,
+        // ENTERPRISE: Provider's clinic assignments
+        providerClinics,
+        hasMultipleProviderClinics: providerClinics.length > 1,
+        token,
+        refreshToken,
+      });
+
+      // Share auth across *.eonpro.io so one login works on wellmedr, ot, eonmeds, app
+      const host = getRequestHostWithUrlFallback(req);
+      const cookieDomain = shouldUseEonproCookieDomain(host) ? '.eonpro.io' : undefined;
+
+      // Clear existing auth cookies on BOTH the shared domain (.eonpro.io) AND the
+      // hostname (e.g. app.eonpro.io). Hostname-only cookies take precedence over
+      // domain cookies in the browser's Cookie header, so a stale hostname-only
+      // auth-token from a previous login (possibly with a different role) would
+      // shadow the new .eonpro.io cookie and cause 403 "Insufficient permissions".
+      // Since these are httpOnly, client-side JS cannot clear them.
+      //
+      // NOTE: response.cookies.set() uses name as key and would overwrite, so we
+      // use response.headers.append('Set-Cookie', ...) for hostname-only clearing
+      // and response.cookies.set() for the domain clearing.
+      const authCookieNames = [
+        'auth-token',
+        'admin-token',
+        'provider-token',
+        'patient-token',
+        'affiliate-token',
+        'super_admin-token',
+        'staff-token',
+        'support-token',
+        'sales_rep-token',
+        'pharmacy_rep-token',
+        'selected-clinic',
+      ];
+
+      // Step 1: Clear hostname-only cookies (no domain attribute = current hostname)
+      const isSecure = process.env.NODE_ENV === 'production';
+      for (const name of authCookieNames) {
+        response.headers.append(
+          'Set-Cookie',
+          `${name}=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax${isSecure ? '; Secure' : ''}`
+        );
+      }
+
+      // Step 2: Clear domain cookies (.eonpro.io) via response.cookies API
+      if (cookieDomain) {
+        for (const name of authCookieNames) {
+          response.cookies.set({
+            name,
+            value: '',
+            path: '/',
+            maxAge: 0,
+            expires: new Date(0),
+            domain: cookieDomain,
+          });
+        }
+      }
+
       response.cookies.set({
-        name: 'selected-clinic',
-        value: String(activeClinicId),
-        path: '/',
-        maxAge: 30 * 24 * 60 * 60, // 30 days
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
-        httpOnly: false, // Allow client to read for clinic switcher UI
+        name: `${userRole}-token`,
+        value: token,
+        ...AUTH_CONFIG.cookie,
+        maxAge: 60 * 60 * 24, // 24 hours
         ...(cookieDomain && { domain: cookieDomain }),
       });
-    }
 
-    return response;
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const errorStack = error instanceof Error ? error.stack : undefined;
-    const prismaError = (error as { code?: string })?.code;
-    const duration = Date.now() - startTime;
-    // P2024 = pool exhausted; P1002 = connection timeout; message check for pool/connection errors
-    const isPoolExhausted =
-      prismaError === 'P2024' ||
-      prismaError === 'P1002' ||
-      (typeof errorMessage === 'string' &&
-        (errorMessage.toLowerCase().includes('connection pool') ||
-          errorMessage.toLowerCase().includes('timed out fetching') ||
-          errorMessage.toLowerCase().includes('connection refused')));
+      response.cookies.set({
+        name: 'auth-token',
+        value: token,
+        ...AUTH_CONFIG.cookie,
+        maxAge: 60 * 60 * 24, // 24 hours
+        ...(cookieDomain && { domain: cookieDomain }),
+      });
 
-    logger.error('Login error', error instanceof Error ? error : new Error(errorMessage), {
-      step: debugInfo?.step,
-      prismaCode: prismaError,
-      duration,
-    });
+      // Set selected-clinic so middleware and client stay in sync with JWT clinic (critical for ot.eonpro.io and other clinic subdomains)
+      if (activeClinicId != null) {
+        response.cookies.set({
+          name: 'selected-clinic',
+          value: String(activeClinicId),
+          path: '/',
+          maxAge: 30 * 24 * 60 * 60, // 30 days
+          sameSite: 'lax',
+          secure: process.env.NODE_ENV === 'production',
+          httpOnly: false, // Allow client to read for clinic switcher UI
+          ...(cookieDomain && { domain: cookieDomain }),
+        });
+      }
 
-    // Report to Sentry (no PHI - step and code only)
-    Sentry.captureException(error, {
-      tags: {
-        route: 'POST /api/auth/login',
-        step: String(debugInfo?.step ?? 'unknown'),
-        prismaCode: prismaError ? String(prismaError) : undefined,
-      },
-      extra: {
+      return response;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      const prismaError = (error as { code?: string })?.code;
+      const duration = Date.now() - startTime;
+      // P2024 = pool exhausted; P1002 = connection timeout; message check for pool/connection errors
+      const isPoolExhausted =
+        prismaError === 'P2024' ||
+        prismaError === 'P1002' ||
+        (typeof errorMessage === 'string' &&
+          (errorMessage.toLowerCase().includes('connection pool') ||
+            errorMessage.toLowerCase().includes('timed out fetching') ||
+            errorMessage.toLowerCase().includes('connection refused')));
+
+      logger.error('Login error', error instanceof Error ? error : new Error(errorMessage), {
+        step: debugInfo?.step,
+        prismaCode: prismaError,
         duration,
-        hasDebugStep: !!debugInfo?.step,
-      },
-    });
+      });
 
-    // P2024 = connection pool exhausted: return 503 so client can show "try again" and respect Retry-After
-    if (isPoolExhausted) {
+      // Report to Sentry (no PHI - step and code only)
+      Sentry.captureException(error, {
+        tags: {
+          route: 'POST /api/auth/login',
+          step: String(debugInfo?.step ?? 'unknown'),
+          prismaCode: prismaError ? String(prismaError) : undefined,
+        },
+        extra: {
+          duration,
+          hasDebugStep: !!debugInfo?.step,
+        },
+      });
+
+      // P2024 = connection pool exhausted: return 503 so client can show "try again" and respect Retry-After
+      if (isPoolExhausted) {
+        return NextResponse.json(
+          {
+            error: 'Service is busy. Please try again in a moment.',
+            code: 'SERVICE_UNAVAILABLE',
+            retryAfter: 15,
+          },
+          {
+            status: 503,
+            headers: { 'Retry-After': '15' },
+          }
+        );
+      }
+
+      const isProd = process.env.NODE_ENV === 'production';
       return NextResponse.json(
         {
-          error: 'Service is busy. Please try again in a moment.',
-          code: 'SERVICE_UNAVAILABLE',
-          retryAfter: 15,
+          error: 'An error occurred during login',
+          ...(isProd
+            ? {}
+            : {
+                details: errorMessage,
+                code: prismaError || 'UNKNOWN',
+                step: debugInfo?.step,
+                duration,
+              }),
         },
-        {
-          status: 503,
-          headers: { 'Retry-After': '15' },
-        }
+        { status: 500 }
       );
     }
-
-    const isProd = process.env.NODE_ENV === 'production';
-    return NextResponse.json(
-      {
-        error: 'An error occurred during login',
-        ...(isProd ? {} : {
-          details: errorMessage,
-          code: prismaError || 'UNKNOWN',
-          step: debugInfo?.step,
-          duration,
-        }),
-      },
-      { status: 500 }
-    );
-  }
   }); // end withoutClinicFilter
 }
 

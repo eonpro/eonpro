@@ -83,7 +83,10 @@ export async function resolveSubdomainClinicId(subdomain: string): Promise<numbe
   if (envMap) {
     const envId = envMap.get(sub);
     if (envId !== undefined) {
-      logger.debug('[MiddlewareCache] Subdomain resolved via env map', { subdomain: sub, clinicId: envId });
+      logger.debug('[MiddlewareCache] Subdomain resolved via env map', {
+        subdomain: sub,
+        clinicId: envId,
+      });
       return envId;
     }
   }
@@ -94,15 +97,22 @@ export async function resolveSubdomainClinicId(subdomain: string): Promise<numbe
     const cached = await cache.get<number>(cacheKey, { namespace: CACHE_NAMESPACE });
     if (cached !== null) {
       if (cached === -1) {
-        logger.debug('[MiddlewareCache] Subdomain resolved via Redis (negative cache)', { subdomain: sub });
+        logger.debug('[MiddlewareCache] Subdomain resolved via Redis (negative cache)', {
+          subdomain: sub,
+        });
         return null;
       }
-      logger.debug('[MiddlewareCache] Subdomain resolved via Redis', { subdomain: sub, clinicId: cached });
+      logger.debug('[MiddlewareCache] Subdomain resolved via Redis', {
+        subdomain: sub,
+        clinicId: cached,
+      });
       return cached;
     }
     logger.debug('[MiddlewareCache] Subdomain cache miss — falling back to DB', { subdomain: sub });
   } catch {
-    logger.debug('[MiddlewareCache] Redis unavailable for subdomain lookup — falling back to DB', { subdomain: sub });
+    logger.debug('[MiddlewareCache] Redis unavailable for subdomain lookup — falling back to DB', {
+      subdomain: sub,
+    });
   }
 
   // ── Tier 3: Database fallback ────────────────────────────────────────
@@ -155,7 +165,7 @@ export async function resolveSubdomainClinicId(subdomain: string): Promise<numbe
 export async function hasClinicAccess(
   userId: number,
   clinicId: number,
-  providerId?: number,
+  providerId?: number
 ): Promise<boolean> {
   const cacheKey = providerId
     ? `clinic-access:${userId}:${clinicId}:p${providerId}`
@@ -218,10 +228,7 @@ export async function hasClinicAccess(
  *
  * Cache key: mw:session-activity:<userId> → { lastActivity, ipAddress }
  */
-export async function trackSessionActivity(
-  userId: number,
-  ipAddress: string,
-): Promise<void> {
+export async function trackSessionActivity(userId: number, ipAddress: string): Promise<void> {
   const throttleKey = `session-activity-throttle:${userId}`;
 
   try {
@@ -241,7 +248,7 @@ export async function trackSessionActivity(
     await cache.set(
       `session-activity:${userId}`,
       { lastActivity: new Date().toISOString(), ipAddress },
-      { ttl: 3600, namespace: CACHE_NAMESPACE }, // 1 hour TTL
+      { ttl: 3600, namespace: CACHE_NAMESPACE } // 1 hour TTL
     );
   } catch {
     // Non-critical — silently ignore Redis failures
@@ -268,7 +275,7 @@ interface SessionActivityData {
  * @returns Map of userId → { lastActivity, ipAddress } for recently active users
  */
 export async function getRecentlyActiveUserIds(
-  thresholdMinutes: number = 15,
+  thresholdMinutes: number = 15
 ): Promise<Map<number, SessionActivityData>> {
   const result = new Map<number, SessionActivityData>();
   const threshold = new Date(Date.now() - thresholdMinutes * 60 * 1000);
@@ -318,7 +325,7 @@ export async function getRecentlyActiveUserIds(
  */
 export async function invalidateClinicAccessCache(
   userId: number,
-  clinicId?: number,
+  clinicId?: number
 ): Promise<void> {
   try {
     if (clinicId) {

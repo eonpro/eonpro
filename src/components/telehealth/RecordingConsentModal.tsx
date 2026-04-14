@@ -1,14 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import {
-  Mic,
-  Shield,
-  FileText,
-  AlertTriangle,
-  X,
-  Sparkles,
-} from 'lucide-react';
+import { Mic, Shield, FileText, AlertTriangle, X, Sparkles } from 'lucide-react';
 
 interface RecordingConsentModalProps {
   patientName: string;
@@ -42,9 +35,9 @@ export default function RecordingConsentModal({
         {/* Content */}
         <div className="space-y-4 px-6 py-5">
           <p className="text-sm leading-relaxed text-gray-700">
-            The <strong>AI Scribe</strong> will record and transcribe this telehealth
-            session with <strong>{patientName}</strong> to automatically generate clinical
-            documentation (SOAP notes).
+            The <strong>AI Scribe</strong> will record and transcribe this telehealth session with{' '}
+            <strong>{patientName}</strong> to automatically generate clinical documentation (SOAP
+            notes).
           </p>
 
           <div className="space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-4">
@@ -52,8 +45,10 @@ export default function RecordingConsentModal({
               <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
               <div className="text-xs text-gray-600">
                 <p className="font-semibold text-gray-700">What the AI Scribe does</p>
-                <p className="mt-0.5">Records audio during the call, transcribes the conversation,
-                and generates a draft SOAP note for your review and signature.</p>
+                <p className="mt-0.5">
+                  Records audio during the call, transcribes the conversation, and generates a draft
+                  SOAP note for your review and signature.
+                </p>
               </div>
             </div>
 
@@ -61,9 +56,11 @@ export default function RecordingConsentModal({
               <Shield className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
               <div className="text-xs text-gray-600">
                 <p className="font-semibold text-gray-700">HIPAA compliance</p>
-                <p className="mt-0.5">All recordings and transcripts are encrypted at rest and stored
-                in compliance with HIPAA regulations. Audio is processed securely and not retained
-                after transcription.</p>
+                <p className="mt-0.5">
+                  All recordings and transcripts are encrypted at rest and stored in compliance with
+                  HIPAA regulations. Audio is processed securely and not retained after
+                  transcription.
+                </p>
               </div>
             </div>
 
@@ -71,8 +68,10 @@ export default function RecordingConsentModal({
               <FileText className="mt-0.5 h-4 w-4 shrink-0 text-purple-500" />
               <div className="text-xs text-gray-600">
                 <p className="font-semibold text-gray-700">Patient consent</p>
-                <p className="mt-0.5">You must inform the patient that this session will be recorded
-                for clinical documentation purposes and obtain their verbal consent before proceeding.</p>
+                <p className="mt-0.5">
+                  You must inform the patient that this session will be recorded for clinical
+                  documentation purposes and obtain their verbal consent before proceeding.
+                </p>
               </div>
             </div>
           </div>
@@ -82,8 +81,8 @@ export default function RecordingConsentModal({
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
               <p className="text-xs text-amber-800">
                 <strong>Important:</strong> You are responsible for obtaining patient consent for
-                recording. If the patient declines, you can still proceed with the call without
-                the AI Scribe.
+                recording. If the patient declines, you can still proceed with the call without the
+                AI Scribe.
               </p>
             </div>
           </div>
@@ -97,8 +96,8 @@ export default function RecordingConsentModal({
               className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             />
             <span className="text-sm text-gray-700">
-              I confirm that I have informed the patient about the recording and obtained
-              their verbal consent for AI-assisted documentation.
+              I confirm that I have informed the patient about the recording and obtained their
+              verbal consent for AI-assisted documentation.
             </span>
           </label>
         </div>
@@ -115,7 +114,7 @@ export default function RecordingConsentModal({
           <button
             onClick={onConsent}
             disabled={!acknowledged}
-            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
           >
             <Mic className="h-4 w-4" />
             Enable AI Scribe

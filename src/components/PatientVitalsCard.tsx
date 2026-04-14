@@ -44,7 +44,10 @@ function getBloodPressureColor(bp: string | null | undefined): ColorResult {
   return { ...RED, width };
 }
 
-function getWeightColor(weight: string | null | undefined, bmi: string | null | undefined): ColorResult {
+function getWeightColor(
+  weight: string | null | undefined,
+  bmi: string | null | undefined
+): ColorResult {
   if (!weight) return GRAY_DEFAULT;
   const weightNum = parseFloat(weight.replace(/[^\d.]/g, ''));
   if (isNaN(weightNum)) return GRAY_DEFAULT;
@@ -103,7 +106,12 @@ function VitalCard({
 }
 
 export default function PatientVitalsCard({ patientId }: { patientId: number }) {
-  const { data: vitals, isLoading, isError, refetch } = useQuery<Vitals>({
+  const {
+    data: vitals,
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery<Vitals>({
     queryKey: ['patient-vitals', patientId],
     queryFn: async (): Promise<Vitals> => {
       const res = await apiFetch(`/api/patients/${patientId}/vitals`);
@@ -149,8 +157,18 @@ export default function PatientVitalsCard({ patientId }: { patientId: number }) 
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-4 md:p-6">
       <div className="mb-4 flex items-center gap-2">
-        <svg className="h-5 w-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+        <svg
+          className="h-5 w-5 text-gray-600"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M13 10V3L4 14h7v7l9-11h-7z"
+          />
         </svg>
         <h2 className="text-lg font-semibold text-gray-900">Vitals</h2>
       </div>
@@ -158,7 +176,11 @@ export default function PatientVitalsCard({ patientId }: { patientId: number }) 
         <VitalCard
           label="Height"
           value={vitals.height ?? '—'}
-          color={{ bar: 'bg-gray-500', text: 'text-gray-900', width: vitals.height ? '100%' : '0%' }}
+          color={{
+            bar: 'bg-gray-500',
+            text: 'text-gray-900',
+            width: vitals.height ? '100%' : '0%',
+          }}
         />
         <VitalCard label="Weight" value={weightDisplay} color={weightColor} />
         <VitalCard label="BMI" value={vitals.bmi ?? '—'} color={bmiColor} />

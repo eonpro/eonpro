@@ -45,7 +45,6 @@ export async function GET(request: NextRequest) {
         bucket: s3Config.bucketName,
       });
     } catch (error: unknown) {
-
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       return NextResponse.json({
         healthy: false,
@@ -54,7 +53,6 @@ export async function GET(request: NextRequest) {
       });
     }
   } catch (error: unknown) {
-
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json({
       healthy: false,

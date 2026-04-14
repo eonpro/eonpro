@@ -95,7 +95,8 @@ async function getHandler(request: NextRequest, user: AuthUser) {
     const conversations = patientsWithMessages.map((p) => ({
       id: p.chatMessages[0]?.id || p.id,
       patientId: p.id,
-      patientName: `${safeDecrypt(p.firstName)} ${safeDecrypt(p.lastName)}`.trim() || `Patient #${p.id}`,
+      patientName:
+        `${safeDecrypt(p.firstName)} ${safeDecrypt(p.lastName)}`.trim() || `Patient #${p.id}`,
       lastMessage: p.chatMessages[0]?.message || '',
       timestamp: p.chatMessages[0]?.createdAt ? formatTimestamp(p.chatMessages[0].createdAt) : '',
       unread: (unreadCountMap.get(p.id) || 0) > 0,
@@ -115,7 +116,12 @@ async function getHandler(request: NextRequest, user: AuthUser) {
       durationMs: Date.now() - startTime,
     });
 
-    await auditPhiAccess(request, buildAuditPhiOptions(request, user, 'message:view', { route: 'GET /api/messages/conversations' }));
+    await auditPhiAccess(
+      request,
+      buildAuditPhiOptions(request, user, 'message:view', {
+        route: 'GET /api/messages/conversations',
+      })
+    );
 
     return NextResponse.json({
       ok: true,

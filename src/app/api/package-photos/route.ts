@@ -18,7 +18,14 @@ import {
 import { z } from 'zod';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+const ALLOWED_MIME_TYPES = [
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+];
 const DEFAULT_TIMEZONE = 'America/New_York';
 
 const PHARMACY_ACCESS_ROLES_FILTER = Prisma.sql`AND u."role"::text IN (${Prisma.join(['SUPER_ADMIN', 'ADMIN', 'STAFF', 'PHARMACY_REP'])})`;
@@ -28,7 +35,6 @@ function tzLiteral(tz: string): Prisma.Sql {
   if (!VALID_IANA_TZ.test(tz)) return Prisma.raw(`'America/New_York'`);
   return Prisma.raw(`'${tz}'`);
 }
-
 
 async function resolveClinicTimezone(clinicId: number | null | undefined): Promise<string> {
   if (!clinicId) return DEFAULT_TIMEZONE;
@@ -65,7 +71,7 @@ interface TrackingInfo {
 async function resolveTracking(
   orderId: number | null,
   lifefileId: string,
-  patientId: number | null,
+  patientId: number | null
 ): Promise<TrackingInfo | null> {
   return withoutClinicFilter(async () => {
     // 1. Order.trackingNumber (set by LifeFile or manually)
@@ -82,10 +88,7 @@ async function resolveTracking(
     // 2. PatientShippingUpdate — LifeFile webhook or manual shipping entries
     const shippingUpdate = await prisma.patientShippingUpdate.findFirst({
       where: {
-        OR: [
-          { lifefileOrderId: lifefileId },
-          ...(orderId ? [{ orderId }] : []),
-        ],
+        OR: [{ lifefileOrderId: lifefileId }, ...(orderId ? [{ orderId }] : [])],
       },
       orderBy: { createdAt: 'desc' },
       select: { trackingNumber: true, source: true },
@@ -93,7 +96,8 @@ async function resolveTracking(
     if (shippingUpdate?.trackingNumber) {
       return {
         trackingNumber: shippingUpdate.trackingNumber,
-        trackingSource: shippingUpdate.source === 'lifefile' ? 'lifefile_webhook' : 'shipping_update',
+        trackingSource:
+          shippingUpdate.source === 'lifefile' ? 'lifefile_webhook' : 'shipping_update',
       };
     }
 
@@ -144,9 +148,18 @@ function buildPerformanceResponse(
   granularity: string,
   rangeStart: Date,
   rangeEnd: Date,
-  repRows: Array<{ captured_by_id: number; first_name: string; last_name: string; total: bigint; matched: bigint }>,
+  repRows: Array<{
+    captured_by_id: number;
+    first_name: string;
+    last_name: string;
+    total: bigint;
+    matched: bigint;
+  }>
 ) {
-  const repTotals = new Map<number, { userId: number; name: string; total: number; matched: number }>();
+  const repTotals = new Map<
+    number,
+    { userId: number; name: string; total: number; matched: number }
+  >();
   for (const r of repRows) {
     const existing = repTotals.get(r.captured_by_id);
     if (existing) {
@@ -205,7 +218,10 @@ async function postHandler(req: NextRequest, user: AuthUser) {
     const manualTracking = formData.get('trackingNumber') as string | null;
 
     if (!user.clinicId) {
-      return NextResponse.json({ error: 'Clinic context required. Please select a clinic.' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Clinic context required. Please select a clinic.' },
+        { status: 400 }
+      );
     }
 
     if (!lifefileId || !lifefileId.trim()) {
@@ -219,42 +235,50 @@ async function postHandler(req: NextRequest, user: AuthUser) {
     if (!ALLOWED_MIME_TYPES.includes(photo.type)) {
       return NextResponse.json(
         { error: 'Invalid file type. Please upload JPEG, PNG, or WebP images.' },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
     if (photo.size > MAX_FILE_SIZE) {
-      return NextResponse.json(
-        { error: 'File too large. Maximum size is 10MB.' },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: 'File too large. Maximum size is 10MB.' }, { status: 400 });
     }
 
     const trimmedId = lifefileId.trim();
 
     // --- Match LifeFile ID globally across all clinics ---
-    const { matchedOrder, matchedPatientId: resolvedPatientId, matchStrategy: resolvedStrategy } =
-      await withoutClinicFilter(async () => {
-        const order = await prisma.order.findFirst({
-          where: { lifefileOrderId: trimmedId },
-          select: { id: true, patientId: true, clinicId: true, trackingNumber: true },
-        });
-
-        if (order) {
-          return { matchedOrder: order, matchedPatientId: order.patientId, matchStrategy: 'lifefileOrderId' as const };
-        }
-
-        const patient = await prisma.patient.findFirst({
-          where: { lifefileId: trimmedId },
-          select: { id: true },
-        });
-
-        if (patient) {
-          return { matchedOrder: null, matchedPatientId: patient.id, matchStrategy: 'patientLifefileId' as const };
-        }
-
-        return { matchedOrder: null, matchedPatientId: null, matchStrategy: null };
+    const {
+      matchedOrder,
+      matchedPatientId: resolvedPatientId,
+      matchStrategy: resolvedStrategy,
+    } = await withoutClinicFilter(async () => {
+      const order = await prisma.order.findFirst({
+        where: { lifefileOrderId: trimmedId },
+        select: { id: true, patientId: true, clinicId: true, trackingNumber: true },
       });
+
+      if (order) {
+        return {
+          matchedOrder: order,
+          matchedPatientId: order.patientId,
+          matchStrategy: 'lifefileOrderId' as const,
+        };
+      }
+
+      const patient = await prisma.patient.findFirst({
+        where: { lifefileId: trimmedId },
+        select: { id: true },
+      });
+
+      if (patient) {
+        return {
+          matchedOrder: null,
+          matchedPatientId: patient.id,
+          matchStrategy: 'patientLifefileId' as const,
+        };
+      }
+
+      return { matchedOrder: null, matchedPatientId: null, matchStrategy: null };
+    });
 
     let matchedPatientId = resolvedPatientId;
     let matchStrategy: string | null = resolvedStrategy;
@@ -267,11 +291,7 @@ async function postHandler(req: NextRequest, user: AuthUser) {
       trackingNumber = manualTracking.trim();
       trackingSource = 'manual';
     } else {
-      const resolved = await resolveTracking(
-        matchedOrder?.id ?? null,
-        trimmedId,
-        matchedPatientId,
-      );
+      const resolved = await resolveTracking(matchedOrder?.id ?? null, trimmedId, matchedPatientId);
       if (resolved) {
         trackingNumber = resolved.trackingNumber;
         trackingSource = resolved.trackingSource;
@@ -355,7 +375,10 @@ const searchSchema = z.object({
   matched: z.enum(['true', 'false', 'all']).optional().default('all'),
   assignedClinicId: z.coerce.number().int().positive().optional(),
   assignedFilter: z.enum(['all', 'unassigned', 'assigned']).optional().default('all'),
-  period: z.enum(['today', 'yesterday', 'last7', 'last30', 'week', 'month', 'custom', 'all']).optional().default('all'),
+  period: z
+    .enum(['today', 'yesterday', 'last7', 'last30', 'week', 'month', 'custom', 'all'])
+    .optional()
+    .default('all'),
   from: z.string().optional(),
   to: z.string().optional(),
   page: z.coerce.number().int().positive().optional().default(1),
@@ -384,10 +407,13 @@ async function getHandler(req: NextRequest, user: AuthUser) {
       const clinicWhere = clinicId ? { clinicId } : {};
       const tz = await resolveClinicTimezone(clinicId);
       const buildStats = async (whereBase: Record<string, unknown>, timezone: string) => {
-        const { todayStart, yesterdayStart, weekStart, monthStart } = getTimezoneAwareBoundaries(timezone);
+        const { todayStart, yesterdayStart, weekStart, monthStart } =
+          getTimezoneAwareBoundaries(timezone);
         const [today, yesterday, thisWeek, thisMonth, matched, total] = await Promise.all([
           prisma.packagePhoto.count({ where: { ...whereBase, createdAt: { gte: todayStart } } }),
-          prisma.packagePhoto.count({ where: { ...whereBase, createdAt: { gte: yesterdayStart, lt: todayStart } } }),
+          prisma.packagePhoto.count({
+            where: { ...whereBase, createdAt: { gte: yesterdayStart, lt: todayStart } },
+          }),
           prisma.packagePhoto.count({ where: { ...whereBase, createdAt: { gte: weekStart } } }),
           prisma.packagePhoto.count({ where: { ...whereBase, createdAt: { gte: monthStart } } }),
           prisma.packagePhoto.count({ where: { ...whereBase, matched: true } }),
@@ -421,7 +447,9 @@ async function getHandler(req: NextRequest, user: AuthUser) {
     if (url.searchParams.get('demographics') === 'true') {
       const clinicId = isGlobalScope(url) ? undefined : resolveRequestClinicId(user);
       const clinicFilterSql = clinicId ? Prisma.sql`AND "clinicId" = ${clinicId}` : Prisma.empty;
-      const clinicFilterSqlPP = clinicId ? Prisma.sql`AND pp."clinicId" = ${clinicId}` : Prisma.empty;
+      const clinicFilterSqlPP = clinicId
+        ? Prisma.sql`AND pp."clinicId" = ${clinicId}`
+        : Prisma.empty;
       const tz = await resolveClinicTimezone(clinicId);
       const tzSql = tzLiteral(tz);
       const { todayStart, monthStart, year, month, day } = getTimezoneAwareBoundaries(tz);
@@ -452,7 +480,15 @@ async function getHandler(req: NextRequest, user: AuthUser) {
         `,
 
         // Per-rep breakdown (this month) — only pharmacy-access roles
-        prisma.$queryRaw<Array<{ captured_by_id: number; first_name: string; last_name: string; total: bigint; matched: bigint }>>`
+        prisma.$queryRaw<
+          Array<{
+            captured_by_id: number;
+            first_name: string;
+            last_name: string;
+            total: bigint;
+            matched: bigint;
+          }>
+        >`
           SELECT
             pp."capturedById" as captured_by_id,
             u."firstName" as first_name,
@@ -482,10 +518,22 @@ async function getHandler(req: NextRequest, user: AuthUser) {
         `,
 
         // Matched this month
-        prisma.packagePhoto.count({ where: { ...(clinicId ? { clinicId } : {}), createdAt: { gte: monthStart }, matched: true } }),
+        prisma.packagePhoto.count({
+          where: {
+            ...(clinicId ? { clinicId } : {}),
+            createdAt: { gte: monthStart },
+            matched: true,
+          },
+        }),
 
         // Unmatched this month
-        prisma.packagePhoto.count({ where: { ...(clinicId ? { clinicId } : {}), createdAt: { gte: monthStart }, matched: false } }),
+        prisma.packagePhoto.count({
+          where: {
+            ...(clinicId ? { clinicId } : {}),
+            createdAt: { gte: monthStart },
+            matched: false,
+          },
+        }),
 
         // Hourly distribution (today, clinic-tz aware)
         prisma.$queryRaw<Array<{ hour: number; total: bigint }>>`
@@ -502,16 +550,23 @@ async function getHandler(req: NextRequest, user: AuthUser) {
       ]);
 
       // Fill in missing days with zeros for the daily chart
-      const dailyVolume: Array<{ date: string; total: number; matched: number; unmatched: number }> = [];
-      const dayMap = new Map(dailyVolumeRaw.map((r) => [
-        r.day,
-        { total: Number(r.total), matched: Number(r.matched) },
-      ]));
+      const dailyVolume: Array<{
+        date: string;
+        total: number;
+        matched: number;
+        unmatched: number;
+      }> = [];
+      const dayMap = new Map(
+        dailyVolumeRaw.map((r) => [r.day, { total: Number(r.total), matched: Number(r.matched) }])
+      );
 
       for (let i = 0; i < 14; i++) {
         const offsetDays = day - 13 + i;
         const dayMidnight = midnightInTz(year, month, offsetDays, tz);
-        const key = toCalendarDateStringInTz(new Date(dayMidnight.getTime() + 12 * 60 * 60 * 1000), tz);
+        const key = toCalendarDateStringInTz(
+          new Date(dayMidnight.getTime() + 12 * 60 * 60 * 1000),
+          tz
+        );
         const data = dayMap.get(key) ?? { total: 0, matched: 0 };
         dailyVolume.push({
           date: key,
@@ -533,7 +588,10 @@ async function getHandler(req: NextRequest, user: AuthUser) {
       }));
 
       // Peak hour
-      const peakHour = hourlyDistribution.reduce((max, h) => h.total > max.total ? h : max, hourlyDistribution[0]);
+      const peakHour = hourlyDistribution.reduce(
+        (max, h) => (h.total > max.total ? h : max),
+        hourlyDistribution[0]
+      );
 
       return NextResponse.json({
         success: true,
@@ -545,7 +603,8 @@ async function getHandler(req: NextRequest, user: AuthUser) {
             name: `${r.first_name} ${r.last_name}`,
             total: Number(r.total),
             matched: Number(r.matched),
-            matchRate: Number(r.total) > 0 ? Math.round((Number(r.matched) / Number(r.total)) * 100) : 0,
+            matchRate:
+              Number(r.total) > 0 ? Math.round((Number(r.matched) / Number(r.total)) * 100) : 0,
           })),
           trackingSourceBreakdown: trackingSourceRaw.map((r) => ({
             source: r.source ?? 'unknown',
@@ -555,9 +614,10 @@ async function getHandler(req: NextRequest, user: AuthUser) {
             matched: matchedThisMonth,
             unmatched: unmatchedThisMonth,
             total: matchedThisMonth + unmatchedThisMonth,
-            rate: (matchedThisMonth + unmatchedThisMonth) > 0
-              ? Math.round((matchedThisMonth / (matchedThisMonth + unmatchedThisMonth)) * 100)
-              : 0,
+            rate:
+              matchedThisMonth + unmatchedThisMonth > 0
+                ? Math.round((matchedThisMonth / (matchedThisMonth + unmatchedThisMonth)) * 100)
+                : 0,
           },
           hourlyDistribution,
           peakHour: { hour: peakHour.hour, count: peakHour.total },
@@ -569,12 +629,17 @@ async function getHandler(req: NextRequest, user: AuthUser) {
     if (url.searchParams.get('performance-report') === 'true') {
       const clinicId = isGlobalScope(url) ? undefined : resolveRequestClinicId(user);
       const clinicFilterSql = clinicId ? Prisma.sql`AND "clinicId" = ${clinicId}` : Prisma.empty;
-      const clinicFilterSqlPP = clinicId ? Prisma.sql`AND pp."clinicId" = ${clinicId}` : Prisma.empty;
+      const clinicFilterSqlPP = clinicId
+        ? Prisma.sql`AND pp."clinicId" = ${clinicId}`
+        : Prisma.empty;
       const tz = await resolveClinicTimezone(clinicId);
       const tzSql = tzLiteral(tz);
       const bounds = getTimezoneAwareBoundaries(tz);
 
-      const granularity = (url.searchParams.get('granularity') ?? 'daily') as 'hourly' | 'daily' | 'weekly';
+      const granularity = (url.searchParams.get('granularity') ?? 'daily') as
+        | 'hourly'
+        | 'daily'
+        | 'weekly';
       const fromParam = url.searchParams.get('from');
       const toParam = url.searchParams.get('to');
       const repIdParam = url.searchParams.get('repId');
@@ -621,7 +686,17 @@ async function getHandler(req: NextRequest, user: AuthUser) {
             GROUP BY 1, 2
             ORDER BY 1 ASC, 2 ASC
           `,
-          prisma.$queryRaw<Array<{ hour: number; day: Date; captured_by_id: number; first_name: string; last_name: string; total: bigint; matched: bigint }>>`
+          prisma.$queryRaw<
+            Array<{
+              hour: number;
+              day: Date;
+              captured_by_id: number;
+              first_name: string;
+              last_name: string;
+              total: bigint;
+              matched: bigint;
+            }>
+          >`
             SELECT
               DATE(pp."createdAt" AT TIME ZONE ${tzSql}) as day,
               EXTRACT(HOUR FROM pp."createdAt" AT TIME ZONE ${tzSql})::int as hour,
@@ -640,7 +715,10 @@ async function getHandler(req: NextRequest, user: AuthUser) {
           `,
         ]);
 
-        const repsByKey = new Map<string, Array<{ userId: number; name: string; total: number; matched: number }>>();
+        const repsByKey = new Map<
+          string,
+          Array<{ userId: number; name: string; total: number; matched: number }>
+        >();
         for (const r of repRows) {
           const key = `${dbDateToString(new Date(r.day))}-${r.hour}`;
           if (!repsByKey.has(key)) repsByKey.set(key, []);
@@ -674,7 +752,15 @@ async function getHandler(req: NextRequest, user: AuthUser) {
         const grandTotal = intervals.reduce((s, i) => s + i.total, 0);
         const grandMatched = intervals.reduce((s, i) => s + i.matched, 0);
 
-        return buildPerformanceResponse(intervals, grandTotal, grandMatched, granularity, rangeStart, rangeEnd, repRows);
+        return buildPerformanceResponse(
+          intervals,
+          grandTotal,
+          grandMatched,
+          granularity,
+          rangeStart,
+          rangeEnd,
+          repRows
+        );
       }
 
       if (granularity === 'weekly') {
@@ -691,7 +777,16 @@ async function getHandler(req: NextRequest, user: AuthUser) {
             GROUP BY 1
             ORDER BY 1 ASC
           `,
-          prisma.$queryRaw<Array<{ week_start: Date; captured_by_id: number; first_name: string; last_name: string; total: bigint; matched: bigint }>>`
+          prisma.$queryRaw<
+            Array<{
+              week_start: Date;
+              captured_by_id: number;
+              first_name: string;
+              last_name: string;
+              total: bigint;
+              matched: bigint;
+            }>
+          >`
             SELECT
               DATE_TRUNC('week', pp."createdAt" AT TIME ZONE ${tzSql})::date as week_start,
               pp."capturedById" as captured_by_id,
@@ -709,7 +804,10 @@ async function getHandler(req: NextRequest, user: AuthUser) {
           `,
         ]);
 
-        const repsByWeek = new Map<string, Array<{ userId: number; name: string; total: number; matched: number }>>();
+        const repsByWeek = new Map<
+          string,
+          Array<{ userId: number; name: string; total: number; matched: number }>
+        >();
         for (const r of repRows) {
           const key = dbDateToString(new Date(r.week_start));
           if (!repsByWeek.has(key)) repsByWeek.set(key, []);
@@ -726,7 +824,8 @@ async function getHandler(req: NextRequest, user: AuthUser) {
           const we = new Date(ws.getTime() + 6 * 86400000);
           const t = Number(row.total);
           const m = Number(row.matched);
-          const fmt = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          const fmt = (d: Date) =>
+            d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
           const weekKey = dbDateToString(ws);
           return {
             label: `${fmt(ws)} – ${fmt(we)}`,
@@ -742,7 +841,15 @@ async function getHandler(req: NextRequest, user: AuthUser) {
         const grandTotal = intervals.reduce((s, i) => s + i.total, 0);
         const grandMatched = intervals.reduce((s, i) => s + i.matched, 0);
 
-        return buildPerformanceResponse(intervals, grandTotal, grandMatched, granularity, rangeStart, rangeEnd, repRows);
+        return buildPerformanceResponse(
+          intervals,
+          grandTotal,
+          grandMatched,
+          granularity,
+          rangeStart,
+          rangeEnd,
+          repRows
+        );
       }
 
       // Default: daily granularity
@@ -759,7 +866,16 @@ async function getHandler(req: NextRequest, user: AuthUser) {
           GROUP BY 1
           ORDER BY 1 ASC
         `,
-        prisma.$queryRaw<Array<{ day: Date; captured_by_id: number; first_name: string; last_name: string; total: bigint; matched: bigint }>>`
+        prisma.$queryRaw<
+          Array<{
+            day: Date;
+            captured_by_id: number;
+            first_name: string;
+            last_name: string;
+            total: bigint;
+            matched: bigint;
+          }>
+        >`
           SELECT
             DATE(pp."createdAt" AT TIME ZONE ${tzSql}) as day,
             pp."capturedById" as captured_by_id,
@@ -777,7 +893,10 @@ async function getHandler(req: NextRequest, user: AuthUser) {
         `,
       ]);
 
-      const repsByDay = new Map<string, Array<{ userId: number; name: string; total: number; matched: number }>>();
+      const repsByDay = new Map<
+        string,
+        Array<{ userId: number; name: string; total: number; matched: number }>
+      >();
       for (const r of repRows) {
         const key = dbDateToString(new Date(r.day));
         if (!repsByDay.has(key)) repsByDay.set(key, []);
@@ -794,7 +913,11 @@ async function getHandler(req: NextRequest, user: AuthUser) {
         const t = Number(row.total);
         const m = Number(row.matched);
         return {
-          label: new Date(row.day).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
+          label: new Date(row.day).toLocaleDateString('en-US', {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric',
+          }),
           date: dayKey,
           total: t,
           matched: m,
@@ -807,14 +930,24 @@ async function getHandler(req: NextRequest, user: AuthUser) {
       const grandTotal = intervals.reduce((s, i) => s + i.total, 0);
       const grandMatched = intervals.reduce((s, i) => s + i.matched, 0);
 
-      return buildPerformanceResponse(intervals, grandTotal, grandMatched, granularity, rangeStart, rangeEnd, repRows);
+      return buildPerformanceResponse(
+        intervals,
+        grandTotal,
+        grandMatched,
+        granularity,
+        rangeStart,
+        rangeEnd,
+        repRows
+      );
     }
 
     // Daily report mode — per-day breakdown for a date range with rep details
     if (url.searchParams.get('daily-report') === 'true') {
       const clinicId = isGlobalScope(url) ? undefined : resolveRequestClinicId(user);
       const clinicFilterSql = clinicId ? Prisma.sql`AND "clinicId" = ${clinicId}` : Prisma.empty;
-      const clinicFilterSqlPP = clinicId ? Prisma.sql`AND pp."clinicId" = ${clinicId}` : Prisma.empty;
+      const clinicFilterSqlPP = clinicId
+        ? Prisma.sql`AND pp."clinicId" = ${clinicId}`
+        : Prisma.empty;
       const tz = await resolveClinicTimezone(clinicId);
       const tzSql = tzLiteral(tz);
       const bounds = getTimezoneAwareBoundaries(tz);
@@ -846,7 +979,16 @@ async function getHandler(req: NextRequest, user: AuthUser) {
 
       const queries: [
         Promise<Array<{ day: Date; total: bigint; matched: bigint; unmatched: bigint }>>,
-        Promise<Array<{ day: Date; captured_by_id: number; first_name: string; last_name: string; total: bigint; matched: bigint }>>,
+        Promise<
+          Array<{
+            day: Date;
+            captured_by_id: number;
+            first_name: string;
+            last_name: string;
+            total: bigint;
+            matched: bigint;
+          }>
+        >,
         Promise<Array<{ hour: number; total: bigint }>> | null,
         Promise<{ first_name: string; last_name: string } | null> | null,
       ] = [
@@ -893,15 +1035,24 @@ async function getHandler(req: NextRequest, user: AuthUser) {
             `
           : null,
         repId
-          ? prisma.user.findUnique({ where: { id: repId }, select: { firstName: true, lastName: true } }).then(u => u ? { first_name: u.firstName, last_name: u.lastName } : null)
+          ? prisma.user
+              .findUnique({ where: { id: repId }, select: { firstName: true, lastName: true } })
+              .then((u) => (u ? { first_name: u.firstName, last_name: u.lastName } : null))
           : null,
       ];
 
-      const [dailyRows, repDailyRows, hourlyRows, repUser] = await Promise.all(
-        queries.map((q) => q ?? Promise.resolve(null)),
-      ) as [
+      const [dailyRows, repDailyRows, hourlyRows, repUser] = (await Promise.all(
+        queries.map((q) => q ?? Promise.resolve(null))
+      )) as [
         Array<{ day: Date; total: bigint; matched: bigint; unmatched: bigint }>,
-        Array<{ day: Date; captured_by_id: number; first_name: string; last_name: string; total: bigint; matched: bigint }>,
+        Array<{
+          day: Date;
+          captured_by_id: number;
+          first_name: string;
+          last_name: string;
+          total: bigint;
+          matched: bigint;
+        }>,
         Array<{ hour: number; total: bigint }> | null,
         { first_name: string; last_name: string } | null,
       ];
@@ -939,12 +1090,20 @@ async function getHandler(req: NextRequest, user: AuthUser) {
       let hourlyDistribution: Array<{ hour: number; total: number }> | undefined;
       let peakHour: { hour: number; count: number } | undefined;
       if (repId && hourlyRows) {
-        const hourMap = new Map((hourlyRows as Array<{ hour: number; total: bigint }>).map((r) => [r.hour, Number(r.total)]));
+        const hourMap = new Map(
+          (hourlyRows as Array<{ hour: number; total: bigint }>).map((r) => [
+            r.hour,
+            Number(r.total),
+          ])
+        );
         hourlyDistribution = Array.from({ length: 24 }, (_, h) => ({
           hour: h,
           total: hourMap.get(h) ?? 0,
         }));
-        const peak = hourlyDistribution.reduce((max, h) => h.total > max.total ? h : max, hourlyDistribution[0]);
+        const peak = hourlyDistribution.reduce(
+          (max, h) => (h.total > max.total ? h : max),
+          hourlyDistribution[0]
+        );
         peakHour = { hour: peak.hour, count: peak.total };
       }
 
@@ -973,22 +1132,36 @@ async function getHandler(req: NextRequest, user: AuthUser) {
             from: fromParam ?? instantToCalendarDate(rangeStart),
             to: toParam ?? instantToCalendarDate(new Date(rangeEnd.getTime() - 86400000)),
           },
-          ...(repId ? {
-            rep: {
-              id: repId,
-              name: repUser ? `${repUser.first_name} ${repUser.last_name}` : 'Unknown',
-            },
-            hourlyDistribution,
-            peakHour,
-            bestDay,
-            worstDay,
-          } : {}),
+          ...(repId
+            ? {
+                rep: {
+                  id: repId,
+                  name: repUser ? `${repUser.first_name} ${repUser.last_name}` : 'Unknown',
+                },
+                hourlyDistribution,
+                peakHour,
+                bestDay,
+                worstDay,
+              }
+            : {}),
         },
       });
     }
 
     const params = searchSchema.parse(Object.fromEntries(url.searchParams));
-    const { search, matched, assignedClinicId, assignedFilter, period, from, to, page, limit, sortBy, sortOrder } = params;
+    const {
+      search,
+      matched,
+      assignedClinicId,
+      assignedFilter,
+      period,
+      from,
+      to,
+      page,
+      limit,
+      sortBy,
+      sortOrder,
+    } = params;
     const clinicId = isGlobalScope(url) ? undefined : resolveRequestClinicId(user);
 
     const where: Record<string, unknown> = {};
@@ -1055,7 +1228,9 @@ async function getHandler(req: NextRequest, user: AuthUser) {
         include: {
           capturedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
           patient: { select: { id: true, firstName: true, lastName: true } },
-          order: { select: { id: true, lifefileOrderId: true, status: true, trackingNumber: true } },
+          order: {
+            select: { id: true, lifefileOrderId: true, status: true, trackingNumber: true },
+          },
           assignedClinic: { select: { id: true, name: true } },
         },
         orderBy: { [sortBy]: sortOrder },
@@ -1068,7 +1243,9 @@ async function getHandler(req: NextRequest, user: AuthUser) {
     // Generate fresh signed URLs (stored URLs expire after 1 hour)
     const s3Active = isS3Enabled();
     if (!s3Active && photos.length > 0) {
-      logger.warn('[PackagePhoto] S3 is NOT enabled — photos are stored in mock mode. Set NEXT_PUBLIC_ENABLE_AWS_S3_STORAGE=true in env vars.');
+      logger.warn(
+        '[PackagePhoto] S3 is NOT enabled — photos are stored in mock mode. Set NEXT_PUBLIC_ENABLE_AWS_S3_STORAGE=true in env vars.'
+      );
     }
     const decryptedPhotos = await Promise.all(
       photos.map(async (photo) => {
@@ -1078,7 +1255,10 @@ async function getHandler(req: NextRequest, user: AuthUser) {
           try {
             freshUrl = await generateSignedUrl(photo.s3Key, 'GET', 3600);
           } catch {
-            logger.warn('[PackagePhoto] Failed to generate signed URL', { photoId: photo.id, s3Key: photo.s3Key });
+            logger.warn('[PackagePhoto] Failed to generate signed URL', {
+              photoId: photo.id,
+              s3Key: photo.s3Key,
+            });
           }
         }
 
@@ -1098,7 +1278,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
               }
             : null,
         };
-      }),
+      })
     );
 
     return NextResponse.json({

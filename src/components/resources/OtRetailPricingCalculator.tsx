@@ -43,7 +43,9 @@ export function OtRetailPricingCalculator() {
   const [browseDur, setBrowseDur] = useState<OtCalcDuration>(3);
   const [category, setCategory] = useState<OtRetailPackageCategory>('bundles');
   const [singleSel, setSingleSel] = useState<Map<string, OtCalcDuration>>(() => new Map());
-  const [multiQty, setMultiQty] = useState<Map<string, { dur: OtCalcDuration; qty: number }>>(() => new Map());
+  const [multiQty, setMultiQty] = useState<Map<string, { dur: OtCalcDuration; qty: number }>>(
+    () => new Map()
+  );
   const [disc, setDisc] = useState<OtCalcDiscountState>({
     military: false,
     multiResearch: false,
@@ -54,13 +56,10 @@ export function OtRetailPricingCalculator() {
 
   const filtered = useMemo(
     () => OT_RETAIL_PACKAGES.filter((p) => p.category === category),
-    [category],
+    [category]
   );
 
-  const cartLines = useMemo(
-    () => buildCartLines(singleSel, multiQty),
-    [singleSel, multiQty],
-  );
+  const cartLines = useMemo(() => buildCartLines(singleSel, multiQty), [singleSel, multiQty]);
 
   const totals = useMemo(() => computeCalculatorTotals(cartLines, disc), [cartLines, disc]);
 
@@ -80,18 +79,21 @@ export function OtRetailPricingCalculator() {
         return next;
       });
     },
-    [browseDur],
+    [browseDur]
   );
 
-  const incMulti = useCallback((pkg: OtRetailPackage) => {
-    if (!pkg.allowsMultipleQuantity) return;
-    setMultiQty((prev) => {
-      const next = newMap(prev);
-      const cur = next.get(pkg.id) ?? { dur: browseDur, qty: 0 };
-      next.set(pkg.id, { dur: browseDur, qty: cur.qty + 1 });
-      return next;
-    });
-  }, [browseDur]);
+  const incMulti = useCallback(
+    (pkg: OtRetailPackage) => {
+      if (!pkg.allowsMultipleQuantity) return;
+      setMultiQty((prev) => {
+        const next = newMap(prev);
+        const cur = next.get(pkg.id) ?? { dur: browseDur, qty: 0 };
+        next.set(pkg.id, { dur: browseDur, qty: cur.qty + 1 });
+        return next;
+      });
+    },
+    [browseDur]
+  );
 
   const decMulti = useCallback((id: string) => {
     setMultiQty((prev) => {
@@ -132,7 +134,9 @@ export function OtRetailPricingCalculator() {
       className="w-full overflow-x-hidden rounded-2xl border border-stone-200/80 p-4 sm:p-6 md:pr-10"
       style={{ backgroundColor: BG, color: '#1a1a1a' }}
     >
-      <h1 className="text-xl font-bold tracking-tight text-stone-900">OT Men&apos;s Health — pricing calculator</h1>
+      <h1 className="text-xl font-bold tracking-tight text-stone-900">
+        OT Men&apos;s Health — pricing calculator
+      </h1>
       <p className="mt-1 text-[13px] text-stone-500">
         Select duration · tap compounds to add at that duration · mix durations · apply discounts
       </p>
@@ -159,8 +163,8 @@ export function OtRetailPricingCalculator() {
         ))}
       </div>
       <p className="mt-2 text-[11px] italic text-stone-400">
-        Browsing {browseDur === 1 ? '1-month' : `${browseDur}-month`} pricing — tap a compound to add at{' '}
-        <strong style={{ color: ACCENT }}>{browseDur}M</strong>
+        Browsing {browseDur === 1 ? '1-month' : `${browseDur}-month`} pricing — tap a compound to
+        add at <strong style={{ color: ACCENT }}>{browseDur}M</strong>
         {'. '}
         Blue badge = added at a different duration than you&apos;re browsing.
       </p>
@@ -243,7 +247,9 @@ export function OtRetailPricingCalculator() {
                     <div className="truncate text-[10px] text-stone-400">{pkg.subtitle}</div>
                   </div>
                   <div className="flex flex-shrink-0 gap-1">
-                    <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold ${KIND_BADGE[pkg.kind]}`}>
+                    <span
+                      className={`rounded px-1.5 py-0.5 text-[9px] font-bold ${KIND_BADGE[pkg.kind]}`}
+                    >
                       {KIND_LABEL[pkg.kind]}
                     </span>
                     {pkg.maxDurationMonths != null && !pkg.flatRate && (
@@ -253,7 +259,10 @@ export function OtRetailPricingCalculator() {
                     )}
                   </div>
                   {isMulti ? (
-                    <div className="ml-1 flex flex-shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                    <div
+                      className="ml-1 flex flex-shrink-0 items-center gap-1"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <button
                         type="button"
                         onClick={() => decMulti(pkg.id)}
@@ -298,9 +307,7 @@ export function OtRetailPricingCalculator() {
           </div>
         </div>
 
-        <div
-          className="rounded-xl border-[1.5px] border-[#e8e6e0] bg-white shadow-sm lg:sticky lg:top-4"
-        >
+        <div className="rounded-xl border-[1.5px] border-[#e8e6e0] bg-white shadow-sm lg:sticky lg:top-4">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#f0ede6] px-3.5 py-3">
             <span className="text-[13px] font-bold text-stone-900">Package builder</span>
             <div className="flex items-center gap-2">
@@ -320,7 +327,9 @@ export function OtRetailPricingCalculator() {
 
           <div className="min-h-[60px] px-3.5 py-3">
             {cartLines.length === 0 ? (
-              <p className="py-5 text-center text-xs italic text-stone-300">Select compounds to build your package.</p>
+              <p className="py-5 text-center text-xs italic text-stone-300">
+                Select compounds to build your package.
+              </p>
             ) : (
               <>
                 {totals.rowDetails.map((row, i) => (
@@ -328,7 +337,10 @@ export function OtRetailPricingCalculator() {
                     key={`${row.label}-${i}`}
                     className="flex items-baseline justify-between gap-2 border-b border-[#f5f3ee] py-1.5 last:border-b-0"
                   >
-                    <span className="min-w-0 flex-1 truncate text-xs text-stone-600" title={row.label}>
+                    <span
+                      className="min-w-0 flex-1 truncate text-xs text-stone-600"
+                      title={row.label}
+                    >
                       {row.label}
                       <span className="ml-1 text-[9px] text-stone-300">{row.durLabel}</span>
                     </span>
@@ -392,7 +404,9 @@ export function OtRetailPricingCalculator() {
           </div>
 
           <div className="border-t border-[#f0ede6] px-3.5 py-3">
-            <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-stone-400">Apply discounts</div>
+            <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-stone-400">
+              Apply discounts
+            </div>
             <div className="flex flex-col gap-0.5">
               <label className="flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 text-xs text-stone-600 hover:bg-stone-50">
                 <input
@@ -466,17 +480,21 @@ export function OtRetailPricingCalculator() {
               </label>
             </div>
             <p className="mt-2 px-0.5 text-[10px] italic leading-relaxed text-stone-400">
-              Order thresholds are mutually exclusive. Loyalty tiers are mutually exclusive. Loyalty discounts require rep
-              at $100K+ total revenue.
+              Order thresholds are mutually exclusive. Loyalty tiers are mutually exclusive. Loyalty
+              discounts require rep at $100K+ total revenue.
             </p>
           </div>
         </div>
       </div>
 
       <p className="mt-4 text-[10px] text-stone-400">
-        List prices sync with <code className="rounded bg-white/80 px-1">ot-retail-packages.ts</code>. For a flat table
-        and CSV export, use <a className="underline" style={{ color: ACCENT }} href="/admin/ot-medication-pricing">OT
-        medication pricing</a>.
+        List prices sync with{' '}
+        <code className="rounded bg-white/80 px-1">ot-retail-packages.ts</code>. For a flat table
+        and CSV export, use{' '}
+        <a className="underline" style={{ color: ACCENT }} href="/admin/ot-medication-pricing">
+          OT medication pricing
+        </a>
+        .
       </p>
     </div>
   );

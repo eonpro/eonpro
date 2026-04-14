@@ -44,8 +44,10 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
 
       if (audioFile.size > MAX_AUDIO_SIZE) {
         return NextResponse.json(
-          { error: `Audio file too large (${Math.round(audioFile.size / 1024 / 1024)}MB). Max is 25MB.` },
-          { status: 400 },
+          {
+            error: `Audio file too large (${Math.round(audioFile.size / 1024 / 1024)}MB). Max is 25MB.`,
+          },
+          { status: 400 }
         );
       }
 
@@ -123,11 +125,16 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
         if (!patientId || !providerId) {
           return NextResponse.json(
             { error: 'patientId and providerId are required' },
-            { status: 400 },
+            { status: 400 }
           );
         }
 
-        const session = await createTranscriptionSession(appointmentId, patientId, providerId, user.clinicId ?? undefined);
+        const session = await createTranscriptionSession(
+          appointmentId,
+          patientId,
+          providerId,
+          user.clinicId ?? undefined
+        );
 
         return NextResponse.json(
           {
@@ -138,7 +145,7 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
               startedAt: session.startedAt,
             },
           },
-          { status: 201 },
+          { status: 201 }
         );
 
       case 'status':
@@ -175,14 +182,15 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
       default:
         return NextResponse.json(
           { error: 'Invalid action. Use "start", "status", or "complete"' },
-          { status: 400 },
+          { status: 400 }
         );
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const errorName = error instanceof Error ? error.constructor.name : 'Unknown';
 
-    const isConfig = errorMessage.includes('OPENAI_API_KEY') || errorMessage.includes('Missing credentials');
+    const isConfig =
+      errorMessage.includes('OPENAI_API_KEY') || errorMessage.includes('Missing credentials');
     const isTenant = errorMessage.includes('Tenant context');
     const isTimeout = errorMessage.includes('timed out');
     const status = isConfig ? 503 : isTimeout ? 504 : 500;
@@ -197,10 +205,7 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
       stack: error instanceof Error ? error.stack?.split('\n').slice(0, 4).join(' | ') : undefined,
     });
 
-    return NextResponse.json(
-      { error: 'Transcription failed', details: errorMessage },
-      { status },
-    );
+    return NextResponse.json({ error: 'Transcription failed', details: errorMessage }, { status });
   }
 });
 

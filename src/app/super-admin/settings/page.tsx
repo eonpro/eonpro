@@ -71,7 +71,8 @@ export default function GlobalSettingsPage() {
         setPolicySummary(data.summary);
       }
     } catch (err) {
-      process.env.NODE_ENV === 'development' && console.error('Failed to fetch policy summary:', err);
+      process.env.NODE_ENV === 'development' &&
+        console.error('Failed to fetch policy summary:', err);
     } finally {
       setLoadingPolicies(false);
     }

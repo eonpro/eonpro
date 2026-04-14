@@ -29,7 +29,10 @@ function isValidCalendarYmd(s: string): boolean {
 }
 
 const exportSchema = z.object({
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(isValidCalendarYmd, 'Invalid calendar date'),
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .refine(isValidCalendarYmd, 'Invalid calendar date'),
   endDate: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -61,7 +64,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
     if (!parsed.success) {
       return NextResponse.json(
         { error: 'Validation failed', details: parsed.error.flatten() },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -90,8 +93,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
       });
     }
 
-    const csvType =
-      invoiceType === 'summary' ? 'combined' : invoiceType;
+    const csvType = invoiceType === 'summary' ? 'combined' : invoiceType;
 
     let csv: string;
     let filename: string;

@@ -75,10 +75,7 @@ export async function cancelOrder(input: CancelOrderInput): Promise<CancelOrderR
 
   const currentStatus = (order.status || '').toLowerCase();
   if (NON_CANCELLABLE_STATUSES.includes(currentStatus)) {
-    throw new CancelOrderError(
-      `Orders with status "${order.status}" cannot be cancelled.`,
-      400
-    );
+    throw new CancelOrderError(`Orders with status "${order.status}" cannot be cancelled.`, 400);
   }
 
   logger.info('[CANCEL ORDER] Cancellation requested', {
@@ -95,9 +92,8 @@ export async function cancelOrder(input: CancelOrderInput): Promise<CancelOrderR
   if (order.lifefileOrderId && order.clinic?.lifefileEnabled) {
     try {
       const clinicId = order.clinicId ?? undefined;
-      const lifefileClient = clinicId !== undefined
-        ? await getClinicLifefileClient(clinicId)
-        : lifefile;
+      const lifefileClient =
+        clinicId !== undefined ? await getClinicLifefileClient(clinicId) : lifefile;
 
       try {
         lifefileCancelResponse = await lifefileClient.cancelOrder(
@@ -113,7 +109,8 @@ export async function cancelOrder(input: CancelOrderInput): Promise<CancelOrderR
           try {
             lifefileCancelResponse = await lifefileClient.deleteOrder(order.lifefileOrderId);
           } catch (deleteErr: unknown) {
-            lifefileError = ((cancelErr as { message?: string })?.message) || 'Lifefile cancellation failed';
+            lifefileError =
+              (cancelErr as { message?: string })?.message || 'Lifefile cancellation failed';
             logger.error('[CANCEL ORDER] All Lifefile cancel attempts failed', {
               orderId,
               cancelErr: (cancelErr as { message?: string })?.message,
@@ -125,7 +122,10 @@ export async function cancelOrder(input: CancelOrderInput): Promise<CancelOrderR
       }
     } catch (err: unknown) {
       lifefileError = (err as any).message || 'Failed to connect to Lifefile';
-      logger.error('[CANCEL ORDER] Lifefile client error', { orderId, error: (err as any).message });
+      logger.error('[CANCEL ORDER] Lifefile client error', {
+        orderId,
+        error: (err as any).message,
+      });
     }
   }
 
@@ -171,7 +171,12 @@ export async function cancelOrder(input: CancelOrderInput): Promise<CancelOrderR
   } catch (compError) {
     logger.error('[CANCEL ORDER] Failed to void compensation', {
       orderId,
-      error: compError instanceof Error ? (compError instanceof Error ? compError.message : String(compError)) : 'Unknown error',
+      error:
+        compError instanceof Error
+          ? compError instanceof Error
+            ? compError.message
+            : String(compError)
+          : 'Unknown error',
     });
   }
 
@@ -187,7 +192,12 @@ export async function cancelOrder(input: CancelOrderInput): Promise<CancelOrderR
   } catch (feeError) {
     logger.error('[CANCEL ORDER] Failed to void platform fee', {
       orderId,
-      error: feeError instanceof Error ? (feeError instanceof Error ? feeError.message : String(feeError)) : 'Unknown error',
+      error:
+        feeError instanceof Error
+          ? feeError instanceof Error
+            ? feeError.message
+            : String(feeError)
+          : 'Unknown error',
     });
   }
 

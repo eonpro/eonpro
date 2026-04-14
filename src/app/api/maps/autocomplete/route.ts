@@ -31,7 +31,9 @@ async function handler(request: NextRequest, user: AuthUser) {
       `https://maps.googleapis.com/maps/api/place/autocomplete/json?${params.toString()}`
     );
     const data = await res.json().catch((err) => {
-      logger.warn('[Maps Autocomplete] Failed to parse JSON response', { error: err instanceof Error ? err.message : String(err) });
+      logger.warn('[Maps Autocomplete] Failed to parse JSON response', {
+        error: err instanceof Error ? err.message : String(err),
+      });
       return null;
     });
 
@@ -44,7 +46,9 @@ async function handler(request: NextRequest, user: AuthUser) {
               data?.error_message ??
               data?.status ??
               (await res.text().catch((err) => {
-                logger.warn('[Maps Autocomplete] Failed to read error response text', { error: err instanceof Error ? err.message : String(err) });
+                logger.warn('[Maps Autocomplete] Failed to read error response text', {
+                  error: err instanceof Error ? err.message : String(err),
+                });
                 return null;
               })) ??
               'Autocomplete failed',

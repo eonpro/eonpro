@@ -30,9 +30,12 @@ export default function OtRetailPricingResourcesPage() {
         <div className="flex max-w-lg items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900">
           <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0" />
           <div>
-            <p className="font-medium">This resource is only available for the Overtime (OT) clinic.</p>
+            <p className="font-medium">
+              This resource is only available for the Overtime (OT) clinic.
+            </p>
             <p className="mt-1 text-sm text-amber-800">
-              Switch to clinic <strong>ot</strong> (or use a super admin account), then open this page again.
+              Switch to clinic <strong>ot</strong> (or use a super admin account), then open this
+              page again.
             </p>
           </div>
         </div>
@@ -45,8 +48,8 @@ export default function OtRetailPricingResourcesPage() {
       <div className="mb-4 lg:mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Resources</h1>
         <p className="mt-1 text-gray-600">
-          Quick retail pricing for OT Men&apos;s Health — share with sales reps and staff. List prices match the catalog
-          used for quotes and invoicing.
+          Quick retail pricing for OT Men&apos;s Health — share with sales reps and staff. List
+          prices match the catalog used for quotes and invoicing.
         </p>
       </div>
       <OtRetailPricingCalculator />

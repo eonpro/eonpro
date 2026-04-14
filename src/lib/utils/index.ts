@@ -9,11 +9,7 @@
  */
 
 // Safe JSON utilities
-export {
-  safeParseJsonString,
-  safeParseJson,
-  safeParseJsonOr,
-} from './safe-json';
+export { safeParseJsonString, safeParseJson, safeParseJsonOr } from './safe-json';
 
 // SSR-safe utilities
 export {

@@ -49,22 +49,10 @@ export interface SchemaWarning {
  * MUST match actual Prisma schema / DB table and column names.
  * Prisma uses model name as table name (e.g. Rx not Prescription).
  */
-const CRITICAL_SCHEMA: Record<
-  string,
-  { columns: string[]; critical: boolean }
-> = {
+const CRITICAL_SCHEMA: Record<string, { columns: string[]; critical: boolean }> = {
   // Patient - HIPAA critical (schema: dob, no updatedAt)
   Patient: {
-    columns: [
-      'id',
-      'firstName',
-      'lastName',
-      'email',
-      'phone',
-      'dob',
-      'clinicId',
-      'createdAt',
-    ],
+    columns: ['id', 'firstName', 'lastName', 'email', 'phone', 'dob', 'clinicId', 'createdAt'],
     critical: true,
   },
 
@@ -119,7 +107,17 @@ const CRITICAL_SCHEMA: Record<
 
   // Rx = prescription table (Prisma model Rx, not Prescription)
   Rx: {
-    columns: ['id', 'orderId', 'medicationKey', 'medName', 'strength', 'form', 'quantity', 'refills', 'sig'],
+    columns: [
+      'id',
+      'orderId',
+      'medicationKey',
+      'medName',
+      'strength',
+      'form',
+      'quantity',
+      'refills',
+      'sig',
+    ],
     critical: true,
   },
 
@@ -152,15 +150,15 @@ const STARTUP_RETRY_BASE_DELAY_MS = 2_000;
 
 const TRANSIENT_PATTERNS = [
   'Timed out fetching a new connection from the connection pool',
-  "Can't reach database server",   // ASCII apostrophe U+0027
+  "Can't reach database server", // ASCII apostrophe U+0027
   'Can\u2019t reach database server', // typographic apostrophe U+2019
   'Connection refused',
   'ECONNREFUSED',
   'ETIMEDOUT',
   'connection pool',
   'connect ETIMEDOUT',
-  'P1001',  // Prisma: "Can't reach database server"
-  'P1002',  // Prisma: "Database server timed out"
+  'P1001', // Prisma: "Can't reach database server"
+  'P1002', // Prisma: "Database server timed out"
 ];
 
 function isTransientConnectionError(error: unknown): boolean {
@@ -187,8 +185,10 @@ function isTransientErrorMessage(msg: string): boolean {
 }
 
 async function querySchemaWithRetry(
-  db: PrismaClient,
-): Promise<Array<{ table_name: string; column_name: string; data_type: string; is_nullable: string }>> {
+  db: PrismaClient
+): Promise<
+  Array<{ table_name: string; column_name: string; data_type: string; is_nullable: string }>
+> {
   let lastError: unknown;
   for (let attempt = 1; attempt <= STARTUP_RETRY_ATTEMPTS; attempt++) {
     try {
@@ -204,9 +204,12 @@ async function querySchemaWithRetry(
       lastError = error;
       if (attempt < STARTUP_RETRY_ATTEMPTS && isTransientConnectionError(error)) {
         const delay = STARTUP_RETRY_BASE_DELAY_MS * attempt;
-        logger.warn(`[SchemaValidator] Connection attempt ${attempt}/${STARTUP_RETRY_ATTEMPTS} failed, retrying in ${delay}ms`, {
-          error: error instanceof Error ? error.message : String(error),
-        });
+        logger.warn(
+          `[SchemaValidator] Connection attempt ${attempt}/${STARTUP_RETRY_ATTEMPTS} failed, retrying in ${delay}ms`,
+          {
+            error: error instanceof Error ? error.message : String(error),
+          }
+        );
         await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
@@ -319,10 +322,13 @@ export async function validateDatabaseSchema(
     const errorMsg = error instanceof Error ? error.message : String(error);
 
     if (isTransientConnectionError(error)) {
-      logger.warn('[SchemaValidator] Schema validation skipped — transient DB connection failure (will validate on next request)', {
-        error: errorMsg,
-        duration,
-      });
+      logger.warn(
+        '[SchemaValidator] Schema validation skipped — transient DB connection failure (will validate on next request)',
+        {
+          error: errorMsg,
+          duration,
+        }
+      );
       return {
         valid: true,
         errors: [],
@@ -362,10 +368,7 @@ export async function validateDatabaseSchema(
  * Check for orphaned records that could indicate data integrity issues.
  * When clinicId is provided, raw SQL is scoped to that clinic to prevent cross-tenant leakage.
  */
-async function checkOrphanedRecords(
-  db: PrismaClient,
-  clinicId?: number
-): Promise<SchemaWarning[]> {
+async function checkOrphanedRecords(db: PrismaClient, clinicId?: number): Promise<SchemaWarning[]> {
   const warnings: SchemaWarning[] = [];
 
   try {
@@ -472,13 +475,12 @@ export async function runStartupValidation(): Promise<void> {
     const criticalErrors = result.errors.filter((e) => e.severity === 'CRITICAL');
 
     const allTransient =
-      criticalErrors.length > 0 &&
-      criticalErrors.every((e) => isTransientErrorMessage(e.message));
+      criticalErrors.length > 0 && criticalErrors.every((e) => isTransientErrorMessage(e.message));
 
     if (allTransient) {
       logger.warn(
         '[SchemaValidator] Schema validation deferred — all critical errors are transient connection failures (will validate on next healthy request)',
-        { errors: criticalErrors.map((e) => e.message) },
+        { errors: criticalErrors.map((e) => e.message) }
       );
       return;
     }

@@ -69,9 +69,14 @@ async function handlePost(req: NextRequest, user: AuthUser) {
       },
     });
   } catch (error: unknown) {
-    logger.error('Error linking provider profile', { error: error instanceof Error ? error.message : String(error), userId: user.id });
+    logger.error('Error linking provider profile', {
+      error: error instanceof Error ? error.message : String(error),
+      userId: user.id,
+    });
     return NextResponse.json(
-      { error: `Failed to link profile: ${error instanceof Error ? error.message : String(error)}` },
+      {
+        error: `Failed to link profile: ${error instanceof Error ? error.message : String(error)}`,
+      },
       { status: 500 }
     );
   }

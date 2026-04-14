@@ -135,7 +135,10 @@ function formatDate(dateStr: string | null): string {
   });
 }
 
-function formatDateRelative(dateStr: string | null): { text: string; urgency: 'overdue' | 'soon' | 'upcoming' | 'none' } {
+function formatDateRelative(dateStr: string | null): {
+  text: string;
+  urgency: 'overdue' | 'soon' | 'upcoming' | 'none';
+} {
   if (!isValidBillingDate(dateStr)) return { text: 'No date', urgency: 'none' };
   const date = new Date(dateStr!);
   const now = new Date();
@@ -151,10 +154,14 @@ function formatDateRelative(dateStr: string | null): { text: string; urgency: 'o
 
 function getIntervalLabel(category: IntervalCategory): string {
   switch (category) {
-    case 'monthly': return 'Monthly';
-    case 'quarterly': return '3 Month';
-    case 'semiannual': return '6 Month';
-    case 'annual': return '12 Month';
+    case 'monthly':
+      return 'Monthly';
+    case 'quarterly':
+      return '3 Month';
+    case 'semiannual':
+      return '6 Month';
+    case 'annual':
+      return '12 Month';
   }
 }
 
@@ -162,7 +169,7 @@ function getPaymentStatusBadge(
   payment: LastPayment | null,
   subStatus: string,
   nextBillingDate: string | null,
-  failedAttempts: number,
+  failedAttempts: number
 ) {
   if (subStatus === 'PAST_DUE') {
     return {
@@ -178,7 +185,12 @@ function getPaymentStatusBadge(
       return { label: 'Payment Failed', bg: 'bg-red-100', text: 'text-red-700', icon: XCircle };
     }
     if (isValidBillingDate(nextBillingDate) && new Date(nextBillingDate!) < new Date()) {
-      return { label: 'Overdue', bg: 'bg-orange-100', text: 'text-orange-700', icon: AlertTriangle };
+      return {
+        label: 'Overdue',
+        bg: 'bg-orange-100',
+        text: 'text-orange-700',
+        icon: AlertTriangle,
+      };
     }
     return {
       label: 'No Payment',
@@ -227,7 +239,9 @@ export default function SubscriptionRenewalsView({
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
-  const [sortBy, setSortBy] = useState<'nextBillingDate' | 'amount' | 'patientName' | 'createdAt'>('nextBillingDate');
+  const [sortBy, setSortBy] = useState<'nextBillingDate' | 'amount' | 'patientName' | 'createdAt'>(
+    'nextBillingDate'
+  );
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [showPaymentFilter, setShowPaymentFilter] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -290,7 +304,9 @@ export default function SubscriptionRenewalsView({
       const response = await apiFetch('/api/finance/sync-subscriptions', { method: 'POST' });
       const json = await response.json();
       if (response.ok) {
-        setSyncResult(`Synced ${json.synced}, canceled ${json.canceled}, skipped ${json.skipped}${json.errors ? `, errors ${json.errors}` : ''}`);
+        setSyncResult(
+          `Synced ${json.synced}, canceled ${json.canceled}, skipped ${json.skipped}${json.errors ? `, errors ${json.errors}` : ''}`
+        );
         fetchData();
       } else {
         setSyncResult(`Sync failed: ${json.error || 'Unknown error'}`);
@@ -340,11 +356,13 @@ export default function SubscriptionRenewalsView({
 
       {/* Sync Result Banner */}
       {syncResult && (
-        <div className={`rounded-xl border px-4 py-3 text-sm ${
-          syncResult.startsWith('Sync failed')
-            ? 'border-red-200 bg-red-50 text-red-700'
-            : 'border-green-200 bg-green-50 text-green-700'
-        }`}>
+        <div
+          className={`rounded-xl border px-4 py-3 text-sm ${
+            syncResult.startsWith('Sync failed')
+              ? 'border-red-200 bg-red-50 text-red-700'
+              : 'border-green-200 bg-green-50 text-green-700'
+          }`}
+        >
           {syncResult}
           <button onClick={() => setSyncResult(null)} className="ml-3 font-medium underline">
             Dismiss
@@ -355,12 +373,7 @@ export default function SubscriptionRenewalsView({
       {/* Summary Cards */}
       {summary && (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <SummaryCard
-            icon={Users}
-            label="Total Active"
-            value={summary.total}
-            color="emerald"
-          />
+          <SummaryCard icon={Users} label="Total Active" value={summary.total} color="emerald" />
           <SummaryCard
             icon={Calendar}
             label="Renewing in 7 Days"
@@ -393,9 +406,7 @@ export default function SubscriptionRenewalsView({
             <div className="flex gap-1 overflow-x-auto">
               {INTERVAL_TABS.map((tab) => {
                 const count =
-                  tab.key === 'all'
-                    ? summary?.total
-                    : summary?.[tab.key as keyof RenewalsSummary];
+                  tab.key === 'all' ? summary?.total : summary?.[tab.key as keyof RenewalsSummary];
 
                 return (
                   <button
@@ -442,11 +453,16 @@ export default function SubscriptionRenewalsView({
                   }`}
                 >
                   <Filter className="h-3.5 w-3.5" />
-                  {paymentFilter === 'all' ? 'Payment' : PAYMENT_STATUS_OPTIONS.find((o) => o.key === paymentFilter)?.label}
+                  {paymentFilter === 'all'
+                    ? 'Payment'
+                    : PAYMENT_STATUS_OPTIONS.find((o) => o.key === paymentFilter)?.label}
                 </button>
                 {showPaymentFilter && (
                   <>
-                    <div className="fixed inset-0 z-10" onClick={() => setShowPaymentFilter(false)} />
+                    <div
+                      className="fixed inset-0 z-10"
+                      onClick={() => setShowPaymentFilter(false)}
+                    />
                     <div className="absolute right-0 top-full z-20 mt-1 w-44 rounded-xl border border-gray-200 bg-white py-1 shadow-lg">
                       {PAYMENT_STATUS_OPTIONS.map((opt) => (
                         <button
@@ -529,7 +545,12 @@ export default function SubscriptionRenewalsView({
               <tbody className="divide-y divide-gray-100">
                 {renewals.map((sub) => {
                   const rebillRelative = formatDateRelative(sub.nextBillingDate);
-                  const paymentBadge = getPaymentStatusBadge(sub.lastPayment, sub.status, sub.nextBillingDate, sub.failedAttempts);
+                  const paymentBadge = getPaymentStatusBadge(
+                    sub.lastPayment,
+                    sub.status,
+                    sub.nextBillingDate,
+                    sub.failedAttempts
+                  );
                   const statusBadge = getSubscriptionStatusBadge(sub.status);
                   const PaymentIcon = paymentBadge.icon;
 
@@ -537,10 +558,7 @@ export default function SubscriptionRenewalsView({
                     <tr key={sub.id} className="transition-colors hover:bg-gray-50/50">
                       {/* Patient */}
                       <td className="px-4 py-3">
-                        <a
-                          href={`${patientLinkPrefix}/${sub.patientId}`}
-                          className="group"
-                        >
+                        <a href={`${patientLinkPrefix}/${sub.patientId}`} className="group">
                           <p className="text-sm font-medium text-gray-900 group-hover:text-emerald-700">
                             {sub.patientName || 'Unknown'}
                           </p>
@@ -570,7 +588,9 @@ export default function SubscriptionRenewalsView({
                       {/* Rebill Date */}
                       <td className="px-4 py-3">
                         <div className="flex flex-col">
-                          <span className="text-sm text-gray-900">{formatDate(sub.nextBillingDate)}</span>
+                          <span className="text-sm text-gray-900">
+                            {formatDate(sub.nextBillingDate)}
+                          </span>
                           <span
                             className={`text-xs font-medium ${
                               rebillRelative.urgency === 'overdue'
@@ -605,17 +625,23 @@ export default function SubscriptionRenewalsView({
                             </span>
                           )}
                           {!sub.overdueReason && sub.lastPayment?.failureReason && (
-                            <span className="max-w-[200px] truncate text-xs text-red-500" title={sub.lastPayment.failureReason}>
+                            <span
+                              className="max-w-[200px] truncate text-xs text-red-500"
+                              title={sub.lastPayment.failureReason}
+                            >
                               {sub.lastPayment.failureReason}
                             </span>
                           )}
                           {sub.failedAttempts > 0 && (
                             <span className="text-xs text-orange-500">
-                              {sub.failedAttempts} failed attempt{sub.failedAttempts !== 1 ? 's' : ''}
+                              {sub.failedAttempts} failed attempt
+                              {sub.failedAttempts !== 1 ? 's' : ''}
                             </span>
                           )}
                           {sub.cardInfo && (
-                            <span className={`text-xs ${sub.cardInfo.expired ? 'font-medium text-red-500' : 'text-gray-400'}`}>
+                            <span
+                              className={`text-xs ${sub.cardInfo.expired ? 'font-medium text-red-500' : 'text-gray-400'}`}
+                            >
                               {sub.cardInfo.brand || 'Card'} ••{sub.cardInfo.last4}
                               {sub.cardInfo.expired && ' (expired)'}
                             </span>
@@ -767,9 +793,7 @@ function SortableHeader({
             isActive ? 'text-emerald-600' : 'text-gray-300 group-hover:text-gray-400'
           }`}
         />
-        {isActive && (
-          <span className="text-emerald-600">{sortOrder === 'asc' ? '↑' : '↓'}</span>
-        )}
+        {isActive && <span className="text-emerald-600">{sortOrder === 'asc' ? '↑' : '↓'}</span>}
       </button>
     </th>
   );

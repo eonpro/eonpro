@@ -22,15 +22,15 @@ function withSuperAdminAuth(
   handler: (
     req: NextRequest,
     user: AuthUser,
-    params: { id: string; userId: string },
-  ) => Promise<Response>,
+    params: { id: string; userId: string }
+  ) => Promise<Response>
 ) {
   return withAuthParams<RouteContext>(
     async (req, user, context) => {
       const params = await context.params;
       return handler(req, user, params);
     },
-    { roles: ['super_admin'] },
+    { roles: ['super_admin'] }
   );
 }
 
@@ -41,20 +41,13 @@ function withSuperAdminAuth(
  * including metadata about which are role defaults vs custom overrides.
  */
 export const GET = withSuperAdminAuth(
-  async (
-    _req: NextRequest,
-    _adminUser: AuthUser,
-    params: { id: string; userId: string },
-  ) => {
+  async (_req: NextRequest, _adminUser: AuthUser, params: { id: string; userId: string }) => {
     try {
       const clinicId = parseInt(params.id);
       const userId = parseInt(params.userId);
 
       if (isNaN(clinicId) || isNaN(userId)) {
-        return NextResponse.json(
-          { error: 'Invalid clinic or user ID' },
-          { status: 400 },
-        );
+        return NextResponse.json({ error: 'Invalid clinic or user ID' }, { status: 400 });
       }
 
       const user = await prisma.user.findUnique({
@@ -79,28 +72,17 @@ export const GET = withSuperAdminAuth(
       }
 
       // Use clinic-specific role if present, otherwise fall back to user role
-      const effectiveRole = (
-        user.userClinics?.[0]?.role ?? user.role
-      ).toLowerCase();
+      const effectiveRole = (user.userClinics?.[0]?.role ?? user.role).toLowerCase();
 
       if (!isValidRole(effectiveRole)) {
-        return NextResponse.json(
-          { error: 'Invalid user role' },
-          { status: 400 },
-        );
+        return NextResponse.json({ error: 'Invalid user role' }, { status: 400 });
       }
 
       const permOverrides = parseOverrides(user.permissions);
       const featOverrides = parseOverrides(user.features);
 
-      const effectivePermissions = getEffectivePermissions(
-        effectiveRole,
-        permOverrides,
-      );
-      const effectiveFeatures = getEffectiveFeatures(
-        effectiveRole,
-        featOverrides,
-      );
+      const effectivePermissions = getEffectivePermissions(effectiveRole, permOverrides);
+      const effectiveFeatures = getEffectiveFeatures(effectiveRole, featOverrides);
 
       const roleDefaultPermissions = getRolePermissions(effectiveRole);
       const roleDefaultFeatures = getRoleFeatures(effectiveRole);
@@ -129,10 +111,8 @@ export const GET = withSuperAdminAuth(
           allPermissions: Object.values(PERMISSIONS),
           totalPermissions: Object.values(PERMISSIONS).length,
           totalFeatures: Object.values(FEATURES).length,
-          customPermissionCount:
-            permOverrides.granted.length + permOverrides.revoked.length,
-          customFeatureCount:
-            featOverrides.granted.length + featOverrides.revoked.length,
+          customPermissionCount: permOverrides.granted.length + permOverrides.revoked.length,
+          customFeatureCount: featOverrides.granted.length + featOverrides.revoked.length,
         },
       });
     } catch (error: unknown) {
@@ -141,12 +121,9 @@ export const GET = withSuperAdminAuth(
         userId: params.userId,
         clinicId: params.id,
       });
-      return NextResponse.json(
-        { error: 'Failed to fetch user permissions' },
-        { status: 500 },
-      );
+      return NextResponse.json({ error: 'Failed to fetch user permissions' }, { status: 500 });
     }
-  },
+  }
 );
 
 /**
@@ -161,20 +138,13 @@ export const GET = withSuperAdminAuth(
  * }
  */
 export const PUT = withSuperAdminAuth(
-  async (
-    req: NextRequest,
-    adminUser: AuthUser,
-    params: { id: string; userId: string },
-  ) => {
+  async (req: NextRequest, adminUser: AuthUser, params: { id: string; userId: string }) => {
     try {
       const clinicId = parseInt(params.id);
       const userId = parseInt(params.userId);
 
       if (isNaN(clinicId) || isNaN(userId)) {
-        return NextResponse.json(
-          { error: 'Invalid clinic or user ID' },
-          { status: 400 },
-        );
+        return NextResponse.json({ error: 'Invalid clinic or user ID' }, { status: 400 });
       }
 
       const body = await req.json();
@@ -184,7 +154,7 @@ export const PUT = withSuperAdminAuth(
       if (!Array.isArray(desiredPermissions) || !Array.isArray(desiredFeatures)) {
         return NextResponse.json(
           { error: 'permissions and features must be arrays of strings' },
-          { status: 400 },
+          { status: 400 }
         );
       }
 
@@ -192,12 +162,8 @@ export const PUT = withSuperAdminAuth(
       const allPermValues: string[] = Object.values(PERMISSIONS);
       const allFeatureIds: string[] = Object.values(FEATURES).map((f) => f.id);
 
-      const invalidPerms = desiredPermissions.filter(
-        (p) => !allPermValues.includes(p),
-      );
-      const invalidFeats = desiredFeatures.filter(
-        (f) => !allFeatureIds.includes(f),
-      );
+      const invalidPerms = desiredPermissions.filter((p) => !allPermValues.includes(p));
+      const invalidFeats = desiredFeatures.filter((f) => !allFeatureIds.includes(f));
 
       if (invalidPerms.length > 0 || invalidFeats.length > 0) {
         return NextResponse.json(
@@ -206,7 +172,7 @@ export const PUT = withSuperAdminAuth(
             invalidPermissions: invalidPerms,
             invalidFeatures: invalidFeats,
           },
-          { status: 400 },
+          { status: 400 }
         );
       }
 
@@ -229,22 +195,20 @@ export const PUT = withSuperAdminAuth(
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
       }
 
-      const effectiveRole = (
-        user.userClinics?.[0]?.role ?? user.role
-      ).toLowerCase();
+      const effectiveRole = (user.userClinics?.[0]?.role ?? user.role).toLowerCase();
 
       if (!isValidRole(effectiveRole)) {
-        return NextResponse.json(
-          { error: 'Invalid user role' },
-          { status: 400 },
-        );
+        return NextResponse.json({ error: 'Invalid user role' }, { status: 400 });
       }
 
       const previousPermOverrides = parseOverrides(user.permissions);
       const previousFeatOverrides = parseOverrides(user.features);
 
-      const { permissionOverrides, featureOverrides } =
-        buildOverridesFromDesired(effectiveRole, desiredPermissions, desiredFeatures);
+      const { permissionOverrides, featureOverrides } = buildOverridesFromDesired(
+        effectiveRole,
+        desiredPermissions,
+        desiredFeatures
+      );
 
       // Persist — cast to JSON-compatible shape for Prisma
       await prisma.user.update({
@@ -292,10 +256,7 @@ export const PUT = withSuperAdminAuth(
         userId: params.userId,
         clinicId: params.id,
       });
-      return NextResponse.json(
-        { error: 'Failed to update user permissions' },
-        { status: 500 },
-      );
+      return NextResponse.json({ error: 'Failed to update user permissions' }, { status: 500 });
     }
-  },
+  }
 );

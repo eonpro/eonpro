@@ -73,7 +73,9 @@ async function getHandler(request: Request, context: { params: Promise<{ id: str
 
     const firstResponseBreached =
       sla.firstResponseDue && !sla.firstResponseAt && now > sla.firstResponseDue;
-    const resolutionBreached = sla.resolutionDue ? !sla.resolvedAt && now > sla.resolutionDue : false;
+    const resolutionBreached = sla.resolutionDue
+      ? !sla.resolvedAt && now > sla.resolutionDue
+      : false;
 
     return NextResponse.json({
       ...sla,

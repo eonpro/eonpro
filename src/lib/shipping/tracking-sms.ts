@@ -80,8 +80,7 @@ function getTrackingUrl(carrier: string, trackingNumber: string): string {
   };
 
   return (
-    carriers[carrier.toLowerCase()] ||
-    `https://www.google.com/search?q=${trackingNumber}+tracking`
+    carriers[carrier.toLowerCase()] || `https://www.google.com/search?q=${trackingNumber}+tracking`
   );
 }
 
@@ -184,7 +183,16 @@ function buildTrackingEmailText(
 export async function sendTrackingNotificationSMS(
   input: TrackingNotificationInput
 ): Promise<SMSResponse> {
-  const { patientId, patientPhone, patientEmail, patientFirstName, clinicId, clinicName, trackingNumber, carrier } = input;
+  const {
+    patientId,
+    patientPhone,
+    patientEmail,
+    patientFirstName,
+    clinicId,
+    clinicName,
+    trackingNumber,
+    carrier,
+  } = input;
   const patientLastName = input.patientLastName;
   const orderId = input.orderId;
 
@@ -412,9 +420,7 @@ async function notifyAdminsOfTracking(input: AdminTrackingNotificationInput): Pr
 
   const title = 'Tracking Received from Lifefile';
   const message = `Tracking for ${patientName} (${carrier}: ${trackingNumber}) has been received and the patient has been notified.`;
-  const actionUrl = orderId
-    ? `/patients/${patientId}?tab=prescriptions`
-    : `/patients/${patientId}`;
+  const actionUrl = orderId ? `/patients/${patientId}?tab=prescriptions` : `/patients/${patientId}`;
 
   try {
     const count = await notificationService.notifyAdmins({

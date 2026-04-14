@@ -54,8 +54,18 @@ interface SubscriptionMetrics {
     mrr: number;
     percentageOfTotal: number;
   }>;
-  byMedication?: Array<{ medication: string; count: number; mrr: number; percentageOfTotal: number }>;
-  byInterval?: Array<{ intervalLabel: string; count: number; mrr: number; percentageOfTotal: number }>;
+  byMedication?: Array<{
+    medication: string;
+    count: number;
+    mrr: number;
+    percentageOfTotal: number;
+  }>;
+  byInterval?: Array<{
+    intervalLabel: string;
+    count: number;
+    mrr: number;
+    percentageOfTotal: number;
+  }>;
   byMedicationAndInterval?: Array<{
     medication: string;
     intervalLabel: string;
@@ -272,10 +282,7 @@ function IntervalStarIcon({ className }: { className?: string }) {
   );
 }
 
-const INTERVAL_BADGE_STYLES: Record<
-  string,
-  { bg: string; text: string; circle: string }
-> = {
+const INTERVAL_BADGE_STYLES: Record<string, { bg: string; text: string; circle: string }> = {
   Monthly: { bg: 'bg-blue-100', text: 'text-blue-800', circle: 'bg-blue-500' },
   '3 months': { bg: 'bg-amber-100', text: 'text-amber-800', circle: 'bg-amber-500' },
   '6 months': { bg: 'bg-violet-100', text: 'text-violet-800', circle: 'bg-violet-500' },
@@ -320,7 +327,8 @@ function StatCard({
   const colorClasses = {
     blue: 'bg-blue-50 text-blue-600 border-blue-200',
     green: 'bg-emerald-50 text-emerald-600 border-emerald-200',
-    purple: 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)] border-[var(--brand-primary-medium)]',
+    purple:
+      'bg-[var(--brand-primary-light)] text-[var(--brand-primary)] border-[var(--brand-primary-medium)]',
     orange: 'bg-orange-50 text-orange-600 border-orange-200',
     red: 'bg-red-50 text-red-600 border-red-200',
   };
@@ -607,10 +615,7 @@ export default function ReportsPage() {
         {activeTab === 'revenue' && report?.revenue && <RevenueTab metrics={report.revenue} />}
 
         {activeTab === 'subscriptions' && report?.subscriptions && (
-          <SubscriptionsTab
-            metrics={report.subscriptions}
-            onExportMemberships={handleExport}
-          />
+          <SubscriptionsTab metrics={report.subscriptions} onExportMemberships={handleExport} />
         )}
 
         {activeTab === 'payments' && report?.payments && <PaymentsTab metrics={report.payments} />}
@@ -983,7 +988,7 @@ function SubscriptionsTab({
 
       {/* LTV & Retention row */}
       {(metrics.retentionRate != null || metrics.averageLTV != null) && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
           {metrics.retentionRate != null && (
             <StatCard
               title="Retention Rate"
@@ -1030,7 +1035,9 @@ function SubscriptionsTab({
               </p>
             </div>
             <div className="rounded-lg bg-[var(--brand-primary-light)] p-4">
-              <p className="text-sm font-medium text-[var(--brand-primary)]">Annual Recurring Revenue</p>
+              <p className="text-sm font-medium text-[var(--brand-primary)]">
+                Annual Recurring Revenue
+              </p>
               <p className="text-3xl font-bold text-[var(--brand-primary)]">
                 {formatCurrency(metrics.annualRecurringRevenue)}
               </p>
@@ -1050,7 +1057,8 @@ function SubscriptionsTab({
                 )}
                 {metrics.netMrrChange != null && (
                   <p className="text-sm font-semibold text-gray-900">
-                    Net MRR change: {metrics.netMrrChange >= 0 ? '+' : ''}{formatCurrency(metrics.netMrrChange)}
+                    Net MRR change: {metrics.netMrrChange >= 0 ? '+' : ''}
+                    {formatCurrency(metrics.netMrrChange)}
                   </p>
                 )}
               </div>
@@ -1138,7 +1146,9 @@ function SubscriptionsTab({
       {/* By medication × interval */}
       {metrics.byMedicationAndInterval && metrics.byMedicationAndInterval.length > 0 && (
         <div className="rounded-xl border bg-white p-6">
-          <h3 className="mb-4 font-semibold text-gray-900">Subscriptions by medication and interval</h3>
+          <h3 className="mb-4 font-semibold text-gray-900">
+            Subscriptions by medication and interval
+          </h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -1167,8 +1177,9 @@ function SubscriptionsTab({
       )}
 
       {/* Average lifetime before churn & Churn reasons */}
-      {(metrics.averageLifetimeBeforeChurnDays != null || (metrics.churnReasons && metrics.churnReasons.length > 0)) && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {(metrics.averageLifetimeBeforeChurnDays != null ||
+        (metrics.churnReasons && metrics.churnReasons.length > 0)) && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {metrics.averageLifetimeBeforeChurnDays != null && (
             <div className="rounded-xl border bg-white p-6">
               <h3 className="mb-2 font-semibold text-gray-900">Avg. lifetime before churn</h3>

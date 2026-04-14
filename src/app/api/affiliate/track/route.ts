@@ -156,69 +156,74 @@ async function handlePost(request: NextRequest) {
         lockKey = ((lockKey << 5) - lockKey + lockKeyStr.charCodeAt(i)) | 0;
       }
 
-      const dedupResult = await prisma.$transaction(async (tx) => {
-        // Acquire advisory lock scoped to this transaction (auto-released on commit/rollback)
-        await tx.$executeRaw`SELECT pg_advisory_xact_lock(${lockKey})`;
+      const dedupResult = await prisma.$transaction(
+        async (tx) => {
+          // Acquire advisory lock scoped to this transaction (auto-released on commit/rollback)
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(${lockKey})`;
 
-        const existingTouch = await tx.affiliateTouch.findFirst({
-          where: {
-            clinicId,
-            refCode: body.refCode,
-            affiliateId,
-            createdAt: { gte: dedupCutoff },
-            OR: [
-              ...(body.visitorFingerprint ? [{ visitorFingerprint: body.visitorFingerprint }] : []),
-              ...(body.cookieId ? [{ cookieId: body.cookieId }] : []),
-            ],
-          },
-          select: { id: true },
-          orderBy: { createdAt: 'desc' },
-        });
+          const existingTouch = await tx.affiliateTouch.findFirst({
+            where: {
+              clinicId,
+              refCode: body.refCode,
+              affiliateId,
+              createdAt: { gte: dedupCutoff },
+              OR: [
+                ...(body.visitorFingerprint
+                  ? [{ visitorFingerprint: body.visitorFingerprint }]
+                  : []),
+                ...(body.cookieId ? [{ cookieId: body.cookieId }] : []),
+              ],
+            },
+            select: { id: true },
+            orderBy: { createdAt: 'desc' },
+          });
 
-        if (existingTouch) {
-          // Duplicate within window - update the existing touch instead of creating a new one
-          await tx.affiliateTouch.update({
-            where: { id: existingTouch.id },
+          if (existingTouch) {
+            // Duplicate within window - update the existing touch instead of creating a new one
+            await tx.affiliateTouch.update({
+              where: { id: existingTouch.id },
+              data: {
+                // Update with latest UTM/landing page data
+                ...(body.utmSource && { utmSource: body.utmSource }),
+                ...(body.utmMedium && { utmMedium: body.utmMedium }),
+                ...(body.utmCampaign && { utmCampaign: body.utmCampaign }),
+                ...(body.landingPage && { landingPage: body.landingPage.substring(0, 2000) }),
+              },
+            });
+            return { deduplicated: true, touchId: existingTouch.id };
+          }
+
+          // No duplicate found — create INSIDE the transaction while holding the advisory lock.
+          // This prevents the race condition where two concurrent requests both pass the dedup
+          // check and both create a touch.
+          const newTouch = await tx.affiliateTouch.create({
             data: {
-              // Update with latest UTM/landing page data
-              ...(body.utmSource && { utmSource: body.utmSource }),
-              ...(body.utmMedium && { utmMedium: body.utmMedium }),
-              ...(body.utmCampaign && { utmCampaign: body.utmCampaign }),
-              ...(body.landingPage && { landingPage: body.landingPage.substring(0, 2000) }),
+              clinicId,
+              affiliateId,
+              visitorFingerprint: body.visitorFingerprint,
+              cookieId: body.cookieId,
+              ipAddressHash,
+              userAgent: body.userAgent || request.headers.get('user-agent') || undefined,
+              refCode: body.refCode,
+              touchType: body.touchType || 'CLICK',
+              utmSource: body.utmSource,
+              utmMedium: body.utmMedium,
+              utmCampaign: body.utmCampaign,
+              utmContent: body.utmContent,
+              utmTerm: body.utmTerm,
+              subId1: body.subId1,
+              subId2: body.subId2,
+              subId3: body.subId3,
+              subId4: body.subId4,
+              subId5: body.subId5,
+              landingPage: body.landingPage?.substring(0, 2000),
+              referrerUrl: body.referrerUrl?.substring(0, 2000),
             },
           });
-          return { deduplicated: true, touchId: existingTouch.id };
-        }
-
-        // No duplicate found — create INSIDE the transaction while holding the advisory lock.
-        // This prevents the race condition where two concurrent requests both pass the dedup
-        // check and both create a touch.
-        const newTouch = await tx.affiliateTouch.create({
-          data: {
-            clinicId,
-            affiliateId,
-            visitorFingerprint: body.visitorFingerprint,
-            cookieId: body.cookieId,
-            ipAddressHash,
-            userAgent: body.userAgent || request.headers.get('user-agent') || undefined,
-            refCode: body.refCode,
-            touchType: body.touchType || 'CLICK',
-            utmSource: body.utmSource,
-            utmMedium: body.utmMedium,
-            utmCampaign: body.utmCampaign,
-            utmContent: body.utmContent,
-            utmTerm: body.utmTerm,
-            subId1: body.subId1,
-            subId2: body.subId2,
-            subId3: body.subId3,
-            subId4: body.subId4,
-            subId5: body.subId5,
-            landingPage: body.landingPage?.substring(0, 2000),
-            referrerUrl: body.referrerUrl?.substring(0, 2000),
-          },
-        });
-        return { deduplicated: false, touchId: newTouch.id };
-      }, { timeout: 15000 });
+          return { deduplicated: false, touchId: newTouch.id };
+        },
+        { timeout: 15000 }
+      );
 
       if (dedupResult.deduplicated) {
         logger.debug('[Tracking] Deduplicated touch (within 30min window)', {

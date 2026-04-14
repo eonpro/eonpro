@@ -138,7 +138,9 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       nextPayout,
     });
   } catch (error) {
-    logger.error('[Affiliate Earnings] Error', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('[Affiliate Earnings] Error', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json({ error: 'Failed to load earnings' }, { status: 500 });
   }
 }

@@ -94,7 +94,12 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(providerInfo);
   } catch (error: unknown) {
-    logger.error('NPI lookup error', { error: error instanceof Error ? error.message : String(error) });
-    return NextResponse.json({ error: (error as any).message || 'Failed to lookup NPI' }, { status: 500 });
+    logger.error('NPI lookup error', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return NextResponse.json(
+      { error: (error as any).message || 'Failed to lookup NPI' },
+      { status: 500 }
+    );
   }
 }

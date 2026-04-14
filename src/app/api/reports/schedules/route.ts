@@ -4,7 +4,12 @@ import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { z } from 'zod';
 import { handleApiError } from '@/domains/shared/errors';
 
-function computeNextRun(frequency: string, dayOfWeek?: number | null, dayOfMonth?: number | null, timeUtc?: string): Date {
+function computeNextRun(
+  frequency: string,
+  dayOfWeek?: number | null,
+  dayOfMonth?: number | null,
+  timeUtc?: string
+): Date {
   const now = new Date();
   const [h, m] = (timeUtc || '06:00').split(':').map(Number);
   const next = new Date(now);
@@ -29,7 +34,10 @@ const createSchema = z.object({
   frequency: z.enum(['daily', 'weekly', 'biweekly', 'monthly']),
   dayOfWeek: z.number().min(0).max(6).optional(),
   dayOfMonth: z.number().min(1).max(28).optional(),
-  timeUtc: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  timeUtc: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/)
+    .optional(),
   exportFormat: z.enum(['csv', 'pdf', 'xlsx']).optional(),
   recipients: z.array(z.string().email()).min(1),
 });
@@ -59,13 +67,23 @@ async function handlePost(req: NextRequest, user: AuthUser) {
     const body = await req.json();
     const parsed = createSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Validation failed', details: parsed.error.flatten() }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Validation failed', details: parsed.error.flatten() },
+        { status: 400 }
+      );
     }
 
-    const template = await prisma.reportTemplate.findUnique({ where: { id: parsed.data.templateId } });
+    const template = await prisma.reportTemplate.findUnique({
+      where: { id: parsed.data.templateId },
+    });
     if (!template) return NextResponse.json({ error: 'Template not found' }, { status: 404 });
 
-    const nextRunAt = computeNextRun(parsed.data.frequency, parsed.data.dayOfWeek, parsed.data.dayOfMonth, parsed.data.timeUtc);
+    const nextRunAt = computeNextRun(
+      parsed.data.frequency,
+      parsed.data.dayOfWeek,
+      parsed.data.dayOfMonth,
+      parsed.data.timeUtc
+    );
 
     const schedule = await prisma.reportSchedule.create({
       data: {

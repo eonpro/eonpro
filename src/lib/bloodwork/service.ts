@@ -142,7 +142,11 @@ export async function createBloodworkReportFromPdf(
     parsed = validateQuestParsedResult(parsed);
   } catch (err) {
     if (err instanceof BadRequestError) throw err;
-    logger.warn('Bloodwork validation failed', { patientId, clinicId, error: err instanceof Error ? err.message : 'Unknown' });
+    logger.warn('Bloodwork validation failed', {
+      patientId,
+      clinicId,
+      error: err instanceof Error ? err.message : 'Unknown',
+    });
     throw new BadRequestError(
       'Lab report validation failed. Please use a valid supported lab report.',
       { cause: 'BLOODWORK_VALIDATION' }
@@ -348,7 +352,9 @@ export async function createBloodworkReportFromPdf(
             resultCount: refreshedCount,
           };
         }
-        const count = await prisma.labReportResult.count({ where: { labReportId: existing.labReport.id } });
+        const count = await prisma.labReportResult.count({
+          where: { labReportId: existing.labReport.id },
+        });
         logger.info('Bloodwork upload duplicate skipped (race)', {
           labReportId: existing.labReport.id,
           patientId,

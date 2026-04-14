@@ -11,7 +11,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { withSuperAdminAuth } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
-import { suppressConversionMetrics, CLICK_FILTER, ACTIVE_COMMISSION_STATUSES } from '@/services/affiliate/reportingConstants';
+import {
+  suppressConversionMetrics,
+  CLICK_FILTER,
+  ACTIVE_COMMISSION_STATUSES,
+} from '@/services/affiliate/reportingConstants';
 import { serverError } from '@/lib/api/error-response';
 import { superAdminRateLimit } from '@/lib/rateLimit';
 
@@ -159,11 +163,13 @@ async function handler(req: NextRequest): Promise<Response> {
     ]);
 
     // Build lookup maps for O(1) access per clinic
-    const affiliateMap = new Map(affiliatesByClinic.map(r => [r.clinicId, r._count]));
-    const codesMap = new Map(codesByClinic.map(r => [r.clinicId, r._count]));
-    const clicksMap = new Map(clicksByClinic.map(r => [r.clinicId, r._count]));
-    const conversionsMap = new Map(conversionsByClinic.map(r => [r.clinicId, r._count]));
-    const revenueMap = new Map(revenueByClinic.map(r => [r.clinicId, r._sum?.eventAmountCents || 0]));
+    const affiliateMap = new Map(affiliatesByClinic.map((r) => [r.clinicId, r._count]));
+    const codesMap = new Map(codesByClinic.map((r) => [r.clinicId, r._count]));
+    const clicksMap = new Map(clicksByClinic.map((r) => [r.clinicId, r._count]));
+    const conversionsMap = new Map(conversionsByClinic.map((r) => [r.clinicId, r._count]));
+    const revenueMap = new Map(
+      revenueByClinic.map((r) => [r.clinicId, r._sum?.eventAmountCents || 0])
+    );
 
     const clinicBreakdown: ClinicBreakdown[] = clinics.map((clinic: ClinicRecord) => ({
       clinicId: clinic.id,
@@ -238,7 +244,7 @@ async function handler(req: NextRequest): Promise<Response> {
       }),
     ]);
 
-    const conversionMap = new Map(conversionsByCode.map(r => [r.refCode, r._count]));
+    const conversionMap = new Map(conversionsByCode.map((r) => [r.refCode, r._count]));
 
     // Build top codes with metrics from the batch results
     const topCodesWithMetrics: TopCode[] = refCodes.map((code: RefCodeWithRelations) => {
@@ -257,7 +263,9 @@ async function handler(req: NextRequest): Promise<Response> {
     });
 
     // Sort by conversions and take top 10
-    const topCodes = topCodesWithMetrics.sort((a, b) => Number(b.conversions) - Number(a.conversions)).slice(0, 10);
+    const topCodes = topCodesWithMetrics
+      .sort((a, b) => Number(b.conversions) - Number(a.conversions))
+      .slice(0, 10);
 
     // Get daily trends for the period using batch queries (avoids N+1 loop)
     logger.info('[SuperAdmin Analytics] Calculating trends');
@@ -292,8 +300,12 @@ async function handler(req: NextRequest): Promise<Response> {
     ]);
 
     // Build a date-keyed map for O(1) lookup
-    const conversionTrendMap = new Map(conversionTrends.map(t => [new Date(t.date).toISOString().slice(0, 10), t.count]));
-    const revenueTrendMap = new Map(revenueTrends.map(t => [new Date(t.date).toISOString().slice(0, 10), t.revenue]));
+    const conversionTrendMap = new Map(
+      conversionTrends.map((t) => [new Date(t.date).toISOString().slice(0, 10), t.count])
+    );
+    const revenueTrendMap = new Map(
+      revenueTrends.map((t) => [new Date(t.date).toISOString().slice(0, 10), t.revenue])
+    );
 
     const trends: Array<{ date: string; conversions: number; revenue: number }> = [];
     for (let i = days - 1; i >= 0; i--) {

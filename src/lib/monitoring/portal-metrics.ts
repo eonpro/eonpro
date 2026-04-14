@@ -80,11 +80,7 @@ let bufferIndex = 0;
  * Record a portal API request metric.
  * Call this from portal API routes or middleware.
  */
-export function recordPortalRequest(
-  endpoint: string,
-  statusCode: number,
-  latencyMs: number
-): void {
+export function recordPortalRequest(endpoint: string, statusCode: number, latencyMs: number): void {
   const record: RequestRecord = {
     endpoint,
     statusCode,
@@ -172,10 +168,7 @@ let lastStatus: ProbeStatus = 'healthy';
 /**
  * Record a status transition. Returns true if the status changed.
  */
-export function recordStatusTransition(
-  newStatus: ProbeStatus,
-  probes: ProbeResult[]
-): boolean {
+export function recordStatusTransition(newStatus: ProbeStatus, probes: ProbeResult[]): boolean {
   if (newStatus === lastStatus) return false;
 
   const incident: IncidentRecord = {

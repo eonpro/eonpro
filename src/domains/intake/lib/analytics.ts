@@ -17,9 +17,11 @@ type EventData = Record<string, string | number | boolean | undefined>;
 let vercelTrack: ((name: string, data?: EventData) => void) | null = null;
 
 if (typeof window !== 'undefined') {
-  import('@vercel/analytics').then((mod) => {
-    vercelTrack = mod.track;
-  }).catch(() => {});
+  import('@vercel/analytics')
+    .then((mod) => {
+      vercelTrack = mod.track;
+    })
+    .catch(() => {});
 }
 
 export function trackIntakeEvent(event: IntakeEvent, data?: EventData) {

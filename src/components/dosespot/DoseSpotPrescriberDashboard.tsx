@@ -23,9 +23,7 @@ export default function DoseSpotPrescriberDashboard({
     setError(null);
 
     try {
-      const res = await apiFetch(
-        `/api/dosespot/sso-url-prescriber?prescriberId=${prescriberId}`
-      );
+      const res = await apiFetch(`/api/dosespot/sso-url-prescriber?prescriberId=${prescriberId}`);
       const data = await res.json();
 
       if (!res.ok || !data.success) {
@@ -53,11 +51,11 @@ export default function DoseSpotPrescriberDashboard({
         type="button"
         onClick={openDashboard}
         disabled={loading}
-        className="inline-flex items-center gap-2 rounded-md bg-white px-3.5 py-2.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="inline-flex items-center gap-2 rounded-md bg-white px-3.5 py-2.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {loading ? (
           <svg
-            className="animate-spin h-4 w-4 text-gray-500"
+            className="h-4 w-4 animate-spin text-gray-500"
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             viewBox="0 0 24 24"
@@ -94,9 +92,7 @@ export default function DoseSpotPrescriberDashboard({
         DoseSpot Dashboard
       </button>
 
-      {error && (
-        <p className="mt-2 text-sm text-red-600">{error}</p>
-      )}
+      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
 
       <Transition appear show={isOpen} as={Fragment}>
         <Dialog as="div" className="relative z-50" onClose={handleClose}>
@@ -154,13 +150,13 @@ export default function DoseSpotPrescriberDashboard({
                     {ssoUrl ? (
                       <iframe
                         src={ssoUrl}
-                        className="w-full h-full border-0"
+                        className="h-full w-full border-0"
                         title="DoseSpot Prescriber Dashboard"
                         allow="clipboard-write"
                         sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation"
                       />
                     ) : (
-                      <div className="flex items-center justify-center h-full">
+                      <div className="flex h-full items-center justify-center">
                         <p className="text-gray-500">Loading DoseSpot...</p>
                       </div>
                     )}

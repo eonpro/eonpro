@@ -39,6 +39,6 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json(
     { results: results.slice(0, 15) },
-    { headers: { 'Cache-Control': 'public, max-age=120, stale-while-revalidate=600' } },
+    { headers: { 'Cache-Control': 'public, max-age=120, stale-while-revalidate=600' } }
   );
 }

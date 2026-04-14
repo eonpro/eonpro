@@ -182,7 +182,10 @@ export default function AdminDispositionsPage() {
           </div>
         </div>
         <button
-          onClick={() => { fetchDispositions(); fetchStats(); }}
+          onClick={() => {
+            fetchDispositions();
+            fetchStats();
+          }}
           className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
         >
           <RefreshCw className="h-4 w-4" />
@@ -227,7 +230,10 @@ export default function AdminDispositionsPage() {
         {['', 'PENDING_REVIEW', 'APPROVED', 'REJECTED'].map((s) => (
           <button
             key={s}
-            onClick={() => { setFilterStatus(s); setPage(1); }}
+            onClick={() => {
+              setFilterStatus(s);
+              setPage(1);
+            }}
             className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
               filterStatus === s
                 ? 'bg-gray-900 text-white'
@@ -243,12 +249,17 @@ export default function AdminDispositionsPage() {
         </div>
         <select
           value={filterOutcome}
-          onChange={(e) => { setFilterOutcome(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setFilterOutcome(e.target.value);
+            setPage(1);
+          }}
           className="rounded-lg border border-gray-300 px-2 py-1.5 text-xs"
         >
           <option value="">All outcomes</option>
           {Object.entries(OUTCOME_CONFIG).map(([key, cfg]) => (
-            <option key={key} value={key}>{cfg.label}</option>
+            <option key={key} value={key}>
+              {cfg.label}
+            </option>
           ))}
         </select>
       </div>
@@ -269,7 +280,8 @@ export default function AdminDispositionsPage() {
             const outcomeConfig = OUTCOME_CONFIG[d.outcome] || OUTCOME_CONFIG.OTHER;
             const statusConfig = STATUS_CONFIG[d.status] || STATUS_CONFIG.PENDING_REVIEW;
             const StatusIcon = statusConfig.icon;
-            const contactConfig = CONTACT_METHOD_CONFIG[d.contactMethod] || CONTACT_METHOD_CONFIG.OTHER;
+            const contactConfig =
+              CONTACT_METHOD_CONFIG[d.contactMethod] || CONTACT_METHOD_CONFIG.OTHER;
             const ContactIcon = contactConfig.icon;
             const isExpanded = expandedId === d.id;
 
@@ -287,10 +299,14 @@ export default function AdminDispositionsPage() {
                       <span className="text-sm font-semibold text-gray-900">
                         {d.patient.firstName} {d.patient.lastName}
                       </span>
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${outcomeConfig.color}`}>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${outcomeConfig.color}`}
+                      >
                         {outcomeConfig.label}
                       </span>
-                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${statusConfig.color}`}>
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${statusConfig.color}`}
+                      >
                         <StatusIcon className="h-3 w-3" />
                         {statusConfig.label}
                       </span>

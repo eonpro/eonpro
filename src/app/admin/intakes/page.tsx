@@ -385,7 +385,9 @@ export default function AdminIntakesPage() {
                     tabIndex={0}
                     role="link"
                     onClick={() => (window.location.href = `/patients/${patient.id}`)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') window.location.href = `/patients/${patient.id}`; }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') window.location.href = `/patients/${patient.id}`;
+                    }}
                   >
                     <td className="whitespace-nowrap px-6 py-4">
                       <div className="flex items-center">
@@ -420,7 +422,8 @@ export default function AdminIntakesPage() {
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
                       {(() => {
-                        if (!patient.dateOfBirth || isEncryptedData(patient.dateOfBirth)) return '-';
+                        if (!patient.dateOfBirth || isEncryptedData(patient.dateOfBirth))
+                          return '-';
                         const d = patient.dateOfBirth.trim();
                         if (d.includes('/')) return d;
                         const parts = d.split('-');

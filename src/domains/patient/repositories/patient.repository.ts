@@ -18,8 +18,20 @@ import { Errors } from '@/domains/shared/errors';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { generatePatientId } from '@/lib/patients';
-import { encryptPatientPHI, decryptPHI, computeEmailHash, computeDobHash } from '@/lib/security/phi-encryption';
-import { normalizeSearch, splitSearchTerms, buildPatientSearchIndex, buildPatientSearchWhere, buildIncompleteSearchIndexWhere, fuzzyTermMatch } from '@/lib/utils/search';
+import {
+  encryptPatientPHI,
+  decryptPHI,
+  computeEmailHash,
+  computeDobHash,
+} from '@/lib/security/phi-encryption';
+import {
+  normalizeSearch,
+  splitSearchTerms,
+  buildPatientSearchIndex,
+  buildPatientSearchWhere,
+  buildIncompleteSearchIndexWhere,
+  fuzzyTermMatch,
+} from '@/lib/utils/search';
 
 import {
   PHI_FIELDS,
@@ -98,7 +110,10 @@ export interface PatientRepository {
   /**
    * Find a patient by Stripe customer ID
    */
-  findByStripeCustomerId(stripeCustomerId: string, clinicId?: number): Promise<PatientEntity | null>;
+  findByStripeCustomerId(
+    stripeCustomerId: string,
+    clinicId?: number
+  ): Promise<PatientEntity | null>;
 
   /**
    * List patients with filtering and pagination
@@ -210,7 +225,10 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
       return decryptPatient(patient) as PatientEntity;
     },
 
-    async findByStripeCustomerId(stripeCustomerId: string, clinicId?: number): Promise<PatientEntity | null> {
+    async findByStripeCustomerId(
+      stripeCustomerId: string,
+      clinicId?: number
+    ): Promise<PatientEntity | null> {
       const patient = await db.patient.findFirst({
         where: {
           stripeCustomerId,
@@ -517,59 +535,64 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
       // Generate patient ID using the shared utility (handles clinic prefixes like EON-123, WEL-456)
       const patientId = await generatePatientId(input.clinicId);
 
-      return db.$transaction(async (tx: Prisma.TransactionClient) => {
-        // Build search index from plain-text BEFORE encryption
-        const searchIndex = buildPatientSearchIndex({
-          firstName: input.firstName,
-          lastName: input.lastName,
-          email: input.email,
-          phone: input.phone,
-          patientId,
-        });
+      return db.$transaction(
+        async (tx: Prisma.TransactionClient) => {
+          // Build search index from plain-text BEFORE encryption
+          const searchIndex = buildPatientSearchIndex({
+            firstName: input.firstName,
+            lastName: input.lastName,
+            email: input.email,
+            phone: input.phone,
+            patientId,
+          });
 
-        // Encrypt PHI fields
-        const encryptedData = encryptPatientPHI(input as unknown as Record<string, unknown>, [...PHI_FIELDS]);
+          // Encrypt PHI fields
+          const encryptedData = encryptPatientPHI(input as unknown as Record<string, unknown>, [
+            ...PHI_FIELDS,
+          ]);
 
-        // Build source metadata
-        const sourceMetadata = (input.sourceMetadata ?? {
-          createdBy: audit.actorEmail,
-          createdByRole: audit.actorRole,
-          createdById: audit.actorId,
-          timestamp: new Date().toISOString(),
-        }) as Prisma.InputJsonValue;
+          // Build source metadata
+          const sourceMetadata = (input.sourceMetadata ?? {
+            createdBy: audit.actorEmail,
+            createdByRole: audit.actorRole,
+            createdById: audit.actorId,
+            timestamp: new Date().toISOString(),
+          }) as Prisma.InputJsonValue;
 
-        const createData = {
-          ...encryptedData,
-          patientId,
-          clinicId: input.clinicId,
-          notes: input.notes ?? null,
-          tags: (input.tags ?? []) as Prisma.InputJsonValue,
-          source: input.source ?? 'api',
-          sourceMetadata,
-          searchIndex,
-          emailHash: computeEmailHash(input.email),
-          dobHash: computeDobHash(input.dob),
-        };
-        const patient = await tx.patient.create({
-          data: createData as unknown as Prisma.PatientCreateInput,
-        });
+          const createData = {
+            ...encryptedData,
+            patientId,
+            clinicId: input.clinicId,
+            notes: input.notes ?? null,
+            tags: (input.tags ?? []) as Prisma.InputJsonValue,
+            source: input.source ?? 'api',
+            sourceMetadata,
+            searchIndex,
+            emailHash: computeEmailHash(input.email),
+            dobHash: computeDobHash(input.dob),
+          };
+          const patient = await tx.patient.create({
+            data: createData as unknown as Prisma.PatientCreateInput,
+          });
 
-        // Create audit log
-        await tx.patientAudit.create({
-          data: {
-            patientId: patient.id,
-            action: 'CREATE',
-            actorEmail: audit.actorEmail,
-            diff: {
-              created: true,
-              by: audit.actorEmail,
-              role: audit.actorRole,
-            } as Prisma.InputJsonValue,
-          },
-        });
+          // Create audit log
+          await tx.patientAudit.create({
+            data: {
+              patientId: patient.id,
+              action: 'CREATE',
+              actorEmail: audit.actorEmail,
+              diff: {
+                created: true,
+                by: audit.actorEmail,
+                role: audit.actorRole,
+              } as Prisma.InputJsonValue,
+            },
+          });
 
-        return decryptPatient(patient) as PatientEntity;
-      }, { isolationLevel: 'Serializable', timeout: 30000 });
+          return decryptPatient(patient) as PatientEntity;
+        },
+        { isolationLevel: 'Serializable', timeout: 30000 }
+      );
     },
 
     async update(
@@ -601,7 +624,9 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
         });
       }
 
-      const encryptedData = encryptPatientPHI(input as unknown as Record<string, unknown>, [...PHI_FIELDS]);
+      const encryptedData = encryptPatientPHI(input as unknown as Record<string, unknown>, [
+        ...PHI_FIELDS,
+      ]);
 
       // Recompute dedup hashes when email or dob changes
       const hashUpdates: Record<string, string | null> = {};
@@ -612,32 +637,35 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
         hashUpdates.dobHash = computeDobHash(input.dob);
       }
 
-      return db.$transaction(async (tx: Prisma.TransactionClient) => {
-        const patient = await tx.patient.update({
-          where: { id },
-          data: {
-            ...encryptedData,
-            ...(searchIndex !== undefined && { searchIndex }),
-            ...hashUpdates,
-          } as Prisma.PatientUpdateInput,
-        });
-
-        // Build change diff for audit
-        const changeSet = buildChangeDiff(existing, input);
-
-        if (Object.keys(changeSet).length > 0) {
-          await tx.patientAudit.create({
+      return db.$transaction(
+        async (tx: Prisma.TransactionClient) => {
+          const patient = await tx.patient.update({
+            where: { id },
             data: {
-              patientId: id,
-              action: 'UPDATE',
-              actorEmail: audit.actorEmail,
-              diff: changeSet as Prisma.InputJsonValue,
-            },
+              ...encryptedData,
+              ...(searchIndex !== undefined && { searchIndex }),
+              ...hashUpdates,
+            } as Prisma.PatientUpdateInput,
           });
-        }
 
-        return decryptPatient(patient) as PatientEntity;
-      }, { isolationLevel: 'Serializable', timeout: 30000 });
+          // Build change diff for audit
+          const changeSet = buildChangeDiff(existing, input);
+
+          if (Object.keys(changeSet).length > 0) {
+            await tx.patientAudit.create({
+              data: {
+                patientId: id,
+                action: 'UPDATE',
+                actorEmail: audit.actorEmail,
+                diff: changeSet as Prisma.InputJsonValue,
+              },
+            });
+          }
+
+          return decryptPatient(patient) as PatientEntity;
+        },
+        { isolationLevel: 'Serializable', timeout: 30000 }
+      );
     },
 
     async delete(id: number, audit: AuditContext, clinicId?: number): Promise<void> {
@@ -647,185 +675,188 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
         throw Errors.patientNotFound(id);
       }
 
-      await db.$transaction(async (tx) => {
-        // Create audit log BEFORE deletion (will be orphaned but preserved for compliance)
-        // NOTE: Do not store PHI (names, email) in audit diffs — use IDs only
-        await tx.patientAudit.create({
-          data: {
-            patientId: id,
-            action: 'DELETE',
-            actorEmail: audit.actorEmail,
-            diff: {
-              deleted: true,
-              patientId: existing.patientId,
-              relatedData: existing._count,
-              role: audit.actorRole,
+      await db.$transaction(
+        async (tx) => {
+          // Create audit log BEFORE deletion (will be orphaned but preserved for compliance)
+          // NOTE: Do not store PHI (names, email) in audit diffs — use IDs only
+          await tx.patientAudit.create({
+            data: {
+              patientId: id,
+              action: 'DELETE',
+              actorEmail: audit.actorEmail,
+              diff: {
+                deleted: true,
+                patientId: existing.patientId,
+                relatedData: existing._count,
+                role: audit.actorRole,
+              },
             },
-          },
-        });
+          });
 
-        // ═══════════════════════════════════════════════════════════════════
-        // DELETE ALL RELATED RECORDS (respecting foreign key constraints)
-        // Order matters! Delete child records before parent records.
-        // ═══════════════════════════════════════════════════════════════════
+          // ═══════════════════════════════════════════════════════════════════
+          // DELETE ALL RELATED RECORDS (respecting foreign key constraints)
+          // Order matters! Delete child records before parent records.
+          // ═══════════════════════════════════════════════════════════════════
 
-        // 1. Health Tracking Logs
-        await tx.patientMedicationReminder.deleteMany({ where: { patientId: id } });
-        await tx.patientWeightLog.deleteMany({ where: { patientId: id } });
-        await tx.patientWaterLog.deleteMany({ where: { patientId: id } });
-        await tx.patientExerciseLog.deleteMany({ where: { patientId: id } });
-        await tx.patientSleepLog.deleteMany({ where: { patientId: id } });
-        await tx.patientNutritionLog.deleteMany({ where: { patientId: id } });
+          // 1. Health Tracking Logs
+          await tx.patientMedicationReminder.deleteMany({ where: { patientId: id } });
+          await tx.patientWeightLog.deleteMany({ where: { patientId: id } });
+          await tx.patientWaterLog.deleteMany({ where: { patientId: id } });
+          await tx.patientExerciseLog.deleteMany({ where: { patientId: id } });
+          await tx.patientSleepLog.deleteMany({ where: { patientId: id } });
+          await tx.patientNutritionLog.deleteMany({ where: { patientId: id } });
 
-        // 2. Chat & Conversations
-        // First nullify self-referencing FK (replyToId) to avoid FK violation during delete
-        await tx.patientChatMessage.updateMany({
-          where: { patientId: id },
-          data: { replyToId: null },
-        });
-        await tx.patientChatMessage.deleteMany({ where: { patientId: id } });
+          // 2. Chat & Conversations
+          // First nullify self-referencing FK (replyToId) to avoid FK violation during delete
+          await tx.patientChatMessage.updateMany({
+            where: { patientId: id },
+            data: { replyToId: null },
+          });
+          await tx.patientChatMessage.deleteMany({ where: { patientId: id } });
 
-        // Delete AI messages first (foreign key to AIConversation)
-        const aiConversations = await tx.aIConversation.findMany({
-          where: { patientId: id },
-          select: { id: true },
-        });
-        for (const conv of aiConversations) {
-          await tx.aIMessage.deleteMany({ where: { conversationId: conv.id } });
-        }
-        await tx.aIConversation.deleteMany({ where: { patientId: id } });
+          // Delete AI messages first (foreign key to AIConversation)
+          const aiConversations = await tx.aIConversation.findMany({
+            where: { patientId: id },
+            select: { id: true },
+          });
+          for (const conv of aiConversations) {
+            await tx.aIMessage.deleteMany({ where: { conversationId: conv.id } });
+          }
+          await tx.aIConversation.deleteMany({ where: { patientId: id } });
 
-        // 3. Care Plans (cascade delete handles goals, activities, progress)
-        await tx.carePlan.deleteMany({ where: { patientId: id } });
+          // 3. Care Plans (cascade delete handles goals, activities, progress)
+          await tx.carePlan.deleteMany({ where: { patientId: id } });
 
-        // 4. Intake form responses and submissions
-        const submissions = await tx.intakeFormSubmission.findMany({
-          where: { patientId: id },
-          select: { id: true },
-        });
-        for (const submission of submissions) {
-          await tx.intakeFormResponse.deleteMany({ where: { submissionId: submission.id } });
-        }
-        await tx.intakeFormSubmission.deleteMany({ where: { patientId: id } });
+          // 4. Intake form responses and submissions
+          const submissions = await tx.intakeFormSubmission.findMany({
+            where: { patientId: id },
+            select: { id: true },
+          });
+          for (const submission of submissions) {
+            await tx.intakeFormResponse.deleteMany({ where: { submissionId: submission.id } });
+          }
+          await tx.intakeFormSubmission.deleteMany({ where: { patientId: id } });
 
-        // 5. SOAP Notes (need to delete revisions first)
-        const soapNotes = await tx.sOAPNote.findMany({
-          where: { patientId: id },
-          select: { id: true },
-        });
-        for (const note of soapNotes) {
-          await tx.sOAPNoteRevision.deleteMany({ where: { soapNoteId: note.id } });
-        }
-        await tx.sOAPNote.deleteMany({ where: { patientId: id } });
+          // 5. SOAP Notes (need to delete revisions first)
+          const soapNotes = await tx.sOAPNote.findMany({
+            where: { patientId: id },
+            select: { id: true },
+          });
+          for (const note of soapNotes) {
+            await tx.sOAPNoteRevision.deleteMany({ where: { soapNoteId: note.id } });
+          }
+          await tx.sOAPNote.deleteMany({ where: { patientId: id } });
 
-        // 6. Documents (NOT appointments yet - Superbill references appointments)
-        await tx.patientDocument.deleteMany({ where: { patientId: id } });
+          // 6. Documents (NOT appointments yet - Superbill references appointments)
+          await tx.patientDocument.deleteMany({ where: { patientId: id } });
 
-        // 7. Payments, Commissions, and Invoices
-        // Delete payments first
-        await tx.payment.deleteMany({ where: { patientId: id } });
+          // 7. Payments, Commissions, and Invoices
+          // Delete payments first
+          await tx.payment.deleteMany({ where: { patientId: id } });
 
-        // Delete commissions before invoices (Commission references Invoice via invoiceId)
-        const patientInvoices = await tx.invoice.findMany({
-          where: { patientId: id },
-          select: { id: true },
-        });
-        if (patientInvoices.length > 0) {
-          const invoiceIds = patientInvoices.map((inv) => inv.id);
-          await tx.commission.deleteMany({ where: { invoiceId: { in: invoiceIds } } });
-        }
+          // Delete commissions before invoices (Commission references Invoice via invoiceId)
+          const patientInvoices = await tx.invoice.findMany({
+            where: { patientId: id },
+            select: { id: true },
+          });
+          if (patientInvoices.length > 0) {
+            const invoiceIds = patientInvoices.map((inv) => inv.id);
+            await tx.commission.deleteMany({ where: { invoiceId: { in: invoiceIds } } });
+          }
 
-        // Now delete invoices
-        await tx.invoice.deleteMany({ where: { patientId: id } });
+          // Now delete invoices
+          await tx.invoice.deleteMany({ where: { patientId: id } });
 
-        // 8. Subscriptions and payment methods (delete actions first due to FK constraint)
-        const subscriptions = await tx.subscription.findMany({
-          where: { patientId: id },
-          select: { id: true },
-        });
-        for (const sub of subscriptions) {
-          await tx.subscriptionAction.deleteMany({ where: { subscriptionId: sub.id } });
-        }
-        await tx.subscription.deleteMany({ where: { patientId: id } });
-        await tx.paymentMethod.deleteMany({ where: { patientId: id } });
+          // 8. Subscriptions and payment methods (delete actions first due to FK constraint)
+          const subscriptions = await tx.subscription.findMany({
+            where: { patientId: id },
+            select: { id: true },
+          });
+          for (const sub of subscriptions) {
+            await tx.subscriptionAction.deleteMany({ where: { subscriptionId: sub.id } });
+          }
+          await tx.subscription.deleteMany({ where: { patientId: id } });
+          await tx.paymentMethod.deleteMany({ where: { patientId: id } });
 
-        // 9. Tickets (delete related records first)
-        // IMPORTANT: Tickets must be deleted BEFORE Orders because Ticket.orderId references Order
-        const tickets = await tx.ticket.findMany({
-          where: { patientId: id },
-          select: { id: true },
-        });
-        for (const ticket of tickets) {
-          await tx.ticketSLA.deleteMany({ where: { ticketId: ticket.id } });
-          await tx.ticketEscalation.deleteMany({ where: { ticketId: ticket.id } });
-          await tx.ticketWorkLog.deleteMany({ where: { ticketId: ticket.id } });
-          await tx.ticketStatusHistory.deleteMany({ where: { ticketId: ticket.id } });
-          await tx.ticketComment.deleteMany({ where: { ticketId: ticket.id } });
-          await tx.ticketAssignment.deleteMany({ where: { ticketId: ticket.id } });
-        }
-        await tx.ticket.deleteMany({ where: { patientId: id } });
+          // 9. Tickets (delete related records first)
+          // IMPORTANT: Tickets must be deleted BEFORE Orders because Ticket.orderId references Order
+          const tickets = await tx.ticket.findMany({
+            where: { patientId: id },
+            select: { id: true },
+          });
+          for (const ticket of tickets) {
+            await tx.ticketSLA.deleteMany({ where: { ticketId: ticket.id } });
+            await tx.ticketEscalation.deleteMany({ where: { ticketId: ticket.id } });
+            await tx.ticketWorkLog.deleteMany({ where: { ticketId: ticket.id } });
+            await tx.ticketStatusHistory.deleteMany({ where: { ticketId: ticket.id } });
+            await tx.ticketComment.deleteMany({ where: { ticketId: ticket.id } });
+            await tx.ticketAssignment.deleteMany({ where: { ticketId: ticket.id } });
+          }
+          await tx.ticket.deleteMany({ where: { patientId: id } });
 
-        // 10. Orders (delete events and rxs first)
-        // Must be deleted AFTER Tickets since Tickets reference Orders via orderId FK
-        const orders = await tx.order.findMany({
-          where: { patientId: id },
-          select: { id: true },
-        });
-        for (const order of orders) {
-          await tx.orderEvent.deleteMany({ where: { orderId: order.id } });
-          await tx.rx.deleteMany({ where: { orderId: order.id } });
-        }
-        await tx.order.deleteMany({ where: { patientId: id } });
+          // 10. Orders (delete events and rxs first)
+          // Must be deleted AFTER Tickets since Tickets reference Orders via orderId FK
+          const orders = await tx.order.findMany({
+            where: { patientId: id },
+            select: { id: true },
+          });
+          for (const order of orders) {
+            await tx.orderEvent.deleteMany({ where: { orderId: order.id } });
+            await tx.rx.deleteMany({ where: { orderId: order.id } });
+          }
+          await tx.order.deleteMany({ where: { patientId: id } });
 
-        // 11. Referrals and discount usage
-        // Delete commissions referencing referral trackings first (Commission has referralId FK)
-        const referralTrackings = await tx.referralTracking.findMany({
-          where: { patientId: id },
-          select: { id: true },
-        });
-        if (referralTrackings.length > 0) {
-          const referralIds = referralTrackings.map((ref) => ref.id);
-          await tx.commission.deleteMany({ where: { referralId: { in: referralIds } } });
-        }
-        await tx.referralTracking.deleteMany({ where: { patientId: id } });
-        await tx.discountUsage.deleteMany({ where: { patientId: id } });
-        await tx.affiliateReferral.deleteMany({ where: { referredPatientId: id } });
+          // 11. Referrals and discount usage
+          // Delete commissions referencing referral trackings first (Commission has referralId FK)
+          const referralTrackings = await tx.referralTracking.findMany({
+            where: { patientId: id },
+            select: { id: true },
+          });
+          if (referralTrackings.length > 0) {
+            const referralIds = referralTrackings.map((ref) => ref.id);
+            await tx.commission.deleteMany({ where: { referralId: { in: referralIds } } });
+          }
+          await tx.referralTracking.deleteMany({ where: { patientId: id } });
+          await tx.discountUsage.deleteMany({ where: { patientId: id } });
+          await tx.affiliateReferral.deleteMany({ where: { referredPatientId: id } });
 
-        // 12. Superbills (SuperbillItem will cascade delete)
-        // Must delete BEFORE appointments because Superbill.appointmentId references Appointment
-        await tx.superbill.deleteMany({ where: { patientId: id } });
+          // 12. Superbills (SuperbillItem will cascade delete)
+          // Must delete BEFORE appointments because Superbill.appointmentId references Appointment
+          await tx.superbill.deleteMany({ where: { patientId: id } });
 
-        // 12b. Now safe to delete appointments
-        await tx.appointment.deleteMany({ where: { patientId: id } });
+          // 12b. Now safe to delete appointments
+          await tx.appointment.deleteMany({ where: { patientId: id } });
 
-        // 13. Payment reconciliation records (nullable patientId)
-        await tx.paymentReconciliation.updateMany({
-          where: { patientId: id },
-          data: { patientId: null },
-        });
+          // 13. Payment reconciliation records (nullable patientId)
+          await tx.paymentReconciliation.updateMany({
+            where: { patientId: id },
+            data: { patientId: null },
+          });
 
-        // 14. SMS logs (nullable patientId, but clean up anyway)
-        await tx.smsLog.deleteMany({ where: { patientId: id } });
+          // 14. SMS logs (nullable patientId, but clean up anyway)
+          await tx.smsLog.deleteMany({ where: { patientId: id } });
 
-        // 15. User association (nullable patientId)
-        await tx.user.updateMany({
-          where: { patientId: id },
-          data: { patientId: null },
-        });
+          // 15. User association (nullable patientId)
+          await tx.user.updateMany({
+            where: { patientId: id },
+            data: { patientId: null },
+          });
 
-        // 16. Delete patient audit records (compliance note: may want to keep these)
-        await tx.patientAudit.deleteMany({ where: { patientId: id } });
+          // 16. Delete patient audit records (compliance note: may want to keep these)
+          await tx.patientAudit.deleteMany({ where: { patientId: id } });
 
-        // 17. Clean up HIPAA audit entries and phone OTPs (no FK but good to clean)
-        await tx.hIPAAAuditEntry.updateMany({
-          where: { patientId: id },
-          data: { patientId: null },
-        });
-        await tx.phoneOtp.deleteMany({ where: { patientId: id } });
+          // 17. Clean up HIPAA audit entries and phone OTPs (no FK but good to clean)
+          await tx.hIPAAAuditEntry.updateMany({
+            where: { patientId: id },
+            data: { patientId: null },
+          });
+          await tx.phoneOtp.deleteMany({ where: { patientId: id } });
 
-        // Finally delete the patient
-        await tx.patient.delete({ where: { id } });
-      }, { isolationLevel: 'Serializable', timeout: 30000 });
+          // Finally delete the patient
+          await tx.patient.delete({ where: { id } });
+        },
+        { isolationLevel: 'Serializable', timeout: 30000 }
+      );
     },
 
     async exists(id: number, clinicId?: number): Promise<boolean> {
@@ -911,7 +942,7 @@ function decryptPatientSummary(patient: Record<string, unknown>): PatientSummary
     dob: safeStr(decryptField(patient.dob, 'dob', patientId)),
     gender: safeStr(patient.gender),
     address1: safeStr(decryptField(patient.address1, 'address1', patientId)),
-    address2: (decryptField(patient.address2, 'address2', patientId)) as string | null,
+    address2: decryptField(patient.address2, 'address2', patientId) as string | null,
     city: safeStr(decryptField(patient.city, 'city', patientId)),
     state: safeStr(decryptField(patient.state, 'state', patientId)),
     zip: safeStr(decryptField(patient.zip, 'zip', patientId)),
@@ -977,12 +1008,13 @@ function filterPatientsBySearch<
     }
 
     // Multi-term: all terms must match at least one field (exact, starts-with, or fuzzy)
-    return terms.every((term) =>
-      firstName.includes(term) ||
-      lastName.includes(term) ||
-      patientIdLower.includes(term) ||
-      emailLower.includes(term) ||
-      fuzzyTermMatch(term, allFields.join(' '))
+    return terms.every(
+      (term) =>
+        firstName.includes(term) ||
+        lastName.includes(term) ||
+        patientIdLower.includes(term) ||
+        emailLower.includes(term) ||
+        fuzzyTermMatch(term, allFields.join(' '))
     );
   });
 }

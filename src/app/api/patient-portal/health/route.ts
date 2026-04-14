@@ -54,7 +54,12 @@ async function probeDatabase(): Promise<ProbeResult> {
     );
     const latencyMs = Date.now() - start;
     if (!result.healthy) {
-      return { name: 'Database', status: 'unhealthy', latencyMs, message: result.error || 'Connection failed' };
+      return {
+        name: 'Database',
+        status: 'unhealthy',
+        latencyMs,
+        message: result.error || 'Connection failed',
+      };
     }
     return {
       name: 'Database',
@@ -80,7 +85,12 @@ async function probePatientTable(): Promise<ProbeResult> {
       PROBE_TIMEOUT_MS,
       'Patient table probe'
     );
-    return { name: 'PatientTable', status: 'healthy', latencyMs: Date.now() - start, message: 'Accessible' };
+    return {
+      name: 'PatientTable',
+      status: 'healthy',
+      latencyMs: Date.now() - start,
+      message: 'Accessible',
+    };
   } catch (err) {
     return {
       name: 'PatientTable',
@@ -102,7 +112,12 @@ async function probeAuth(): Promise<ProbeResult> {
       .sign(JWT_SECRET);
 
     await jwtVerify(token, JWT_SECRET);
-    return { name: 'Auth', status: 'healthy', latencyMs: Date.now() - start, message: 'JWT sign/verify OK' };
+    return {
+      name: 'Auth',
+      status: 'healthy',
+      latencyMs: Date.now() - start,
+      message: 'JWT sign/verify OK',
+    };
   } catch (err) {
     return {
       name: 'Auth',
@@ -131,9 +146,19 @@ async function probeSessionStore(): Promise<ProbeResult> {
     await cache.delete(testKey);
 
     if (val !== 'ok') {
-      return { name: 'SessionStore', status: 'degraded', latencyMs: Date.now() - start, message: 'Read/write mismatch' };
+      return {
+        name: 'SessionStore',
+        status: 'degraded',
+        latencyMs: Date.now() - start,
+        message: 'Read/write mismatch',
+      };
     }
-    return { name: 'SessionStore', status: 'healthy', latencyMs: Date.now() - start, message: 'Redis OK' };
+    return {
+      name: 'SessionStore',
+      status: 'healthy',
+      latencyMs: Date.now() - start,
+      message: 'Redis OK',
+    };
   } catch (err) {
     return {
       name: 'SessionStore',
@@ -152,7 +177,12 @@ async function probeBranding(): Promise<ProbeResult> {
       PROBE_TIMEOUT_MS,
       'Branding probe'
     );
-    return { name: 'Branding', status: 'healthy', latencyMs: Date.now() - start, message: 'Clinic table accessible' };
+    return {
+      name: 'Branding',
+      status: 'healthy',
+      latencyMs: Date.now() - start,
+      message: 'Clinic table accessible',
+    };
   } catch (err) {
     return {
       name: 'Branding',
@@ -234,9 +264,16 @@ export async function GET(req: NextRequest) {
       }
     );
   } catch (err) {
-    logger.error('[PortalHealth] Health check failed', err instanceof Error ? err : new Error(String(err)));
+    logger.error(
+      '[PortalHealth] Health check failed',
+      err instanceof Error ? err : new Error(String(err))
+    );
     return NextResponse.json(
-      { status: 'unhealthy', error: 'Health check execution failed', timestamp: new Date().toISOString() },
+      {
+        status: 'unhealthy',
+        error: 'Health check execution failed',
+        timestamp: new Date().toISOString(),
+      },
       { status: 503 }
     );
   }

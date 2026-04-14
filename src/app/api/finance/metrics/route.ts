@@ -35,7 +35,14 @@ function isDatabaseConnectionError(error: unknown): boolean {
   }
   if (error instanceof Error) {
     const message = error.message.toLowerCase();
-    const patterns = ['connection', 'econnrefused', 'econnreset', 'timeout', 'pool', 'too many connections'];
+    const patterns = [
+      'connection',
+      'econnrefused',
+      'econnreset',
+      'timeout',
+      'pool',
+      'too many connections',
+    ];
     return patterns.some((p) => message.includes(p));
   }
   return false;
@@ -195,7 +202,10 @@ async function handleGet(request: NextRequest, user: AuthUser) {
         ? Math.round((canceledThisMonth / totalActiveAtMonthStart) * 10000) / 100
         : 0;
 
-    await auditPhiAccess(request, buildAuditPhiOptions(request, user, 'financial:view', { route: 'GET /api/finance/metrics' }));
+    await auditPhiAccess(
+      request,
+      buildAuditPhiOptions(request, user, 'financial:view', { route: 'GET /api/finance/metrics' })
+    );
 
     return NextResponse.json({
       grossRevenue,

@@ -74,9 +74,8 @@ async function runReconcile(req: NextRequest) {
 
   try {
     const { getStripeForClinic, stripeRequestOptions } = await import('@/lib/stripe/connect');
-    const { processStripePayment, extractPaymentDataFromPaymentIntent } = await import(
-      '@/services/stripe/paymentMatchingService'
-    );
+    const { processStripePayment, extractPaymentDataFromPaymentIntent } =
+      await import('@/services/stripe/paymentMatchingService');
 
     const since = Math.floor(Date.now() / 1000) - 48 * 60 * 60;
 
@@ -132,15 +131,11 @@ async function runReconcile(req: NextRequest) {
 
           out.stripePaymentCount = allPayments.length;
           if (stripeContext.isPlatformAccount && !stripeContext.isDedicatedAccount) {
-          out.skippedNoClinic = allPayments.filter((pi) => {
-            if ((pi as any).invoice) return false;
+            out.skippedNoClinic = allPayments.filter((pi) => {
+              if ((pi as any).invoice) return false;
               const meta = pi.metadata as Record<string, string | undefined>;
               const metaClinicId = meta.clinic_id ?? meta.clinicId;
-              return (
-                metaClinicId === null ||
-                metaClinicId === undefined ||
-                metaClinicId === ''
-              );
+              return metaClinicId === null || metaClinicId === undefined || metaClinicId === '';
             }).length;
           }
 
@@ -233,10 +228,14 @@ async function runReconcile(req: NextRequest) {
     );
 
     results.skippedNoClinic = skippedNoClinic;
-    results.newlyProcessed = perClinicResults.reduce((s, r) => s + (r.data?.newlyProcessed ?? 0), 0);
+    results.newlyProcessed = perClinicResults.reduce(
+      (s, r) => s + (r.data?.newlyProcessed ?? 0),
+      0
+    );
     results.failed = perClinicResults.reduce((s, r) => s + (r.data?.failed ?? 0), 0);
     results.errors = perClinicResults.flatMap((r) => r.data?.errors ?? (r.error ? [r.error] : []));
-    results.alreadyProcessed = results.stripePayments - results.newlyProcessed - results.failed - skippedNoClinic;
+    results.alreadyProcessed =
+      results.stripePayments - results.newlyProcessed - results.failed - skippedNoClinic;
 
     if (results.failed > 0) {
       await alertReconciliationFailures(results);

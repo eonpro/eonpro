@@ -76,10 +76,7 @@ export const POST = withAuthParams(
         return NextResponse.json({ error: error.message }, { status: error.statusCode });
       }
       logger.error('[ORDER CANCEL] Error:', error instanceof Error ? error : undefined);
-      return NextResponse.json(
-        { error: 'Failed to cancel order' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to cancel order' }, { status: 500 });
     }
   }
 );

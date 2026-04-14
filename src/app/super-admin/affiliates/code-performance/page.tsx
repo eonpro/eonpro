@@ -205,7 +205,9 @@ export default function SuperAdminCodePerformancePage() {
         <div>
           <div className="mb-1 flex items-center gap-2">
             <Building2 className="h-5 w-5 text-[var(--brand-primary)]" />
-            <span className="text-sm font-medium text-[var(--brand-primary)]">Cross-Clinic View</span>
+            <span className="text-sm font-medium text-[var(--brand-primary)]">
+              Cross-Clinic View
+            </span>
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Code Performance</h1>
           <p className="text-gray-500">Track affiliate referral code usage across all clinics</p>
@@ -305,7 +307,9 @@ export default function SuperAdminCodePerformancePage() {
               key={p}
               onClick={() => setPeriod(p)}
               className={`rounded-md px-3 py-1.5 text-sm font-medium transition-all ${
-                period === p ? 'bg-[var(--brand-primary)] text-white' : 'text-gray-600 hover:bg-gray-100'
+                period === p
+                  ? 'bg-[var(--brand-primary)] text-white'
+                  : 'text-gray-600 hover:bg-gray-100'
               }`}
             >
               {p === 'ytd' ? 'YTD' : p === 'all' ? 'All' : p}
@@ -323,7 +327,10 @@ export default function SuperAdminCodePerformancePage() {
         ) : error ? (
           <div className="flex h-96 flex-col items-center justify-center text-center">
             <p className="text-red-600">{error}</p>
-            <button onClick={fetchData} className="mt-4 text-[var(--brand-primary)] hover:text-[var(--brand-primary)]">
+            <button
+              onClick={fetchData}
+              className="mt-4 text-[var(--brand-primary)] hover:text-[var(--brand-primary)]"
+            >
               Try again
             </button>
           </div>

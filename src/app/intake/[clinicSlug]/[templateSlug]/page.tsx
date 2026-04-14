@@ -24,15 +24,25 @@ export default async function IntakeLandingPage({ params }: Props) {
 
   if (!clinic) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8 text-center">
-          <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+        <div className="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-lg">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-50">
+            <svg
+              className="h-8 w-8 text-red-500"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
           </div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Form Unavailable</h2>
-          <p className="text-gray-500 text-sm">Form not found. Please check the URL.</p>
+          <h2 className="mb-2 text-xl font-semibold text-gray-900">Form Unavailable</h2>
+          <p className="text-sm text-gray-500">Form not found. Please check the URL.</p>
         </div>
       </div>
     );
@@ -55,9 +65,11 @@ export default async function IntakeLandingPage({ params }: Props) {
     // No DB template — fall back to hardcoded TS configs for known clinic/template combos
     if (candidates.length === 0) {
       if (templateSlug === 'weight-loss') {
-        return isWellmedr ? wellmedrIntakeConfig.startStep
-          : isOt ? otMensIntakeConfig.startStep
-          : weightLossIntakeConfig.startStep;
+        return isWellmedr
+          ? wellmedrIntakeConfig.startStep
+          : isOt
+            ? otMensIntakeConfig.startStep
+            : weightLossIntakeConfig.startStep;
       }
       if (templateSlug === 'peptides' && isOt) {
         return otMensPeptideIntakeConfig.startStep;
@@ -68,30 +80,26 @@ export default async function IntakeLandingPage({ params }: Props) {
       return null;
     }
 
-    const template = candidates.find((t) => {
-      const meta = t.metadata as Record<string, unknown> | null;
-      const cfg = meta?.formConfig as FormConfig | undefined;
-      return !!cfg?.startStep && Array.isArray(cfg?.steps) && cfg.steps.length > 0;
-    }) ?? candidates[0];
+    const template =
+      candidates.find((t) => {
+        const meta = t.metadata as Record<string, unknown> | null;
+        const cfg = meta?.formConfig as FormConfig | undefined;
+        return !!cfg?.startStep && Array.isArray(cfg?.steps) && cfg.steps.length > 0;
+      }) ?? candidates[0];
 
-    if (
-      templateSlug === 'weight-loss' ||
-      template.treatmentType === 'weight-loss'
-    ) {
-      return isWellmedr ? wellmedrIntakeConfig.startStep
-        : isOt ? otMensIntakeConfig.startStep
-        : weightLossIntakeConfig.startStep;
+    if (templateSlug === 'weight-loss' || template.treatmentType === 'weight-loss') {
+      return isWellmedr
+        ? wellmedrIntakeConfig.startStep
+        : isOt
+          ? otMensIntakeConfig.startStep
+          : weightLossIntakeConfig.startStep;
     }
 
-    if (
-      (templateSlug === 'peptides' || template.treatmentType === 'peptides') && isOt
-    ) {
+    if ((templateSlug === 'peptides' || template.treatmentType === 'peptides') && isOt) {
       return otMensPeptideIntakeConfig.startStep;
     }
 
-    if (
-      (templateSlug === 'trt' || template.treatmentType === 'trt') && isOt
-    ) {
+    if ((templateSlug === 'trt' || template.treatmentType === 'trt') && isOt) {
       return otMensTRTIntakeConfig.startStep;
     }
 
@@ -108,15 +116,25 @@ export default async function IntakeLandingPage({ params }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8 text-center">
-        <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
-          <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-lg">
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-50">
+          <svg
+            className="h-8 w-8 text-red-500"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
           </svg>
         </div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">Form Unavailable</h2>
-        <p className="text-gray-500 text-sm">This form has no steps configured yet.</p>
+        <h2 className="mb-2 text-xl font-semibold text-gray-900">Form Unavailable</h2>
+        <p className="text-sm text-gray-500">This form has no steps configured yet.</p>
       </div>
     </div>
   );

@@ -171,79 +171,82 @@ export async function reviewDisposition(input: ReviewDispositionInput) {
     throw new Error(`Disposition already ${disposition.status.toLowerCase()}`);
   }
 
-  const result = await prisma.$transaction(async (tx) => {
-    let assignmentId: number | null = null;
-    let autoAssigned = false;
+  const result = await prisma.$transaction(
+    async (tx) => {
+      let assignmentId: number | null = null;
+      let autoAssigned = false;
 
-    // On APPROVED + SALE_COMPLETED: auto-create PatientSalesRepAssignment
-    if (status === 'APPROVED' && disposition.outcome === 'SALE_COMPLETED') {
-      const existingAssignment = await tx.patientSalesRepAssignment.findFirst({
-        where: {
-          patientId: disposition.patientId,
-          clinicId: disposition.clinicId,
-          isActive: true,
+      // On APPROVED + SALE_COMPLETED: auto-create PatientSalesRepAssignment
+      if (status === 'APPROVED' && disposition.outcome === 'SALE_COMPLETED') {
+        const existingAssignment = await tx.patientSalesRepAssignment.findFirst({
+          where: {
+            patientId: disposition.patientId,
+            clinicId: disposition.clinicId,
+            isActive: true,
+          },
+          select: { id: true, salesRepId: true },
+        });
+
+        if (!existingAssignment) {
+          const assignment = await tx.patientSalesRepAssignment.create({
+            data: {
+              patientId: disposition.patientId,
+              salesRepId: disposition.salesRepId,
+              clinicId: disposition.clinicId,
+              assignedById: reviewerId,
+            },
+          });
+          assignmentId = assignment.id;
+          autoAssigned = true;
+        } else if (existingAssignment.salesRepId !== disposition.salesRepId) {
+          // Deactivate old assignment, create new one
+          await tx.patientSalesRepAssignment.update({
+            where: { id: existingAssignment.id },
+            data: {
+              isActive: false,
+              removedAt: new Date(),
+              removedById: reviewerId,
+              removalNote: `Reassigned via approved disposition #${dispositionId}`,
+            },
+          });
+
+          const assignment = await tx.patientSalesRepAssignment.create({
+            data: {
+              patientId: disposition.patientId,
+              salesRepId: disposition.salesRepId,
+              clinicId: disposition.clinicId,
+              assignedById: reviewerId,
+            },
+          });
+          assignmentId = assignment.id;
+          autoAssigned = true;
+        } else {
+          // Already assigned to the same rep
+          assignmentId = existingAssignment.id;
+        }
+      }
+
+      const updated = await tx.salesRepDisposition.update({
+        where: { id: dispositionId },
+        data: {
+          status,
+          reviewedAt: new Date(),
+          reviewedBy: reviewerId,
+          reviewNote: reviewNote || null,
+          autoAssigned,
+          assignmentId,
         },
-        select: { id: true, salesRepId: true },
+        include: {
+          salesRep: { select: { id: true, firstName: true, lastName: true } },
+          patient: { select: { id: true, firstName: true, lastName: true } },
+          reviewer: { select: { id: true, firstName: true, lastName: true } },
+        },
       });
 
-      if (!existingAssignment) {
-        const assignment = await tx.patientSalesRepAssignment.create({
-          data: {
-            patientId: disposition.patientId,
-            salesRepId: disposition.salesRepId,
-            clinicId: disposition.clinicId,
-            assignedById: reviewerId,
-          },
-        });
-        assignmentId = assignment.id;
-        autoAssigned = true;
-      } else if (existingAssignment.salesRepId !== disposition.salesRepId) {
-        // Deactivate old assignment, create new one
-        await tx.patientSalesRepAssignment.update({
-          where: { id: existingAssignment.id },
-          data: {
-            isActive: false,
-            removedAt: new Date(),
-            removedById: reviewerId,
-            removalNote: `Reassigned via approved disposition #${dispositionId}`,
-          },
-        });
-
-        const assignment = await tx.patientSalesRepAssignment.create({
-          data: {
-            patientId: disposition.patientId,
-            salesRepId: disposition.salesRepId,
-            clinicId: disposition.clinicId,
-            assignedById: reviewerId,
-          },
-        });
-        assignmentId = assignment.id;
-        autoAssigned = true;
-      } else {
-        // Already assigned to the same rep
-        assignmentId = existingAssignment.id;
-      }
-    }
-
-    const updated = await tx.salesRepDisposition.update({
-      where: { id: dispositionId },
-      data: {
-        status,
-        reviewedAt: new Date(),
-        reviewedBy: reviewerId,
-        reviewNote: reviewNote || null,
-        autoAssigned,
-        assignmentId,
-      },
-      include: {
-        salesRep: { select: { id: true, firstName: true, lastName: true } },
-        patient: { select: { id: true, firstName: true, lastName: true } },
-        reviewer: { select: { id: true, firstName: true, lastName: true } },
-      },
-    });
-
-    return updated;
-  }, { timeout: 15000 });
+      return updated;
+    },
+    { timeout: 15000 }
+  );
 
   logger.info('[Disposition] Reviewed', {
     dispositionId,

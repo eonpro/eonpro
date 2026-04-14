@@ -235,10 +235,7 @@ export async function executeDb<T>(
 
         // Backoff before next attempt
         if (attempts < effectiveMaxRetries + 1) {
-          const delay = Math.min(
-            initialDelayMs * Math.pow(2, attempts - 1),
-            maxDelayMs
-          );
+          const delay = Math.min(initialDelayMs * Math.pow(2, attempts - 1), maxDelayMs);
           await sleep(delay);
         }
       }
@@ -354,11 +351,7 @@ export function executeDbBackground<T>(
 // HELPERS
 // =============================================================================
 
-function withTimeout<T>(
-  fn: () => Promise<T>,
-  ms: number,
-  label: string
-): Promise<T> {
+function withTimeout<T>(fn: () => Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(
       () => reject(new Error(`[ExecuteDb] ${label} timeout after ${ms}ms`)),

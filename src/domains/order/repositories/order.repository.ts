@@ -12,7 +12,11 @@ import { type Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { decryptPatientPHI } from '@/lib/security/phi-encryption';
-import { generateSearchVariants, splitSearchTerms, sortBySearchRelevance } from '@/lib/utils/search';
+import {
+  generateSearchVariants,
+  splitSearchTerms,
+  sortBySearchRelevance,
+} from '@/lib/utils/search';
 import type {
   Order,
   Rx,
@@ -325,7 +329,9 @@ export const orderRepository = {
     if (filters.awaitingFulfillment) {
       where.trackingNumber = null;
       where.lifefileOrderId = { not: null };
-      where.status = { notIn: ['CANCELLED', 'COMPLETED', 'ERROR', 'error', 'DELIVERED', 'completed', 'cancelled'] };
+      where.status = {
+        notIn: ['CANCELLED', 'COMPLETED', 'ERROR', 'error', 'DELIVERED', 'completed', 'cancelled'],
+      };
       where.shippingUpdates = { none: {} };
       where.patient = { shippingUpdates: { none: {} } };
     }
@@ -347,14 +353,14 @@ export const orderRepository = {
         if (term !== searchTerm) {
           orConditions.push(
             { patient: { searchIndex: { contains: term, mode: 'insensitive' } } },
-            { primaryMedName: { contains: term, mode: 'insensitive' } },
+            { primaryMedName: { contains: term, mode: 'insensitive' } }
           );
         }
       }
       for (const v of allVariants) {
         orConditions.push(
           { patient: { searchIndex: { contains: v, mode: 'insensitive' } } },
-          { primaryMedName: { contains: v, mode: 'insensitive' } },
+          { primaryMedName: { contains: v, mode: 'insensitive' } }
         );
       }
 
@@ -364,7 +370,12 @@ export const orderRepository = {
     const limit = filters.limit ?? 100;
     const offset = filters.offset ?? 0;
 
-    logger.debug('[OrderRepository] list query', { filters: { ...filters, search: filters.search ? '[REDACTED]' : undefined }, where, limit, offset });
+    logger.debug('[OrderRepository] list query', {
+      filters: { ...filters, search: filters.search ? '[REDACTED]' : undefined },
+      where,
+      limit,
+      offset,
+    });
 
     const sortBy = filters.awaitingFulfillment
       ? { createdAt: 'asc' as const }
@@ -667,68 +678,71 @@ export const orderRepository = {
     orderInput: CreateOrderInput,
     rxInputs: Omit<CreateRxInput, 'orderId'>[]
   ): Promise<OrderWithDetails> {
-    return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      // Create order
-      const order = await tx.order.create({
-        data: {
-          messageId: orderInput.messageId,
-          referenceId: orderInput.referenceId,
-          patientId: orderInput.patientId,
-          providerId: orderInput.providerId,
-          shippingMethod: orderInput.shippingMethod,
-          primaryMedName: orderInput.primaryMedName ?? null,
-          primaryMedStrength: orderInput.primaryMedStrength ?? null,
-          primaryMedForm: orderInput.primaryMedForm ?? null,
-          status: orderInput.status ?? 'PENDING',
-          requestJson: orderInput.requestJson ?? null,
-          clinicId: orderInput.clinicId ?? null,
-        },
-      });
-
-      // Create Rx items
-      if (rxInputs.length > 0) {
-        await tx.rx.createMany({
-          data: rxInputs.map((rx) => ({
-            orderId: order.id,
-            medicationKey: rx.medicationKey,
-            medName: rx.medName,
-            strength: rx.strength,
-            form: rx.form,
-            quantity: rx.quantity,
-            refills: rx.refills,
-            sig: rx.sig,
-          })),
+    return await prisma.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        // Create order
+        const order = await tx.order.create({
+          data: {
+            messageId: orderInput.messageId,
+            referenceId: orderInput.referenceId,
+            patientId: orderInput.patientId,
+            providerId: orderInput.providerId,
+            shippingMethod: orderInput.shippingMethod,
+            primaryMedName: orderInput.primaryMedName ?? null,
+            primaryMedStrength: orderInput.primaryMedStrength ?? null,
+            primaryMedForm: orderInput.primaryMedForm ?? null,
+            status: orderInput.status ?? 'PENDING',
+            requestJson: orderInput.requestJson ?? null,
+            clinicId: orderInput.clinicId ?? null,
+          },
         });
-      }
 
-      // Create initial event
-      await tx.orderEvent.create({
-        data: {
+        // Create Rx items
+        if (rxInputs.length > 0) {
+          await tx.rx.createMany({
+            data: rxInputs.map((rx) => ({
+              orderId: order.id,
+              medicationKey: rx.medicationKey,
+              medName: rx.medName,
+              strength: rx.strength,
+              form: rx.form,
+              quantity: rx.quantity,
+              refills: rx.refills,
+              sig: rx.sig,
+            })),
+          });
+        }
+
+        // Create initial event
+        await tx.orderEvent.create({
+          data: {
+            orderId: order.id,
+            eventType: 'CREATED',
+            note: `Order created with ${rxInputs.length} prescription(s)`,
+          },
+        });
+
+        // Fetch complete order
+        const completeOrder = await tx.order.findUnique({
+          where: { id: order.id },
+          select: ORDER_WITH_DETAILS_SELECT,
+        });
+
+        logger.info('[OrderRepository] created order with Rx items', {
           orderId: order.id,
-          eventType: 'CREATED',
-          note: `Order created with ${rxInputs.length} prescription(s)`,
-        },
-      });
+          rxCount: rxInputs.length,
+          clinicId: order.clinicId,
+        });
 
-      // Fetch complete order
-      const completeOrder = await tx.order.findUnique({
-        where: { id: order.id },
-        select: ORDER_WITH_DETAILS_SELECT,
-      });
+        if (!completeOrder) {
+          throw new Error('Failed to fetch created order');
+        }
 
-      logger.info('[OrderRepository] created order with Rx items', {
-        orderId: order.id,
-        rxCount: rxInputs.length,
-        clinicId: order.clinicId,
-      });
-
-      if (!completeOrder) {
-        throw new Error('Failed to fetch created order');
-      }
-
-      // Decrypt patient and provider PHI fields before returning
-      return decryptOrderDetails(completeOrder) as OrderWithDetails;
-    }, { timeout: 15000 });
+        // Decrypt patient and provider PHI fields before returning
+        return decryptOrderDetails(completeOrder) as OrderWithDetails;
+      },
+      { timeout: 15000 }
+    );
   },
 };
 

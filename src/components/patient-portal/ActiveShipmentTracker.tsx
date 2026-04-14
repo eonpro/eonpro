@@ -70,10 +70,7 @@ function withAlpha(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-const statusMeta: Record<
-  string,
-  { icon: typeof Package; message: string }
-> = {
+const statusMeta: Record<string, { icon: typeof Package; message: string }> = {
   processing: { icon: Clock, message: 'Preparing your order' },
   shipped: { icon: Package, message: 'Package is on its way!' },
   in_transit: { icon: Truck, message: 'Speeding to you!' },
@@ -122,7 +119,7 @@ export default function ActiveShipmentTracker({
       setActiveShipments(data.activeShipments || []);
       setPrescriptionJourney(data.prescriptionJourney ?? null);
       const hasContent =
-        (data.activeShipments || []).length > 0 || (data.prescriptionJourney != null);
+        (data.activeShipments || []).length > 0 || data.prescriptionJourney != null;
       onShipmentLoaded?.(hasContent);
     } catch (err) {
       console.error('Error fetching shipments:', err);
@@ -201,9 +198,7 @@ export default function ActiveShipmentTracker({
               }}
             >
               <div className="flex items-center gap-3">
-                <div
-                  className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm"
-                >
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
                   <Clock className="h-6 w-6" />
                 </div>
                 <div>
@@ -216,7 +211,9 @@ export default function ActiveShipmentTracker({
                           ? t('journeyStep4Label')
                           : journey.label}
                   </p>
-                  <p className="mt-0.5 text-lg font-bold text-white">{t('journeyPrescriptionStatus')}</p>
+                  <p className="mt-0.5 text-lg font-bold text-white">
+                    {t('journeyPrescriptionStatus')}
+                  </p>
                 </div>
               </div>
             </div>
@@ -257,23 +254,16 @@ export default function ActiveShipmentTracker({
                       <div
                         className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full font-bold text-white"
                         style={{
-                          backgroundColor:
-                            isCompleted || isCurrent ? primaryColor : '#e5e7eb',
+                          backgroundColor: isCompleted || isCurrent ? primaryColor : '#e5e7eb',
                           color: isCompleted || isCurrent ? 'white' : '#9ca3af',
                         }}
                       >
-                        {isCompleted ? (
-                          <CheckCircle2 className="h-5 w-5" />
-                        ) : (
-                          s.step
-                        )}
+                        {isCompleted ? <CheckCircle2 className="h-5 w-5" /> : s.step}
                       </div>
                       <div>
                         <p
                           className="font-semibold"
-                          style={
-                            isCurrent ? { color: primaryColor } : undefined
-                          }
+                          style={isCurrent ? { color: primaryColor } : undefined}
                         >
                           {t('journeyStepPrefix')} {s.step}. {t(s.labelKey)}
                         </p>
@@ -452,11 +442,7 @@ export default function ActiveShipmentTracker({
                           className={`mt-2 text-center text-xs font-medium ${
                             !isCurrent && !isCompleted ? 'text-gray-400' : ''
                           }`}
-                          style={
-                            isCurrent || isCompleted
-                              ? { color: primaryColor }
-                              : undefined
-                          }
+                          style={isCurrent || isCompleted ? { color: primaryColor } : undefined}
                         >
                           {item.label}
                         </span>
@@ -491,7 +477,13 @@ export default function ActiveShipmentTracker({
                     <p className="text-lg font-bold text-gray-800">
                       {(() => {
                         const d = new Date(mainShipment.estimatedDelivery!);
-                        return isNaN(d.getTime()) ? 'Pending' : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                        return isNaN(d.getTime())
+                          ? 'Pending'
+                          : d.toLocaleDateString('en-US', {
+                              weekday: 'short',
+                              month: 'short',
+                              day: 'numeric',
+                            });
                       })()}
                     </p>
                   </div>
@@ -536,12 +528,21 @@ export default function ActiveShipmentTracker({
                     <MapPin className="h-5 w-5" style={{ color: primaryColor }} />
                   </div>
                   <div>
-                    <p className="text-xs font-medium" style={{ color: primaryColor }}>Latest Update</p>
+                    <p className="text-xs font-medium" style={{ color: primaryColor }}>
+                      Latest Update
+                    </p>
                     <p className="font-semibold text-gray-900">{mainShipment.lastLocation}</p>
                     <p className="mt-0.5 text-xs" style={{ color: withAlpha(primaryColor, 0.7) }}>
                       {(() => {
                         const d = new Date(mainShipment.lastUpdate);
-                        return isNaN(d.getTime()) ? '' : d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+                        return isNaN(d.getTime())
+                          ? ''
+                          : d.toLocaleString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: 'numeric',
+                              minute: '2-digit',
+                            });
                       })()}
                     </p>
                   </div>

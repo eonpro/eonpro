@@ -147,7 +147,10 @@ export function parsePaginationFromRequest(req: NextRequest): {
   if (offsetStr !== null) {
     const limit = Math.min(
       MAX_PAGE_SIZE,
-      Math.max(1, parseInt(params.get('limit') || String(DEFAULT_PAGE_SIZE), 10) || DEFAULT_PAGE_SIZE)
+      Math.max(
+        1,
+        parseInt(params.get('limit') || String(DEFAULT_PAGE_SIZE), 10) || DEFAULT_PAGE_SIZE
+      )
     );
     const offset = Math.max(0, parseInt(offsetStr, 10) || 0);
     return {
@@ -255,10 +258,7 @@ function isTransientDbError(err: unknown): boolean {
   if (isPoolExhaustionError(err)) return true;
   const e = err as { code?: string; message?: string };
   const msg = (e.message || '').toLowerCase();
-  return (
-    msg.includes('econnreset') ||
-    msg.includes('connection reset')
-  );
+  return msg.includes('econnreset') || msg.includes('connection reset');
 }
 
 function delay(ms: number): Promise<void> {
@@ -299,14 +299,14 @@ export async function safeQuery<T>(
 
       const isTransient = isTransientDbError(err);
       if (isTransient && attempt < opts.maxRetries) {
-        const backoff = Math.min(
-          opts.initialDelayMs * Math.pow(2, attempt),
-          opts.maxDelayMs
+        const backoff = Math.min(opts.initialDelayMs * Math.pow(2, attempt), opts.maxDelayMs);
+        logger.warn(
+          `[SafeQuery] Transient error on "${description}", retrying (${attempt + 1}/${opts.maxRetries})`,
+          {
+            error: (err as Error).message,
+            backoffMs: backoff,
+          }
         );
-        logger.warn(`[SafeQuery] Transient error on "${description}", retrying (${attempt + 1}/${opts.maxRetries})`, {
-          error: (err as Error).message,
-          backoffMs: backoff,
-        });
         await delay(backoff);
         continue;
       }

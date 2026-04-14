@@ -669,8 +669,16 @@ export default function TicketManager({ currentUserId, currentUserRole }: Ticket
                               const bName = `${b.firstName} ${b.lastName}`.toLowerCase();
 
                               // Exact match first
-                              if (aName.startsWith(searchNormalized) && !bName.startsWith(searchNormalized)) return -1;
-                              if (!aName.startsWith(searchNormalized) && bName.startsWith(searchNormalized)) return 1;
+                              if (
+                                aName.startsWith(searchNormalized) &&
+                                !bName.startsWith(searchNormalized)
+                              )
+                                return -1;
+                              if (
+                                !aName.startsWith(searchNormalized) &&
+                                bName.startsWith(searchNormalized)
+                              )
+                                return 1;
                             }
                             // Then sort by ID descending (most recent first)
                             return b.id - a.id;

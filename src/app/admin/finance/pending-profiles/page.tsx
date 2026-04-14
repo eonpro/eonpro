@@ -369,7 +369,12 @@ export default function PendingProfilesPage() {
 
   // ---- Archive profile ----
   const handleArchive = async (profile: PendingProfile) => {
-    if (!confirm('Are you sure you want to archive this profile? Paid invoices will remain blocked from the Rx queue.')) return;
+    if (
+      !confirm(
+        'Are you sure you want to archive this profile? Paid invoices will remain blocked from the Rx queue.'
+      )
+    )
+      return;
     setProcessing(true);
 
     try {
@@ -447,8 +452,8 @@ export default function PendingProfilesPage() {
           <h2 className="text-2xl font-bold text-gray-900">Pending Profiles</h2>
           <p className="mt-1 text-sm text-gray-500">
             Review and complete patient profiles created from Stripe payments. Paid invoices are
-            <strong className="text-amber-600"> blocked from the provider Rx queue</strong> until the
-            profile is completed or merged.
+            <strong className="text-amber-600"> blocked from the provider Rx queue</strong> until
+            the profile is completed or merged.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -522,7 +527,7 @@ export default function PendingProfilesPage() {
           </div>
 
           <div className="rounded-xl border border-red-200 bg-gradient-to-br from-red-50 to-white p-5 shadow-sm">
-            <div className="rounded-lg bg-red-100 p-2 w-fit">
+            <div className="w-fit rounded-lg bg-red-100 p-2">
               <ClipboardList className="h-5 w-5 text-red-600" />
             </div>
             <h3 className="mt-4 text-2xl font-bold text-gray-900">
@@ -532,7 +537,7 @@ export default function PendingProfilesPage() {
           </div>
 
           <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-            <div className="rounded-lg bg-green-50 p-2 w-fit">
+            <div className="w-fit rounded-lg bg-green-50 p-2">
               <CheckCircle className="h-5 w-5 text-green-600" />
             </div>
             <h3 className="mt-4 text-2xl font-bold text-gray-900">{stats.active}</h3>
@@ -540,7 +545,7 @@ export default function PendingProfilesPage() {
           </div>
 
           <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-            <div className="rounded-lg bg-blue-50 p-2 w-fit">
+            <div className="w-fit rounded-lg bg-blue-50 p-2">
               <GitMerge className="h-5 w-5 text-blue-600" />
             </div>
             <h3 className="mt-4 text-2xl font-bold text-gray-900">{stats.merged}</h3>
@@ -548,7 +553,7 @@ export default function PendingProfilesPage() {
           </div>
 
           <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-            <div className="rounded-lg bg-gray-50 p-2 w-fit">
+            <div className="w-fit rounded-lg bg-gray-50 p-2">
               <Archive className="h-5 w-5 text-gray-600" />
             </div>
             <h3 className="mt-4 text-2xl font-bold text-gray-900">{stats.archived}</h3>
@@ -584,7 +589,8 @@ export default function PendingProfilesPage() {
                 <Clock className="h-4 w-4" />
                 <span className="font-medium">
                   {stats.invoicesAwaitingProfileCompletion} paid invoice
-                  {stats.invoicesAwaitingProfileCompletion !== 1 ? 's' : ''} waiting for provider Rx queue
+                  {stats.invoicesAwaitingProfileCompletion !== 1 ? 's' : ''} waiting for provider Rx
+                  queue
                 </span>
               </div>
             )}
@@ -614,8 +620,7 @@ export default function PendingProfilesPage() {
                           <h4 className="text-sm font-medium text-gray-900">
                             {profile.firstName} {profile.lastName}
                           </h4>
-                          {(profile.firstName === 'Unknown' ||
-                            profile.lastName === 'Customer') && (
+                          {(profile.firstName === 'Unknown' || profile.lastName === 'Customer') && (
                             <span className="rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-600">
                               Incomplete Name
                             </span>
@@ -650,9 +655,7 @@ export default function PendingProfilesPage() {
                         <Mail className="h-4 w-4 shrink-0 text-gray-400" />
                         <span
                           className={
-                            profile.email?.includes('@placeholder.local')
-                              ? 'text-amber-600'
-                              : ''
+                            profile.email?.includes('@placeholder.local') ? 'text-amber-600' : ''
                           }
                         >
                           {profile.email?.includes('@placeholder.local')
@@ -869,9 +872,7 @@ export default function PendingProfilesPage() {
                     <input
                       type="email"
                       value={completeForm.email}
-                      onChange={(e) =>
-                        setCompleteForm({ ...completeForm, email: e.target.value })
-                      }
+                      onChange={(e) => setCompleteForm({ ...completeForm, email: e.target.value })}
                       placeholder="Enter email address"
                       className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
@@ -881,9 +882,7 @@ export default function PendingProfilesPage() {
                     <input
                       type="tel"
                       value={completeForm.phone}
-                      onChange={(e) =>
-                        setCompleteForm({ ...completeForm, phone: e.target.value })
-                      }
+                      onChange={(e) => setCompleteForm({ ...completeForm, phone: e.target.value })}
                       placeholder="Enter phone number"
                       className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
@@ -941,9 +940,7 @@ export default function PendingProfilesPage() {
                     <input
                       type="text"
                       value={completeForm.city}
-                      onChange={(e) =>
-                        setCompleteForm({ ...completeForm, city: e.target.value })
-                      }
+                      onChange={(e) => setCompleteForm({ ...completeForm, city: e.target.value })}
                       placeholder="City"
                       className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
@@ -953,9 +950,7 @@ export default function PendingProfilesPage() {
                     <input
                       type="text"
                       value={completeForm.state}
-                      onChange={(e) =>
-                        setCompleteForm({ ...completeForm, state: e.target.value })
-                      }
+                      onChange={(e) => setCompleteForm({ ...completeForm, state: e.target.value })}
                       placeholder="State"
                       className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
@@ -965,9 +960,7 @@ export default function PendingProfilesPage() {
                     <input
                       type="text"
                       value={completeForm.zip}
-                      onChange={(e) =>
-                        setCompleteForm({ ...completeForm, zip: e.target.value })
-                      }
+                      onChange={(e) => setCompleteForm({ ...completeForm, zip: e.target.value })}
                       placeholder="ZIP"
                       className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />

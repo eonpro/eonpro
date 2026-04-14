@@ -41,13 +41,6 @@ export default function SupportScreen() {
         <TouchableOpacity onPress={() => router.back()}>
           <Text style={{ color: colors.primary }} className="text-base font-medium">← Back</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => router.push('/support/new')}
-          className="rounded-lg px-3 py-1.5"
-          style={{ backgroundColor: colors.primary }}
-        >
-          <Text className="text-xs font-semibold" style={{ color: colors.primaryText }}>New Ticket</Text>
-        </TouchableOpacity>
       </View>
 
       <Text className="text-2xl font-bold text-gray-900 px-5 mb-4">Support</Text>
@@ -92,7 +85,7 @@ export default function SupportScreen() {
             <Text className="text-4xl mb-3">🎧</Text>
             <Text className="text-base font-medium text-gray-700">No support tickets</Text>
             <Text className="text-sm text-gray-400 mt-1 text-center">
-              Need help? Create a new support ticket.
+              No support requests at this time.
             </Text>
           </View>
         )}

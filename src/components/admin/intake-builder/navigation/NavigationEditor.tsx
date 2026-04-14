@@ -2,19 +2,9 @@
 
 import React from 'react';
 import { Plus, X, GitBranch } from 'lucide-react';
-import type {
-  FormStep,
-  StepNavigation,
-  ConditionalNavigation,
-} from '../state/builderTypes';
+import type { FormStep, StepNavigation, ConditionalNavigation } from '../state/builderTypes';
 
-type NavOperator =
-  | 'equals'
-  | 'notEquals'
-  | 'contains'
-  | 'in'
-  | 'isEmpty'
-  | 'isNotEmpty';
+type NavOperator = 'equals' | 'notEquals' | 'contains' | 'in' | 'isEmpty' | 'isNotEmpty';
 
 const OPERATORS: { value: NavOperator; label: string }[] = [
   { value: 'equals', label: 'equals' },
@@ -77,11 +67,9 @@ export default function NavigationEditor({
   const conditionalNavs: ConditionalNavigation[] = isConditional
     ? (step.nextStep as ConditionalNavigation[])
     : [];
-  const defaultNextStep =
-    (step as StepWithDefault).defaultNextStep ?? null;
+  const defaultNextStep = (step as StepWithDefault).defaultNextStep ?? null;
 
-  const simpleNextStepId =
-    typeof step.nextStep === 'string' ? step.nextStep : '';
+  const simpleNextStepId = typeof step.nextStep === 'string' ? step.nextStep : '';
 
   const handleSimpleNextChange = (value: string) => {
     if (value === '') {
@@ -128,19 +116,18 @@ export default function NavigationEditor({
     });
   };
 
-  const valueNeeded = (op: string) =>
-    op !== 'isEmpty' && op !== 'isNotEmpty';
+  const valueNeeded = (op: string) => op !== 'isEmpty' && op !== 'isNotEmpty';
 
   const getStepLabel = (stepId: string) => {
     if (stepId === '') return '(End form)';
     const s = allSteps.find((x) => x.id === stepId);
-    return s ? (s.title?.en || s.id) : stepId;
+    return s ? s.title?.en || s.id : stepId;
   };
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <label className="text-xs font-medium text-gray-600 uppercase tracking-wider">
+        <label className="text-xs font-medium uppercase tracking-wider text-gray-600">
           Next step
         </label>
         {isConditional && (
@@ -159,7 +146,7 @@ export default function NavigationEditor({
           <select
             value={simpleNextStepId}
             onChange={(e) => handleSimpleNextChange(e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
+            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
           >
             <option value="">(End form)</option>
             {otherSteps.map((s) => (
@@ -172,9 +159,9 @@ export default function NavigationEditor({
             type="button"
             onClick={switchToConditional}
             disabled={allFields.length === 0 || otherSteps.length === 0}
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <GitBranch className="w-3.5 h-3.5" />
+            <GitBranch className="h-3.5 w-3.5" />
             Add branching logic
           </button>
         </div>
@@ -186,19 +173,17 @@ export default function NavigationEditor({
             return (
               <div
                 key={idx}
-                className="p-3 rounded-lg border border-gray-200 bg-gray-50/50 space-y-2"
+                className="space-y-2 rounded-lg border border-gray-200 bg-gray-50/50 p-3"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-medium text-gray-600 shrink-0">
-                    Rule {idx + 1}
-                  </span>
+                  <span className="shrink-0 text-xs font-medium text-gray-600">Rule {idx + 1}</span>
                   <button
                     type="button"
                     onClick={() => onDeleteConditionalNav(idx)}
-                    className="p-1 text-gray-400 hover:text-red-600 rounded hover:bg-red-50"
+                    className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"
                     aria-label="Delete rule"
                   >
-                    <X className="w-4 h-4" />
+                    <X className="h-4 w-4" />
                   </button>
                 </div>
                 <div className="grid grid-cols-1 gap-2">
@@ -214,7 +199,7 @@ export default function NavigationEditor({
                         };
                         onUpdateConditionalNav(idx, { ...nav, conditions: newConds });
                       }}
-                      className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded bg-white"
+                      className="w-full rounded border border-gray-200 bg-white px-2 py-1.5 text-sm"
                     >
                       <option value="">Select field</option>
                       {allFields.map((f) => (
@@ -237,7 +222,7 @@ export default function NavigationEditor({
                         };
                         onUpdateConditionalNav(idx, { ...nav, conditions: newConds });
                       }}
-                      className="flex-1 min-w-0 px-2 py-1.5 text-sm border border-gray-200 rounded bg-white"
+                      className="min-w-0 flex-1 rounded border border-gray-200 bg-white px-2 py-1.5 text-sm"
                     >
                       {OPERATORS.map((o) => (
                         <option key={o.value} value={o.value}>
@@ -258,7 +243,7 @@ export default function NavigationEditor({
                           onUpdateConditionalNav(idx, { ...nav, conditions: newConds });
                         }}
                         placeholder="Value"
-                        className="flex-1 min-w-0 px-2 py-1.5 text-sm border border-gray-200 rounded"
+                        className="min-w-0 flex-1 rounded border border-gray-200 px-2 py-1.5 text-sm"
                       />
                     )}
                   </div>
@@ -269,7 +254,7 @@ export default function NavigationEditor({
                       onChange={(e) =>
                         onUpdateConditionalNav(idx, { ...nav, target: e.target.value })
                       }
-                      className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded bg-white"
+                      className="w-full rounded border border-gray-200 bg-white px-2 py-1.5 text-sm"
                     >
                       <option value="">(End form)</option>
                       {otherSteps.map((s) => (
@@ -288,13 +273,13 @@ export default function NavigationEditor({
             onClick={handleAddRule}
             className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-700"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="h-3.5 w-3.5" />
             Add rule
           </button>
 
           {onSetDefaultNextStep && (
-            <div className="pt-2 border-t border-gray-200">
-              <label className="block text-xs font-medium text-gray-500 mb-1">
+            <div className="border-t border-gray-200 pt-2">
+              <label className="mb-1 block text-xs font-medium text-gray-500">
                 Default (fallback)
               </label>
               <select
@@ -302,7 +287,7 @@ export default function NavigationEditor({
                 onChange={(e) =>
                   onSetDefaultNextStep(e.target.value === '' ? null : e.target.value)
                 }
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
               >
                 <option value="">(End form)</option>
                 {otherSteps.map((s) => (
@@ -316,7 +301,7 @@ export default function NavigationEditor({
 
           {/* Visual flow hint */}
           {conditionalNavs.length > 0 && (
-            <div className="pt-2 border-t border-gray-100">
+            <div className="border-t border-gray-100 pt-2">
               <p className="text-xs text-gray-500">
                 {conditionalNavs.map((nav: ConditionalNavigation, i: number) => {
                   const c = nav.conditions[0];
@@ -337,9 +322,7 @@ export default function NavigationEditor({
                   <span> · else → {getStepLabel(defaultNextStep)}</span>
                 )}
                 {(defaultNextStep == null || defaultNextStep === '') &&
-                  conditionalNavs.length > 0 && (
-                    <span> · else → (End form)</span>
-                  )}
+                  conditionalNavs.length > 0 && <span> · else → (End form)</span>}
               </p>
             </div>
           )}

@@ -49,8 +49,14 @@ const steps: FormStep[] = [
   {
     id: 'intro',
     path: 'intro',
-    title: { en: "Let's evaluate your treatment options.", es: 'Evaluemos tus opciones de tratamiento.' },
-    subtitle: { en: 'Discover personalized solutions based on your goals, habits, and medical history.', es: 'Descubre soluciones personalizadas basadas en tus objetivos, hábitos e historial médico.' },
+    title: {
+      en: "Let's evaluate your treatment options.",
+      es: 'Evaluemos tus opciones de tratamiento.',
+    },
+    subtitle: {
+      en: 'Discover personalized solutions based on your goals, habits, and medical history.',
+      es: 'Descubre soluciones personalizadas basadas en tus objetivos, hábitos e historial médico.',
+    },
     type: 'info',
     fields: [],
     autoAdvance: false,
@@ -64,22 +70,56 @@ const steps: FormStep[] = [
   {
     id: 'goals',
     path: 'goals',
-    title: { en: 'How would your life change by losing weight?', es: '¿Cómo cambiaría tu vida al perder peso?' },
+    title: {
+      en: 'How would your life change by losing weight?',
+      es: '¿Cómo cambiaría tu vida al perder peso?',
+    },
     subtitle: { en: 'Select all that apply.', es: 'Selecciona todos los que apliquen.' },
     type: 'multi-select',
-    fields: [{
-      id: 'goals', type: 'checkbox',
-      label: { en: 'Goals', es: 'Objetivos' },
-      storageKey: 'goals',
-      options: [
-        { id: 'clothes', label: { en: 'Enjoy how your clothes fit', es: 'Disfrutar cómo te queda la ropa' }, value: 'clothes' },
-        { id: 'confidence', label: { en: 'Having more confidence', es: 'Tener más confianza' }, value: 'confidence' },
-        { id: 'energy', label: { en: 'Getting your energy back', es: 'Recuperar tu energía' }, value: 'energy' },
-        { id: 'feel_better', label: { en: 'Feel better about yourself', es: 'Sentirte mejor contigo mismo' }, value: 'feel_better' },
-        { id: 'health', label: { en: 'Improving your overall health', es: 'Mejorar tu salud general' }, value: 'health' },
-      ],
-      validation: [{ type: 'required', message: { en: 'Please select at least one goal', es: 'Por favor selecciona al menos un objetivo' } }],
-    }],
+    fields: [
+      {
+        id: 'goals',
+        type: 'checkbox',
+        label: { en: 'Goals', es: 'Objetivos' },
+        storageKey: 'goals',
+        options: [
+          {
+            id: 'clothes',
+            label: { en: 'Enjoy how your clothes fit', es: 'Disfrutar cómo te queda la ropa' },
+            value: 'clothes',
+          },
+          {
+            id: 'confidence',
+            label: { en: 'Having more confidence', es: 'Tener más confianza' },
+            value: 'confidence',
+          },
+          {
+            id: 'energy',
+            label: { en: 'Getting your energy back', es: 'Recuperar tu energía' },
+            value: 'energy',
+          },
+          {
+            id: 'feel_better',
+            label: { en: 'Feel better about yourself', es: 'Sentirte mejor contigo mismo' },
+            value: 'feel_better',
+          },
+          {
+            id: 'health',
+            label: { en: 'Improving your overall health', es: 'Mejorar tu salud general' },
+            value: 'health',
+          },
+        ],
+        validation: [
+          {
+            type: 'required',
+            message: {
+              en: 'Please select at least one goal',
+              es: 'Por favor selecciona al menos un objetivo',
+            },
+          },
+        ],
+      },
+    ],
     autoAdvance: false,
     showContinueButton: true,
     nextStep: 'obesity-stats',
@@ -89,8 +129,14 @@ const steps: FormStep[] = [
   {
     id: 'obesity-stats',
     path: 'obesity-stats',
-    title: { en: 'More than 40% of American adults are obese.', es: 'Más del 40% de los adultos estadounidenses son obesos.' },
-    subtitle: { en: 'The good news? Clinically proven treatments can help.', es: '¿Las buenas noticias? Los tratamientos clínicamente probados pueden ayudar.' },
+    title: {
+      en: 'More than 40% of American adults are obese.',
+      es: 'Más del 40% de los adultos estadounidenses son obesos.',
+    },
+    subtitle: {
+      en: 'The good news? Clinically proven treatments can help.',
+      es: '¿Las buenas noticias? Los tratamientos clínicamente probados pueden ayudar.',
+    },
     type: 'custom',
     component: 'InfoImageStep',
     fields: [],
@@ -103,17 +149,37 @@ const steps: FormStep[] = [
   {
     id: 'medication-preference',
     path: 'medication-preference',
-    title: { en: 'Do you have a specific weight loss medication in mind?', es: '¿Tienes en mente algún medicamento específico para perder peso?' },
+    title: {
+      en: 'Do you have a specific weight loss medication in mind?',
+      es: '¿Tienes en mente algún medicamento específico para perder peso?',
+    },
     type: 'single-select',
-    fields: [{
-      id: 'medication_preference', type: 'radio',
-      label: { en: 'Preference', es: 'Preferencia' },
-      storageKey: 'medication_preference',
-      options: [
-        { id: 'recommendation', label: { en: "Not yet, I'm looking for a recommendation", es: 'Todavía no, busco una recomendación' }, value: 'recommendation' },
-        { id: 'have_in_mind', label: { en: 'Yes, I already have something in mind', es: 'Sí, ya tengo algo en mente' }, value: 'have_in_mind' },
-      ],
-    }],
+    fields: [
+      {
+        id: 'medication_preference',
+        type: 'radio',
+        label: { en: 'Preference', es: 'Preferencia' },
+        storageKey: 'medication_preference',
+        options: [
+          {
+            id: 'recommendation',
+            label: {
+              en: "Not yet, I'm looking for a recommendation",
+              es: 'Todavía no, busco una recomendación',
+            },
+            value: 'recommendation',
+          },
+          {
+            id: 'have_in_mind',
+            label: {
+              en: 'Yes, I already have something in mind',
+              es: 'Sí, ya tengo algo en mente',
+            },
+            value: 'have_in_mind',
+          },
+        ],
+      },
+    ],
     autoAdvance: true,
     showContinueButton: false,
     nextStep: 'research-done',
@@ -123,7 +189,10 @@ const steps: FormStep[] = [
   {
     id: 'research-done',
     path: 'research-done',
-    title: { en: "You've done the research. Now let a medical professional guide your journey.", es: 'Has investigado. Ahora deja que un profesional médico guíe tu camino.' },
+    title: {
+      en: "You've done the research. Now let a medical professional guide your journey.",
+      es: 'Has investigado. Ahora deja que un profesional médico guíe tu camino.',
+    },
     type: 'custom',
     component: 'TypewriterStep',
     fields: [],
@@ -138,16 +207,30 @@ const steps: FormStep[] = [
   {
     id: 'consent',
     path: 'consent',
-    title: { en: 'This questionnaire helps us understand your medical history, lifestyle, and goals.', es: 'Este cuestionario nos ayuda a entender tu historial médico, estilo de vida y objetivos.' },
-    subtitle: { en: 'Your responses are private and will be reviewed by our medical team.', es: 'Tus respuestas son privadas y serán revisadas por nuestro equipo médico.' },
+    title: {
+      en: 'This questionnaire helps us understand your medical history, lifestyle, and goals.',
+      es: 'Este cuestionario nos ayuda a entender tu historial médico, estilo de vida y objetivos.',
+    },
+    subtitle: {
+      en: 'Your responses are private and will be reviewed by our medical team.',
+      es: 'Tus respuestas son privadas y serán revisadas por nuestro equipo médico.',
+    },
     type: 'custom',
     component: 'ConsentStep',
-    fields: [{
-      id: 'consent_accepted', type: 'checkbox',
-      label: { en: 'I understand and agree', es: 'Entiendo y acepto' },
-      storageKey: 'consent_accepted',
-      validation: [{ type: 'required', message: { en: 'You must accept to continue', es: 'Debes aceptar para continuar' } }],
-    }],
+    fields: [
+      {
+        id: 'consent_accepted',
+        type: 'checkbox',
+        label: { en: 'I understand and agree', es: 'Entiendo y acepto' },
+        storageKey: 'consent_accepted',
+        validation: [
+          {
+            type: 'required',
+            message: { en: 'You must accept to continue', es: 'Debes aceptar para continuar' },
+          },
+        ],
+      },
+    ],
     autoAdvance: false,
     showContinueButton: true,
     nextStep: 'state',
@@ -158,22 +241,40 @@ const steps: FormStep[] = [
     id: 'state',
     path: 'state',
     title: { en: 'Select the state you live in:', es: 'Selecciona el estado en el que vives:' },
-    subtitle: { en: 'This state is where your medication will be shipped to, if prescribed.', es: 'Este estado es donde se enviará tu medicamento, si se receta.' },
+    subtitle: {
+      en: 'This state is where your medication will be shipped to, if prescribed.',
+      es: 'Este estado es donde se enviará tu medicamento, si se receta.',
+    },
     type: 'custom',
     component: 'StateSelectStep',
     fields: [
       {
-        id: 'state', type: 'select',
+        id: 'state',
+        type: 'select',
         label: { en: 'State', es: 'Estado' },
         storageKey: 'state',
         options: stateOptions,
-        validation: [{ type: 'required', message: { en: 'Please select a state', es: 'Por favor selecciona un estado' } }],
+        validation: [
+          {
+            type: 'required',
+            message: { en: 'Please select a state', es: 'Por favor selecciona un estado' },
+          },
+        ],
       },
       {
-        id: 'terms_accepted', type: 'checkbox',
-        label: { en: 'I agree to the Terms and Conditions and Privacy Policy', es: 'Acepto los Términos y Condiciones y la Política de Privacidad' },
+        id: 'terms_accepted',
+        type: 'checkbox',
+        label: {
+          en: 'I agree to the Terms and Conditions and Privacy Policy',
+          es: 'Acepto los Términos y Condiciones y la Política de Privacidad',
+        },
         storageKey: 'terms_accepted',
-        validation: [{ type: 'required', message: { en: 'You must accept the terms', es: 'Debes aceptar los términos' } }],
+        validation: [
+          {
+            type: 'required',
+            message: { en: 'You must accept the terms', es: 'Debes aceptar los términos' },
+          },
+        ],
       },
     ],
     autoAdvance: false,
@@ -186,11 +287,38 @@ const steps: FormStep[] = [
     id: 'name',
     path: 'name',
     title: { en: 'What is your name?', es: '¿Cuál es tu nombre?' },
-    subtitle: { en: 'This way, we can personalize your experience.', es: 'De esta manera, podemos personalizar tu experiencia.' },
+    subtitle: {
+      en: 'This way, we can personalize your experience.',
+      es: 'De esta manera, podemos personalizar tu experiencia.',
+    },
     type: 'input',
     fields: [
-      { id: 'firstName', type: 'text', label: { en: 'First Name', es: 'Nombre' }, placeholder: { en: 'First Name', es: 'Nombre' }, storageKey: 'firstName', validation: [{ type: 'required', message: { en: 'First name is required', es: 'El nombre es requerido' } }] },
-      { id: 'lastName', type: 'text', label: { en: 'Last Name', es: 'Apellido' }, placeholder: { en: 'Last Name', es: 'Apellido' }, storageKey: 'lastName', validation: [{ type: 'required', message: { en: 'Last name is required', es: 'El apellido es requerido' } }] },
+      {
+        id: 'firstName',
+        type: 'text',
+        label: { en: 'First Name', es: 'Nombre' },
+        placeholder: { en: 'First Name', es: 'Nombre' },
+        storageKey: 'firstName',
+        validation: [
+          {
+            type: 'required',
+            message: { en: 'First name is required', es: 'El nombre es requerido' },
+          },
+        ],
+      },
+      {
+        id: 'lastName',
+        type: 'text',
+        label: { en: 'Last Name', es: 'Apellido' },
+        placeholder: { en: 'Last Name', es: 'Apellido' },
+        storageKey: 'lastName',
+        validation: [
+          {
+            type: 'required',
+            message: { en: 'Last name is required', es: 'El apellido es requerido' },
+          },
+        ],
+      },
     ],
     autoAdvance: false,
     showContinueButton: true,
@@ -201,19 +329,35 @@ const steps: FormStep[] = [
   {
     id: 'dob',
     path: 'dob',
-    title: { en: 'To check if you qualify, tell us your date of birth.', es: 'Para verificar si calificas, dinos tu fecha de nacimiento.' },
+    title: {
+      en: 'To check if you qualify, tell us your date of birth.',
+      es: 'Para verificar si calificas, dinos tu fecha de nacimiento.',
+    },
     type: 'custom',
     component: 'DateOfBirthStep',
-    fields: [{
-      id: 'dob', type: 'date',
-      label: { en: 'Date of Birth', es: 'Fecha de Nacimiento' },
-      placeholder: { en: 'MM/DD/YYYY', es: 'MM/DD/AAAA' },
-      storageKey: 'dob',
-      validation: [
-        { type: 'required', message: { en: 'Date of birth is required', es: 'La fecha de nacimiento es requerida' } },
-        { type: 'age', value: 18, message: { en: 'You must be at least 18 years old', es: 'Debes tener al menos 18 años' } },
-      ],
-    }],
+    fields: [
+      {
+        id: 'dob',
+        type: 'date',
+        label: { en: 'Date of Birth', es: 'Fecha de Nacimiento' },
+        placeholder: { en: 'MM/DD/YYYY', es: 'MM/DD/AAAA' },
+        storageKey: 'dob',
+        validation: [
+          {
+            type: 'required',
+            message: { en: 'Date of birth is required', es: 'La fecha de nacimiento es requerida' },
+          },
+          {
+            type: 'age',
+            value: 18,
+            message: {
+              en: 'You must be at least 18 years old',
+              es: 'Debes tener al menos 18 años',
+            },
+          },
+        ],
+      },
+    ],
     autoAdvance: false,
     showContinueButton: true,
     nextStep: 'sex-assigned',
@@ -225,15 +369,18 @@ const steps: FormStep[] = [
     path: 'sex-assigned',
     title: { en: 'Sex assigned at birth', es: 'Sexo asignado al nacer' },
     type: 'single-select',
-    fields: [{
-      id: 'sex', type: 'radio',
-      label: { en: 'Sex', es: 'Sexo' },
-      storageKey: 'sex',
-      options: [
-        { id: 'male', label: { en: 'Male', es: 'Hombre' }, value: 'male' },
-        { id: 'female', label: { en: 'Female', es: 'Mujer' }, value: 'female' },
-      ],
-    }],
+    fields: [
+      {
+        id: 'sex',
+        type: 'radio',
+        label: { en: 'Sex', es: 'Sexo' },
+        storageKey: 'sex',
+        options: [
+          { id: 'male', label: { en: 'Male', es: 'Hombre' }, value: 'male' },
+          { id: 'female', label: { en: 'Female', es: 'Mujer' }, value: 'female' },
+        ],
+      },
+    ],
     autoAdvance: true,
     showContinueButton: false,
     nextStep: 'contact-info',
@@ -247,9 +394,49 @@ const steps: FormStep[] = [
     type: 'custom',
     component: 'ContactInfoStep',
     fields: [
-      { id: 'email', type: 'email', label: { en: 'Email', es: 'Correo electrónico' }, placeholder: { en: 'your@email.com', es: 'tu@email.com' }, storageKey: 'email', validation: [{ type: 'required', message: { en: 'Email is required', es: 'El correo electrónico es requerido' } }, { type: 'email', message: { en: 'Please enter a valid email', es: 'Por favor ingresa un correo válido' } }] },
-      { id: 'phone', type: 'phone', label: { en: 'Phone number', es: 'Número de teléfono' }, placeholder: { en: '(555) 555-5555', es: '(555) 555-5555' }, storageKey: 'phone', validation: [{ type: 'required', message: { en: 'Phone number is required', es: 'El número de teléfono es requerido' } }, { type: 'phone', message: { en: 'Please enter a valid phone number', es: 'Por favor ingresa un número válido' } }] },
-      { id: 'contact_consent', type: 'checkbox', label: { en: 'I consent to being contacted', es: 'Acepto ser contactado' }, storageKey: 'contact_consent' },
+      {
+        id: 'email',
+        type: 'email',
+        label: { en: 'Email', es: 'Correo electrónico' },
+        placeholder: { en: 'your@email.com', es: 'tu@email.com' },
+        storageKey: 'email',
+        validation: [
+          {
+            type: 'required',
+            message: { en: 'Email is required', es: 'El correo electrónico es requerido' },
+          },
+          {
+            type: 'email',
+            message: { en: 'Please enter a valid email', es: 'Por favor ingresa un correo válido' },
+          },
+        ],
+      },
+      {
+        id: 'phone',
+        type: 'phone',
+        label: { en: 'Phone number', es: 'Número de teléfono' },
+        placeholder: { en: '(555) 555-5555', es: '(555) 555-5555' },
+        storageKey: 'phone',
+        validation: [
+          {
+            type: 'required',
+            message: { en: 'Phone number is required', es: 'El número de teléfono es requerido' },
+          },
+          {
+            type: 'phone',
+            message: {
+              en: 'Please enter a valid phone number',
+              es: 'Por favor ingresa un número válido',
+            },
+          },
+        ],
+      },
+      {
+        id: 'contact_consent',
+        type: 'checkbox',
+        label: { en: 'I consent to being contacted', es: 'Acepto ser contactado' },
+        storageKey: 'contact_consent',
+      },
     ],
     autoAdvance: false,
     showContinueButton: true,
@@ -262,7 +449,10 @@ const steps: FormStep[] = [
   {
     id: 'support-info',
     path: 'support-info',
-    title: { en: 'Our support team is here for you every step of the way.', es: 'Nuestro equipo de soporte está aquí para ti en cada paso.' },
+    title: {
+      en: 'Our support team is here for you every step of the way.',
+      es: 'Nuestro equipo de soporte está aquí para ti en cada paso.',
+    },
     type: 'custom',
     component: 'SupportInfoStep',
     fields: [],
@@ -276,12 +466,31 @@ const steps: FormStep[] = [
     id: 'address',
     path: 'address',
     title: { en: "What's your shipping address?", es: '¿Cuál es tu dirección de envío?' },
-    subtitle: { en: 'All treatment medications are shipped to your door.', es: 'Todos los medicamentos de tratamiento se envían a tu puerta.' },
+    subtitle: {
+      en: 'All treatment medications are shipped to your door.',
+      es: 'Todos los medicamentos de tratamiento se envían a tu puerta.',
+    },
     type: 'custom',
     component: 'AddressStep',
     fields: [
-      { id: 'street', type: 'text', label: { en: 'Street Address', es: 'Dirección' }, storageKey: 'street', validation: [{ type: 'required', message: { en: 'Address is required', es: 'La dirección es requerida' } }] },
-      { id: 'apartment', type: 'text', label: { en: 'Apartment/Suite (Optional)', es: 'Apartamento/Suite (Opcional)' }, storageKey: 'apartment' },
+      {
+        id: 'street',
+        type: 'text',
+        label: { en: 'Street Address', es: 'Dirección' },
+        storageKey: 'street',
+        validation: [
+          {
+            type: 'required',
+            message: { en: 'Address is required', es: 'La dirección es requerida' },
+          },
+        ],
+      },
+      {
+        id: 'apartment',
+        type: 'text',
+        label: { en: 'Apartment/Suite (Optional)', es: 'Apartamento/Suite (Opcional)' },
+        storageKey: 'apartment',
+      },
     ],
     autoAdvance: false,
     showContinueButton: true,
@@ -295,7 +504,23 @@ const steps: FormStep[] = [
     title: { en: "What's your ideal weight?", es: '¿Cuál es tu peso ideal?' },
     type: 'custom',
     component: 'WeightInputStep',
-    fields: [{ id: 'ideal_weight', type: 'number', label: { en: 'Ideal Weight (lbs)', es: 'Peso Ideal (lbs)' }, storageKey: 'ideal_weight', validation: [{ type: 'required', message: { en: 'Please enter your ideal weight', es: 'Por favor ingresa tu peso ideal' } }] }],
+    fields: [
+      {
+        id: 'ideal_weight',
+        type: 'number',
+        label: { en: 'Ideal Weight (lbs)', es: 'Peso Ideal (lbs)' },
+        storageKey: 'ideal_weight',
+        validation: [
+          {
+            type: 'required',
+            message: {
+              en: 'Please enter your ideal weight',
+              es: 'Por favor ingresa tu peso ideal',
+            },
+          },
+        ],
+      },
+    ],
     autoAdvance: false,
     showContinueButton: true,
     nextStep: 'current-weight',
@@ -305,13 +530,51 @@ const steps: FormStep[] = [
   {
     id: 'current-weight',
     path: 'current-weight',
-    title: { en: "What's your current weight and height?", es: '¿Cuál es tu peso y altura actual?' },
+    title: {
+      en: "What's your current weight and height?",
+      es: '¿Cuál es tu peso y altura actual?',
+    },
     type: 'custom',
     component: 'WeightHeightStep',
     fields: [
-      { id: 'current_weight', type: 'number', label: { en: 'Current Weight (lbs)', es: 'Peso Actual (lbs)' }, storageKey: 'current_weight', validation: [{ type: 'required', message: { en: 'Please enter your weight', es: 'Por favor ingresa tu peso' } }] },
-      { id: 'height_feet', type: 'select', label: { en: 'Height (feet)', es: 'Altura (pies)' }, storageKey: 'height_feet', options: heightFeetOptions, validation: [{ type: 'required', message: { en: 'Please select feet', es: 'Por favor selecciona pies' } }] },
-      { id: 'height_inches', type: 'select', label: { en: 'Height (inches)', es: 'Altura (pulgadas)' }, storageKey: 'height_inches', options: heightInchesOptions, validation: [{ type: 'required', message: { en: 'Please select inches', es: 'Por favor selecciona pulgadas' } }] },
+      {
+        id: 'current_weight',
+        type: 'number',
+        label: { en: 'Current Weight (lbs)', es: 'Peso Actual (lbs)' },
+        storageKey: 'current_weight',
+        validation: [
+          {
+            type: 'required',
+            message: { en: 'Please enter your weight', es: 'Por favor ingresa tu peso' },
+          },
+        ],
+      },
+      {
+        id: 'height_feet',
+        type: 'select',
+        label: { en: 'Height (feet)', es: 'Altura (pies)' },
+        storageKey: 'height_feet',
+        options: heightFeetOptions,
+        validation: [
+          {
+            type: 'required',
+            message: { en: 'Please select feet', es: 'Por favor selecciona pies' },
+          },
+        ],
+      },
+      {
+        id: 'height_inches',
+        type: 'select',
+        label: { en: 'Height (inches)', es: 'Altura (pulgadas)' },
+        storageKey: 'height_inches',
+        options: heightInchesOptions,
+        validation: [
+          {
+            type: 'required',
+            message: { en: 'Please select inches', es: 'Por favor selecciona pulgadas' },
+          },
+        ],
+      },
     ],
     autoAdvance: false,
     showContinueButton: true,
@@ -365,15 +628,24 @@ const steps: FormStep[] = [
   {
     id: 'medical-history-overview',
     path: 'medical-history-overview',
-    title: { en: "Now let's review your medical history.", es: 'Ahora revisemos tu historial médico.' },
-    subtitle: { en: 'This information helps our providers create a safe, personalized plan.', es: 'Esta información ayuda a nuestros proveedores a crear un plan seguro y personalizado.' },
+    title: {
+      en: "Now let's review your medical history.",
+      es: 'Ahora revisemos tu historial médico.',
+    },
+    subtitle: {
+      en: 'This information helps our providers create a safe, personalized plan.',
+      es: 'Esta información ayuda a nuestros proveedores a crear un plan seguro y personalizado.',
+    },
     type: 'info',
     fields: [],
     autoAdvance: false,
     showContinueButton: true,
     nextStep: [
       { conditions: [{ field: 'sex', operator: 'equals', value: 'female' }], target: 'pregnancy' },
-      { conditions: [{ field: 'sex', operator: 'equals', value: 'male' }], target: 'activity-level' },
+      {
+        conditions: [{ field: 'sex', operator: 'equals', value: 'male' }],
+        target: 'activity-level',
+      },
     ],
     prevStep: 'testimonials',
     progressPercent: 36,
@@ -381,17 +653,23 @@ const steps: FormStep[] = [
   {
     id: 'pregnancy',
     path: 'pregnancy',
-    title: { en: 'Are you currently pregnant, breastfeeding, or planning to become pregnant in the next 6 months?', es: '¿Estás actualmente embarazada, amamantando o planeas quedar embarazada en los próximos 6 meses?' },
+    title: {
+      en: 'Are you currently pregnant, breastfeeding, or planning to become pregnant in the next 6 months?',
+      es: '¿Estás actualmente embarazada, amamantando o planeas quedar embarazada en los próximos 6 meses?',
+    },
     type: 'single-select',
-    fields: [{
-      id: 'pregnancy_status', type: 'radio',
-      label: { en: 'Pregnancy Status', es: 'Estado de Embarazo' },
-      storageKey: 'pregnancy_status',
-      options: [
-        { id: 'yes', label: { en: 'Yes', es: 'Sí' }, value: 'yes' },
-        { id: 'no', label: { en: 'No', es: 'No' }, value: 'no' },
-      ],
-    }],
+    fields: [
+      {
+        id: 'pregnancy_status',
+        type: 'radio',
+        label: { en: 'Pregnancy Status', es: 'Estado de Embarazo' },
+        storageKey: 'pregnancy_status',
+        options: [
+          { id: 'yes', label: { en: 'Yes', es: 'Sí' }, value: 'yes' },
+          { id: 'no', label: { en: 'No', es: 'No' }, value: 'no' },
+        ],
+      },
+    ],
     autoAdvance: true,
     showContinueButton: false,
     nextStep: 'activity-level',
@@ -401,20 +679,63 @@ const steps: FormStep[] = [
   {
     id: 'activity-level',
     path: 'activity-level',
-    title: { en: 'What is your usual level of daily physical activity?', es: '¿Cuál es tu nivel habitual de actividad física diaria?' },
+    title: {
+      en: 'What is your usual level of daily physical activity?',
+      es: '¿Cuál es tu nivel habitual de actividad física diaria?',
+    },
     type: 'single-select',
-    fields: [{
-      id: 'activity_level', type: 'radio',
-      label: { en: 'Activity Level', es: 'Nivel de Actividad' },
-      storageKey: 'activity_level',
-      options: [
-        { id: '5', label: { en: '5 - Very Active', es: '5 - Muy Activo' }, value: '5', description: { en: 'Exercise 5 to 7 times per week', es: 'Ejercicio 5 a 7 veces por semana' } },
-        { id: '4', label: { en: '4 - Active', es: '4 - Activo' }, value: '4', description: { en: 'Exercise 4 to 5 times per week', es: 'Ejercicio 4 a 5 veces por semana' } },
-        { id: '3', label: { en: '3 - Moderately Active', es: '3 - Moderadamente Activo' }, value: '3', description: { en: 'Exercise 3 to 4 times per week', es: 'Ejercicio 3 a 4 veces por semana' } },
-        { id: '2', label: { en: '2 - Lightly Active', es: '2 - Ligeramente Activo' }, value: '2', description: { en: 'Exercise 1 to 2 times per week', es: 'Ejercicio 1 a 2 veces por semana' } },
-        { id: '1', label: { en: '1 - Not very active', es: '1 - No soy muy activo' }, value: '1', description: { en: "Usually don't exercise", es: 'Usualmente no hago ejercicio' } },
-      ],
-    }],
+    fields: [
+      {
+        id: 'activity_level',
+        type: 'radio',
+        label: { en: 'Activity Level', es: 'Nivel de Actividad' },
+        storageKey: 'activity_level',
+        options: [
+          {
+            id: '5',
+            label: { en: '5 - Very Active', es: '5 - Muy Activo' },
+            value: '5',
+            description: {
+              en: 'Exercise 5 to 7 times per week',
+              es: 'Ejercicio 5 a 7 veces por semana',
+            },
+          },
+          {
+            id: '4',
+            label: { en: '4 - Active', es: '4 - Activo' },
+            value: '4',
+            description: {
+              en: 'Exercise 4 to 5 times per week',
+              es: 'Ejercicio 4 a 5 veces por semana',
+            },
+          },
+          {
+            id: '3',
+            label: { en: '3 - Moderately Active', es: '3 - Moderadamente Activo' },
+            value: '3',
+            description: {
+              en: 'Exercise 3 to 4 times per week',
+              es: 'Ejercicio 3 a 4 veces por semana',
+            },
+          },
+          {
+            id: '2',
+            label: { en: '2 - Lightly Active', es: '2 - Ligeramente Activo' },
+            value: '2',
+            description: {
+              en: 'Exercise 1 to 2 times per week',
+              es: 'Ejercicio 1 a 2 veces por semana',
+            },
+          },
+          {
+            id: '1',
+            label: { en: '1 - Not very active', es: '1 - No soy muy activo' },
+            value: '1',
+            description: { en: "Usually don't exercise", es: 'Usualmente no hago ejercicio' },
+          },
+        ],
+      },
+    ],
     autoAdvance: true,
     showContinueButton: false,
     nextStep: 'mental-health',
@@ -424,22 +745,34 @@ const steps: FormStep[] = [
   {
     id: 'mental-health',
     path: 'mental-health',
-    title: { en: 'Have you ever been diagnosed with a mental health condition?', es: '¿Alguna vez te han diagnosticado una condición de salud mental?' },
+    title: {
+      en: 'Have you ever been diagnosed with a mental health condition?',
+      es: '¿Alguna vez te han diagnosticado una condición de salud mental?',
+    },
     type: 'single-select',
-    fields: [{
-      id: 'has_mental_health', type: 'radio',
-      label: { en: 'Mental Health', es: 'Salud Mental' },
-      storageKey: 'has_mental_health',
-      options: [
-        { id: 'yes', label: { en: 'Yes', es: 'Sí' }, value: 'yes' },
-        { id: 'no', label: { en: 'No', es: 'No' }, value: 'no' },
-      ],
-    }],
+    fields: [
+      {
+        id: 'has_mental_health',
+        type: 'radio',
+        label: { en: 'Mental Health', es: 'Salud Mental' },
+        storageKey: 'has_mental_health',
+        options: [
+          { id: 'yes', label: { en: 'Yes', es: 'Sí' }, value: 'yes' },
+          { id: 'no', label: { en: 'No', es: 'No' }, value: 'no' },
+        ],
+      },
+    ],
     autoAdvance: true,
     showContinueButton: false,
     nextStep: [
-      { conditions: [{ field: 'has_mental_health', operator: 'equals', value: 'yes' }], target: 'mental-health-conditions' },
-      { conditions: [{ field: 'has_mental_health', operator: 'equals', value: 'no' }], target: 'programs-include' },
+      {
+        conditions: [{ field: 'has_mental_health', operator: 'equals', value: 'yes' }],
+        target: 'mental-health-conditions',
+      },
+      {
+        conditions: [{ field: 'has_mental_health', operator: 'equals', value: 'no' }],
+        target: 'programs-include',
+      },
     ],
     prevStep: 'activity-level',
     progressPercent: 42,
@@ -447,22 +780,51 @@ const steps: FormStep[] = [
   {
     id: 'mental-health-conditions',
     path: 'mental-health-conditions',
-    title: { en: 'Which mental health condition(s) have you been diagnosed with?', es: '¿Con qué condición(es) de salud mental te han diagnosticado?' },
+    title: {
+      en: 'Which mental health condition(s) have you been diagnosed with?',
+      es: '¿Con qué condición(es) de salud mental te han diagnosticado?',
+    },
     type: 'single-select',
-    fields: [{
-      id: 'mental_health_conditions', type: 'radio',
-      label: { en: 'Mental Health Conditions', es: 'Condiciones de Salud Mental' },
-      storageKey: 'mental_health_conditions',
-      options: [
-        { id: 'none', label: { en: 'None of the below', es: 'Ninguna de las siguientes' }, value: 'none' },
-        { id: 'depression', label: { en: 'Depression', es: 'Depresión' }, value: 'depression' },
-        { id: 'bipolar', label: { en: 'Bipolar disorder', es: 'Trastorno bipolar' }, value: 'bipolar' },
-        { id: 'bpd', label: { en: 'Borderline personality disorder', es: 'Trastorno límite de personalidad' }, value: 'bpd' },
-        { id: 'panic', label: { en: 'Panic disorder', es: 'Trastorno de pánico' }, value: 'panic' },
-        { id: 'schizophrenia', label: { en: 'Schizophrenia', es: 'Esquizofrenia' }, value: 'schizophrenia' },
-        { id: 'psychosis', label: { en: 'Psychosis', es: 'Psicosis' }, value: 'psychosis' },
-      ],
-    }],
+    fields: [
+      {
+        id: 'mental_health_conditions',
+        type: 'radio',
+        label: { en: 'Mental Health Conditions', es: 'Condiciones de Salud Mental' },
+        storageKey: 'mental_health_conditions',
+        options: [
+          {
+            id: 'none',
+            label: { en: 'None of the below', es: 'Ninguna de las siguientes' },
+            value: 'none',
+          },
+          { id: 'depression', label: { en: 'Depression', es: 'Depresión' }, value: 'depression' },
+          {
+            id: 'bipolar',
+            label: { en: 'Bipolar disorder', es: 'Trastorno bipolar' },
+            value: 'bipolar',
+          },
+          {
+            id: 'bpd',
+            label: {
+              en: 'Borderline personality disorder',
+              es: 'Trastorno límite de personalidad',
+            },
+            value: 'bpd',
+          },
+          {
+            id: 'panic',
+            label: { en: 'Panic disorder', es: 'Trastorno de pánico' },
+            value: 'panic',
+          },
+          {
+            id: 'schizophrenia',
+            label: { en: 'Schizophrenia', es: 'Esquizofrenia' },
+            value: 'schizophrenia',
+          },
+          { id: 'psychosis', label: { en: 'Psychosis', es: 'Psicosis' }, value: 'psychosis' },
+        ],
+      },
+    ],
     autoAdvance: true,
     showContinueButton: false,
     nextStep: 'programs-include',
@@ -472,7 +834,10 @@ const steps: FormStep[] = [
   {
     id: 'programs-include',
     path: 'programs-include',
-    title: { en: 'Our programs include ongoing medical support and personalized dosing.', es: 'Nuestros programas incluyen soporte médico continuo y dosificación personalizada.' },
+    title: {
+      en: 'Our programs include ongoing medical support and personalized dosing.',
+      es: 'Nuestros programas incluyen soporte médico continuo y dosificación personalizada.',
+    },
     type: 'custom',
     component: 'ProgramsIncludeStep',
     fields: [],
@@ -485,22 +850,34 @@ const steps: FormStep[] = [
   {
     id: 'chronic-conditions',
     path: 'chronic-conditions',
-    title: { en: 'Do you have any medical conditions or chronic diseases?', es: '¿Tienes alguna condición médica o enfermedad crónica?' },
+    title: {
+      en: 'Do you have any medical conditions or chronic diseases?',
+      es: '¿Tienes alguna condición médica o enfermedad crónica?',
+    },
     type: 'single-select',
-    fields: [{
-      id: 'has_chronic_conditions', type: 'radio',
-      label: { en: 'Chronic Conditions', es: 'Condiciones Crónicas' },
-      storageKey: 'has_chronic_conditions',
-      options: [
-        { id: 'yes', label: { en: 'Yes', es: 'Sí' }, value: 'yes' },
-        { id: 'no', label: { en: 'No', es: 'No' }, value: 'no' },
-      ],
-    }],
+    fields: [
+      {
+        id: 'has_chronic_conditions',
+        type: 'radio',
+        label: { en: 'Chronic Conditions', es: 'Condiciones Crónicas' },
+        storageKey: 'has_chronic_conditions',
+        options: [
+          { id: 'yes', label: { en: 'Yes', es: 'Sí' }, value: 'yes' },
+          { id: 'no', label: { en: 'No', es: 'No' }, value: 'no' },
+        ],
+      },
+    ],
     autoAdvance: true,
     showContinueButton: false,
     nextStep: [
-      { conditions: [{ field: 'has_chronic_conditions', operator: 'equals', value: 'yes' }], target: 'chronic-conditions-detail' },
-      { conditions: [{ field: 'has_chronic_conditions', operator: 'equals', value: 'no' }], target: 'digestive-conditions' },
+      {
+        conditions: [{ field: 'has_chronic_conditions', operator: 'equals', value: 'yes' }],
+        target: 'chronic-conditions-detail',
+      },
+      {
+        conditions: [{ field: 'has_chronic_conditions', operator: 'equals', value: 'no' }],
+        target: 'digestive-conditions',
+      },
     ],
     prevStep: 'programs-include',
     progressPercent: 48,
@@ -508,15 +885,29 @@ const steps: FormStep[] = [
   {
     id: 'chronic-conditions-detail',
     path: 'chronic-conditions-detail',
-    title: { en: 'Please describe your chronic conditions.', es: 'Por favor describe tus condiciones crónicas.' },
+    title: {
+      en: 'Please describe your chronic conditions.',
+      es: 'Por favor describe tus condiciones crónicas.',
+    },
     type: 'custom',
     component: 'ChronicConditionsDetailStep',
-    fields: [{
-      id: 'chronic_conditions_detail', type: 'textarea',
-      label: { en: 'Chronic Conditions Details', es: 'Detalles de Condiciones Crónicas' },
-      storageKey: 'chronic_conditions_detail',
-      validation: [{ type: 'required', message: { en: 'Please describe your conditions', es: 'Por favor describe tus condiciones' } }],
-    }],
+    fields: [
+      {
+        id: 'chronic_conditions_detail',
+        type: 'textarea',
+        label: { en: 'Chronic Conditions Details', es: 'Detalles de Condiciones Crónicas' },
+        storageKey: 'chronic_conditions_detail',
+        validation: [
+          {
+            type: 'required',
+            message: {
+              en: 'Please describe your conditions',
+              es: 'Por favor describe tus condiciones',
+            },
+          },
+        ],
+      },
+    ],
     autoAdvance: false,
     showContinueButton: true,
     nextStep: 'digestive-conditions',
@@ -526,27 +917,80 @@ const steps: FormStep[] = [
   {
     id: 'digestive-conditions',
     path: 'digestive-conditions',
-    title: { en: 'Do you have any stomach or digestive conditions?', es: '¿Tienes alguna condición estomacal o digestiva?' },
+    title: {
+      en: 'Do you have any stomach or digestive conditions?',
+      es: '¿Tienes alguna condición estomacal o digestiva?',
+    },
     subtitle: { en: 'Select all that apply.', es: 'Selecciona todos los que apliquen.' },
     type: 'multi-select',
-    fields: [{
-      id: 'digestive_conditions', type: 'checkbox',
-      label: { en: 'Digestive Conditions', es: 'Condiciones Digestivas' },
-      storageKey: 'digestive_conditions',
-      options: [
-        { id: 'ibs', label: { en: 'Irritable Bowel Syndrome (IBS)', es: 'Síndrome del Intestino Irritable (SII)' }, value: 'ibs' },
-        { id: 'celiac', label: { en: 'Celiac Disease', es: 'Enfermedad Celíaca' }, value: 'celiac' },
-        { id: 'constipation', label: { en: 'Chronic Constipation', es: 'Estreñimiento Crónico' }, value: 'constipation' },
-        { id: 'heartburn', label: { en: 'Chronic Heartburn / GERD', es: 'Acidez Crónica / ERGE' }, value: 'heartburn' },
-        { id: 'gastroparesis', label: { en: 'Gastroparesis', es: 'Gastroparesia' }, value: 'gastroparesis' },
-        { id: 'ulcer', label: { en: 'Stomach Ulcer', es: 'Úlcera Estomacal' }, value: 'ulcer' },
-        { id: 'crohns', label: { en: "Crohn's Disease", es: 'Enfermedad de Crohn' }, value: 'crohns' },
-        { id: 'colitis', label: { en: 'Ulcerative Colitis', es: 'Colitis Ulcerosa' }, value: 'colitis' },
-        { id: 'diverticulitis', label: { en: 'Diverticulitis', es: 'Diverticulitis' }, value: 'diverticulitis' },
-        { id: 'none', label: { en: 'None of the above', es: 'Ninguna de las anteriores' }, value: 'none' },
-      ],
-      validation: [{ type: 'required', message: { en: 'Please select at least one option', es: 'Por favor selecciona al menos una opción' } }],
-    }],
+    fields: [
+      {
+        id: 'digestive_conditions',
+        type: 'checkbox',
+        label: { en: 'Digestive Conditions', es: 'Condiciones Digestivas' },
+        storageKey: 'digestive_conditions',
+        options: [
+          {
+            id: 'ibs',
+            label: {
+              en: 'Irritable Bowel Syndrome (IBS)',
+              es: 'Síndrome del Intestino Irritable (SII)',
+            },
+            value: 'ibs',
+          },
+          {
+            id: 'celiac',
+            label: { en: 'Celiac Disease', es: 'Enfermedad Celíaca' },
+            value: 'celiac',
+          },
+          {
+            id: 'constipation',
+            label: { en: 'Chronic Constipation', es: 'Estreñimiento Crónico' },
+            value: 'constipation',
+          },
+          {
+            id: 'heartburn',
+            label: { en: 'Chronic Heartburn / GERD', es: 'Acidez Crónica / ERGE' },
+            value: 'heartburn',
+          },
+          {
+            id: 'gastroparesis',
+            label: { en: 'Gastroparesis', es: 'Gastroparesia' },
+            value: 'gastroparesis',
+          },
+          { id: 'ulcer', label: { en: 'Stomach Ulcer', es: 'Úlcera Estomacal' }, value: 'ulcer' },
+          {
+            id: 'crohns',
+            label: { en: "Crohn's Disease", es: 'Enfermedad de Crohn' },
+            value: 'crohns',
+          },
+          {
+            id: 'colitis',
+            label: { en: 'Ulcerative Colitis', es: 'Colitis Ulcerosa' },
+            value: 'colitis',
+          },
+          {
+            id: 'diverticulitis',
+            label: { en: 'Diverticulitis', es: 'Diverticulitis' },
+            value: 'diverticulitis',
+          },
+          {
+            id: 'none',
+            label: { en: 'None of the above', es: 'Ninguna de las anteriores' },
+            value: 'none',
+          },
+        ],
+        validation: [
+          {
+            type: 'required',
+            message: {
+              en: 'Please select at least one option',
+              es: 'Por favor selecciona al menos una opción',
+            },
+          },
+        ],
+      },
+    ],
     autoAdvance: false,
     showContinueButton: true,
     nextStep: 'kidney-conditions',
@@ -556,17 +1000,23 @@ const steps: FormStep[] = [
   {
     id: 'kidney-conditions',
     path: 'kidney-conditions',
-    title: { en: 'Do you have a history of kidney problems?', es: '¿Tienes antecedentes de problemas renales?' },
+    title: {
+      en: 'Do you have a history of kidney problems?',
+      es: '¿Tienes antecedentes de problemas renales?',
+    },
     type: 'single-select',
-    fields: [{
-      id: 'has_kidney_conditions', type: 'radio',
-      label: { en: 'Kidney Conditions', es: 'Condiciones Renales' },
-      storageKey: 'has_kidney_conditions',
-      options: [
-        { id: 'yes', label: { en: 'Yes', es: 'Sí' }, value: 'yes' },
-        { id: 'no', label: { en: 'No', es: 'No' }, value: 'no' },
-      ],
-    }],
+    fields: [
+      {
+        id: 'has_kidney_conditions',
+        type: 'radio',
+        label: { en: 'Kidney Conditions', es: 'Condiciones Renales' },
+        storageKey: 'has_kidney_conditions',
+        options: [
+          { id: 'yes', label: { en: 'Yes', es: 'Sí' }, value: 'yes' },
+          { id: 'no', label: { en: 'No', es: 'No' }, value: 'no' },
+        ],
+      },
+    ],
     autoAdvance: true,
     showContinueButton: false,
     nextStep: 'surgery',
@@ -576,22 +1026,34 @@ const steps: FormStep[] = [
   {
     id: 'surgery',
     path: 'surgery',
-    title: { en: 'Have you ever had abdominal, intestinal, or weight-loss surgeries?', es: '¿Alguna vez te han hecho cirugías abdominales, intestinales o de pérdida de peso?' },
+    title: {
+      en: 'Have you ever had abdominal, intestinal, or weight-loss surgeries?',
+      es: '¿Alguna vez te han hecho cirugías abdominales, intestinales o de pérdida de peso?',
+    },
     type: 'single-select',
-    fields: [{
-      id: 'had_surgery', type: 'radio',
-      label: { en: 'Surgery History', es: 'Historial Quirúrgico' },
-      storageKey: 'had_surgery',
-      options: [
-        { id: 'yes', label: { en: 'Yes', es: 'Sí' }, value: 'yes' },
-        { id: 'no', label: { en: 'No', es: 'No' }, value: 'no' },
-      ],
-    }],
+    fields: [
+      {
+        id: 'had_surgery',
+        type: 'radio',
+        label: { en: 'Surgery History', es: 'Historial Quirúrgico' },
+        storageKey: 'had_surgery',
+        options: [
+          { id: 'yes', label: { en: 'Yes', es: 'Sí' }, value: 'yes' },
+          { id: 'no', label: { en: 'No', es: 'No' }, value: 'no' },
+        ],
+      },
+    ],
     autoAdvance: true,
     showContinueButton: false,
     nextStep: [
-      { conditions: [{ field: 'had_surgery', operator: 'equals', value: 'yes' }], target: 'surgery-details' },
-      { conditions: [{ field: 'had_surgery', operator: 'equals', value: 'no' }], target: 'blood-pressure' },
+      {
+        conditions: [{ field: 'had_surgery', operator: 'equals', value: 'yes' }],
+        target: 'surgery-details',
+      },
+      {
+        conditions: [{ field: 'had_surgery', operator: 'equals', value: 'no' }],
+        target: 'blood-pressure',
+      },
     ],
     prevStep: 'kidney-conditions',
     progressPercent: 56,
@@ -599,23 +1061,57 @@ const steps: FormStep[] = [
   {
     id: 'surgery-details',
     path: 'surgery-details',
-    title: { en: 'Which surgery or surgeries have you had?', es: '¿Qué cirugía o cirugías te han hecho?' },
+    title: {
+      en: 'Which surgery or surgeries have you had?',
+      es: '¿Qué cirugía o cirugías te han hecho?',
+    },
     subtitle: { en: 'Select all that apply.', es: 'Selecciona todos los que apliquen.' },
     type: 'multi-select',
-    fields: [{
-      id: 'surgery_types', type: 'checkbox',
-      label: { en: 'Surgery Types', es: 'Tipos de Cirugía' },
-      storageKey: 'surgery_types',
-      options: [
-        { id: 'gastric_bypass', label: { en: 'Gastric Bypass', es: 'Bypass Gástrico' }, value: 'gastric_bypass' },
-        { id: 'duodenal_switch', label: { en: 'Duodenal Switch', es: 'Switch Duodenal' }, value: 'duodenal_switch' },
-        { id: 'lap_band', label: { en: 'Lap Band', es: 'Banda Gástrica' }, value: 'lap_band' },
-        { id: 'gastric_sleeve', label: { en: 'Gastric Sleeve', es: 'Manga Gástrica' }, value: 'gastric_sleeve' },
-        { id: 'intestinal_surgery', label: { en: 'Intestinal Surgery', es: 'Cirugía Intestinal' }, value: 'intestinal_surgery' },
-        { id: 'none', label: { en: 'None of the above', es: 'Ninguna de las anteriores' }, value: 'none' },
-      ],
-      validation: [{ type: 'required', message: { en: 'Please select at least one option', es: 'Por favor selecciona al menos una opción' } }],
-    }],
+    fields: [
+      {
+        id: 'surgery_types',
+        type: 'checkbox',
+        label: { en: 'Surgery Types', es: 'Tipos de Cirugía' },
+        storageKey: 'surgery_types',
+        options: [
+          {
+            id: 'gastric_bypass',
+            label: { en: 'Gastric Bypass', es: 'Bypass Gástrico' },
+            value: 'gastric_bypass',
+          },
+          {
+            id: 'duodenal_switch',
+            label: { en: 'Duodenal Switch', es: 'Switch Duodenal' },
+            value: 'duodenal_switch',
+          },
+          { id: 'lap_band', label: { en: 'Lap Band', es: 'Banda Gástrica' }, value: 'lap_band' },
+          {
+            id: 'gastric_sleeve',
+            label: { en: 'Gastric Sleeve', es: 'Manga Gástrica' },
+            value: 'gastric_sleeve',
+          },
+          {
+            id: 'intestinal_surgery',
+            label: { en: 'Intestinal Surgery', es: 'Cirugía Intestinal' },
+            value: 'intestinal_surgery',
+          },
+          {
+            id: 'none',
+            label: { en: 'None of the above', es: 'Ninguna de las anteriores' },
+            value: 'none',
+          },
+        ],
+        validation: [
+          {
+            type: 'required',
+            message: {
+              en: 'Please select at least one option',
+              es: 'Por favor selecciona al menos una opción',
+            },
+          },
+        ],
+      },
+    ],
     autoAdvance: false,
     showContinueButton: true,
     nextStep: 'blood-pressure',
@@ -625,22 +1121,64 @@ const steps: FormStep[] = [
   {
     id: 'blood-pressure',
     path: 'blood-pressure',
-    title: { en: "What's your most recent blood pressure reading?", es: '¿Cuál es tu lectura de presión arterial más reciente?' },
+    title: {
+      en: "What's your most recent blood pressure reading?",
+      es: '¿Cuál es tu lectura de presión arterial más reciente?',
+    },
     type: 'single-select',
-    fields: [{
-      id: 'blood_pressure', type: 'radio',
-      label: { en: 'Blood Pressure', es: 'Presión Arterial' },
-      storageKey: 'blood_pressure',
-      options: [
-        { id: 'normal', label: { en: 'Normal (below 120/80 mmHg)', es: 'Normal (menos de 120/80 mmHg)' }, value: 'normal' },
-        { id: 'elevated', label: { en: 'Elevated (120-129 / less than 80 mmHg)', es: 'Elevada (120-129 / menos de 80 mmHg)' }, value: 'elevated' },
-        { id: 'high_stage1', label: { en: 'High Stage 1 (130-139 / 80-89 mmHg)', es: 'Alta Etapa 1 (130-139 / 80-89 mmHg)' }, value: 'high_stage1' },
-        { id: 'high_stage2', label: { en: 'High Stage 2 (140+ / 90+ mmHg)', es: 'Alta Etapa 2 (140+ / 90+ mmHg)' }, value: 'high_stage2' },
-        { id: 'crisis', label: { en: 'Hypertensive Crisis (180+ / 120+ mmHg)', es: 'Crisis Hipertensiva (180+ / 120+ mmHg)' }, value: 'crisis' },
-        { id: 'low', label: { en: 'Low Blood Pressure (below 90/60 mmHg)', es: 'Presión Baja (menos de 90/60 mmHg)' }, value: 'low' },
-        { id: 'unknown', label: { en: "I don't know", es: 'No lo sé' }, value: 'unknown' },
-      ],
-    }],
+    fields: [
+      {
+        id: 'blood_pressure',
+        type: 'radio',
+        label: { en: 'Blood Pressure', es: 'Presión Arterial' },
+        storageKey: 'blood_pressure',
+        options: [
+          {
+            id: 'normal',
+            label: { en: 'Normal (below 120/80 mmHg)', es: 'Normal (menos de 120/80 mmHg)' },
+            value: 'normal',
+          },
+          {
+            id: 'elevated',
+            label: {
+              en: 'Elevated (120-129 / less than 80 mmHg)',
+              es: 'Elevada (120-129 / menos de 80 mmHg)',
+            },
+            value: 'elevated',
+          },
+          {
+            id: 'high_stage1',
+            label: {
+              en: 'High Stage 1 (130-139 / 80-89 mmHg)',
+              es: 'Alta Etapa 1 (130-139 / 80-89 mmHg)',
+            },
+            value: 'high_stage1',
+          },
+          {
+            id: 'high_stage2',
+            label: { en: 'High Stage 2 (140+ / 90+ mmHg)', es: 'Alta Etapa 2 (140+ / 90+ mmHg)' },
+            value: 'high_stage2',
+          },
+          {
+            id: 'crisis',
+            label: {
+              en: 'Hypertensive Crisis (180+ / 120+ mmHg)',
+              es: 'Crisis Hipertensiva (180+ / 120+ mmHg)',
+            },
+            value: 'crisis',
+          },
+          {
+            id: 'low',
+            label: {
+              en: 'Low Blood Pressure (below 90/60 mmHg)',
+              es: 'Presión Baja (menos de 90/60 mmHg)',
+            },
+            value: 'low',
+          },
+          { id: 'unknown', label: { en: "I don't know", es: 'No lo sé' }, value: 'unknown' },
+        ],
+      },
+    ],
     autoAdvance: true,
     showContinueButton: false,
     nextStep: 'glp1-history',
@@ -652,25 +1190,70 @@ const steps: FormStep[] = [
   {
     id: 'glp1-history',
     path: 'glp1-history',
-    title: { en: 'Do you currently take or have you ever taken a GLP-1 medication for weight loss?', es: '¿Actualmente toma o ha tomado alguna vez un medicamento GLP-1 para perder peso?' },
-    subtitle: { en: 'GLP-1s include compounded semaglutide, compounded tirzepatide, Ozempic, Wegovy, Mounjaro or Zepbound', es: 'Los GLP-1 incluyen semaglutida compuesta, tirzepatida compuesta, Ozempic, Wegovy, Mounjaro o Zepbound' },
+    title: {
+      en: 'Do you currently take or have you ever taken a GLP-1 medication for weight loss?',
+      es: '¿Actualmente toma o ha tomado alguna vez un medicamento GLP-1 para perder peso?',
+    },
+    subtitle: {
+      en: 'GLP-1s include compounded semaglutide, compounded tirzepatide, Ozempic, Wegovy, Mounjaro or Zepbound',
+      es: 'Los GLP-1 incluyen semaglutida compuesta, tirzepatida compuesta, Ozempic, Wegovy, Mounjaro o Zepbound',
+    },
     type: 'single-select',
-    fields: [{
-      id: 'glp1_history', type: 'radio',
-      label: { en: 'GLP-1 History', es: 'Historial GLP-1' },
-      storageKey: 'glp1_history',
-      options: [
-        { id: 'currently_taking', label: { en: 'Yes, I am currently taking a GLP-1', es: 'Sí, actualmente estoy tomando un GLP-1' }, value: 'currently_taking' },
-        { id: 'previously_taken', label: { en: 'Yes, I have taken a GLP-1 before but not currently', es: 'Sí, he tomado un GLP-1 antes pero no actualmente' }, value: 'previously_taken' },
-        { id: 'never_taken', label: { en: 'No, I have never taken a GLP-1', es: 'No, nunca he tomado un GLP-1' }, value: 'never_taken' },
-        { id: 'considering', label: { en: 'No, but I am considering it', es: 'No, pero lo estoy considerando' }, value: 'considering' },
-      ],
-    }],
+    fields: [
+      {
+        id: 'glp1_history',
+        type: 'radio',
+        label: { en: 'GLP-1 History', es: 'Historial GLP-1' },
+        storageKey: 'glp1_history',
+        options: [
+          {
+            id: 'currently_taking',
+            label: {
+              en: 'Yes, I am currently taking a GLP-1',
+              es: 'Sí, actualmente estoy tomando un GLP-1',
+            },
+            value: 'currently_taking',
+          },
+          {
+            id: 'previously_taken',
+            label: {
+              en: 'Yes, I have taken a GLP-1 before but not currently',
+              es: 'Sí, he tomado un GLP-1 antes pero no actualmente',
+            },
+            value: 'previously_taken',
+          },
+          {
+            id: 'never_taken',
+            label: { en: 'No, I have never taken a GLP-1', es: 'No, nunca he tomado un GLP-1' },
+            value: 'never_taken',
+          },
+          {
+            id: 'considering',
+            label: { en: 'No, but I am considering it', es: 'No, pero lo estoy considerando' },
+            value: 'considering',
+          },
+        ],
+      },
+    ],
     autoAdvance: true,
     showContinueButton: false,
     nextStep: [
-      { conditions: [{ field: 'glp1_history', operator: 'in', value: ['currently_taking', 'previously_taken'] }], target: 'glp1-type' },
-      { conditions: [{ field: 'glp1_history', operator: 'in', value: ['never_taken', 'considering'] }], target: 'recreational-drugs' },
+      {
+        conditions: [
+          {
+            field: 'glp1_history',
+            operator: 'in',
+            value: ['currently_taking', 'previously_taken'],
+          },
+        ],
+        target: 'glp1-type',
+      },
+      {
+        conditions: [
+          { field: 'glp1_history', operator: 'in', value: ['never_taken', 'considering'] },
+        ],
+        target: 'recreational-drugs',
+      },
     ],
     prevStep: 'blood-pressure',
     progressPercent: 62,
@@ -680,24 +1263,54 @@ const steps: FormStep[] = [
     path: 'glp1-type',
     title: { en: 'Which GLP-1 medication have you used?', es: '¿Qué medicamento GLP-1 has usado?' },
     type: 'single-select',
-    fields: [{
-      id: 'glp1_type', type: 'radio',
-      label: { en: 'GLP-1 Type', es: 'Tipo de GLP-1' },
-      storageKey: 'glp1_type',
-      options: [
-        { id: 'liraglutide', label: { en: 'Liraglutide (Saxenda)', es: 'Liraglutida (Saxenda)' }, value: 'liraglutide' },
-        { id: 'semaglutide', label: { en: 'Semaglutide (Ozempic/Wegovy)', es: 'Semaglutida (Ozempic/Wegovy)' }, value: 'semaglutide' },
-        { id: 'tirzepatide', label: { en: 'Tirzepatide (Mounjaro/Zepbound)', es: 'Tirzepatida (Mounjaro/Zepbound)' }, value: 'tirzepatide' },
-        { id: 'oral_glp1', label: { en: 'Oral GLP-1 (Rybelsus)', es: 'GLP-1 Oral (Rybelsus)' }, value: 'oral_glp1' },
-        { id: 'other', label: { en: 'Other', es: 'Otro' }, value: 'other' },
-      ],
-    }],
+    fields: [
+      {
+        id: 'glp1_type',
+        type: 'radio',
+        label: { en: 'GLP-1 Type', es: 'Tipo de GLP-1' },
+        storageKey: 'glp1_type',
+        options: [
+          {
+            id: 'liraglutide',
+            label: { en: 'Liraglutide (Saxenda)', es: 'Liraglutida (Saxenda)' },
+            value: 'liraglutide',
+          },
+          {
+            id: 'semaglutide',
+            label: { en: 'Semaglutide (Ozempic/Wegovy)', es: 'Semaglutida (Ozempic/Wegovy)' },
+            value: 'semaglutide',
+          },
+          {
+            id: 'tirzepatide',
+            label: { en: 'Tirzepatide (Mounjaro/Zepbound)', es: 'Tirzepatida (Mounjaro/Zepbound)' },
+            value: 'tirzepatide',
+          },
+          {
+            id: 'oral_glp1',
+            label: { en: 'Oral GLP-1 (Rybelsus)', es: 'GLP-1 Oral (Rybelsus)' },
+            value: 'oral_glp1',
+          },
+          { id: 'other', label: { en: 'Other', es: 'Otro' }, value: 'other' },
+        ],
+      },
+    ],
     autoAdvance: true,
     showContinueButton: false,
     nextStep: [
-      { conditions: [{ field: 'glp1_type', operator: 'equals', value: 'semaglutide' }], target: 'semaglutide-dosage' },
-      { conditions: [{ field: 'glp1_type', operator: 'equals', value: 'tirzepatide' }], target: 'tirzepatide-dosage' },
-      { conditions: [{ field: 'glp1_type', operator: 'in', value: ['liraglutide', 'oral_glp1', 'other'] }], target: 'dosage-satisfaction' },
+      {
+        conditions: [{ field: 'glp1_type', operator: 'equals', value: 'semaglutide' }],
+        target: 'semaglutide-dosage',
+      },
+      {
+        conditions: [{ field: 'glp1_type', operator: 'equals', value: 'tirzepatide' }],
+        target: 'tirzepatide-dosage',
+      },
+      {
+        conditions: [
+          { field: 'glp1_type', operator: 'in', value: ['liraglutide', 'oral_glp1', 'other'] },
+        ],
+        target: 'dosage-satisfaction',
+      },
     ],
     prevStep: 'glp1-history',
     progressPercent: 64,
@@ -705,24 +1318,30 @@ const steps: FormStep[] = [
   {
     id: 'semaglutide-dosage',
     path: 'semaglutide-dosage',
-    title: { en: 'What is your current or most recent semaglutide dose?', es: '¿Cuál es tu dosis actual o más reciente de semaglutida?' },
+    title: {
+      en: 'What is your current or most recent semaglutide dose?',
+      es: '¿Cuál es tu dosis actual o más reciente de semaglutida?',
+    },
     type: 'single-select',
-    fields: [{
-      id: 'semaglutide_dosage', type: 'radio',
-      label: { en: 'Semaglutide Dosage', es: 'Dosis de Semaglutida' },
-      storageKey: 'semaglutide_dosage',
-      options: [
-        { id: '0.25mg', label: { en: '0.25 mg/week', es: '0.25 mg/semana' }, value: '0.25mg' },
-        { id: '0.50mg', label: { en: '0.50 mg/week', es: '0.50 mg/semana' }, value: '0.50mg' },
-        { id: '0.75mg', label: { en: '0.75 mg/week', es: '0.75 mg/semana' }, value: '0.75mg' },
-        { id: '1mg', label: { en: '1 mg/week', es: '1 mg/semana' }, value: '1mg' },
-        { id: '1.25mg', label: { en: '1.25 mg/week', es: '1.25 mg/semana' }, value: '1.25mg' },
-        { id: '1.7mg', label: { en: '1.7 mg/week', es: '1.7 mg/semana' }, value: '1.7mg' },
-        { id: '2mg', label: { en: '2 mg/week', es: '2 mg/semana' }, value: '2mg' },
-        { id: '2.4mg', label: { en: '2.4 mg/week', es: '2.4 mg/semana' }, value: '2.4mg' },
-        { id: 'oral', label: { en: 'Oral semaglutide', es: 'Semaglutida oral' }, value: 'oral' },
-      ],
-    }],
+    fields: [
+      {
+        id: 'semaglutide_dosage',
+        type: 'radio',
+        label: { en: 'Semaglutide Dosage', es: 'Dosis de Semaglutida' },
+        storageKey: 'semaglutide_dosage',
+        options: [
+          { id: '0.25mg', label: { en: '0.25 mg/week', es: '0.25 mg/semana' }, value: '0.25mg' },
+          { id: '0.50mg', label: { en: '0.50 mg/week', es: '0.50 mg/semana' }, value: '0.50mg' },
+          { id: '0.75mg', label: { en: '0.75 mg/week', es: '0.75 mg/semana' }, value: '0.75mg' },
+          { id: '1mg', label: { en: '1 mg/week', es: '1 mg/semana' }, value: '1mg' },
+          { id: '1.25mg', label: { en: '1.25 mg/week', es: '1.25 mg/semana' }, value: '1.25mg' },
+          { id: '1.7mg', label: { en: '1.7 mg/week', es: '1.7 mg/semana' }, value: '1.7mg' },
+          { id: '2mg', label: { en: '2 mg/week', es: '2 mg/semana' }, value: '2mg' },
+          { id: '2.4mg', label: { en: '2.4 mg/week', es: '2.4 mg/semana' }, value: '2.4mg' },
+          { id: 'oral', label: { en: 'Oral semaglutide', es: 'Semaglutida oral' }, value: 'oral' },
+        ],
+      },
+    ],
     autoAdvance: true,
     showContinueButton: false,
     nextStep: 'semaglutide-side-effects',
@@ -732,24 +1351,42 @@ const steps: FormStep[] = [
   {
     id: 'semaglutide-side-effects',
     path: 'semaglutide-side-effects',
-    title: { en: 'Have you experienced any side effects while on semaglutide?', es: '¿Has experimentado algún efecto secundario mientras tomabas semaglutida?' },
+    title: {
+      en: 'Have you experienced any side effects while on semaglutide?',
+      es: '¿Has experimentado algún efecto secundario mientras tomabas semaglutida?',
+    },
     subtitle: { en: 'Select all that apply.', es: 'Selecciona todos los que apliquen.' },
     type: 'multi-select',
-    fields: [{
-      id: 'semaglutide_side_effects', type: 'checkbox',
-      label: { en: 'Side Effects', es: 'Efectos Secundarios' },
-      storageKey: 'semaglutide_side_effects',
-      options: [
-        { id: 'nausea', label: { en: 'Nausea', es: 'Náuseas' }, value: 'nausea' },
-        { id: 'vomiting', label: { en: 'Vomiting', es: 'Vómitos' }, value: 'vomiting' },
-        { id: 'diarrhea', label: { en: 'Diarrhea', es: 'Diarrea' }, value: 'diarrhea' },
-        { id: 'constipation', label: { en: 'Constipation', es: 'Estreñimiento' }, value: 'constipation' },
-        { id: 'headache', label: { en: 'Headache', es: 'Dolor de cabeza' }, value: 'headache' },
-        { id: 'fatigue', label: { en: 'Fatigue', es: 'Fatiga' }, value: 'fatigue' },
-        { id: 'none', label: { en: 'None', es: 'Ninguno' }, value: 'none' },
-      ],
-      validation: [{ type: 'required', message: { en: 'Please select at least one option', es: 'Por favor selecciona al menos una opción' } }],
-    }],
+    fields: [
+      {
+        id: 'semaglutide_side_effects',
+        type: 'checkbox',
+        label: { en: 'Side Effects', es: 'Efectos Secundarios' },
+        storageKey: 'semaglutide_side_effects',
+        options: [
+          { id: 'nausea', label: { en: 'Nausea', es: 'Náuseas' }, value: 'nausea' },
+          { id: 'vomiting', label: { en: 'Vomiting', es: 'Vómitos' }, value: 'vomiting' },
+          { id: 'diarrhea', label: { en: 'Diarrhea', es: 'Diarrea' }, value: 'diarrhea' },
+          {
+            id: 'constipation',
+            label: { en: 'Constipation', es: 'Estreñimiento' },
+            value: 'constipation',
+          },
+          { id: 'headache', label: { en: 'Headache', es: 'Dolor de cabeza' }, value: 'headache' },
+          { id: 'fatigue', label: { en: 'Fatigue', es: 'Fatiga' }, value: 'fatigue' },
+          { id: 'none', label: { en: 'None', es: 'Ninguno' }, value: 'none' },
+        ],
+        validation: [
+          {
+            type: 'required',
+            message: {
+              en: 'Please select at least one option',
+              es: 'Por favor selecciona al menos una opción',
+            },
+          },
+        ],
+      },
+    ],
     autoAdvance: false,
     showContinueButton: true,
     nextStep: 'semaglutide-success',
@@ -759,19 +1396,41 @@ const steps: FormStep[] = [
   {
     id: 'semaglutide-success',
     path: 'semaglutide-success',
-    title: { en: 'How would you describe your success with semaglutide?', es: '¿Cómo describirías tu éxito con semaglutida?' },
+    title: {
+      en: 'How would you describe your success with semaglutide?',
+      es: '¿Cómo describirías tu éxito con semaglutida?',
+    },
     type: 'single-select',
-    fields: [{
-      id: 'semaglutide_success', type: 'radio',
-      label: { en: 'Success Level', es: 'Nivel de Éxito' },
-      storageKey: 'semaglutide_success',
-      options: [
-        { id: 'very_successful', label: { en: 'Very successful', es: 'Muy exitoso' }, value: 'very_successful' },
-        { id: 'somewhat_successful', label: { en: 'Somewhat successful', es: 'Algo exitoso' }, value: 'somewhat_successful' },
-        { id: 'not_successful', label: { en: 'Not successful', es: 'No exitoso' }, value: 'not_successful' },
-        { id: 'hard_consistency', label: { en: 'Hard to stay consistent', es: 'Difícil mantener la consistencia' }, value: 'hard_consistency' },
-      ],
-    }],
+    fields: [
+      {
+        id: 'semaglutide_success',
+        type: 'radio',
+        label: { en: 'Success Level', es: 'Nivel de Éxito' },
+        storageKey: 'semaglutide_success',
+        options: [
+          {
+            id: 'very_successful',
+            label: { en: 'Very successful', es: 'Muy exitoso' },
+            value: 'very_successful',
+          },
+          {
+            id: 'somewhat_successful',
+            label: { en: 'Somewhat successful', es: 'Algo exitoso' },
+            value: 'somewhat_successful',
+          },
+          {
+            id: 'not_successful',
+            label: { en: 'Not successful', es: 'No exitoso' },
+            value: 'not_successful',
+          },
+          {
+            id: 'hard_consistency',
+            label: { en: 'Hard to stay consistent', es: 'Difícil mantener la consistencia' },
+            value: 'hard_consistency',
+          },
+        ],
+      },
+    ],
     autoAdvance: true,
     showContinueButton: false,
     nextStep: 'recreational-drugs',
@@ -781,22 +1440,28 @@ const steps: FormStep[] = [
   {
     id: 'tirzepatide-dosage',
     path: 'tirzepatide-dosage',
-    title: { en: 'What is your current or most recent tirzepatide dose?', es: '¿Cuál es tu dosis actual o más reciente de tirzepatida?' },
+    title: {
+      en: 'What is your current or most recent tirzepatide dose?',
+      es: '¿Cuál es tu dosis actual o más reciente de tirzepatida?',
+    },
     type: 'single-select',
-    fields: [{
-      id: 'tirzepatide_dosage', type: 'radio',
-      label: { en: 'Tirzepatide Dosage', es: 'Dosis de Tirzepatida' },
-      storageKey: 'tirzepatide_dosage',
-      options: [
-        { id: '2.5mg', label: { en: '2.5 mg/week', es: '2.5 mg/semana' }, value: '2.5mg' },
-        { id: '5.0mg', label: { en: '5.0 mg/week', es: '5.0 mg/semana' }, value: '5.0mg' },
-        { id: '7.5mg', label: { en: '7.5 mg/week', es: '7.5 mg/semana' }, value: '7.5mg' },
-        { id: '10mg', label: { en: '10 mg/week', es: '10 mg/semana' }, value: '10mg' },
-        { id: '12.5mg', label: { en: '12.5 mg/week', es: '12.5 mg/semana' }, value: '12.5mg' },
-        { id: '15mg', label: { en: '15 mg/week', es: '15 mg/semana' }, value: '15mg' },
-        { id: 'oral', label: { en: 'Oral tirzepatide', es: 'Tirzepatida oral' }, value: 'oral' },
-      ],
-    }],
+    fields: [
+      {
+        id: 'tirzepatide_dosage',
+        type: 'radio',
+        label: { en: 'Tirzepatide Dosage', es: 'Dosis de Tirzepatida' },
+        storageKey: 'tirzepatide_dosage',
+        options: [
+          { id: '2.5mg', label: { en: '2.5 mg/week', es: '2.5 mg/semana' }, value: '2.5mg' },
+          { id: '5.0mg', label: { en: '5.0 mg/week', es: '5.0 mg/semana' }, value: '5.0mg' },
+          { id: '7.5mg', label: { en: '7.5 mg/week', es: '7.5 mg/semana' }, value: '7.5mg' },
+          { id: '10mg', label: { en: '10 mg/week', es: '10 mg/semana' }, value: '10mg' },
+          { id: '12.5mg', label: { en: '12.5 mg/week', es: '12.5 mg/semana' }, value: '12.5mg' },
+          { id: '15mg', label: { en: '15 mg/week', es: '15 mg/semana' }, value: '15mg' },
+          { id: 'oral', label: { en: 'Oral tirzepatide', es: 'Tirzepatida oral' }, value: 'oral' },
+        ],
+      },
+    ],
     autoAdvance: true,
     showContinueButton: false,
     nextStep: 'tirzepatide-side-effects',
@@ -806,24 +1471,42 @@ const steps: FormStep[] = [
   {
     id: 'tirzepatide-side-effects',
     path: 'tirzepatide-side-effects',
-    title: { en: 'Have you experienced any side effects while on tirzepatide?', es: '¿Has experimentado algún efecto secundario mientras tomabas tirzepatida?' },
+    title: {
+      en: 'Have you experienced any side effects while on tirzepatide?',
+      es: '¿Has experimentado algún efecto secundario mientras tomabas tirzepatida?',
+    },
     subtitle: { en: 'Select all that apply.', es: 'Selecciona todos los que apliquen.' },
     type: 'multi-select',
-    fields: [{
-      id: 'tirzepatide_side_effects', type: 'checkbox',
-      label: { en: 'Side Effects', es: 'Efectos Secundarios' },
-      storageKey: 'tirzepatide_side_effects',
-      options: [
-        { id: 'nausea', label: { en: 'Nausea', es: 'Náuseas' }, value: 'nausea' },
-        { id: 'vomiting', label: { en: 'Vomiting', es: 'Vómitos' }, value: 'vomiting' },
-        { id: 'diarrhea', label: { en: 'Diarrhea', es: 'Diarrea' }, value: 'diarrhea' },
-        { id: 'constipation', label: { en: 'Constipation', es: 'Estreñimiento' }, value: 'constipation' },
-        { id: 'headache', label: { en: 'Headache', es: 'Dolor de cabeza' }, value: 'headache' },
-        { id: 'fatigue', label: { en: 'Fatigue', es: 'Fatiga' }, value: 'fatigue' },
-        { id: 'none', label: { en: 'None', es: 'Ninguno' }, value: 'none' },
-      ],
-      validation: [{ type: 'required', message: { en: 'Please select at least one option', es: 'Por favor selecciona al menos una opción' } }],
-    }],
+    fields: [
+      {
+        id: 'tirzepatide_side_effects',
+        type: 'checkbox',
+        label: { en: 'Side Effects', es: 'Efectos Secundarios' },
+        storageKey: 'tirzepatide_side_effects',
+        options: [
+          { id: 'nausea', label: { en: 'Nausea', es: 'Náuseas' }, value: 'nausea' },
+          { id: 'vomiting', label: { en: 'Vomiting', es: 'Vómitos' }, value: 'vomiting' },
+          { id: 'diarrhea', label: { en: 'Diarrhea', es: 'Diarrea' }, value: 'diarrhea' },
+          {
+            id: 'constipation',
+            label: { en: 'Constipation', es: 'Estreñimiento' },
+            value: 'constipation',
+          },
+          { id: 'headache', label: { en: 'Headache', es: 'Dolor de cabeza' }, value: 'headache' },
+          { id: 'fatigue', label: { en: 'Fatigue', es: 'Fatiga' }, value: 'fatigue' },
+          { id: 'none', label: { en: 'None', es: 'Ninguno' }, value: 'none' },
+        ],
+        validation: [
+          {
+            type: 'required',
+            message: {
+              en: 'Please select at least one option',
+              es: 'Por favor selecciona al menos una opción',
+            },
+          },
+        ],
+      },
+    ],
     autoAdvance: false,
     showContinueButton: true,
     nextStep: 'tirzepatide-success',
@@ -833,19 +1516,41 @@ const steps: FormStep[] = [
   {
     id: 'tirzepatide-success',
     path: 'tirzepatide-success',
-    title: { en: 'How would you describe your success with tirzepatide?', es: '¿Cómo describirías tu éxito con tirzepatida?' },
+    title: {
+      en: 'How would you describe your success with tirzepatide?',
+      es: '¿Cómo describirías tu éxito con tirzepatida?',
+    },
     type: 'single-select',
-    fields: [{
-      id: 'tirzepatide_success', type: 'radio',
-      label: { en: 'Success Level', es: 'Nivel de Éxito' },
-      storageKey: 'tirzepatide_success',
-      options: [
-        { id: 'very_successful', label: { en: 'Very successful', es: 'Muy exitoso' }, value: 'very_successful' },
-        { id: 'somewhat_successful', label: { en: 'Somewhat successful', es: 'Algo exitoso' }, value: 'somewhat_successful' },
-        { id: 'not_successful', label: { en: 'Not successful', es: 'No exitoso' }, value: 'not_successful' },
-        { id: 'hard_consistency', label: { en: 'Hard to stay consistent', es: 'Difícil mantener la consistencia' }, value: 'hard_consistency' },
-      ],
-    }],
+    fields: [
+      {
+        id: 'tirzepatide_success',
+        type: 'radio',
+        label: { en: 'Success Level', es: 'Nivel de Éxito' },
+        storageKey: 'tirzepatide_success',
+        options: [
+          {
+            id: 'very_successful',
+            label: { en: 'Very successful', es: 'Muy exitoso' },
+            value: 'very_successful',
+          },
+          {
+            id: 'somewhat_successful',
+            label: { en: 'Somewhat successful', es: 'Algo exitoso' },
+            value: 'somewhat_successful',
+          },
+          {
+            id: 'not_successful',
+            label: { en: 'Not successful', es: 'No exitoso' },
+            value: 'not_successful',
+          },
+          {
+            id: 'hard_consistency',
+            label: { en: 'Hard to stay consistent', es: 'Difícil mantener la consistencia' },
+            value: 'hard_consistency',
+          },
+        ],
+      },
+    ],
     autoAdvance: true,
     showContinueButton: false,
     nextStep: 'recreational-drugs',
@@ -855,18 +1560,39 @@ const steps: FormStep[] = [
   {
     id: 'dosage-satisfaction',
     path: 'dosage-satisfaction',
-    title: { en: 'Are you satisfied with your current GLP-1 dose?', es: '¿Estás satisfecho con tu dosis actual de GLP-1?' },
+    title: {
+      en: 'Are you satisfied with your current GLP-1 dose?',
+      es: '¿Estás satisfecho con tu dosis actual de GLP-1?',
+    },
     type: 'single-select',
-    fields: [{
-      id: 'dosage_satisfaction', type: 'radio',
-      label: { en: 'Dosage Satisfaction', es: 'Satisfacción con la Dosis' },
-      storageKey: 'dosage_satisfaction',
-      options: [
-        { id: 'increase', label: { en: 'I would like to increase my dose', es: 'Me gustaría aumentar mi dosis' }, value: 'increase' },
-        { id: 'maintain', label: { en: 'I want to maintain my current dose', es: 'Quiero mantener mi dosis actual' }, value: 'maintain' },
-        { id: 'reduce', label: { en: 'I would like to reduce my dose', es: 'Me gustaría reducir mi dosis' }, value: 'reduce' },
-      ],
-    }],
+    fields: [
+      {
+        id: 'dosage_satisfaction',
+        type: 'radio',
+        label: { en: 'Dosage Satisfaction', es: 'Satisfacción con la Dosis' },
+        storageKey: 'dosage_satisfaction',
+        options: [
+          {
+            id: 'increase',
+            label: { en: 'I would like to increase my dose', es: 'Me gustaría aumentar mi dosis' },
+            value: 'increase',
+          },
+          {
+            id: 'maintain',
+            label: {
+              en: 'I want to maintain my current dose',
+              es: 'Quiero mantener mi dosis actual',
+            },
+            value: 'maintain',
+          },
+          {
+            id: 'reduce',
+            label: { en: 'I would like to reduce my dose', es: 'Me gustaría reducir mi dosis' },
+            value: 'reduce',
+          },
+        ],
+      },
+    ],
     autoAdvance: true,
     showContinueButton: false,
     nextStep: 'recreational-drugs',
@@ -878,23 +1604,41 @@ const steps: FormStep[] = [
   {
     id: 'recreational-drugs',
     path: 'recreational-drugs',
-    title: { en: 'Have you used any recreational drugs in the past 6 months?', es: '¿Has usado alguna droga recreativa en los últimos 6 meses?' },
+    title: {
+      en: 'Have you used any recreational drugs in the past 6 months?',
+      es: '¿Has usado alguna droga recreativa en los últimos 6 meses?',
+    },
     subtitle: { en: 'Select all that apply.', es: 'Selecciona todos los que apliquen.' },
     type: 'multi-select',
-    fields: [{
-      id: 'recreational_drugs', type: 'checkbox',
-      label: { en: 'Recreational Drugs', es: 'Drogas Recreativas' },
-      storageKey: 'recreational_drugs',
-      options: [
-        { id: 'cocaine', label: { en: 'Cocaine', es: 'Cocaína' }, value: 'cocaine' },
-        { id: 'kratom', label: { en: 'Kratom', es: 'Kratom' }, value: 'kratom' },
-        { id: 'opiates', label: { en: 'Opiates', es: 'Opiáceos' }, value: 'opiates' },
-        { id: 'meth', label: { en: 'Methamphetamine', es: 'Metanfetamina' }, value: 'meth' },
-        { id: 'cannabis', label: { en: 'Cannabis / Marijuana', es: 'Cannabis / Marihuana' }, value: 'cannabis' },
-        { id: 'none', label: { en: 'None', es: 'Ninguna' }, value: 'none' },
-      ],
-      validation: [{ type: 'required', message: { en: 'Please select at least one option', es: 'Por favor selecciona al menos una opción' } }],
-    }],
+    fields: [
+      {
+        id: 'recreational_drugs',
+        type: 'checkbox',
+        label: { en: 'Recreational Drugs', es: 'Drogas Recreativas' },
+        storageKey: 'recreational_drugs',
+        options: [
+          { id: 'cocaine', label: { en: 'Cocaine', es: 'Cocaína' }, value: 'cocaine' },
+          { id: 'kratom', label: { en: 'Kratom', es: 'Kratom' }, value: 'kratom' },
+          { id: 'opiates', label: { en: 'Opiates', es: 'Opiáceos' }, value: 'opiates' },
+          { id: 'meth', label: { en: 'Methamphetamine', es: 'Metanfetamina' }, value: 'meth' },
+          {
+            id: 'cannabis',
+            label: { en: 'Cannabis / Marijuana', es: 'Cannabis / Marihuana' },
+            value: 'cannabis',
+          },
+          { id: 'none', label: { en: 'None', es: 'Ninguna' }, value: 'none' },
+        ],
+        validation: [
+          {
+            type: 'required',
+            message: {
+              en: 'Please select at least one option',
+              es: 'Por favor selecciona al menos una opción',
+            },
+          },
+        ],
+      },
+    ],
     autoAdvance: false,
     showContinueButton: true,
     nextStep: 'weight-loss-history',
@@ -907,21 +1651,56 @@ const steps: FormStep[] = [
     title: { en: 'Have you tried to lose weight before?', es: '¿Has intentado perder peso antes?' },
     subtitle: { en: 'Select all that apply.', es: 'Selecciona todos los que apliquen.' },
     type: 'multi-select',
-    fields: [{
-      id: 'weight_loss_methods', type: 'checkbox',
-      label: { en: 'Weight Loss Methods', es: 'Métodos de Pérdida de Peso' },
-      storageKey: 'weight_loss_methods',
-      options: [
-        { id: 'diet', label: { en: 'Diet changes', es: 'Cambios en la dieta' }, value: 'diet' },
-        { id: 'exercise', label: { en: 'Exercise / Fitness', es: 'Ejercicio / Fitness' }, value: 'exercise' },
-        { id: 'supplements', label: { en: 'Supplements', es: 'Suplementos' }, value: 'supplements' },
-        { id: 'programs', label: { en: 'Weight loss programs', es: 'Programas de pérdida de peso' }, value: 'programs' },
-        { id: 'surgery', label: { en: 'Weight loss surgery', es: 'Cirugía de pérdida de peso' }, value: 'surgery' },
-        { id: 'medication', label: { en: 'Prescription medication', es: 'Medicamento recetado' }, value: 'medication' },
-        { id: 'none', label: { en: 'None of the above', es: 'Ninguna de las anteriores' }, value: 'none' },
-      ],
-      validation: [{ type: 'required', message: { en: 'Please select at least one option', es: 'Por favor selecciona al menos una opción' } }],
-    }],
+    fields: [
+      {
+        id: 'weight_loss_methods',
+        type: 'checkbox',
+        label: { en: 'Weight Loss Methods', es: 'Métodos de Pérdida de Peso' },
+        storageKey: 'weight_loss_methods',
+        options: [
+          { id: 'diet', label: { en: 'Diet changes', es: 'Cambios en la dieta' }, value: 'diet' },
+          {
+            id: 'exercise',
+            label: { en: 'Exercise / Fitness', es: 'Ejercicio / Fitness' },
+            value: 'exercise',
+          },
+          {
+            id: 'supplements',
+            label: { en: 'Supplements', es: 'Suplementos' },
+            value: 'supplements',
+          },
+          {
+            id: 'programs',
+            label: { en: 'Weight loss programs', es: 'Programas de pérdida de peso' },
+            value: 'programs',
+          },
+          {
+            id: 'surgery',
+            label: { en: 'Weight loss surgery', es: 'Cirugía de pérdida de peso' },
+            value: 'surgery',
+          },
+          {
+            id: 'medication',
+            label: { en: 'Prescription medication', es: 'Medicamento recetado' },
+            value: 'medication',
+          },
+          {
+            id: 'none',
+            label: { en: 'None of the above', es: 'Ninguna de las anteriores' },
+            value: 'none',
+          },
+        ],
+        validation: [
+          {
+            type: 'required',
+            message: {
+              en: 'Please select at least one option',
+              es: 'Por favor selecciona al menos una opción',
+            },
+          },
+        ],
+      },
+    ],
     autoAdvance: false,
     showContinueButton: true,
     nextStep: 'weight-loss-support',
@@ -931,23 +1710,57 @@ const steps: FormStep[] = [
   {
     id: 'weight-loss-support',
     path: 'weight-loss-support',
-    title: { en: 'What would help you stick with a weight loss program?', es: '¿Qué te ayudaría a seguir con un programa de pérdida de peso?' },
+    title: {
+      en: 'What would help you stick with a weight loss program?',
+      es: '¿Qué te ayudaría a seguir con un programa de pérdida de peso?',
+    },
     subtitle: { en: 'Select all that apply.', es: 'Selecciona todos los que apliquen.' },
     type: 'multi-select',
-    fields: [{
-      id: 'weight_loss_support', type: 'checkbox',
-      label: { en: 'Support Preferences', es: 'Preferencias de Apoyo' },
-      storageKey: 'weight_loss_support',
-      options: [
-        { id: 'nutrition', label: { en: 'Nutrition coaching', es: 'Coaching nutricional' }, value: 'nutrition' },
-        { id: 'meals', label: { en: 'Meal planning', es: 'Planificación de comidas' }, value: 'meals' },
-        { id: 'digital', label: { en: 'Digital tools & tracking', es: 'Herramientas digitales y seguimiento' }, value: 'digital' },
-        { id: 'dosage', label: { en: 'Personalized dosage adjustments', es: 'Ajustes de dosis personalizados' }, value: 'dosage' },
-        { id: 'community', label: { en: 'Community support', es: 'Apoyo comunitario' }, value: 'community' },
-        { id: 'other', label: { en: 'Other', es: 'Otro' }, value: 'other' },
-      ],
-      validation: [{ type: 'required', message: { en: 'Please select at least one option', es: 'Por favor selecciona al menos una opción' } }],
-    }],
+    fields: [
+      {
+        id: 'weight_loss_support',
+        type: 'checkbox',
+        label: { en: 'Support Preferences', es: 'Preferencias de Apoyo' },
+        storageKey: 'weight_loss_support',
+        options: [
+          {
+            id: 'nutrition',
+            label: { en: 'Nutrition coaching', es: 'Coaching nutricional' },
+            value: 'nutrition',
+          },
+          {
+            id: 'meals',
+            label: { en: 'Meal planning', es: 'Planificación de comidas' },
+            value: 'meals',
+          },
+          {
+            id: 'digital',
+            label: { en: 'Digital tools & tracking', es: 'Herramientas digitales y seguimiento' },
+            value: 'digital',
+          },
+          {
+            id: 'dosage',
+            label: { en: 'Personalized dosage adjustments', es: 'Ajustes de dosis personalizados' },
+            value: 'dosage',
+          },
+          {
+            id: 'community',
+            label: { en: 'Community support', es: 'Apoyo comunitario' },
+            value: 'community',
+          },
+          { id: 'other', label: { en: 'Other', es: 'Otro' }, value: 'other' },
+        ],
+        validation: [
+          {
+            type: 'required',
+            message: {
+              en: 'Please select at least one option',
+              es: 'Por favor selecciona al menos una opción',
+            },
+          },
+        ],
+      },
+    ],
     autoAdvance: false,
     showContinueButton: true,
     nextStep: 'side-effects-info',
@@ -957,8 +1770,14 @@ const steps: FormStep[] = [
   {
     id: 'side-effects-info',
     path: 'side-effects-info',
-    title: { en: 'Side effects are typically mild and temporary.', es: 'Los efectos secundarios suelen ser leves y temporales.' },
-    subtitle: { en: 'Most patients see them decrease as the body adjusts to the medication.', es: 'La mayoría de los pacientes ven que disminuyen a medida que el cuerpo se ajusta al medicamento.' },
+    title: {
+      en: 'Side effects are typically mild and temporary.',
+      es: 'Los efectos secundarios suelen ser leves y temporales.',
+    },
+    subtitle: {
+      en: 'Most patients see them decrease as the body adjusts to the medication.',
+      es: 'La mayoría de los pacientes ven que disminuyen a medida que el cuerpo se ajusta al medicamento.',
+    },
     type: 'custom',
     component: 'SideEffectsStep',
     fields: [],
@@ -971,18 +1790,24 @@ const steps: FormStep[] = [
   {
     id: 'dosage-interest',
     path: 'dosage-interest',
-    title: { en: 'Are you interested in a personalized dosage plan?', es: '¿Te interesa un plan de dosificación personalizado?' },
+    title: {
+      en: 'Are you interested in a personalized dosage plan?',
+      es: '¿Te interesa un plan de dosificación personalizado?',
+    },
     type: 'single-select',
-    fields: [{
-      id: 'dosage_interest', type: 'radio',
-      label: { en: 'Dosage Interest', es: 'Interés en Dosificación' },
-      storageKey: 'dosage_interest',
-      options: [
-        { id: 'yes', label: { en: 'Yes', es: 'Sí' }, value: 'yes' },
-        { id: 'no', label: { en: 'No', es: 'No' }, value: 'no' },
-        { id: 'not_sure', label: { en: 'Not sure', es: 'No estoy seguro' }, value: 'not_sure' },
-      ],
-    }],
+    fields: [
+      {
+        id: 'dosage_interest',
+        type: 'radio',
+        label: { en: 'Dosage Interest', es: 'Interés en Dosificación' },
+        storageKey: 'dosage_interest',
+        options: [
+          { id: 'yes', label: { en: 'Yes', es: 'Sí' }, value: 'yes' },
+          { id: 'no', label: { en: 'No', es: 'No' }, value: 'no' },
+          { id: 'not_sure', label: { en: 'Not sure', es: 'No estoy seguro' }, value: 'not_sure' },
+        ],
+      },
+    ],
     autoAdvance: true,
     showContinueButton: false,
     nextStep: 'glp1-data',
@@ -992,7 +1817,10 @@ const steps: FormStep[] = [
   {
     id: 'glp1-data',
     path: 'glp1-data',
-    title: { en: 'Clinical studies show GLP-1 medications can help patients lose 15-20% of body weight.', es: 'Los estudios clínicos muestran que los medicamentos GLP-1 pueden ayudar a los pacientes a perder entre 15-20% del peso corporal.' },
+    title: {
+      en: 'Clinical studies show GLP-1 medications can help patients lose 15-20% of body weight.',
+      es: 'Los estudios clínicos muestran que los medicamentos GLP-1 pueden ayudar a los pacientes a perder entre 15-20% del peso corporal.',
+    },
     type: 'custom',
     component: 'GLP1DataStep',
     fields: [],
@@ -1005,20 +1833,38 @@ const steps: FormStep[] = [
   {
     id: 'alcohol-consumption',
     path: 'alcohol-consumption',
-    title: { en: 'How often do you have 5 or more drinks on a single occasion?', es: '¿Con qué frecuencia tomas 5 o más bebidas en una sola ocasión?' },
+    title: {
+      en: 'How often do you have 5 or more drinks on a single occasion?',
+      es: '¿Con qué frecuencia tomas 5 o más bebidas en una sola ocasión?',
+    },
     type: 'single-select',
-    fields: [{
-      id: 'alcohol_consumption', type: 'radio',
-      label: { en: 'Alcohol Consumption', es: 'Consumo de Alcohol' },
-      storageKey: 'alcohol_consumption',
-      options: [
-        { id: 'never', label: { en: 'Never', es: 'Nunca' }, value: 'never' },
-        { id: 'few_times_year', label: { en: 'A few times a year', es: 'Algunas veces al año' }, value: 'few_times_year' },
-        { id: 'few_times_month', label: { en: 'A few times a month', es: 'Algunas veces al mes' }, value: 'few_times_month' },
-        { id: 'few_times_week', label: { en: 'A few times a week', es: 'Algunas veces a la semana' }, value: 'few_times_week' },
-        { id: 'daily', label: { en: 'Daily', es: 'Diariamente' }, value: 'daily' },
-      ],
-    }],
+    fields: [
+      {
+        id: 'alcohol_consumption',
+        type: 'radio',
+        label: { en: 'Alcohol Consumption', es: 'Consumo de Alcohol' },
+        storageKey: 'alcohol_consumption',
+        options: [
+          { id: 'never', label: { en: 'Never', es: 'Nunca' }, value: 'never' },
+          {
+            id: 'few_times_year',
+            label: { en: 'A few times a year', es: 'Algunas veces al año' },
+            value: 'few_times_year',
+          },
+          {
+            id: 'few_times_month',
+            label: { en: 'A few times a month', es: 'Algunas veces al mes' },
+            value: 'few_times_month',
+          },
+          {
+            id: 'few_times_week',
+            label: { en: 'A few times a week', es: 'Algunas veces a la semana' },
+            value: 'few_times_week',
+          },
+          { id: 'daily', label: { en: 'Daily', es: 'Diariamente' }, value: 'daily' },
+        ],
+      },
+    ],
     autoAdvance: true,
     showContinueButton: false,
     nextStep: 'safety-quality',
@@ -1030,7 +1876,10 @@ const steps: FormStep[] = [
   {
     id: 'safety-quality',
     path: 'safety-quality',
-    title: { en: 'Your safety and quality of care are our top priorities.', es: 'Tu seguridad y calidad de atención son nuestras principales prioridades.' },
+    title: {
+      en: 'Your safety and quality of care are our top priorities.',
+      es: 'Tu seguridad y calidad de atención son nuestras principales prioridades.',
+    },
     type: 'custom',
     component: 'SafetyQualityStep',
     fields: [],
@@ -1043,7 +1892,10 @@ const steps: FormStep[] = [
   {
     id: 'medical-team',
     path: 'medical-team',
-    title: { en: 'Your dedicated medical team is ready to support you.', es: 'Tu equipo médico dedicado está listo para apoyarte.' },
+    title: {
+      en: 'Your dedicated medical team is ready to support you.',
+      es: 'Tu equipo médico dedicado está listo para apoyarte.',
+    },
     type: 'custom',
     component: 'MedicalTeamStep',
     fields: [],
@@ -1056,22 +1908,54 @@ const steps: FormStep[] = [
   {
     id: 'common-side-effects',
     path: 'common-side-effects',
-    title: { en: 'Which side effects concern you most when starting a new medication?', es: '¿Qué efectos secundarios te preocupan más al comenzar un nuevo medicamento?' },
+    title: {
+      en: 'Which side effects concern you most when starting a new medication?',
+      es: '¿Qué efectos secundarios te preocupan más al comenzar un nuevo medicamento?',
+    },
     type: 'single-select',
-    fields: [{
-      id: 'common_side_effects', type: 'radio',
-      label: { en: 'Side Effect Concerns', es: 'Preocupaciones sobre Efectos Secundarios' },
-      storageKey: 'common_side_effects',
-      options: [
-        { id: 'gastrointestinal', label: { en: 'Gastrointestinal issues (nausea, diarrhea)', es: 'Problemas gastrointestinales (náuseas, diarrea)' }, value: 'gastrointestinal' },
-        { id: 'abdominal_pain', label: { en: 'Abdominal pain', es: 'Dolor abdominal' }, value: 'abdominal_pain' },
-        { id: 'appetite_decrease', label: { en: 'Decreased appetite', es: 'Disminución del apetito' }, value: 'appetite_decrease' },
-        { id: 'fatigue', label: { en: 'Fatigue / tiredness', es: 'Fatiga / cansancio' }, value: 'fatigue' },
-        { id: 'dizziness', label: { en: 'Dizziness', es: 'Mareos' }, value: 'dizziness' },
-        { id: 'headache', label: { en: 'Headache', es: 'Dolor de cabeza' }, value: 'headache' },
-        { id: 'none', label: { en: 'None — I understand they may occur', es: 'Ninguno — entiendo que pueden ocurrir' }, value: 'none' },
-      ],
-    }],
+    fields: [
+      {
+        id: 'common_side_effects',
+        type: 'radio',
+        label: { en: 'Side Effect Concerns', es: 'Preocupaciones sobre Efectos Secundarios' },
+        storageKey: 'common_side_effects',
+        options: [
+          {
+            id: 'gastrointestinal',
+            label: {
+              en: 'Gastrointestinal issues (nausea, diarrhea)',
+              es: 'Problemas gastrointestinales (náuseas, diarrea)',
+            },
+            value: 'gastrointestinal',
+          },
+          {
+            id: 'abdominal_pain',
+            label: { en: 'Abdominal pain', es: 'Dolor abdominal' },
+            value: 'abdominal_pain',
+          },
+          {
+            id: 'appetite_decrease',
+            label: { en: 'Decreased appetite', es: 'Disminución del apetito' },
+            value: 'appetite_decrease',
+          },
+          {
+            id: 'fatigue',
+            label: { en: 'Fatigue / tiredness', es: 'Fatiga / cansancio' },
+            value: 'fatigue',
+          },
+          { id: 'dizziness', label: { en: 'Dizziness', es: 'Mareos' }, value: 'dizziness' },
+          { id: 'headache', label: { en: 'Headache', es: 'Dolor de cabeza' }, value: 'headache' },
+          {
+            id: 'none',
+            label: {
+              en: 'None — I understand they may occur',
+              es: 'Ninguno — entiendo que pueden ocurrir',
+            },
+            value: 'none',
+          },
+        ],
+      },
+    ],
     autoAdvance: true,
     showContinueButton: false,
     nextStep: 'personalized-treatment',
@@ -1081,7 +1965,10 @@ const steps: FormStep[] = [
   {
     id: 'personalized-treatment',
     path: 'personalized-treatment',
-    title: { en: 'Your treatment plan will be personalized based on your medical history and goals.', es: 'Tu plan de tratamiento será personalizado según tu historial médico y objetivos.' },
+    title: {
+      en: 'Your treatment plan will be personalized based on your medical history and goals.',
+      es: 'Tu plan de tratamiento será personalizado según tu historial médico y objetivos.',
+    },
     type: 'custom',
     component: 'PersonalizedTreatmentStep',
     fields: [],
@@ -1095,7 +1982,10 @@ const steps: FormStep[] = [
     id: 'review',
     path: 'review',
     title: { en: 'Review your information', es: 'Revisa tu información' },
-    subtitle: { en: 'Please verify the information below before submitting.', es: 'Por favor verifica la información antes de enviar.' },
+    subtitle: {
+      en: 'Please verify the information below before submitting.',
+      es: 'Por favor verifica la información antes de enviar.',
+    },
     type: 'custom',
     component: 'ReviewStep',
     fields: [],
@@ -1122,7 +2012,10 @@ const steps: FormStep[] = [
     id: 'qualified',
     path: 'qualified',
     title: { en: 'Great news!', es: '¡Excelentes noticias!' },
-    subtitle: { en: 'Based on your responses, you may qualify for treatment. A licensed provider will review your information.', es: 'Según tus respuestas, puedes calificar para el tratamiento. Un proveedor licenciado revisará tu información.' },
+    subtitle: {
+      en: 'Based on your responses, you may qualify for treatment. A licensed provider will review your information.',
+      es: 'Según tus respuestas, puedes calificar para el tratamiento. Un proveedor licenciado revisará tu información.',
+    },
     type: 'custom',
     component: 'QualifiedStep',
     fields: [],
@@ -1152,15 +2045,14 @@ export const weightLossIntakeConfig: FormConfig = {
   id: 'weight-loss-intake',
   name: 'Weight Loss Medical Intake',
   version: '3.0.0',
-  description: 'Comprehensive medical intake questionnaire for weight loss programs with GLP-1 medication assessment',
+  description:
+    'Comprehensive medical intake questionnaire for weight loss programs with GLP-1 medication assessment',
   treatmentType: 'weight-loss',
   steps,
   startStep: 'language',
   languages: ['en', 'es'],
   defaultLanguage: 'en',
-  integrations: [
-    { type: 'platform', triggers: ['complete'] },
-  ],
+  integrations: [{ type: 'platform', triggers: ['complete'] }],
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };

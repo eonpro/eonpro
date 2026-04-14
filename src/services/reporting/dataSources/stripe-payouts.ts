@@ -1,6 +1,16 @@
-import { getStripeForClinic, getStripeForPlatform, withConnectedAccount } from '@/lib/stripe/connect';
+import {
+  getStripeForClinic,
+  getStripeForPlatform,
+  withConnectedAccount,
+} from '@/lib/stripe/connect';
 import type Stripe from 'stripe';
-import type { DataSourceAdapter, ReportConfig, ReportResult, DataSourceDef, ReportRow } from '../types';
+import type {
+  DataSourceAdapter,
+  ReportConfig,
+  ReportResult,
+  DataSourceDef,
+  ReportRow,
+} from '../types';
 
 const definition: DataSourceDef = {
   id: 'stripe-payouts',
@@ -8,21 +18,42 @@ const definition: DataSourceDef = {
   description: 'Payout history showing bank deposits with status and timing',
   icon: 'Landmark',
   columns: [
-    { id: 'date', label: 'Created', type: 'date', sortable: true, filterable: true, groupable: true },
+    {
+      id: 'date',
+      label: 'Created',
+      type: 'date',
+      sortable: true,
+      filterable: true,
+      groupable: true,
+    },
     { id: 'payoutId', label: 'Payout ID', type: 'string' },
     { id: 'amount', label: 'Amount', type: 'currency', sortable: true },
-    { id: 'status', label: 'Status', type: 'string', sortable: true, filterable: true, groupable: true },
+    {
+      id: 'status',
+      label: 'Status',
+      type: 'string',
+      sortable: true,
+      filterable: true,
+      groupable: true,
+    },
     { id: 'arrivalDate', label: 'Arrival Date', type: 'date', sortable: true },
     { id: 'method', label: 'Method', type: 'string', groupable: true },
     { id: 'description', label: 'Description', type: 'string' },
     { id: 'destination', label: 'Destination', type: 'string' },
   ],
   filters: [
-    { field: 'status', label: 'Status', type: 'multi_select', options: [
-      { value: 'paid', label: 'Paid' }, { value: 'pending', label: 'Pending' },
-      { value: 'in_transit', label: 'In Transit' }, { value: 'canceled', label: 'Canceled' },
-      { value: 'failed', label: 'Failed' },
-    ]},
+    {
+      field: 'status',
+      label: 'Status',
+      type: 'multi_select',
+      options: [
+        { value: 'paid', label: 'Paid' },
+        { value: 'pending', label: 'Pending' },
+        { value: 'in_transit', label: 'In Transit' },
+        { value: 'canceled', label: 'Canceled' },
+        { value: 'failed', label: 'Failed' },
+      ],
+    },
     { field: 'dateRange', label: 'Date Range', type: 'date_range' },
   ],
   groupByOptions: [
@@ -106,10 +137,15 @@ async function execute(config: ReportConfig): Promise<ReportResult> {
   const paid = allRows.filter((r) => r.status === 'paid');
   const summary = {
     totalPaid: paid.reduce((a, r) => a + (r.amount as number), 0),
-    totalPending: allRows.filter((r) => r.status === 'pending').reduce((a, r) => a + (r.amount as number), 0),
+    totalPending: allRows
+      .filter((r) => r.status === 'pending')
+      .reduce((a, r) => a + (r.amount as number), 0),
     payoutCount: allRows.length,
     paidCount: paid.length,
-    avgPayoutAmount: paid.length > 0 ? Math.round(paid.reduce((a, r) => a + (r.amount as number), 0) / paid.length) : 0,
+    avgPayoutAmount:
+      paid.length > 0
+        ? Math.round(paid.reduce((a, r) => a + (r.amount as number), 0) / paid.length)
+        : 0,
   };
 
   return {

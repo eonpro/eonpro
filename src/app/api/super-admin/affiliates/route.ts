@@ -25,224 +25,237 @@ function withSuperAdminAuth(handler: (req: NextRequest, user: AuthUser) => Promi
 /**
  * GET /api/super-admin/affiliates
  */
-export const GET = superAdminRateLimit(withSuperAdminAuth(async (req: NextRequest, user: AuthUser) => {
-  try {
-    // Parse pagination params
-    const searchParams = req.nextUrl.searchParams;
-    const take = Math.min(parseInt(searchParams.get('limit') || '100', 10), 200);
-    const skip = parseInt(searchParams.get('offset') || '0', 10);
+export const GET = superAdminRateLimit(
+  withSuperAdminAuth(async (req: NextRequest, user: AuthUser) => {
+    try {
+      // Parse pagination params
+      const searchParams = req.nextUrl.searchParams;
+      const take = Math.min(parseInt(searchParams.get('limit') || '100', 10), 200);
+      const skip = parseInt(searchParams.get('offset') || '0', 10);
 
-    // Fetch affiliates — Tier 2 READ (fail-fast if breaker open, serve empty to UI)
-    const dbResult = await executeDbRead(
-      () =>
-        Promise.all([
-          basePrisma.affiliate.findMany({
-            select: {
-              id: true,
-              displayName: true,
-              status: true,
-              createdAt: true,
-              clinicId: true,
-              clinic: {
-                select: {
-                  id: true,
-                  name: true,
-                  subdomain: true,
-                },
-              },
-              user: {
-                select: {
-                  email: true,
-                  firstName: true,
-                  lastName: true,
-                  lastLogin: true,
-                  status: true,
-                },
-              },
-              refCodes: {
-                where: { isActive: true },
-                select: {
-                  id: true,
-                  refCode: true,
-                  isActive: true,
-                },
-              },
-              planAssignments: {
-                where: { effectiveTo: null },
-                select: {
-                  commissionPlan: {
-                    select: {
-                      id: true,
-                      name: true,
-                      planType: true,
-                      flatAmountCents: true,
-                      percentBps: true,
-                      initialPercentBps: true,
-                      initialFlatAmountCents: true,
-                      recurringPercentBps: true,
-                      recurringFlatAmountCents: true,
-                    },
+      // Fetch affiliates — Tier 2 READ (fail-fast if breaker open, serve empty to UI)
+      const dbResult = await executeDbRead(
+        () =>
+          Promise.all([
+            basePrisma.affiliate.findMany({
+              select: {
+                id: true,
+                displayName: true,
+                status: true,
+                createdAt: true,
+                clinicId: true,
+                clinic: {
+                  select: {
+                    id: true,
+                    name: true,
+                    subdomain: true,
                   },
                 },
-                take: 1,
+                user: {
+                  select: {
+                    email: true,
+                    firstName: true,
+                    lastName: true,
+                    lastLogin: true,
+                    status: true,
+                  },
+                },
+                refCodes: {
+                  where: { isActive: true },
+                  select: {
+                    id: true,
+                    refCode: true,
+                    isActive: true,
+                  },
+                },
+                planAssignments: {
+                  where: { effectiveTo: null },
+                  select: {
+                    commissionPlan: {
+                      select: {
+                        id: true,
+                        name: true,
+                        planType: true,
+                        flatAmountCents: true,
+                        percentBps: true,
+                        initialPercentBps: true,
+                        initialFlatAmountCents: true,
+                        recurringPercentBps: true,
+                        recurringFlatAmountCents: true,
+                      },
+                    },
+                  },
+                  take: 1,
+                },
               },
-            },
-            orderBy: { createdAt: 'desc' },
-            take,
-            skip,
-          }),
-          basePrisma.affiliateCommissionPlan.findMany({
-            where: { isActive: true },
-            select: {
-              id: true,
-              name: true,
-              planType: true,
-              flatAmountCents: true,
-              percentBps: true,
-              initialPercentBps: true,
-              initialFlatAmountCents: true,
-              recurringPercentBps: true,
-              recurringFlatAmountCents: true,
-              recurringEnabled: true,
-              isActive: true,
-              clinicId: true,
-            },
-          }),
-          basePrisma.affiliate.count(),
-        ]),
-      'super-admin:affiliates:list'
-    );
+              orderBy: { createdAt: 'desc' },
+              take,
+              skip,
+            }),
+            basePrisma.affiliateCommissionPlan.findMany({
+              where: { isActive: true },
+              select: {
+                id: true,
+                name: true,
+                planType: true,
+                flatAmountCents: true,
+                percentBps: true,
+                initialPercentBps: true,
+                initialFlatAmountCents: true,
+                recurringPercentBps: true,
+                recurringFlatAmountCents: true,
+                recurringEnabled: true,
+                isActive: true,
+                clinicId: true,
+              },
+            }),
+            basePrisma.affiliate.count(),
+          ]),
+        'super-admin:affiliates:list'
+      );
 
-    if (!dbResult.success) {
-      if (dbResult.error instanceof CircuitOpenError) {
-        return NextResponse.json(
-          { affiliates: [], plans: [], pagination: { total: 0, limit: take, offset: skip, hasMore: false }, warning: 'Service temporarily degraded' },
-          { status: 200 }
-        );
+      if (!dbResult.success) {
+        if (dbResult.error instanceof CircuitOpenError) {
+          return NextResponse.json(
+            {
+              affiliates: [],
+              plans: [],
+              pagination: { total: 0, limit: take, offset: skip, hasMore: false },
+              warning: 'Service temporarily degraded',
+            },
+            { status: 200 }
+          );
+        }
+        throw dbResult.error;
       }
-      throw dbResult.error;
-    }
 
-    const [affiliates, plans, totalCount] = dbResult.data!;
+      const [affiliates, plans, totalCount] = dbResult.data!;
 
-    const affiliateIds = affiliates.map(a => a.id);
+      const affiliateIds = affiliates.map((a) => a.id);
 
-    const [conversionStats, revenueStats, paidCommissionStats, clickStats] = affiliateIds.length > 0
-      ? await Promise.all([
-          // Conversions: count converted touches (same source as clinic analytics)
-          basePrisma.affiliateTouch.groupBy({
-            by: ['affiliateId'],
-            where: {
-              affiliateId: { in: affiliateIds },
-              convertedAt: { not: null },
-            },
-            _count: true,
-          }),
-          // Revenue: only active statuses (excludes REVERSED), matches clinic analytics
-          basePrisma.affiliateCommissionEvent.groupBy({
-            by: ['affiliateId'],
-            where: {
-              affiliateId: { in: affiliateIds },
-              status: { in: ['PENDING', 'APPROVED', 'PAID'] },
-            },
-            _sum: { eventAmountCents: true },
-          }),
-          // Earned commissions: all active statuses (matches revenue query and admin API)
-          basePrisma.affiliateCommissionEvent.groupBy({
-            by: ['affiliateId'],
-            where: {
-              affiliateId: { in: affiliateIds },
-              status: { in: ['PENDING', 'APPROVED', 'PAID'] },
-            },
-            _sum: { commissionAmountCents: true },
-          }),
-          // Clicks: for conversion rate display
-          basePrisma.affiliateTouch.groupBy({
-            by: ['affiliateId'],
-            where: {
-              affiliateId: { in: affiliateIds },
-              touchType: 'CLICK',
-            },
-            _count: true,
-          }),
-        ])
-      : [[], [], [], []];
+      const [conversionStats, revenueStats, paidCommissionStats, clickStats] =
+        affiliateIds.length > 0
+          ? await Promise.all([
+              // Conversions: count converted touches (same source as clinic analytics)
+              basePrisma.affiliateTouch.groupBy({
+                by: ['affiliateId'],
+                where: {
+                  affiliateId: { in: affiliateIds },
+                  convertedAt: { not: null },
+                },
+                _count: true,
+              }),
+              // Revenue: only active statuses (excludes REVERSED), matches clinic analytics
+              basePrisma.affiliateCommissionEvent.groupBy({
+                by: ['affiliateId'],
+                where: {
+                  affiliateId: { in: affiliateIds },
+                  status: { in: ['PENDING', 'APPROVED', 'PAID'] },
+                },
+                _sum: { eventAmountCents: true },
+              }),
+              // Earned commissions: all active statuses (matches revenue query and admin API)
+              basePrisma.affiliateCommissionEvent.groupBy({
+                by: ['affiliateId'],
+                where: {
+                  affiliateId: { in: affiliateIds },
+                  status: { in: ['PENDING', 'APPROVED', 'PAID'] },
+                },
+                _sum: { commissionAmountCents: true },
+              }),
+              // Clicks: for conversion rate display
+              basePrisma.affiliateTouch.groupBy({
+                by: ['affiliateId'],
+                where: {
+                  affiliateId: { in: affiliateIds },
+                  touchType: 'CLICK',
+                },
+                _count: true,
+              }),
+            ])
+          : [[], [], [], []];
 
-    const conversionMap = new Map(conversionStats.map(s => [s.affiliateId, s._count]));
-    const revenueMap = new Map(revenueStats.map(s => [s.affiliateId, s._sum.eventAmountCents || 0]));
-    const paidMap = new Map(paidCommissionStats.map(s => [s.affiliateId, s._sum.commissionAmountCents || 0]));
-    const clicksMap = new Map(clickStats.map(s => [s.affiliateId, s._count]));
+      const conversionMap = new Map(conversionStats.map((s) => [s.affiliateId, s._count]));
+      const revenueMap = new Map(
+        revenueStats.map((s) => [s.affiliateId, s._sum.eventAmountCents || 0])
+      );
+      const paidMap = new Map(
+        paidCommissionStats.map((s) => [s.affiliateId, s._sum.commissionAmountCents || 0])
+      );
+      const clicksMap = new Map(clickStats.map((s) => [s.affiliateId, s._count]));
 
-    const transformedAffiliates = affiliates.map((affiliate) => {
-      return {
-        id: affiliate.id,
-        displayName: affiliate.displayName,
-        status: affiliate.status,
-        createdAt: affiliate.createdAt.toISOString(),
-        clinicId: affiliate.clinicId,
-        clinic: affiliate.clinic,
-        user: affiliate.user,
-        refCodes: affiliate.refCodes,
-        currentPlan: affiliate.planAssignments[0]?.commissionPlan || null,
-        stats: {
-          totalConversions: conversionMap.get(affiliate.id) || 0,
-          totalRevenueCents: revenueMap.get(affiliate.id) || 0,
-          totalCommissionCents: paidMap.get(affiliate.id) || 0,
-          totalClicks: clicksMap.get(affiliate.id) || 0,
+      const transformedAffiliates = affiliates.map((affiliate) => {
+        return {
+          id: affiliate.id,
+          displayName: affiliate.displayName,
+          status: affiliate.status,
+          createdAt: affiliate.createdAt.toISOString(),
+          clinicId: affiliate.clinicId,
+          clinic: affiliate.clinic,
+          user: affiliate.user,
+          refCodes: affiliate.refCodes,
+          currentPlan: affiliate.planAssignments[0]?.commissionPlan || null,
+          stats: {
+            totalConversions: conversionMap.get(affiliate.id) || 0,
+            totalRevenueCents: revenueMap.get(affiliate.id) || 0,
+            totalCommissionCents: paidMap.get(affiliate.id) || 0,
+            totalClicks: clicksMap.get(affiliate.id) || 0,
+          },
+        };
+      });
+
+      return NextResponse.json({
+        affiliates: transformedAffiliates,
+        plans,
+        pagination: {
+          total: totalCount,
+          limit: take,
+          offset: skip,
+          hasMore: skip + affiliates.length < totalCount,
         },
-      };
-    });
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorName = error instanceof Error ? error.constructor.name : 'Unknown';
+      const errorStack =
+        error instanceof Error ? error.stack?.split('\n').slice(0, 5).join(' | ') : '';
 
-    return NextResponse.json({
-      affiliates: transformedAffiliates,
-      plans,
-      pagination: {
-        total: totalCount,
-        limit: take,
-        offset: skip,
-        hasMore: skip + affiliates.length < totalCount,
-      },
-    });
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const errorName = error instanceof Error ? error.constructor.name : 'Unknown';
-    const errorStack = error instanceof Error ? error.stack?.split('\n').slice(0, 5).join(' | ') : '';
+      logger.error('Failed to fetch affiliates', {
+        error: errorMessage,
+        errorName,
+        errorStack,
+      });
 
-    logger.error('Failed to fetch affiliates', {
-      error: errorMessage,
-      errorName,
-      errorStack,
-    });
+      // Check if this is a Prisma error indicating missing tables/columns
+      const isPrismaSchemaError =
+        errorMessage.includes('does not exist') ||
+        errorMessage.includes('relation') ||
+        errorMessage.includes('P2021') ||
+        errorMessage.includes('P2022') ||
+        errorMessage.includes('P2025') ||
+        errorMessage.includes('Unknown field') ||
+        errorMessage.includes('Unknown arg') ||
+        errorName === 'PrismaClientValidationError';
 
-    // Check if this is a Prisma error indicating missing tables/columns
-    const isPrismaSchemaError =
-      errorMessage.includes('does not exist') ||
-      errorMessage.includes('relation') ||
-      errorMessage.includes('P2021') ||
-      errorMessage.includes('P2022') ||
-      errorMessage.includes('P2025') ||
-      errorMessage.includes('Unknown field') ||
-      errorMessage.includes('Unknown arg') ||
-      errorName === 'PrismaClientValidationError';
+      if (isPrismaSchemaError) {
+        return NextResponse.json(
+          {
+            error: 'Database schema mismatch. Please run migrations.',
+            details: `Run: npx prisma migrate deploy (${errorMessage.substring(0, 200)})`,
+            affiliates: [],
+            plans: [],
+          },
+          { status: 200 }
+        ); // Return 200 with empty data so UI doesn't break
+      }
 
-    if (isPrismaSchemaError) {
       return NextResponse.json(
-        {
-          error: 'Database schema mismatch. Please run migrations.',
-          details: `Run: npx prisma migrate deploy (${errorMessage.substring(0, 200)})`,
-          affiliates: [],
-          plans: [],
-        },
-        { status: 200 }
-      ); // Return 200 with empty data so UI doesn't break
+        { error: 'Failed to fetch affiliates', details: errorMessage.substring(0, 500) },
+        { status: 500 }
+      );
     }
-
-    return NextResponse.json(
-      { error: 'Failed to fetch affiliates', details: errorMessage.substring(0, 500) },
-      { status: 500 }
-    );
-  }
-}));
+  })
+);
 
 /**
  * POST /api/super-admin/affiliates
@@ -385,7 +398,9 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
       ...(inviteResult.emailError ? { inviteEmailError: inviteResult.emailError } : {}),
     });
   } catch (error) {
-    logger.error('Failed to create affiliate', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('Failed to create affiliate', {
+      error: error instanceof Error ? error.message : String(error),
+    });
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const isPrismaTableError =

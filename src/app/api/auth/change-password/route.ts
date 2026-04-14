@@ -32,41 +32,78 @@ const changePasswordSchema = z.object({
  */
 async function handlePost(req: NextRequest, user: AuthUser): Promise<Response> {
   return withoutClinicFilter(async () => {
-  try {
-    const body = await req.json();
+    try {
+      const body = await req.json();
 
-    // Validate input
-    const validation = changePasswordSchema.safeParse(body);
-    if (!validation.success) {
-      return NextResponse.json({ error: validation.error.errors[0].message }, { status: 400 });
-    }
+      // Validate input
+      const validation = changePasswordSchema.safeParse(body);
+      if (!validation.success) {
+        return NextResponse.json({ error: validation.error.errors[0].message }, { status: 400 });
+      }
 
-    const { currentPassword, newPassword, confirmPassword } = validation.data;
+      const { currentPassword, newPassword, confirmPassword } = validation.data;
 
-    // Check if passwords match
-    if (newPassword !== confirmPassword) {
-      return NextResponse.json({ error: 'New passwords do not match' }, { status: 400 });
-    }
+      // Check if passwords match
+      if (newPassword !== confirmPassword) {
+        return NextResponse.json({ error: 'New passwords do not match' }, { status: 400 });
+      }
 
-    // Get user from database to verify current password
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { id: true, passwordHash: true },
-    });
-
-    if (!dbUser || !dbUser.passwordHash) {
-      logger.warn('[Change Password] User not found or no password set', {
-        userId: user.id,
+      // Get user from database to verify current password
+      const dbUser = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { id: true, passwordHash: true },
       });
-      return NextResponse.json(
-        { error: 'Unable to change password. Please contact support.' },
-        { status: 400 }
-      );
-    }
 
-    // Verify current password
-    const isValidPassword = await bcrypt.compare(currentPassword, dbUser.passwordHash);
-    if (!isValidPassword) {
+      if (!dbUser || !dbUser.passwordHash) {
+        logger.warn('[Change Password] User not found or no password set', {
+          userId: user.id,
+        });
+        return NextResponse.json(
+          { error: 'Unable to change password. Please contact support.' },
+          { status: 400 }
+        );
+      }
+
+      // Verify current password
+      const isValidPassword = await bcrypt.compare(currentPassword, dbUser.passwordHash);
+      if (!isValidPassword) {
+        await auditLog(req, {
+          userId: String(user.id),
+          userRole: user.role,
+          clinicId: user.clinicId,
+          eventType: AuditEventType.PASSWORD_CHANGE,
+          resourceType: 'User',
+          resourceId: String(user.id),
+          action: 'PASSWORD_CHANGE_FAILED',
+          outcome: 'FAILURE',
+          metadata: { reason: 'Invalid current password' },
+        });
+
+        return NextResponse.json({ error: 'Current password is incorrect' }, { status: 401 });
+      }
+
+      // Don't allow using the same password
+      const isSamePassword = await bcrypt.compare(newPassword, dbUser.passwordHash);
+      if (isSamePassword) {
+        return NextResponse.json(
+          { error: 'New password must be different from current password' },
+          { status: 400 }
+        );
+      }
+
+      // Hash new password
+      const newPasswordHash = await bcrypt.hash(newPassword, 12);
+
+      // Update password
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          passwordHash: newPasswordHash,
+          lastPasswordChange: new Date(),
+        },
+      });
+
+      // Log successful password change
       await auditLog(req, {
         userId: String(user.id),
         userRole: user.role,
@@ -74,67 +111,30 @@ async function handlePost(req: NextRequest, user: AuthUser): Promise<Response> {
         eventType: AuditEventType.PASSWORD_CHANGE,
         resourceType: 'User',
         resourceId: String(user.id),
-        action: 'PASSWORD_CHANGE_FAILED',
-        outcome: 'FAILURE',
-        metadata: { reason: 'Invalid current password' },
+        action: 'PASSWORD_CHANGE',
+        outcome: 'SUCCESS',
       });
 
-      return NextResponse.json({ error: 'Current password is incorrect' }, { status: 401 });
-    }
+      logger.info('[Change Password] Password changed successfully', {
+        userId: user.id,
+      });
 
-    // Don't allow using the same password
-    const isSamePassword = await bcrypt.compare(newPassword, dbUser.passwordHash);
-    if (isSamePassword) {
+      return NextResponse.json({
+        success: true,
+        message: 'Password changed successfully',
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('[Change Password] Error', {
+        userId: user.id,
+        error: errorMessage,
+      });
+
       return NextResponse.json(
-        { error: 'New password must be different from current password' },
-        { status: 400 }
+        { error: 'Failed to change password. Please try again.' },
+        { status: 500 }
       );
     }
-
-    // Hash new password
-    const newPasswordHash = await bcrypt.hash(newPassword, 12);
-
-    // Update password
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        passwordHash: newPasswordHash,
-        lastPasswordChange: new Date(),
-      },
-    });
-
-    // Log successful password change
-    await auditLog(req, {
-      userId: String(user.id),
-      userRole: user.role,
-      clinicId: user.clinicId,
-      eventType: AuditEventType.PASSWORD_CHANGE,
-      resourceType: 'User',
-      resourceId: String(user.id),
-      action: 'PASSWORD_CHANGE',
-      outcome: 'SUCCESS',
-    });
-
-    logger.info('[Change Password] Password changed successfully', {
-      userId: user.id,
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: 'Password changed successfully',
-    });
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('[Change Password] Error', {
-      userId: user.id,
-      error: errorMessage,
-    });
-
-    return NextResponse.json(
-      { error: 'Failed to change password. Please try again.' },
-      { status: 500 }
-    );
-  }
   }); // end withoutClinicFilter
 }
 

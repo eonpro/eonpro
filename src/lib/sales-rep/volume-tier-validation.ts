@@ -125,7 +125,11 @@ export function validateAndNormalizeVolumeTiers(
   for (let i = 0; i < normalized.length; i += 1) {
     const tier = normalized[i]!;
     if (!Number.isInteger(tier.minSales) || tier.minSales < 1) {
-      return { valid: false, error: 'Each tier minSales must be an integer >= 1', code: 'INVALID_VOLUME_TIERS' };
+      return {
+        valid: false,
+        error: 'Each tier minSales must be an integer >= 1',
+        code: 'INVALID_VOLUME_TIERS',
+      };
     }
     if (!Number.isInteger(tier.amountCents) || tier.amountCents < 0) {
       return {
@@ -155,7 +159,8 @@ export function validateAndNormalizeVolumeTiers(
       if (next.minSales <= tier.maxSales) {
         return {
           valid: false,
-          error: 'Volume tiers must not overlap; each next minSales must be greater than previous maxSales',
+          error:
+            'Volume tiers must not overlap; each next minSales must be greater than previous maxSales',
           code: 'INVALID_VOLUME_TIERS',
         };
       }

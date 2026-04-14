@@ -34,12 +34,7 @@ interface OptionListEditorProps {
     optionId: string,
     updates: Partial<FieldOption>
   ) => void;
-  onReorderOptions: (
-    stepId: string,
-    fieldId: string,
-    activeId: string,
-    overId: string
-  ) => void;
+  onReorderOptions: (stepId: string, fieldId: string, activeId: string, overId: string) => void;
 }
 
 function OptionRow({
@@ -55,14 +50,9 @@ function OptionRow({
   onUpdate: (optionId: string, updates: Partial<FieldOption>) => void;
   onDelete: (optionId: string) => void;
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: option.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: option.id,
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -73,20 +63,20 @@ function OptionRow({
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-2 p-2 rounded-lg border bg-white transition-colors ${
-        isDragging ? 'border-indigo-300 shadow-md z-10' : 'border-gray-200'
+      className={`flex items-center gap-2 rounded-lg border bg-white p-2 transition-colors ${
+        isDragging ? 'z-10 border-indigo-300 shadow-md' : 'border-gray-200'
       }`}
     >
       <button
         type="button"
-        className="p-1 text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing touch-none"
+        className="cursor-grab touch-none p-1 text-gray-400 hover:text-gray-600 active:cursor-grabbing"
         {...attributes}
         {...listeners}
         aria-label="Drag to reorder"
       >
-        <GripVertical className="w-4 h-4" />
+        <GripVertical className="h-4 w-4" />
       </button>
-      <div className="flex-1 min-w-0 grid grid-cols-2 gap-2">
+      <div className="grid min-w-0 flex-1 grid-cols-2 gap-2">
         <LocalizedInput
           value={option.label}
           onChange={(v) => onUpdate(option.id, { label: v })}
@@ -98,16 +88,16 @@ function OptionRow({
           value={option.value}
           onChange={(e) => onUpdate(option.id, { value: e.target.value })}
           placeholder="Value"
-          className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
+          className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
         />
       </div>
       <button
         type="button"
         onClick={() => onDelete(option.id)}
-        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+        className="rounded p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
         aria-label="Delete option"
       >
-        <Trash2 className="w-4 h-4" />
+        <Trash2 className="h-4 w-4" />
       </button>
     </div>
   );
@@ -149,9 +139,7 @@ export default function OptionListEditor({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-gray-600 uppercase tracking-wider">
-          Options
-        </span>
+        <span className="text-xs font-medium uppercase tracking-wider text-gray-600">Options</span>
         <button
           type="button"
           onClick={() => onAddOption(stepId, fieldId)}
@@ -160,15 +148,8 @@ export default function OptionListEditor({
           + Add Option
         </button>
       </div>
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-      >
-        <SortableContext
-          items={options.map((o) => o.id)}
-          strategy={verticalListSortingStrategy}
-        >
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={options.map((o) => o.id)} strategy={verticalListSortingStrategy}>
           <div className="space-y-1.5">
             {options.map((option) => (
               <OptionRow
@@ -184,7 +165,7 @@ export default function OptionListEditor({
         </SortableContext>
       </DndContext>
       {options.length === 0 && (
-        <p className="text-xs text-gray-500 py-2">
+        <p className="py-2 text-xs text-gray-500">
           No options yet. Add options for radio, checkbox, or select fields.
         </p>
       )}

@@ -84,7 +84,9 @@ export default function AdminSchedulingPage() {
   const [currentDay, setCurrentDay] = useState(new Date());
   const [error, setError] = useState<string | null>(null);
   const [showBookWizard, setShowBookWizard] = useState(false);
-  const [availableSlots, setAvailableSlots] = useState<Record<string, { startTime: string; endTime: string; available: boolean }[]>>({});
+  const [availableSlots, setAvailableSlots] = useState<
+    Record<string, { startTime: string; endTime: string; available: boolean }[]>
+  >({});
 
   useEffect(() => {
     fetchProviders();
@@ -113,7 +115,10 @@ export default function AdminSchedulingPage() {
           dates.push(currentDay);
         }
 
-        const slotMap: Record<string, { startTime: string; endTime: string; available: boolean }[]> = {};
+        const slotMap: Record<
+          string,
+          { startTime: string; endTime: string; available: boolean }[]
+        > = {};
         await Promise.all(
           dates.map(async (d) => {
             const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -123,8 +128,18 @@ export default function AdminSchedulingPage() {
             if (res.ok) {
               const data = await res.json();
               slotMap[dateStr] = (data.slots || []).map((s: any) => ({
-                startTime: new Date(s.startTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: EASTERN_TZ }),
-                endTime: new Date(s.endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: EASTERN_TZ }),
+                startTime: new Date(s.startTime).toLocaleTimeString('en-US', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  hour12: false,
+                  timeZone: EASTERN_TZ,
+                }),
+                endTime: new Date(s.endTime).toLocaleTimeString('en-US', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  hour12: false,
+                  timeZone: EASTERN_TZ,
+                }),
                 available: s.available,
               }));
             }
@@ -188,10 +203,13 @@ export default function AdminSchedulingPage() {
         patientEmail: apt.patient?.email || '',
         patientPhone: apt.patient?.phone || '',
         providerId: apt.providerId,
-        providerName: apt.provider ? `${apt.provider.firstName} ${apt.provider.lastName}` : 'Unknown',
+        providerName: apt.provider
+          ? `${apt.provider.firstName} ${apt.provider.lastName}`
+          : 'Unknown',
         date: new Date(apt.startTime),
         duration: apt.duration || 15,
-        type: apt.type === 'VIDEO' ? 'telehealth' : apt.type === 'IN_PERSON' ? 'in-person' : 'phone',
+        type:
+          apt.type === 'VIDEO' ? 'telehealth' : apt.type === 'IN_PERSON' ? 'in-person' : 'phone',
         status: apt.status?.toLowerCase() || 'scheduled',
         reason: apt.reason,
         notes: apt.notes,
@@ -248,11 +266,26 @@ export default function AdminSchedulingPage() {
     setCurrentDay(newDay);
   };
 
-  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const monthNames = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  const getDaysInMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
-  const getFirstDayOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+  const getDaysInMonth = (date: Date) =>
+    new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+  const getFirstDayOfMonth = (date: Date) =>
+    new Date(date.getFullYear(), date.getMonth(), 1).getDay();
 
   const getAppointmentsForDate = (date: Date) =>
     filteredAppointments.filter((apt) => apt.date.toDateString() === date.toDateString());
@@ -296,7 +329,9 @@ export default function AdminSchedulingPage() {
               }`}
               onClick={() => handleBookAppointment(date)}
             >
-              <div className={`mb-1 text-xs font-medium ${isToday ? 'text-[#4fa77e]' : 'text-gray-700'}`}>
+              <div
+                className={`mb-1 text-xs font-medium ${isToday ? 'text-[#4fa77e]' : 'text-gray-700'}`}
+              >
                 {date.getDate()}
               </div>
               <div className="space-y-0.5">
@@ -305,7 +340,10 @@ export default function AdminSchedulingPage() {
                   return (
                     <div
                       key={apt.id}
-                      onClick={(e) => { e.stopPropagation(); handleAppointmentClick(apt); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAppointmentClick(apt);
+                      }}
                       className={`flex items-center gap-1 rounded px-1 py-0.5 text-[10px] ${
                         apt.type === 'telehealth'
                           ? 'bg-blue-50 text-blue-700'
@@ -316,14 +354,20 @@ export default function AdminSchedulingPage() {
                     >
                       <TypeIcon className="h-2.5 w-2.5 flex-shrink-0" />
                       <span className="truncate">
-                        {apt.date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: EASTERN_TZ })}
-                        {' '}{apt.patientName.split(' ')[0]}
+                        {apt.date.toLocaleTimeString('en-US', {
+                          hour: 'numeric',
+                          minute: '2-digit',
+                          timeZone: EASTERN_TZ,
+                        })}{' '}
+                        {apt.patientName.split(' ')[0]}
                       </span>
                     </div>
                   );
                 })}
                 {dayAppts.length > 3 && (
-                  <div className="text-center text-[10px] text-gray-500">+{dayAppts.length - 3} more</div>
+                  <div className="text-center text-[10px] text-gray-500">
+                    +{dayAppts.length - 3} more
+                  </div>
                 )}
               </div>
             </div>
@@ -372,27 +416,40 @@ export default function AdminSchedulingPage() {
             {weekDays.map((d) => {
               const isToday = d.toDateString() === new Date().toDateString();
               return (
-                <div key={d.toISOString()} className={`p-2 text-center ${isToday ? 'bg-[#4fa77e]/10' : ''}`}>
+                <div
+                  key={d.toISOString()}
+                  className={`p-2 text-center ${isToday ? 'bg-[#4fa77e]/10' : ''}`}
+                >
                   <div className="text-xs text-gray-500">{dayNames[d.getDay()]}</div>
-                  <div className={`text-sm font-semibold ${isToday ? 'text-[#4fa77e]' : 'text-gray-900'}`}>{d.getDate()}</div>
+                  <div
+                    className={`text-sm font-semibold ${isToday ? 'text-[#4fa77e]' : 'text-gray-900'}`}
+                  >
+                    {d.getDate()}
+                  </div>
                 </div>
               );
             })}
           </div>
           {hours.map((hour) => (
-            <div key={hour} className="grid grid-cols-[60px_repeat(7,1fr)] border-b last:border-b-0">
+            <div
+              key={hour}
+              className="grid grid-cols-[60px_repeat(7,1fr)] border-b last:border-b-0"
+            >
               <div className="border-r p-1 text-right text-xs text-gray-400">
-                {hour > 12 ? hour - 12 : hour}{hour >= 12 ? 'p' : 'a'}
+                {hour > 12 ? hour - 12 : hour}
+                {hour >= 12 ? 'p' : 'a'}
               </div>
               {weekDays.map((d) => {
                 const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-                const dayAppts = getAppointmentsForDate(d).filter((a) => a.date.getHours() === hour);
+                const dayAppts = getAppointmentsForDate(d).filter(
+                  (a) => a.date.getHours() === hour
+                );
                 const slotAvailable = selectedProviderId ? isHourAvailable(dateStr, hour) : false;
 
                 return (
                   <div
                     key={d.toISOString() + hour}
-                    className={`min-h-[48px] cursor-pointer border-r p-0.5 last:border-r-0 transition-colors ${
+                    className={`min-h-[48px] cursor-pointer border-r p-0.5 transition-colors last:border-r-0 ${
                       slotAvailable && dayAppts.length === 0
                         ? 'bg-[#4fa77e]/5 hover:bg-[#4fa77e]/15'
                         : 'hover:bg-gray-50'
@@ -413,9 +470,14 @@ export default function AdminSchedulingPage() {
                       return (
                         <div
                           key={apt.id}
-                          onClick={(e) => { e.stopPropagation(); handleAppointmentClick(apt); }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAppointmentClick(apt);
+                          }}
                           className={`mb-0.5 rounded p-1 text-[10px] ${
-                            apt.type === 'telehealth' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
+                            apt.type === 'telehealth'
+                              ? 'bg-blue-100 text-blue-800'
+                              : 'bg-green-100 text-green-800'
                           }`}
                         >
                           <div className="flex items-center gap-1">
@@ -446,9 +508,16 @@ export default function AdminSchedulingPage() {
         <div className={`border-b p-3 text-center ${isToday ? 'bg-[#4fa77e]/10' : 'bg-gray-50'}`}>
           <div className="text-sm text-gray-500">{dayNames[currentDay.getDay()]}</div>
           <div className={`text-lg font-semibold ${isToday ? 'text-[#4fa77e]' : 'text-gray-900'}`}>
-            {currentDay.toLocaleDateString('en-US', { timeZone: EASTERN_TZ, month: 'long', day: 'numeric', year: 'numeric' })}
+            {currentDay.toLocaleDateString('en-US', {
+              timeZone: EASTERN_TZ,
+              month: 'long',
+              day: 'numeric',
+              year: 'numeric',
+            })}
           </div>
-          <div className="mt-1 text-xs text-gray-500">{dayAppts.length} appointment{dayAppts.length !== 1 ? 's' : ''}</div>
+          <div className="mt-1 text-xs text-gray-500">
+            {dayAppts.length} appointment{dayAppts.length !== 1 ? 's' : ''}
+          </div>
         </div>
         <div>
           {hours.map((hour) => {
@@ -476,25 +545,43 @@ export default function AdminSchedulingPage() {
                     return (
                       <div
                         key={apt.id}
-                        onClick={(e) => { e.stopPropagation(); handleAppointmentClick(apt); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAppointmentClick(apt);
+                        }}
                         className={`mb-1 rounded-lg p-2 ${
-                          apt.type === 'telehealth' ? 'bg-blue-50 border border-blue-200' : 'bg-green-50 border border-green-200'
+                          apt.type === 'telehealth'
+                            ? 'border border-blue-200 bg-blue-50'
+                            : 'border border-green-200 bg-green-50'
                         }`}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <TypeIcon className="h-4 w-4 text-gray-600" />
-                            <span className="text-sm font-medium text-gray-900">{apt.patientName}</span>
+                            <span className="text-sm font-medium text-gray-900">
+                              {apt.patientName}
+                            </span>
                           </div>
-                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUS_COLORS[apt.status] || 'bg-gray-100 text-gray-700'}`}>
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUS_COLORS[apt.status] || 'bg-gray-100 text-gray-700'}`}
+                          >
                             {apt.status}
                           </span>
                         </div>
                         <div className="mt-1 text-xs text-gray-500">
-                          {apt.date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: EASTERN_TZ })} - {apt.duration}min
-                          {apt.providerName && <span className="ml-2">with {apt.providerName}</span>}
+                          {apt.date.toLocaleTimeString('en-US', {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            timeZone: EASTERN_TZ,
+                          })}{' '}
+                          - {apt.duration}min
+                          {apt.providerName && (
+                            <span className="ml-2">with {apt.providerName}</span>
+                          )}
                         </div>
-                        {apt.reason && <div className="mt-0.5 text-xs text-gray-400">{apt.reason}</div>}
+                        {apt.reason && (
+                          <div className="mt-0.5 text-xs text-gray-400">{apt.reason}</div>
+                        )}
                       </div>
                     );
                   })}
@@ -550,16 +637,23 @@ export default function AdminSchedulingPage() {
               <button
                 onClick={() => setActiveTab('calendar')}
                 className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
-                  activeTab === 'calendar' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                  activeTab === 'calendar'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
                 <Calendar className="mr-1.5 inline h-4 w-4" />
                 Calendar
               </button>
               <button
-                onClick={() => { setActiveTab('book'); handleBookAppointment(); }}
+                onClick={() => {
+                  setActiveTab('book');
+                  handleBookAppointment();
+                }}
                 className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
-                  activeTab === 'book' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                  activeTab === 'book'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
                 <Plus className="mr-1.5 inline h-4 w-4" />
@@ -575,7 +669,9 @@ export default function AdminSchedulingPage() {
                     key={v}
                     onClick={() => setCalendarView(v)}
                     className={`rounded-md px-3 py-1 text-xs font-medium capitalize transition-colors ${
-                      calendarView === v ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                      calendarView === v
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
                     }`}
                   >
                     {v}
@@ -589,13 +685,16 @@ export default function AdminSchedulingPage() {
           <div className="flex items-center gap-3">
             <select
               value={selectedProviderId ?? ''}
-              onChange={(e) => setSelectedProviderId(e.target.value ? Number(e.target.value) : null)}
+              onChange={(e) =>
+                setSelectedProviderId(e.target.value ? Number(e.target.value) : null)
+              }
               className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm"
             >
               <option value="">All Providers</option>
               {providers.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.firstName} {p.lastName}{p.titleLine ? `, ${p.titleLine}` : ''}
+                  {p.firstName} {p.lastName}
+                  {p.titleLine ? `, ${p.titleLine}` : ''}
                 </option>
               ))}
             </select>
@@ -622,15 +721,21 @@ export default function AdminSchedulingPage() {
             <h3 className="mb-3 text-sm font-semibold text-gray-900">Today's Appointments</h3>
             <div className="mb-3 flex gap-3">
               <div className="flex-1 rounded-lg bg-blue-50 p-2 text-center">
-                <div className="text-lg font-bold text-blue-700">{todayAppts.filter((a) => a.type === 'telehealth').length}</div>
+                <div className="text-lg font-bold text-blue-700">
+                  {todayAppts.filter((a) => a.type === 'telehealth').length}
+                </div>
                 <div className="text-[10px] text-blue-600">Telehealth</div>
               </div>
               <div className="flex-1 rounded-lg bg-green-50 p-2 text-center">
-                <div className="text-lg font-bold text-green-700">{todayAppts.filter((a) => a.type === 'in-person').length}</div>
+                <div className="text-lg font-bold text-green-700">
+                  {todayAppts.filter((a) => a.type === 'in-person').length}
+                </div>
                 <div className="text-[10px] text-green-600">In-Person</div>
               </div>
               <div className="flex-1 rounded-lg bg-purple-50 p-2 text-center">
-                <div className="text-lg font-bold text-purple-700">{todayAppts.filter((a) => a.type === 'phone').length}</div>
+                <div className="text-lg font-bold text-purple-700">
+                  {todayAppts.filter((a) => a.type === 'phone').length}
+                </div>
                 <div className="text-[10px] text-purple-600">Phone</div>
               </div>
             </div>
@@ -652,7 +757,12 @@ export default function AdminSchedulingPage() {
                         <span className="text-xs font-medium text-gray-900">{apt.patientName}</span>
                       </div>
                       <div className="ml-5 mt-0.5 text-[10px] text-gray-500">
-                        {apt.date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: EASTERN_TZ })} - {apt.duration}min
+                        {apt.date.toLocaleTimeString('en-US', {
+                          hour: 'numeric',
+                          minute: '2-digit',
+                          timeZone: EASTERN_TZ,
+                        })}{' '}
+                        - {apt.duration}min
                         <span className="ml-1 text-gray-400">({apt.providerName})</span>
                       </div>
                     </div>
@@ -679,8 +789,18 @@ export default function AdminSchedulingPage() {
                 >
                   <div className="text-xs font-medium text-gray-900">{apt.patientName}</div>
                   <div className="mt-0.5 text-[10px] text-gray-500">
-                    {apt.date.toLocaleDateString('en-US', { timeZone: EASTERN_TZ, weekday: 'short', month: 'short', day: 'numeric' })}
-                    {' '}at {apt.date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: EASTERN_TZ })}
+                    {apt.date.toLocaleDateString('en-US', {
+                      timeZone: EASTERN_TZ,
+                      weekday: 'short',
+                      month: 'short',
+                      day: 'numeric',
+                    })}{' '}
+                    at{' '}
+                    {apt.date.toLocaleTimeString('en-US', {
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      timeZone: EASTERN_TZ,
+                    })}
                   </div>
                   <div className="mt-0.5 text-[10px] text-gray-400">{apt.providerName}</div>
                 </div>
@@ -705,18 +825,39 @@ export default function AdminSchedulingPage() {
               {/* Navigation */}
               <div className="mb-4 flex items-center justify-between">
                 <button
-                  onClick={() => calendarView === 'month' ? navigateMonth(-1) : calendarView === 'week' ? navigateWeek(-1) : navigateDay(-1)}
+                  onClick={() =>
+                    calendarView === 'month'
+                      ? navigateMonth(-1)
+                      : calendarView === 'week'
+                        ? navigateWeek(-1)
+                        : navigateDay(-1)
+                  }
                   className="rounded-lg border border-gray-200 p-2 transition-colors hover:bg-gray-50"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
                 <h2 className="text-lg font-semibold text-gray-900">
-                  {calendarView === 'month' && `${monthNames[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`}
-                  {calendarView === 'week' && `Week of ${currentWeekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: EASTERN_TZ })}`}
-                  {calendarView === 'day' && currentDay.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: EASTERN_TZ })}
+                  {calendarView === 'month' &&
+                    `${monthNames[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`}
+                  {calendarView === 'week' &&
+                    `Week of ${currentWeekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: EASTERN_TZ })}`}
+                  {calendarView === 'day' &&
+                    currentDay.toLocaleDateString('en-US', {
+                      weekday: 'long',
+                      month: 'long',
+                      day: 'numeric',
+                      year: 'numeric',
+                      timeZone: EASTERN_TZ,
+                    })}
                 </h2>
                 <button
-                  onClick={() => calendarView === 'month' ? navigateMonth(1) : calendarView === 'week' ? navigateWeek(1) : navigateDay(1)}
+                  onClick={() =>
+                    calendarView === 'month'
+                      ? navigateMonth(1)
+                      : calendarView === 'week'
+                        ? navigateWeek(1)
+                        : navigateDay(1)
+                  }
                   className="rounded-lg border border-gray-200 p-2 transition-colors hover:bg-gray-50"
                 >
                   <ChevronRight className="h-4 w-4" />
@@ -736,7 +877,10 @@ export default function AdminSchedulingPage() {
       {showModal && (
         <AppointmentModal
           isOpen={showModal}
-          onClose={() => { setShowModal(false); setSelectedAppointment(null); }}
+          onClose={() => {
+            setShowModal(false);
+            setSelectedAppointment(null);
+          }}
           onSave={handleSaveAppointment}
           selectedDate={selectedDate}
           appointment={selectedAppointment}

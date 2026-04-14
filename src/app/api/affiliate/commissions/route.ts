@@ -94,7 +94,9 @@ async function handler(req: NextRequest, user: AuthUser) {
       },
     });
   } catch (error) {
-    logger.error('[Commissions] Error', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('[Commissions] Error', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json({ error: 'Failed to fetch commissions' }, { status: 500 });
   }
 }

@@ -50,68 +50,76 @@ export default function MedicalTeamStep({
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
-      <div className="w-full h-1 bg-gray-200">
-        <div 
+    <div className="flex min-h-screen flex-col bg-white">
+      <div className="h-1 w-full bg-gray-200">
+        <div
           className="h-full bg-[var(--intake-accent,#f0feab)] transition-all duration-300"
           style={{ width: `${progressPercent}%` }}
         />
       </div>
-      
+
       {prevStep && (
-        <div className="px-6 lg:px-8 pt-8 lg:pt-6">
-          <button 
+        <div className="px-6 pt-8 lg:px-8 lg:pt-6">
+          <button
             onClick={handleBack}
-            className="inline-block p-2 -ml-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="-ml-2 inline-block rounded-lg p-2 transition-colors hover:bg-gray-100"
           >
-            <svg className="w-6 h-6 text-[#413d3d]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+            <svg
+              className="h-6 w-6 text-[#413d3d]"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
           </button>
         </div>
       )}
-      
-      <div className="flex-1 flex flex-col px-6 lg:px-8 py-8 pb-40 max-w-md lg:max-w-lg mx-auto w-full">
+
+      <div className="mx-auto flex w-full max-w-md flex-1 flex-col px-6 py-8 pb-40 lg:max-w-lg lg:px-8">
         <div className="space-y-6">
-          <div 
+          <div
             className={`flex justify-center transition-all duration-700 ease-out ${
-              animate ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
+              animate ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
             }`}
           >
-            <img 
+            <img
               src="https://static.wixstatic.com/media/c49a9b_e3b5b1388aab4fb4b005bf6f54a54df4~mv2.webp"
               alt={isSpanish ? 'Equipo médico' : 'Medical team'}
-              className="w-full max-w-md h-auto rounded-2xl shadow-lg hover:shadow-xl transition-shadow duration-300"
+              className="h-auto w-full max-w-md rounded-2xl shadow-lg transition-shadow duration-300 hover:shadow-xl"
             />
           </div>
 
           <div className="space-y-4">
-            <h1 
+            <h1
               className={`page-title text-[#4ea77d] transition-all duration-700 ease-out ${
-                animate ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+                animate ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
               }`}
               style={{ transitionDelay: '200ms' }}
             >
-              {isSpanish 
-                ? 'Mensaje de nuestro equipo médico'
-                : 'Message from our medical team'}
+              {isSpanish ? 'Mensaje de nuestro equipo médico' : 'Message from our medical team'}
             </h1>
 
             <div className="space-y-4 text-gray-700">
-              <p 
+              <p
                 className={`text-lg transition-all duration-700 ease-out ${
-                  animate ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+                  animate ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
                 }`}
                 style={{ transitionDelay: '350ms' }}
               >
                 {isSpanish
                   ? 'Si bien los medicamentos para perder peso son altamente efectivos, es común experimentar efectos secundarios como náuseas.'
-                  : 'While weight loss medications are highly effective, it\'s common to experience side effects like nausea.'}
+                  : "While weight loss medications are highly effective, it's common to experience side effects like nausea."}
               </p>
 
-              <p 
+              <p
                 className={`transition-all duration-700 ease-out ${
-                  animate ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+                  animate ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
                 }`}
                 style={{ transitionDelay: '500ms' }}
               >
@@ -120,9 +128,9 @@ export default function MedicalTeamStep({
                   : 'At EONMeds, a licensed physician can customize your treatment plan to help you achieve your goals without having to deal with those effects.'}
               </p>
 
-              <p 
+              <p
                 className={`transition-all duration-700 ease-out ${
-                  animate ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+                  animate ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
                 }`}
                 style={{ transitionDelay: '650ms' }}
               >
@@ -135,13 +143,17 @@ export default function MedicalTeamStep({
         </div>
       </div>
 
-      <div 
-        className={`px-6 lg:px-8 pb-8 max-w-md lg:max-w-lg mx-auto w-full transition-all duration-700 ease-out ${
+      <div
+        className={`mx-auto w-full max-w-md px-6 pb-8 transition-all duration-700 ease-out lg:max-w-lg lg:px-8 ${
           animate ? 'opacity-100' : 'opacity-0'
         }`}
         style={{ transitionDelay: '800ms' }}
       >
-        <p className="copyright-text text-center">© 2026 EONPro, LLC. All rights reserved.<br/>Exclusive and protected process.</p>
+        <p className="copyright-text text-center">
+          © 2026 EONPro, LLC. All rights reserved.
+          <br />
+          Exclusive and protected process.
+        </p>
       </div>
     </div>
   );

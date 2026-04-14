@@ -269,8 +269,7 @@ export default function PatientFinancePage() {
 
   const filteredAtRisk = displayData.atRisk.filter(
     (p) =>
-      normalizedIncludes(p.patientName, searchQuery) ||
-      normalizedIncludes(p.email, searchQuery)
+      normalizedIncludes(p.patientName, searchQuery) || normalizedIncludes(p.email, searchQuery)
   );
 
   return (

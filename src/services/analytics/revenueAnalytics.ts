@@ -430,7 +430,10 @@ export class RevenueAnalyticsService {
         },
       });
 
-      const productMap = new Map<number, { name: string; category: string; revenue: number; quantity: number }>();
+      const productMap = new Map<
+        number,
+        { name: string; category: string; revenue: number; quantity: number }
+      >();
       let totalRevenue = 0;
 
       invoiceItems.forEach((item: (typeof invoiceItems)[number]) => {
@@ -477,7 +480,10 @@ export class RevenueAnalyticsService {
     dateRange: DateRange
   ): Promise<RevenueByCategory[]> {
     const byProduct = await this.getRevenueByProduct(clinicId, dateRange);
-    const categoryMap = new Map<string, { revenue: number; quantity: number; productIds: Set<number> }>();
+    const categoryMap = new Map<
+      string,
+      { revenue: number; quantity: number; productIds: Set<number> }
+    >();
     let totalRevenue = 0;
 
     for (const p of byProduct) {

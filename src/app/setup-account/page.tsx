@@ -16,15 +16,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import {
-  CheckCircle,
-  XCircle,
-  Eye,
-  EyeOff,
-  ArrowRight,
-  Shield,
-  Loader2,
-} from 'lucide-react';
+import { CheckCircle, XCircle, Eye, EyeOff, ArrowRight, Shield, Loader2 } from 'lucide-react';
 
 interface SetupData {
   user: {
@@ -84,7 +76,9 @@ export default function SetupAccountPage() {
 
   useEffect(() => {
     if (!token) {
-      setInvalidMessage('No setup token provided. Please check your email for the invitation link.');
+      setInvalidMessage(
+        'No setup token provided. Please check your email for the invitation link.'
+      );
       setState('invalid');
       return;
     }
@@ -221,7 +215,8 @@ export default function SetupAccountPage() {
           <h2 className="text-2xl font-semibold text-gray-900">You&apos;re all set!</h2>
           <p className="mt-3 text-sm text-gray-500">
             Your password has been set successfully.
-            <br />Redirecting you to the login page...
+            <br />
+            Redirecting you to the login page...
           </p>
           <div className="mx-auto mt-6 h-1.5 w-40 overflow-hidden rounded-full bg-gray-200">
             <div
@@ -273,8 +268,8 @@ export default function SetupAccountPage() {
             </h2>
             <p className="mt-2 text-sm text-gray-500">
               Your <strong className="text-gray-700">{data?.user.roleLabel}</strong> account at{' '}
-              <strong className="text-gray-700">{data?.clinic.name}</strong> is ready.
-              Set a secure password to get started.
+              <strong className="text-gray-700">{data?.clinic.name}</strong> is ready. Set a secure
+              password to get started.
             </p>
             <div className="mt-3 inline-block rounded-lg bg-gray-50 px-3 py-1.5 text-xs text-gray-500">
               {data?.user.email}
@@ -291,7 +286,10 @@ export default function SetupAccountPage() {
                   ref={passwordRef}
                   type={showPassword ? 'text' : 'password'}
                   value={password}
-                  onChange={(e) => { setPassword(e.target.value); setError(null); }}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setError(null);
+                  }}
                   className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3.5 pr-12 text-gray-900 placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-gray-900"
                   placeholder="Create a strong password"
                   autoComplete="new-password"
@@ -321,12 +319,17 @@ export default function SetupAccountPage() {
 
             {/* Confirm */}
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">Confirm password</label>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                Confirm password
+              </label>
               <div className="relative">
                 <input
                   type={showConfirm ? 'text' : 'password'}
                   value={confirmPassword}
-                  onChange={(e) => { setConfirmPassword(e.target.value); setError(null); }}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    setError(null);
+                  }}
                   className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3.5 pr-12 text-gray-900 placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-gray-900"
                   placeholder="Re-enter your password"
                   autoComplete="new-password"
@@ -346,7 +349,9 @@ export default function SetupAccountPage() {
 
             {/* Requirements */}
             <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
-              <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">Requirements</p>
+              <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">
+                Requirements
+              </p>
               <div className="space-y-1.5">
                 {PASSWORD_CHECKS.map((check) => {
                   const passed = check.test(password);
@@ -359,7 +364,9 @@ export default function SetupAccountPage() {
                       ) : (
                         <XCircle className="h-4 w-4 text-gray-300" />
                       )}
-                      <span className={`text-xs ${password.length === 0 ? 'text-gray-500' : passed ? 'text-green-700' : 'text-gray-400'}`}>
+                      <span
+                        className={`text-xs ${password.length === 0 ? 'text-gray-500' : passed ? 'text-green-700' : 'text-gray-400'}`}
+                      >
                         {check.label}
                       </span>
                     </div>

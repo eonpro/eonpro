@@ -327,9 +327,7 @@ export default function SalesReportPage() {
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-              Sales Transactions
-            </h1>
+            <h1 className="text-2xl font-bold tracking-tight text-gray-900">Sales Transactions</h1>
             <p className="mt-0.5 text-sm text-gray-500">
               Detailed transaction ledger &mdash; every payment with patient, treatment, and status
             </p>
@@ -406,7 +404,7 @@ export default function SalesReportPage() {
             </select>
           </div>
 
-          <div className="flex-1 min-w-[200px]">
+          <div className="min-w-[200px] flex-1">
             <label className="mb-1 block text-xs font-medium text-gray-500">Search</label>
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
@@ -473,11 +471,36 @@ export default function SalesReportPage() {
 
           {/* Status breakdown strip */}
           <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
-            <StatusPill label="Succeeded" count={data.summary.byStatus.succeeded.count} amount={data.summary.byStatus.succeeded.formatted} color="emerald" />
-            <StatusPill label="Failed" count={data.summary.byStatus.failed.count} amount={data.summary.byStatus.failed.formatted} color="red" />
-            <StatusPill label="Refunded" count={data.summary.byStatus.refunded.count} amount={data.summary.byStatus.refunded.formatted} color="amber" />
-            <StatusPill label="Pending" count={data.summary.byStatus.pending.count} amount={data.summary.byStatus.pending.formatted} color="blue" />
-            <StatusPill label="Canceled" count={data.summary.byStatus.canceled.count} amount={data.summary.byStatus.canceled.formatted} color="gray" />
+            <StatusPill
+              label="Succeeded"
+              count={data.summary.byStatus.succeeded.count}
+              amount={data.summary.byStatus.succeeded.formatted}
+              color="emerald"
+            />
+            <StatusPill
+              label="Failed"
+              count={data.summary.byStatus.failed.count}
+              amount={data.summary.byStatus.failed.formatted}
+              color="red"
+            />
+            <StatusPill
+              label="Refunded"
+              count={data.summary.byStatus.refunded.count}
+              amount={data.summary.byStatus.refunded.formatted}
+              color="amber"
+            />
+            <StatusPill
+              label="Pending"
+              count={data.summary.byStatus.pending.count}
+              amount={data.summary.byStatus.pending.formatted}
+              color="blue"
+            />
+            <StatusPill
+              label="Canceled"
+              count={data.summary.byStatus.canceled.count}
+              amount={data.summary.byStatus.canceled.formatted}
+              color="gray"
+            />
           </div>
         </>
       )}
@@ -566,7 +589,7 @@ export default function SalesReportPage() {
                         </td>
                         <td className="px-3 py-3 text-center">
                           <span
-                            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[t.status] || 'bg-gray-50 text-gray-600 border-gray-200'}`}
+                            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[t.status] || 'border-gray-200 bg-gray-50 text-gray-600'}`}
                           >
                             {StatusIcon && <StatusIcon className="h-3 w-3" />}
                             {t.status.replace('_', ' ')}
@@ -578,7 +601,7 @@ export default function SalesReportPage() {
                             </div>
                           )}
                         </td>
-                        <td className="whitespace-nowrap px-3 py-3 text-gray-600 text-xs">
+                        <td className="whitespace-nowrap px-3 py-3 text-xs text-gray-600">
                           {t.paymentMethod}
                         </td>
                         <td className="max-w-[180px] truncate px-3 py-3 text-xs text-gray-600">
@@ -618,10 +641,13 @@ export default function SalesReportPage() {
           {data && data.pagination.totalPages > 1 && (
             <div className="flex items-center justify-between border-t border-gray-200 bg-gray-50 px-4 py-3">
               <p className="text-xs text-gray-500">
-                Showing {((data.pagination.page - 1) * data.pagination.limit) + 1}
+                Showing {(data.pagination.page - 1) * data.pagination.limit + 1}
                 &ndash;
-                {Math.min(data.pagination.page * data.pagination.limit, data.pagination.totalCount)}
-                {' '}of {data.pagination.totalCount.toLocaleString()} transactions
+                {Math.min(
+                  data.pagination.page * data.pagination.limit,
+                  data.pagination.totalCount
+                )}{' '}
+                of {data.pagination.totalCount.toLocaleString()} transactions
               </p>
               <div className="flex items-center gap-1">
                 <button
@@ -691,7 +717,7 @@ function SummaryCard({
   };
 
   return (
-    <div className={`rounded-xl border p-4 ${bgMap[accent] || 'bg-gray-50 border-gray-200'}`}>
+    <div className={`rounded-xl border p-4 ${bgMap[accent] || 'border-gray-200 bg-gray-50'}`}>
       <div className="flex items-center gap-2">
         {icon}
         <span className="text-xs font-medium text-gray-500">{label}</span>
@@ -725,7 +751,9 @@ function StatusPill({
     <div className={`rounded-lg border px-3 py-2 ${colorMap[color] || colorMap.gray}`}>
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium">{label}</span>
-        <span className="rounded-full bg-white/60 px-1.5 py-0.5 text-[10px] font-bold">{count}</span>
+        <span className="rounded-full bg-white/60 px-1.5 py-0.5 text-[10px] font-bold">
+          {count}
+        </span>
       </div>
       <p className="mt-0.5 text-sm font-semibold">{amount}</p>
     </div>

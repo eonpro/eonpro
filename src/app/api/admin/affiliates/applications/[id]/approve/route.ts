@@ -115,94 +115,97 @@ export const POST = withAuthParams(
       const lastName = nameParts.slice(1).join(' ') || '';
 
       // Create user, affiliate, and update application in transaction
-      const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-        // Create user account
-        const newUser = await tx.user.create({
-          data: {
-            email: application.email,
-            phone: application.phone,
-            passwordHash,
-            firstName,
-            lastName,
-            role: 'AFFILIATE',
-            clinicId: application.clinicId,
-            status: 'ACTIVE',
-          },
-        });
-
-        // Create affiliate profile with address in metadata
-        const newAffiliate = await tx.affiliate.create({
-          data: {
-            clinicId: application.clinicId,
-            userId: newUser.id,
-            displayName: application.fullName,
-            status: 'ACTIVE',
-            metadata: {
-              address: {
-                line1: application.addressLine1,
-                line2: application.addressLine2,
-                city: application.city,
-                state: application.state,
-                zipCode: application.zipCode,
-                country: application.country,
-              },
-              socialProfiles: application.socialProfiles,
-              website: application.website,
-              audienceSize: application.audienceSize,
-              promotionPlan: application.promotionPlan,
-              appliedAt: application.createdAt,
+      const result = await prisma.$transaction(
+        async (tx: Prisma.TransactionClient) => {
+          // Create user account
+          const newUser = await tx.user.create({
+            data: {
+              email: application.email,
+              phone: application.phone,
+              passwordHash,
+              firstName,
+              lastName,
+              role: 'AFFILIATE',
+              clinicId: application.clinicId,
+              status: 'ACTIVE',
             },
-          },
-        });
+          });
 
-        // Generate ref code if not provided
-        const refCode = initialRefCode?.toUpperCase() || generateRefCode(application.fullName);
+          // Create affiliate profile with address in metadata
+          const newAffiliate = await tx.affiliate.create({
+            data: {
+              clinicId: application.clinicId,
+              userId: newUser.id,
+              displayName: application.fullName,
+              status: 'ACTIVE',
+              metadata: {
+                address: {
+                  line1: application.addressLine1,
+                  line2: application.addressLine2,
+                  city: application.city,
+                  state: application.state,
+                  zipCode: application.zipCode,
+                  country: application.country,
+                },
+                socialProfiles: application.socialProfiles,
+                website: application.website,
+                audienceSize: application.audienceSize,
+                promotionPlan: application.promotionPlan,
+                appliedAt: application.createdAt,
+              },
+            },
+          });
 
-        // Create initial ref code
-        await tx.affiliateRefCode.create({
-          data: {
-            clinicId: application.clinicId,
-            affiliateId: newAffiliate.id,
-            refCode,
-            isActive: true,
-          },
-        });
+          // Generate ref code if not provided
+          const refCode = initialRefCode?.toUpperCase() || generateRefCode(application.fullName);
 
-        // Assign commission plan if provided
-        if (commissionPlanId) {
-          await tx.affiliatePlanAssignment.create({
+          // Create initial ref code
+          await tx.affiliateRefCode.create({
             data: {
               clinicId: application.clinicId,
               affiliateId: newAffiliate.id,
-              commissionPlanId,
-              effectiveFrom: new Date(),
+              refCode,
+              isActive: true,
             },
           });
-        }
 
-        // Update application status
-        await tx.affiliateApplication.update({
-          where: { id: applicationId },
-          data: {
-            status: 'APPROVED',
-            reviewedAt: new Date(),
-            reviewedBy: user.id,
-            reviewNotes,
-            affiliateId: newAffiliate.id,
-          },
-        });
+          // Assign commission plan if provided
+          if (commissionPlanId) {
+            await tx.affiliatePlanAssignment.create({
+              data: {
+                clinicId: application.clinicId,
+                affiliateId: newAffiliate.id,
+                commissionPlanId,
+                effectiveFrom: new Date(),
+              },
+            });
+          }
 
-        // Create password setup token (for welcome email)
-        await tx.passwordResetToken.create({
-          data: {
-            userId: newUser.id,
-            token: hashedSetupToken,
-            expiresAt: setupTokenExpiresAt,
-          },
-        });
+          // Update application status
+          await tx.affiliateApplication.update({
+            where: { id: applicationId },
+            data: {
+              status: 'APPROVED',
+              reviewedAt: new Date(),
+              reviewedBy: user.id,
+              reviewNotes,
+              affiliateId: newAffiliate.id,
+            },
+          });
 
-        return { user: newUser, affiliate: newAffiliate, refCode };
-      }, { timeout: 15000 });
+          // Create password setup token (for welcome email)
+          await tx.passwordResetToken.create({
+            data: {
+              userId: newUser.id,
+              token: hashedSetupToken,
+              expiresAt: setupTokenExpiresAt,
+            },
+          });
+
+          return { user: newUser, affiliate: newAffiliate, refCode };
+        },
+        { timeout: 15000 }
+      );
 
       logger.info('[Admin Applications] Application approved', {
         applicationId,
@@ -236,9 +239,10 @@ export const POST = withAuthParams(
       });
 
       // Build the setup URL using the clinic's domain
-      const clinicDomain = clinic?.customDomain
-        || (clinic?.subdomain ? `${clinic.subdomain}.eonpro.io` : null)
-        || 'app.eonpro.io';
+      const clinicDomain =
+        clinic?.customDomain ||
+        (clinic?.subdomain ? `${clinic.subdomain}.eonpro.io` : null) ||
+        'app.eonpro.io';
       const setupUrl = `https://${clinicDomain}/affiliate/welcome?token=${rawSetupToken}`;
       const clinicName = clinic?.name || 'EONPro';
       const logoUrl = clinic?.logoUrl;
@@ -262,12 +266,16 @@ export const POST = withAuthParams(
                 Your application to the <strong>${clinicName}</strong> Partner Program has been approved.
                 To get started, set your password by clicking the button below.
               </p>
-              ${result.refCode ? `
+              ${
+                result.refCode
+                  ? `
                 <div style="background: #f9fafb; border-radius: 12px; padding: 16px; margin: 0 0 24px; text-align: center;">
                   <p style="font-size: 12px; color: #6b7280; margin: 0 0 4px;">Your referral code</p>
                   <p style="font-size: 24px; font-weight: 700; color: #111827; margin: 0; letter-spacing: 2px;">${result.refCode}</p>
                 </div>
-              ` : ''}
+              `
+                  : ''
+              }
               <div style="text-align: center; margin: 24px 0;">
                 <a href="${setupUrl}" style="
                   display: inline-block;
@@ -322,7 +330,12 @@ export const POST = withAuthParams(
           refCode: result.refCode,
         },
         welcomeEmailSent: welcomeEmailResult.success,
-        ...(welcomeEmailResult.success ? {} : { welcomeEmailError: 'Welcome email failed to send. The affiliate can request a setup email from the login page.' }),
+        ...(welcomeEmailResult.success
+          ? {}
+          : {
+              welcomeEmailError:
+                'Welcome email failed to send. The affiliate can request a setup email from the login page.',
+            }),
       });
     } catch (error) {
       logger.error('[Admin Applications] Error approving application', error);

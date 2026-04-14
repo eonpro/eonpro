@@ -99,14 +99,14 @@ export async function POST(req: NextRequest) {
     if (err instanceof z.ZodError) {
       return NextResponse.json(
         { error: 'Invalid form data. Please check all fields and try again.' },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
     logger.error('[Demo Request] Failed to process', { error: err });
     return NextResponse.json(
       { error: 'Something went wrong. Please try again later.' },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

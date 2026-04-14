@@ -137,8 +137,11 @@ export async function POST(request: NextRequest) {
     const { processPaymentForCommission, reverseCommissionForRefund, checkIfFirstPayment } =
       await import('@/services/affiliate/affiliateCommissionService');
 
-    const { processPaymentForSalesRepCommission, reverseSalesRepCommission, checkIfFirstPaymentForSalesRep } =
-      await import('@/services/sales-rep/salesRepCommissionService');
+    const {
+      processPaymentForSalesRepCommission,
+      reverseSalesRepCommission,
+      checkIfFirstPaymentForSalesRep,
+    } = await import('@/services/sales-rep/salesRepCommissionService');
 
     const { autoMatchPendingRefillsForPatient } =
       await import('@/services/refill/refillQueueService');
@@ -198,14 +201,21 @@ export async function POST(request: NextRequest) {
       duration,
     });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error instanceof Error ? error.message : String(error) : 'Unknown error';
+    const errorMessage =
+      error instanceof Error
+        ? error instanceof Error
+          ? error.message
+          : String(error)
+        : 'Unknown error';
     const duration = Date.now() - startTime;
 
     logger.error('[OT STRIPE WEBHOOK] Catastrophic error', {
       eventId,
       eventType,
       error: errorMessage,
-      ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
+      ...(process.env.NODE_ENV === 'development' && {
+        stack: error instanceof Error ? error.stack : undefined,
+      }),
       duration,
     });
 
@@ -283,12 +293,15 @@ async function processOTWebhookEvent(
         // the payment status — calling processStripePayment would create a duplicate record.
         const isProcessFormPayment = !!paymentIntent.metadata?.paymentId;
         if (isProcessFormPayment) {
-          logger.info('[OT STRIPE WEBHOOK] PaymentIntent from Process Payment form — updating status only', {
-            eventId: event.id,
-            paymentIntentId: paymentIntent.id,
-            paymentId: paymentIntent.metadata.paymentId,
-            clinicId,
-          });
+          logger.info(
+            '[OT STRIPE WEBHOOK] PaymentIntent from Process Payment form — updating status only',
+            {
+              eventId: event.id,
+              paymentIntentId: paymentIntent.id,
+              paymentId: paymentIntent.metadata.paymentId,
+              clinicId,
+            }
+          );
           try {
             await StripePaymentService.updatePaymentFromIntent(paymentIntent);
           } catch (updateErr) {
@@ -320,10 +333,13 @@ async function processOTWebhookEvent(
                   isFirstPayment,
                 });
               } catch (e) {
-                logger.warn('[OT STRIPE WEBHOOK] Failed to process commission for process-form payment', {
-                  error: e instanceof Error ? e.message : 'Unknown error',
-                  patientId: rawPatientId,
-                });
+                logger.warn(
+                  '[OT STRIPE WEBHOOK] Failed to process commission for process-form payment',
+                  {
+                    error: e instanceof Error ? e.message : 'Unknown error',
+                    patientId: rawPatientId,
+                  }
+                );
               }
             }
             if (processPaymentForSalesRepCommission) {
@@ -342,20 +358,26 @@ async function processOTWebhookEvent(
                   isFirstPayment: isFirst,
                 });
               } catch (e) {
-                logger.warn('[OT STRIPE WEBHOOK] Failed to process sales rep commission for process-form payment', {
-                  error: e instanceof Error ? e.message : 'Unknown error',
-                  patientId: rawPatientId,
-                });
+                logger.warn(
+                  '[OT STRIPE WEBHOOK] Failed to process sales rep commission for process-form payment',
+                  {
+                    error: e instanceof Error ? e.message : 'Unknown error',
+                    patientId: rawPatientId,
+                  }
+                );
               }
             }
             if (autoMatchPendingRefillsForPatient) {
               try {
                 await autoMatchPendingRefillsForPatient(rawPatientId, clinicId, paymentIntent.id);
               } catch (e) {
-                logger.warn('[OT STRIPE WEBHOOK] Failed to auto-match refills for process-form payment', {
-                  error: e instanceof Error ? e.message : 'Unknown error',
-                  patientId: rawPatientId,
-                });
+                logger.warn(
+                  '[OT STRIPE WEBHOOK] Failed to auto-match refills for process-form payment',
+                  {
+                    error: e instanceof Error ? e.message : 'Unknown error',
+                    patientId: rawPatientId,
+                  }
+                );
               }
             }
           }
@@ -380,9 +402,10 @@ async function processOTWebhookEvent(
 
         // If description is missing/generic, try to find product name from the
         // associated checkout session's line items (payment link flow)
-        const isGenericDesc = !intentPaymentData.description
-          || intentPaymentData.description === 'Checkout payment'
-          || intentPaymentData.description === 'Payment received via Stripe';
+        const isGenericDesc =
+          !intentPaymentData.description ||
+          intentPaymentData.description === 'Checkout payment' ||
+          intentPaymentData.description === 'Payment received via Stripe';
 
         if (isGenericDesc) {
           try {
@@ -711,7 +734,11 @@ async function processOTWebhookEvent(
 
             // Also set the description to the first product name if currently generic
             const firstProductName = sessionPaymentData.lineItemDetails[0]?.productName;
-            if (firstProductName && (!sessionPaymentData.description || sessionPaymentData.description === 'Checkout payment')) {
+            if (
+              firstProductName &&
+              (!sessionPaymentData.description ||
+                sessionPaymentData.description === 'Checkout payment')
+            ) {
               sessionPaymentData.description = firstProductName;
             }
 
@@ -926,16 +953,18 @@ async function processOTWebhookEvent(
         // full matching pipeline so the invoice appears in the provider Rx queue.
         if (!dbInvoice && invoice.status === 'paid') {
           const rawPi = (invoice as unknown as Record<string, unknown>).payment_intent;
-          const piId = typeof rawPi === 'string'
-            ? rawPi
-            : (rawPi as Stripe.PaymentIntent | null)?.id;
+          const piId =
+            typeof rawPi === 'string' ? rawPi : (rawPi as Stripe.PaymentIntent | null)?.id;
 
           if (piId) {
-            logger.info('[OT STRIPE WEBHOOK] No local invoice for paid Stripe invoice — running processStripePayment via PI', {
-              stripeInvoiceId: invoice.id,
-              paymentIntentId: piId,
-              clinicId,
-            });
+            logger.info(
+              '[OT STRIPE WEBHOOK] No local invoice for paid Stripe invoice — running processStripePayment via PI',
+              {
+                stripeInvoiceId: invoice.id,
+                paymentIntentId: piId,
+                clinicId,
+              }
+            );
 
             try {
               const otStripe = getOTStripe();
@@ -1045,13 +1074,22 @@ async function processOTWebhookEvent(
         }
 
         if (!dbInvoice) {
-          logger.warn('[OT STRIPE WEBHOOK] Invoice not found in database and could not be created', {
-            stripeInvoiceId: invoice.id,
-            clinicId,
-          });
+          logger.warn(
+            '[OT STRIPE WEBHOOK] Invoice not found in database and could not be created',
+            {
+              stripeInvoiceId: invoice.id,
+              clinicId,
+            }
+          );
           return {
             success: true,
-            details: { invoiceId: invoice.id, status: invoice.status, clinicId, skipped: true, reason: 'Invoice not in DB' },
+            details: {
+              invoiceId: invoice.id,
+              status: invoice.status,
+              clinicId,
+              skipped: true,
+              reason: 'Invoice not in DB',
+            },
           };
         }
 
@@ -1125,7 +1163,12 @@ async function processOTWebhookEvent(
         }
 
         let salesRepCommResult = null;
-        if (wasPaid && wasNotPaidBefore && dbInvoice.patientId && processPaymentForSalesRepCommission) {
+        if (
+          wasPaid &&
+          wasNotPaidBefore &&
+          dbInvoice.patientId &&
+          processPaymentForSalesRepCommission
+        ) {
           try {
             const amountPaidCents = invoice.amount_paid || 0;
             if (amountPaidCents > 0) {
@@ -1134,14 +1177,16 @@ async function processOTWebhookEvent(
                   ? (invoice as any).payment_intent
                   : (invoice as any).payment_intent?.id;
               const isFirst = checkIfFirstPaymentForSalesRep
-                ? await checkIfFirstPaymentForSalesRep(dbInvoice.patientId, paymentIntentId || undefined)
+                ? await checkIfFirstPaymentForSalesRep(
+                    dbInvoice.patientId,
+                    paymentIntentId || undefined
+                  )
                 : true;
 
               // Derive isRecurring from Stripe's billing_reason (authoritative signal)
               const billingReason = (invoice as any).billing_reason as string | undefined;
               const isRecurringInvoice =
-                billingReason === 'subscription_cycle' ||
-                billingReason === 'subscription_update';
+                billingReason === 'subscription_cycle' || billingReason === 'subscription_update';
 
               salesRepCommResult = await processPaymentForSalesRepCommission({
                 clinicId,
@@ -1249,11 +1294,14 @@ async function processOTWebhookEvent(
       // ================================================================
       case 'payment_method.attached': {
         const pm = event.data.object as Stripe.PaymentMethod;
-        const { handlePaymentMethodAttached } =
-          await import('@/services/stripe/cardSyncService');
+        const { handlePaymentMethodAttached } = await import('@/services/stripe/cardSyncService');
         const attachResult = await handlePaymentMethodAttached(pm, clinicId);
         if (!attachResult.success) {
-          return { success: false, error: attachResult.error, details: { paymentMethodId: pm.id, clinicId } };
+          return {
+            success: false,
+            error: attachResult.error,
+            details: { paymentMethodId: pm.id, clinicId },
+          };
         }
         return {
           success: true,
@@ -1263,8 +1311,7 @@ async function processOTWebhookEvent(
 
       case 'payment_method.detached': {
         const pm = event.data.object as Stripe.PaymentMethod;
-        const { handlePaymentMethodDetached } =
-          await import('@/services/stripe/cardSyncService');
+        const { handlePaymentMethodDetached } = await import('@/services/stripe/cardSyncService');
         const detachResult = await handlePaymentMethodDetached(pm);
         return {
           success: true,
@@ -1274,8 +1321,7 @@ async function processOTWebhookEvent(
 
       case 'payment_method.updated': {
         const pm = event.data.object as Stripe.PaymentMethod;
-        const { handlePaymentMethodUpdated } =
-          await import('@/services/stripe/cardSyncService');
+        const { handlePaymentMethodUpdated } = await import('@/services/stripe/cardSyncService');
         const updateResult = await handlePaymentMethodUpdated(pm);
         return {
           success: true,
@@ -1293,7 +1339,12 @@ async function processOTWebhookEvent(
         };
     }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error instanceof Error ? error.message : String(error) : 'Unknown error';
+    const errorMessage =
+      error instanceof Error
+        ? error instanceof Error
+          ? error.message
+          : String(error)
+        : 'Unknown error';
     return {
       success: false,
       error: errorMessage,

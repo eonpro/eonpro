@@ -27,7 +27,7 @@ export default function BMICalculatingStep({
   const hasNavigated = useRef(false);
 
   const isSpanish = language === 'es';
-  
+
   const steps = isSpanish
     ? ['Analizando peso...', 'Calculando altura...', 'Procesando datos...', '¡Casi listo!']
     : ['Analyzing weight...', 'Calculating height...', 'Processing data...', 'Almost there!'];
@@ -41,7 +41,7 @@ export default function BMICalculatingStep({
 
   useEffect(() => {
     const progressInterval = setInterval(() => {
-      setProgress(prev => {
+      setProgress((prev) => {
         if (prev >= 100) return 100;
         return prev + 2;
       });
@@ -51,7 +51,7 @@ export default function BMICalculatingStep({
 
   useEffect(() => {
     const stepInterval = setInterval(() => {
-      setCurrentStep(prev => (prev + 1) % steps.length);
+      setCurrentStep((prev) => (prev + 1) % steps.length);
     }, 900);
     return () => clearInterval(stepInterval);
   }, [steps.length]);
@@ -67,21 +67,25 @@ export default function BMICalculatingStep({
   }, [router, basePath, nextStep, autoAdvanceDelay]);
 
   return (
-    <div className={`min-h-screen ${isOt ? 'bg-gradient-to-b from-white via-[#f5ecd8] to-[#cab172]/30' : 'bg-gradient-to-b from-white via-[#e8f5d9] to-[#aed581]/30'} flex flex-col items-center justify-center px-6`}>
-      <div className="max-w-md w-full text-center">
-        <h1 className="text-[28px] lg:text-[32px] font-medium leading-tight mb-8">
-          <span className="text-gray-400">
-            {isSpanish ? 'Un momento' : 'One moment'}
-          </span>{' '}
-          <span className="text-[#413d3d] font-bold">{firstName}</span>
-          <span className={`${isOt ? 'text-[#cab172]' : 'text-[#7cb342]'} font-bold animate-pulse`}>...</span>
+    <div
+      className={`min-h-screen ${isOt ? 'bg-gradient-to-b from-white via-[#f5ecd8] to-[#cab172]/30' : 'bg-gradient-to-b from-white via-[#e8f5d9] to-[#aed581]/30'} flex flex-col items-center justify-center px-6`}
+    >
+      <div className="w-full max-w-md text-center">
+        <h1 className="mb-8 text-[28px] font-medium leading-tight lg:text-[32px]">
+          <span className="text-gray-400">{isSpanish ? 'Un momento' : 'One moment'}</span>{' '}
+          <span className="font-bold text-[#413d3d]">{firstName}</span>
+          <span className={`${isOt ? 'text-[#cab172]' : 'text-[#7cb342]'} animate-pulse font-bold`}>
+            ...
+          </span>
         </h1>
 
-        <div className="flex justify-center mb-8">
-          <div className="relative w-44 h-44 lg:w-52 lg:h-52">
-            <div className={`absolute inset-0 rounded-full ${isOt ? 'bg-gradient-to-r from-[#cab172]/20 to-[#f5ecd8]/40' : 'bg-gradient-to-r from-[#7cb342]/20 to-[#e8f5d9]/40'} animate-pulse`} />
+        <div className="mb-8 flex justify-center">
+          <div className="relative h-44 w-44 lg:h-52 lg:w-52">
+            <div
+              className={`absolute inset-0 rounded-full ${isOt ? 'bg-gradient-to-r from-[#cab172]/20 to-[#f5ecd8]/40' : 'bg-gradient-to-r from-[#7cb342]/20 to-[#e8f5d9]/40'} animate-pulse`}
+            />
 
-            <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 100 100">
+            <svg className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 100 100">
               <circle
                 cx="50"
                 cy="50"
@@ -111,40 +115,52 @@ export default function BMICalculatingStep({
 
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-center">
-                <span className={`text-4xl lg:text-5xl font-bold ${isOt ? 'text-[#cab172]' : 'text-[#7cb342]'}`}>{progress}%</span>
+                <span
+                  className={`text-4xl font-bold lg:text-5xl ${isOt ? 'text-[#cab172]' : 'text-[#7cb342]'}`}
+                >
+                  {progress}%
+                </span>
               </div>
             </div>
           </div>
         </div>
 
         <div className="mb-8 h-6">
-          <p className={`text-sm font-medium ${isOt ? 'text-[#cab172]' : 'text-[#7cb342]'} animate-pulse`}>
+          <p
+            className={`text-sm font-medium ${isOt ? 'text-[#cab172]' : 'text-[#7cb342]'} animate-pulse`}
+          >
             {steps[currentStep]}
           </p>
         </div>
 
         <div className="space-y-1">
-          <p className="text-[22px] lg:text-[26px] leading-tight text-gray-400">
-            {isSpanish ? (isOt ? 'OT Mens está calculando' : 'EONPro está calculando') : (isOt ? 'OT Mens is calculating' : 'EONPro is calculating')}
+          <p className="text-[22px] leading-tight text-gray-400 lg:text-[26px]">
+            {isSpanish
+              ? isOt
+                ? 'OT Mens está calculando'
+                : 'EONPro está calculando'
+              : isOt
+                ? 'OT Mens is calculating'
+                : 'EONPro is calculating'}
           </p>
-          <p className="text-[22px] lg:text-[26px] leading-tight">
-            <span className="text-gray-400">
-              {isSpanish ? 'tu ' : 'your '}
-            </span>
-            <span className={`text-transparent bg-clip-text bg-gradient-to-r ${isOt ? 'from-[#413d3d] to-[#cab172]' : 'from-[#413d3d] to-[#7cb342]'} font-bold`}>
+          <p className="text-[22px] leading-tight lg:text-[26px]">
+            <span className="text-gray-400">{isSpanish ? 'tu ' : 'your '}</span>
+            <span
+              className={`bg-gradient-to-r bg-clip-text text-transparent ${isOt ? 'from-[#413d3d] to-[#cab172]' : 'from-[#413d3d] to-[#7cb342]'} font-bold`}
+            >
               {isSpanish ? 'Índice de Masa Corporal' : 'Body Mass Index'}
             </span>
           </p>
-          <p className="text-[22px] lg:text-[26px] leading-tight text-gray-400">
+          <p className="text-[22px] leading-tight text-gray-400 lg:text-[26px]">
             ({isSpanish ? 'IMC' : 'BMI'})
           </p>
         </div>
 
-        <div className="flex justify-center gap-2 mt-8">
+        <div className="mt-8 flex justify-center gap-2">
           {[0, 1, 2].map((i) => (
             <div
               key={i}
-              className={`w-2 h-2 rounded-full ${isOt ? 'bg-[#cab172]' : 'bg-[#7cb342]'}`}
+              className={`h-2 w-2 rounded-full ${isOt ? 'bg-[#cab172]' : 'bg-[#7cb342]'}`}
               style={{
                 animation: `bounce 1s ease-in-out ${i * 0.15}s infinite`,
               }}
@@ -155,8 +171,15 @@ export default function BMICalculatingStep({
 
       <style jsx>{`
         @keyframes bounce {
-          0%, 100% { transform: translateY(0); opacity: 0.4; }
-          50% { transform: translateY(-8px); opacity: 1; }
+          0%,
+          100% {
+            transform: translateY(0);
+            opacity: 0.4;
+          }
+          50% {
+            transform: translateY(-8px);
+            opacity: 1;
+          }
         }
       `}</style>
     </div>

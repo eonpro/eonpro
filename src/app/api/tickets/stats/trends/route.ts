@@ -15,7 +15,7 @@ export const GET = withAuth(async (request, user) => {
     const { searchParams } = new URL(request.url);
     const clinicIdParam = searchParams.get('clinicId');
     const clinicId = parseInt(
-      (clinicIdParam && user.role === 'super_admin') ? clinicIdParam : String(user.clinicId || ''),
+      clinicIdParam && user.role === 'super_admin' ? clinicIdParam : String(user.clinicId || ''),
       10
     );
     const days = Math.min(parseInt(searchParams.get('days') || '30', 10), 90);

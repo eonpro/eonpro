@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import {
   createContext,
@@ -8,7 +8,7 @@ import {
   ReactNode,
   useMemo,
   useCallback,
-} from "react";
+} from 'react';
 
 interface TimerContextType {
   timeLeft: number;
@@ -33,9 +33,7 @@ export function TimerProvider({ children, onExpire }: TimerProviderProps) {
   const formatTime = useCallback((seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs
-      .toString()
-      .padStart(2, "0")}`;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }, []);
 
   const reset = useCallback(() => {
@@ -75,15 +73,13 @@ export function TimerProvider({ children, onExpire }: TimerProviderProps) {
     return () => clearInterval(timerId);
   }, [timeLeft, onExpire]);
 
-  return (
-    <TimerContext.Provider value={value}>{children}</TimerContext.Provider>
-  );
+  return <TimerContext.Provider value={value}>{children}</TimerContext.Provider>;
 }
 
 export function useTimerContext() {
   const context = useContext(TimerContext);
   if (context === undefined) {
-    throw new Error("useTimerContext must be used within a TimerProvider");
+    throw new Error('useTimerContext must be used within a TimerProvider');
   }
   return context;
 }

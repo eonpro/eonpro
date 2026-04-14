@@ -136,9 +136,7 @@ export default function PatientPortalAccessBlock({
         <>
           {!showResetConfirm ? (
             <div className="flex flex-wrap items-center gap-3">
-              <span className="text-sm text-gray-500">
-                Patient has an active portal account.
-              </span>
+              <span className="text-sm text-gray-500">Patient has an active portal account.</span>
               <button
                 type="button"
                 onClick={() => setShowResetConfirm(true)}
@@ -154,9 +152,12 @@ export default function PatientPortalAccessBlock({
               <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                 <div>
-                  <p className="font-medium">This will remove the patient's current portal account</p>
+                  <p className="font-medium">
+                    This will remove the patient's current portal account
+                  </p>
                   <p className="mt-0.5 text-xs opacity-80">
-                    Their existing login will stop working and a new invite will be sent so they can create a fresh account.
+                    Their existing login will stop working and a new invite will be sent so they can
+                    create a fresh account.
                   </p>
                 </div>
               </div>
@@ -166,7 +167,7 @@ export default function PatientPortalAccessBlock({
                     type="button"
                     onClick={() => handleResetPortalAccess('email')}
                     disabled={resetting}
-                    className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors bg-amber-600 hover:bg-amber-700 disabled:opacity-60"
+                    className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700 disabled:opacity-60"
                   >
                     {resetting ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -232,18 +233,14 @@ export default function PatientPortalAccessBlock({
               )}
               <div>
                 <p className="font-medium">
-                  {lastInvite.expired
-                    ? 'Portal invite expired'
-                    : 'Portal invite sent'}
+                  {lastInvite.expired ? 'Portal invite expired' : 'Portal invite sent'}
                 </p>
                 <p className="mt-0.5 text-xs opacity-80" suppressHydrationWarning>
                   Sent on {formatInviteDate(lastInvite.sentAt)}
                   {lastInvite.trigger !== 'manual' && (
                     <> &middot; Triggered by {triggerLabel(lastInvite.trigger)}</>
                   )}
-                  {lastInvite.expired && (
-                    <> &middot; Send a new invite below</>
-                  )}
+                  {lastInvite.expired && <> &middot; Send a new invite below</>}
                 </p>
               </div>
             </div>

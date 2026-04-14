@@ -3,11 +3,7 @@
 import { useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import {
-  ChevronLeft,
-  MessageCircle,
-  ChevronRight,
-} from 'lucide-react';
+import { ChevronLeft, MessageCircle, ChevronRight } from 'lucide-react';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import { SESSION_EXPIRED_MESSAGE } from '@/lib/api/patient-portal-client';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
@@ -35,14 +31,16 @@ export default function CareTeamPage() {
       ? SESSION_EXPIRED_MESSAGE
       : error?.message || null;
 
-  const careTeam = useMemo<Array<{
-    id: number;
-    name: string;
-    role: string;
-    specialty: string;
-    avatar: string;
-    available: boolean;
-  }>>(
+  const careTeam = useMemo<
+    Array<{
+      id: number;
+      name: string;
+      role: string;
+      specialty: string;
+      avatar: string;
+      available: boolean;
+    }>
+  >(
     () =>
       (data?.providers ?? []).map((p) => ({
         id: p.id,
@@ -52,7 +50,7 @@ export default function CareTeamPage() {
         avatar: `${(p.firstName ?? '?')[0]}${(p.lastName ?? '?')[0]}`.toUpperCase(),
         available: p.isActive !== false,
       })),
-    [data?.providers],
+    [data?.providers]
   );
 
   const handleChat = () => router.push(`${PATIENT_PORTAL_PATH}/chat`);
@@ -71,7 +69,7 @@ export default function CareTeamPage() {
         </div>
         <div className="mx-auto max-w-2xl space-y-6 px-4 py-6">
           {/* Contact card */}
-          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 sm:p-6 space-y-4">
+          <div className="space-y-4 rounded-2xl border border-gray-200 bg-gray-50 p-4 sm:p-6">
             <div className="flex items-center gap-3">
               <div className="h-12 w-12 rounded-full bg-gray-200" />
               <div className="space-y-1.5">
@@ -128,9 +126,11 @@ export default function CareTeamPage() {
             }`}
             role="alert"
           >
-            <p className={`flex-1 text-sm font-medium ${
-              normalizedError === SESSION_EXPIRED_MESSAGE ? 'text-amber-900' : 'text-red-700'
-            }`}>
+            <p
+              className={`flex-1 text-sm font-medium ${
+                normalizedError === SESSION_EXPIRED_MESSAGE ? 'text-amber-900' : 'text-red-700'
+              }`}
+            >
               {normalizedError}
             </p>
             {normalizedError === SESSION_EXPIRED_MESSAGE ? (
@@ -184,9 +184,7 @@ export default function CareTeamPage() {
 
           {careTeam.length === 0 ? (
             <div className="rounded-xl p-8 text-center">
-              <p className="text-gray-500">
-                {t('careTeamNoProviders')}
-              </p>
+              <p className="text-gray-500">{t('careTeamNoProviders')}</p>
             </div>
           ) : (
             careTeam.map((member) => (
@@ -231,7 +229,6 @@ export default function CareTeamPage() {
             ))
           )}
         </div>
-
       </div>
     </div>
   );

@@ -13,7 +13,6 @@ import { ExportService } from '@/services/export/exportService';
 
 async function postHandler(request: NextRequest, user: AuthUser) {
   try {
-
     const clinicId = getClinicContext();
     if (!clinicId) {
       return NextResponse.json({ error: 'Clinic context required' }, { status: 400 });
@@ -57,7 +56,6 @@ async function postHandler(request: NextRequest, user: AuthUser) {
 
 async function getHandler(request: NextRequest, user: AuthUser) {
   try {
-
     const clinicId = getClinicContext();
     if (!clinicId) {
       return NextResponse.json({ error: 'Clinic context required' }, { status: 400 });

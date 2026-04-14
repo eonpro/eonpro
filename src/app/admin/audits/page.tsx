@@ -149,7 +149,9 @@ export default async function AdminAuditsPage() {
                             className="text-[#4fa77e] hover:underline"
                           >
                             {audit.patient.firstName} {audit.patient.lastName}
-                            <span className="ml-1 text-gray-500">(#{formatPatientDisplayId(audit.patient.patientId, audit.patient.id)})</span>
+                            <span className="ml-1 text-gray-500">
+                              (#{formatPatientDisplayId(audit.patient.patientId, audit.patient.id)})
+                            </span>
                           </Link>
                         ) : (
                           <span className="text-gray-400">Deleted</span>

@@ -28,7 +28,7 @@ export const GET = withAuthParams(
       where: { id: patientId },
       select: { id: true, clinicId: true },
     });
-    const clinicId = user.role === 'super_admin' ? undefined : user.clinicId ?? undefined;
+    const clinicId = user.role === 'super_admin' ? undefined : (user.clinicId ?? undefined);
     const notFound = ensureTenantResource(patient, clinicId);
     if (notFound) return notFound;
 
@@ -56,7 +56,9 @@ export const GET = withAuthParams(
         category: r.category,
       }));
 
-      const outOfRange = report.results.filter((r: ResultRow) => r.flag === 'H' || r.flag === 'L').length;
+      const outOfRange = report.results.filter(
+        (r: ResultRow) => r.flag === 'H' || r.flag === 'L'
+      ).length;
       const optimal = report.results.filter((r: ResultRow) => !r.flag).length;
       const inRange = report.results.length - outOfRange;
 

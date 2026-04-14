@@ -33,7 +33,6 @@ async function validateTwilioWebhook(
     const { default: twilio } = await import('twilio');
     return twilio.validateRequest(authToken, signature, url, params);
   } catch (error: unknown) {
-
     logger.error('[TWILIO_WEBHOOK] Failed to validate signature:', error);
     return false;
   }
@@ -229,22 +228,24 @@ export async function POST(req: NextRequest) {
           if (clinicId && resolvedPatientId) {
             const preview = (body || '').trim();
             const truncated = preview.length > 80 ? `${preview.slice(0, 80)}…` : preview;
-            notificationService.notifyAdmins({
-              clinicId,
-              category: 'MESSAGE',
-              priority: 'NORMAL',
-              title: `New SMS from ${senderName || 'Patient'}`,
-              message: truncated,
-              actionUrl: '/admin/messages',
-              sourceType: 'patient_sms_inbound',
-              sourceId: `sms_${messageSid}`,
-              metadata: { patientId: resolvedPatientId, messageSid, channel: 'SMS' },
-            }).catch((err) => {
-              logger.error('[TWILIO_WEBHOOK] Failed to notify admins of SMS', {
-                error: err instanceof Error ? err.message : 'Unknown error',
-                patientId: resolvedPatientId,
+            notificationService
+              .notifyAdmins({
+                clinicId,
+                category: 'MESSAGE',
+                priority: 'NORMAL',
+                title: `New SMS from ${senderName || 'Patient'}`,
+                message: truncated,
+                actionUrl: '/admin/messages',
+                sourceType: 'patient_sms_inbound',
+                sourceId: `sms_${messageSid}`,
+                metadata: { patientId: resolvedPatientId, messageSid, channel: 'SMS' },
+              })
+              .catch((err) => {
+                logger.error('[TWILIO_WEBHOOK] Failed to notify admins of SMS', {
+                  error: err instanceof Error ? err.message : 'Unknown error',
+                  patientId: resolvedPatientId,
+                });
               });
-            });
           }
         } catch (chatError: unknown) {
           logger.error('[TWILIO_WEBHOOK] Failed to create PatientChatMessage', {
@@ -285,7 +286,6 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error: unknown) {
-
     logger.error('[TWILIO_WEBHOOK_ERROR]', error);
 
     // Return empty TwiML response on error

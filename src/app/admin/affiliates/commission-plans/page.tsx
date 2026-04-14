@@ -621,7 +621,9 @@ export default function CommissionPlansPage() {
                           </>
                         )}
                       </div>
-                      <p className="mt-1 text-xs text-[var(--brand-primary)]">First payment commission</p>
+                      <p className="mt-1 text-xs text-[var(--brand-primary)]">
+                        First payment commission
+                      </p>
                     </div>
 
                     {/* Recurring Payment Rate */}

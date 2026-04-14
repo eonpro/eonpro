@@ -19,7 +19,12 @@ import type { ReportConfig } from '@/services/reporting/types';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
-function computeNextRun(schedule: { frequency: string; dayOfWeek: number | null; dayOfMonth: number | null; timeUtc: string }): Date {
+function computeNextRun(schedule: {
+  frequency: string;
+  dayOfWeek: number | null;
+  dayOfMonth: number | null;
+  timeUtc: string;
+}): Date {
   const now = new Date();
   const [h, m] = schedule.timeUtc.split(':').map(Number);
   const next = new Date(now);
@@ -48,7 +53,12 @@ function computeNextRun(schedule: { frequency: string; dayOfWeek: number | null;
   return next;
 }
 
-async function sendReportEmail(recipients: string[], reportName: string, format: string, data: Buffer | string | Uint8Array) {
+async function sendReportEmail(
+  recipients: string[],
+  reportName: string,
+  format: string,
+  data: Buffer | string | Uint8Array
+) {
   try {
     const { sendEmailWithSES } = await import('@/lib/aws/ses');
     const mimeTypes: Record<string, string> = {
@@ -71,12 +81,14 @@ async function sendReportEmail(recipients: string[], reportName: string, format:
           <p>Generated: ${new Date().toLocaleString()}</p>
           <p style="color: #666; font-size: 12px;">This is an automated report from EON Pro.</p>
         `,
-        attachments: [{
-          filename,
-          content: base64Data,
-          contentType: mimeTypes[format] || 'application/octet-stream',
-          encoding: 'base64',
-        }],
+        attachments: [
+          {
+            filename,
+            content: base64Data,
+            contentType: mimeTypes[format] || 'application/octet-stream',
+            encoding: 'base64',
+          },
+        ],
       });
     }
   } catch (error) {

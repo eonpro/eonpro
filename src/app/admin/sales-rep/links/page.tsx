@@ -63,7 +63,9 @@ export default function IntakeLinksPage() {
         const parsed = JSON.parse(stored);
         setUserRole(String(parsed?.role ?? '').toLowerCase() || null);
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, []);
   const isAdmin = userRole ? ADMIN_ROLES.includes(userRole) : false;
   const isSalesRep = userRole === 'sales_rep';
@@ -72,7 +74,9 @@ export default function IntakeLinksPage() {
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [clientOrigin, setClientOrigin] = useState('');
-  useEffect(() => { setClientOrigin(window.location.origin); }, []);
+  useEffect(() => {
+    setClientOrigin(window.location.origin);
+  }, []);
 
   // Create form state
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -113,7 +117,9 @@ export default function IntakeLinksPage() {
     }
   }, []);
 
-  useEffect(() => { fetchLinks(); }, [fetchLinks]);
+  useEffect(() => {
+    fetchLinks();
+  }, [fetchLinks]);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -124,7 +130,10 @@ export default function IntakeLinksPage() {
           const users = json.users || json.data || json;
           if (Array.isArray(users)) {
             setSalesReps(
-              users.map((u: any) => ({ id: u.id, name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email }))
+              users.map((u: any) => ({
+                id: u.id,
+                name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email,
+              }))
             );
           }
         }
@@ -140,7 +149,9 @@ export default function IntakeLinksPage() {
           const json = await res.json();
           const items = json.templates || json.data || json;
           if (Array.isArray(items)) {
-            setTemplates(items.map((t: any) => ({ id: t.id, name: t.name, treatmentType: t.treatmentType })));
+            setTemplates(
+              items.map((t: any) => ({ id: t.id, name: t.name, treatmentType: t.treatmentType }))
+            );
           }
         }
       })
@@ -163,7 +174,10 @@ export default function IntakeLinksPage() {
   };
 
   const handleSimpleCreate = async () => {
-    if (!newName.trim()) { setSimpleCreateError('Enter a name for the link'); return; }
+    if (!newName.trim()) {
+      setSimpleCreateError('Enter a name for the link');
+      return;
+    }
     setSimpleCreateError(null);
     setCreatingSimple(true);
     try {
@@ -197,11 +211,19 @@ export default function IntakeLinksPage() {
       const payload: Record<string, unknown> = { flowType };
 
       if (flowType === 'questionnaire') {
-        if (!selectedTemplate) { setCreateError('Select a form template'); setGenerating(false); return; }
+        if (!selectedTemplate) {
+          setCreateError('Select a form template');
+          setGenerating(false);
+          return;
+        }
         payload.templateId = selectedTemplate;
         if (patientEmail) payload.patientEmail = patientEmail;
       } else {
-        if (!clinicSlug.trim()) { setCreateError('Enter a clinic slug'); setGenerating(false); return; }
+        if (!clinicSlug.trim()) {
+          setCreateError('Enter a clinic slug');
+          setGenerating(false);
+          return;
+        }
         payload.clinicSlug = clinicSlug.trim();
         payload.templateSlug = templateSlug.trim() || 'weight-loss';
       }
@@ -230,7 +252,9 @@ export default function IntakeLinksPage() {
 
   const copyGenerated = async () => {
     if (!generatedUrl) return;
-    try { await navigator.clipboard.writeText(generatedUrl); } catch {
+    try {
+      await navigator.clipboard.writeText(generatedUrl);
+    } catch {
       const el = document.createElement('textarea');
       el.value = generatedUrl;
       document.body.appendChild(el);
@@ -267,7 +291,10 @@ export default function IntakeLinksPage() {
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={() => { setShowCreateForm(true); setShowSimpleCreate(false); }}
+            onClick={() => {
+              setShowCreateForm(true);
+              setShowSimpleCreate(false);
+            }}
             className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
           >
             <Send className="h-4 w-4" />
@@ -276,7 +303,10 @@ export default function IntakeLinksPage() {
           {(isSalesRep || isAdmin) && data?.canCreateMore && (
             <button
               type="button"
-              onClick={() => { setShowSimpleCreate(true); setShowCreateForm(false); }}
+              onClick={() => {
+                setShowSimpleCreate(true);
+                setShowCreateForm(false);
+              }}
               className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
               <Plus className="h-4 w-4" />
@@ -289,11 +319,15 @@ export default function IntakeLinksPage() {
       {/* ---- Custom Link Generator ---- */}
       {showCreateForm && (
         <div className="mb-6 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
+          <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-medium text-gray-900">Generate Custom Intake Link</h2>
             <button
               type="button"
-              onClick={() => { setShowCreateForm(false); setGeneratedUrl(null); setCreateError(null); }}
+              onClick={() => {
+                setShowCreateForm(false);
+                setGeneratedUrl(null);
+                setCreateError(null);
+              }}
               className="text-gray-400 hover:text-gray-600"
             >
               <X className="h-5 w-5" />
@@ -334,7 +368,9 @@ export default function IntakeLinksPage() {
             {flowType === 'wizard' && (
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700">Clinic slug</label>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                    Clinic slug
+                  </label>
                   <input
                     type="text"
                     value={clinicSlug}
@@ -344,7 +380,9 @@ export default function IntakeLinksPage() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700">Template slug</label>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                    Template slug
+                  </label>
                   <select
                     value={templateSlug}
                     onChange={(e) => setTemplateSlug(e.target.value)}
@@ -362,11 +400,15 @@ export default function IntakeLinksPage() {
             {flowType === 'questionnaire' && (
               <div className="space-y-3">
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700">Form template</label>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                    Form template
+                  </label>
                   <div className="relative">
                     <select
                       value={selectedTemplate ?? ''}
-                      onChange={(e) => setSelectedTemplate(e.target.value ? parseInt(e.target.value, 10) : null)}
+                      onChange={(e) =>
+                        setSelectedTemplate(e.target.value ? parseInt(e.target.value, 10) : null)
+                      }
                       className="w-full appearance-none rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
                     >
                       <option value="">Select a template...</option>
@@ -381,7 +423,7 @@ export default function IntakeLinksPage() {
                 </div>
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                    Patient email <span className="text-gray-400 font-normal">(optional)</span>
+                    Patient email <span className="font-normal text-gray-400">(optional)</span>
                   </label>
                   <input
                     type="email"
@@ -398,12 +440,15 @@ export default function IntakeLinksPage() {
             {isAdmin && (
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                  Attribute to sales rep <span className="text-gray-400 font-normal">(optional)</span>
+                  Attribute to sales rep{' '}
+                  <span className="font-normal text-gray-400">(optional)</span>
                 </label>
                 <div className="relative">
                   <select
                     value={selectedSalesRepId ?? ''}
-                    onChange={(e) => setSelectedSalesRepId(e.target.value ? parseInt(e.target.value, 10) : null)}
+                    onChange={(e) =>
+                      setSelectedSalesRepId(e.target.value ? parseInt(e.target.value, 10) : null)
+                    }
                     className="w-full appearance-none rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
                   >
                     <option value="">Self (current user)</option>
@@ -425,7 +470,7 @@ export default function IntakeLinksPage() {
               <div className="rounded-lg border border-green-200 bg-green-50 p-3">
                 <p className="mb-1.5 text-sm font-medium text-green-800">Link generated</p>
                 <div className="flex items-center gap-2">
-                  <code className="flex-1 truncate rounded bg-white px-2.5 py-1.5 text-xs font-mono text-gray-700 border border-green-200">
+                  <code className="flex-1 truncate rounded border border-green-200 bg-white px-2.5 py-1.5 font-mono text-xs text-gray-700">
                     {generatedUrl}
                   </code>
                   <button
@@ -433,7 +478,11 @@ export default function IntakeLinksPage() {
                     onClick={copyGenerated}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-green-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-800"
                   >
-                    {copiedGenerated ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                    {copiedGenerated ? (
+                      <Check className="h-3.5 w-3.5" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5" />
+                    )}
                     {copiedGenerated ? 'Copied' : 'Copy'}
                   </button>
                 </div>
@@ -455,11 +504,15 @@ export default function IntakeLinksPage() {
       {/* ---- Simple Ref Code Creator ---- */}
       {showSimpleCreate && (
         <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
+          <div className="mb-3 flex items-center justify-between">
             <h2 className="text-lg font-medium text-gray-900">Create quick ref code</h2>
             <button
               type="button"
-              onClick={() => { setShowSimpleCreate(false); setNewName(''); setSimpleCreateError(null); }}
+              onClick={() => {
+                setShowSimpleCreate(false);
+                setNewName('');
+                setSimpleCreateError(null);
+              }}
               className="text-gray-400 hover:text-gray-600"
             >
               <X className="h-5 w-5" />
@@ -510,16 +563,21 @@ export default function IntakeLinksPage() {
             const url = `${baseUrl}/intake?rep=${encodeURIComponent(code.code)}`;
             const isCopied = copiedId === code.id;
             return (
-              <li key={code.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+              <li
+                key={code.id}
+                className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+              >
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-gray-900">{code.name || code.code}</span>
                       {code.isDefault && (
-                        <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600">Default</span>
+                        <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600">
+                          Default
+                        </span>
                       )}
                     </div>
-                    <p className="mt-1 truncate text-sm text-gray-500 font-mono">{url}</p>
+                    <p className="mt-1 truncate font-mono text-sm text-gray-500">{url}</p>
                     <div className="mt-3 flex flex-wrap gap-4 text-sm text-gray-600">
                       <span className="inline-flex items-center gap-1">
                         <MousePointer className="h-4 w-4" /> {code.clickCount} clicks
@@ -537,7 +595,11 @@ export default function IntakeLinksPage() {
                     onClick={() => copyLink(url, code.id)}
                     className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
                   >
-                    {isCopied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                    {isCopied ? (
+                      <Check className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
                     {isCopied ? 'Copied' : 'Copy link'}
                   </button>
                 </div>

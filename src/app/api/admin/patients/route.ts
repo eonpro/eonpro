@@ -21,7 +21,13 @@ import { prisma, basePrisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { decryptPHI } from '@/lib/security/phi-encryption';
 import { parseTakeFromParams } from '@/lib/pagination';
-import { splitSearchTerms, buildPatientSearchWhere, buildPatientSearchIndex, buildIncompleteSearchIndexWhere, sortBySearchRelevance } from '@/lib/utils/search';
+import {
+  splitSearchTerms,
+  buildPatientSearchWhere,
+  buildPatientSearchIndex,
+  buildIncompleteSearchIndexWhere,
+  sortBySearchRelevance,
+} from '@/lib/utils/search';
 import { searchPatientsByTrigram } from '@/lib/utils/trigram-search';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { PERMISSIONS, hasPermission as hasRolePermission } from '@/lib/auth/permissions';
@@ -31,7 +37,14 @@ import { withReadFallback } from '@/lib/database/read-replica';
 const SALES_REP_VIEW_ALL_PATIENTS = PERMISSIONS.SALES_REP_VIEW_ALL_PATIENTS;
 
 // Roles that can access this endpoint (provider/staff may use admin Patients page)
-const ALLOWED_ROLES = ['super_admin', 'admin', 'sales_rep', 'provider', 'staff', 'pharmacy_rep'] as const;
+const ALLOWED_ROLES = [
+  'super_admin',
+  'admin',
+  'sales_rep',
+  'provider',
+  'staff',
+  'pharmacy_rep',
+] as const;
 
 // Helper to safely decrypt a field
 const safeDecrypt = (value: string | null): string | null => {
@@ -93,10 +106,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
     // Patients = those with at least one invoice OR at least one order/prescription.
     const whereClause: Prisma.PatientWhereInput = {
-      OR: [
-        { invoices: { some: {} } },
-        { orders: { some: {} } },
-      ],
+      OR: [{ invoices: { some: {} } }, { orders: { some: {} } }],
     };
 
     // Clinic filter (explicit for basePrisma; redundant but harmless for wrapped prisma)
@@ -140,7 +150,11 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     if (search) {
       const searchFilter = buildPatientSearchWhere(search);
       whereClause.AND = [
-        ...(Array.isArray(whereClause.AND) ? whereClause.AND : whereClause.AND ? [whereClause.AND] : []),
+        ...(Array.isArray(whereClause.AND)
+          ? whereClause.AND
+          : whereClause.AND
+            ? [whereClause.AND]
+            : []),
         searchFilter,
       ];
     }
@@ -329,11 +343,14 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         }
 
         if (totalScanned >= FALLBACK_MAX_SCAN && totalScanned < unindexedCount) {
-          logger.warn('[ADMIN-PATIENTS] Fallback scan cap reached — run backfill for full coverage', {
-            unindexedCount,
-            scanned: totalScanned,
-            recommendation: 'POST /api/admin/backfill-search-index',
-          });
+          logger.warn(
+            '[ADMIN-PATIENTS] Fallback scan cap reached — run backfill for full coverage',
+            {
+              unindexedCount,
+              scanned: totalScanned,
+              recommendation: 'POST /api/admin/backfill-search-index',
+            }
+          );
         }
 
         fallbackPatients = matches;
@@ -343,7 +360,10 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           Promise.all(
             selfHealUpdates.map(({ id, searchIndex }) =>
               writeDb.patient.update({ where: { id }, data: { searchIndex } }).catch((err) => {
-                logger.warn('[ADMIN-PATIENTS] Self-heal searchIndex failed', { patientId: id, error: String(err) });
+                logger.warn('[ADMIN-PATIENTS] Self-heal searchIndex failed', {
+                  patientId: id,
+                  error: String(err),
+                });
               })
             )
           ).then(() => {
@@ -448,7 +468,9 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       const orderDate = lastOrder?.createdAt;
       let convertedAt = invoiceDate || orderDate;
       if (invoiceDate && orderDate) {
-        convertedAt = new Date(Math.min(new Date(invoiceDate).getTime(), new Date(orderDate).getTime()));
+        convertedAt = new Date(
+          Math.min(new Date(invoiceDate).getTime(), new Date(orderDate).getTime())
+        );
       }
 
       const rawTags = Array.isArray(patient.tags) ? (patient.tags as string[]) : [];
@@ -521,12 +543,11 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       : patientsData;
 
     const filteredPatientsData = salesRequestOnly
-      ? rankedPatientsData.filter(
-          (patient) =>
-            Boolean(
-              (patient as { salesRequest?: { status: string } | null }).salesRequest?.status ===
-                'PENDING'
-            )
+      ? rankedPatientsData.filter((patient) =>
+          Boolean(
+            (patient as { salesRequest?: { status: string } | null }).salesRequest?.status ===
+            'PENDING'
+          )
         )
       : rankedPatientsData;
 

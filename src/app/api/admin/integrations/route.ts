@@ -308,7 +308,10 @@ export const POST = withAuth(
 
       if (error instanceof Error && error.name === 'ZodError') {
         return NextResponse.json(
-          { error: 'Invalid configuration data', details: (error as Error & { errors: unknown[] }).errors },
+          {
+            error: 'Invalid configuration data',
+            details: (error as Error & { errors: unknown[] }).errors,
+          },
           { status: 400 }
         );
       }

@@ -17,7 +17,10 @@ function withSuperAdminAuth(handler: (req: NextRequest, user: AuthUser) => Promi
 
 const exportSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  endDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
   format: z.enum(['csv', 'pdf']),
   invoiceType: z.enum(['pharmacy', 'prescription_services']),
 });
@@ -36,7 +39,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
     if (!parsed.success) {
       return NextResponse.json(
         { error: 'Validation failed', details: parsed.error.flatten() },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -99,9 +102,6 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
       error: error instanceof Error ? error.message : 'Unknown error',
       userId: user.id,
     });
-    return NextResponse.json(
-      { error: 'Failed to export WellMedR invoice' },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: 'Failed to export WellMedR invoice' }, { status: 500 });
   }
 });

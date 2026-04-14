@@ -383,10 +383,13 @@ async function createOrderHandler(req: NextRequest, user: AuthUser) {
       });
     }
 
-    await auditPhiAccess(req, buildAuditPhiOptions(req, user, 'order:create', {
-      patientId: validationResult.data.patientId,
-      route: 'POST /api/orders',
-    }));
+    await auditPhiAccess(
+      req,
+      buildAuditPhiOptions(req, user, 'order:create', {
+        patientId: validationResult.data.patientId,
+        route: 'POST /api/orders',
+      })
+    );
 
     return NextResponse.json(responseData);
   } catch (error) {

@@ -18,13 +18,29 @@ export default function ConditionalLayout({ children }: ConditionalLayoutProps) 
 
   const isFullWidthPage = useMemo(() => {
     const fullWidthPrefixes = [
-      '/login', '/patient-login', '/register', '/email-verified',
-      '/forgot-password', '/reset-password', '/verify-email',
-      '/pay/', '/patients/', '/affiliate/', '/provider', '/admin',
-      '/tickets', '/orders', '/intake', '/intake-forms',
-      '/patient-portal', '/portal', '/dashboard',
-      '/checkout', '/wellmedr-checkout',
-      '/request-demo', '/platform',
+      '/login',
+      '/patient-login',
+      '/register',
+      '/email-verified',
+      '/forgot-password',
+      '/reset-password',
+      '/verify-email',
+      '/pay/',
+      '/patients/',
+      '/affiliate/',
+      '/provider',
+      '/admin',
+      '/tickets',
+      '/orders',
+      '/intake',
+      '/intake-forms',
+      '/patient-portal',
+      '/portal',
+      '/dashboard',
+      '/checkout',
+      '/wellmedr-checkout',
+      '/request-demo',
+      '/platform',
     ];
     return pathname === '/' || fullWidthPrefixes.some((p) => pathname?.startsWith(p));
   }, [pathname]);

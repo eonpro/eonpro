@@ -336,7 +336,6 @@ async function logDataAccess(params: any, user: any): Promise<void> {
       // Don't log actual data for privacy
     });
   } catch (error: unknown) {
-    
     logger.error('Failed to log data access:', error);
   }
 }

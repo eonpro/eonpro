@@ -364,8 +364,12 @@ export default function FinanceOverviewPage() {
               className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
             >
               <div className="flex items-start justify-between">
-                <div className={`rounded-lg p-2 ${kpiColorClasses[kpi.color]?.bg ?? `bg-${kpi.color}-50`}`}>
-                  <Icon className={`h-5 w-5 ${kpiColorClasses[kpi.color]?.text ?? `text-${kpi.color}-600`}`} />
+                <div
+                  className={`rounded-lg p-2 ${kpiColorClasses[kpi.color]?.bg ?? `bg-${kpi.color}-50`}`}
+                >
+                  <Icon
+                    className={`h-5 w-5 ${kpiColorClasses[kpi.color]?.text ?? `text-${kpi.color}-600`}`}
+                  />
                 </div>
                 {change !== 0 && (
                   <span

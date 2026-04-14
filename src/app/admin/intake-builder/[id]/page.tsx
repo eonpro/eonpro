@@ -110,7 +110,9 @@ export default function IntakeBuilderEditorPage() {
     }
 
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [templateId]);
 
   const handleSave = useCallback(
@@ -134,7 +136,7 @@ export default function IntakeBuilderEditorPage() {
         setTemplate(data.template);
       }
     },
-    [templateId],
+    [templateId]
   );
 
   const handleToggleActive = useCallback(async () => {
@@ -234,7 +236,7 @@ export default function IntakeBuilderEditorPage() {
           {
             signal: controller.signal,
             credentials: 'include',
-          },
+          }
         );
 
         if (!res.ok) {
@@ -283,9 +285,9 @@ export default function IntakeBuilderEditorPage() {
 
   if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center bg-gray-100">
+      <div className="flex h-screen items-center justify-center bg-gray-100">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
           <p className="mt-3 text-sm text-gray-500">Loading form builder...</p>
         </div>
       </div>
@@ -294,19 +296,27 @@ export default function IntakeBuilderEditorPage() {
 
   if (error || !initialConfig || !template) {
     return (
-      <div className="h-screen flex items-center justify-center bg-gray-100">
+      <div className="flex h-screen items-center justify-center bg-gray-100">
         <div className="text-center">
-          <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
-            <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
+            <svg
+              className="h-6 w-6 text-red-500"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+              />
             </svg>
           </div>
-          <h2 className="text-lg font-semibold text-gray-900">
-            {error || 'Template not found'}
-          </h2>
+          <h2 className="text-lg font-semibold text-gray-900">{error || 'Template not found'}</h2>
           <button
             onClick={handleBack}
-            className="mt-4 text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+            className="mt-4 text-sm font-medium text-indigo-600 hover:text-indigo-700"
           >
             Back to templates
           </button>
@@ -405,7 +415,8 @@ export default function IntakeBuilderEditorPage() {
                           {patient.firstName} {patient.lastName}
                         </p>
                         <p className="text-xs text-gray-500">
-                          {patient.email || 'No email'}{patient.patientId ? ` · #${patient.patientId}` : ''}
+                          {patient.email || 'No email'}
+                          {patient.patientId ? ` · #${patient.patientId}` : ''}
                         </p>
                       </button>
                     ))}
@@ -450,7 +461,9 @@ export default function IntakeBuilderEditorPage() {
                 </label>
                 <select
                   value={sendMethod}
-                  onChange={(e) => setSendMethod(e.target.value as 'email' | 'sms' | 'both' | 'none')}
+                  onChange={(e) =>
+                    setSendMethod(e.target.value as 'email' | 'sms' | 'both' | 'none')
+                  }
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
                 >
                   <option value="email">Email</option>
@@ -481,10 +494,8 @@ export default function IntakeBuilderEditorPage() {
 
               {generatedLink && (
                 <div className="space-y-2 rounded-lg bg-green-50 px-3 py-3">
-                  <p className="text-sm font-medium text-green-800">
-                    Intake link is ready.
-                  </p>
-                  <div className="rounded border border-green-200 bg-white px-2 py-1.5 text-xs text-gray-700 break-all">
+                  <p className="text-sm font-medium text-green-800">Intake link is ready.</p>
+                  <div className="break-all rounded border border-green-200 bg-white px-2 py-1.5 text-xs text-gray-700">
                     {generatedLink}
                   </div>
                   <button

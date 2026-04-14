@@ -1,12 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
-import {
-  ComposableMap,
-  Geographies,
-  Geography,
-  Marker,
-} from 'react-simple-maps';
+import { ComposableMap, Geographies, Geography, Marker } from 'react-simple-maps';
 
 // US Atlas TopoJSON - states
 const GEO_URL = 'https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json';
@@ -68,16 +63,56 @@ const STATE_META: Record<string, { name: string; coords: [number, number] }> = {
 
 // FIPS code to state abbreviation mapping
 const FIPS_TO_STATE: Record<string, string> = {
-  '01': 'AL', '02': 'AK', '04': 'AZ', '05': 'AR', '06': 'CA',
-  '08': 'CO', '09': 'CT', '10': 'DE', '11': 'DC', '12': 'FL',
-  '13': 'GA', '15': 'HI', '16': 'ID', '17': 'IL', '18': 'IN',
-  '19': 'IA', '20': 'KS', '21': 'KY', '22': 'LA', '23': 'ME',
-  '24': 'MD', '25': 'MA', '26': 'MI', '27': 'MN', '28': 'MS',
-  '29': 'MO', '30': 'MT', '31': 'NE', '32': 'NV', '33': 'NH',
-  '34': 'NJ', '35': 'NM', '36': 'NY', '37': 'NC', '38': 'ND',
-  '39': 'OH', '40': 'OK', '41': 'OR', '42': 'PA', '44': 'RI',
-  '45': 'SC', '46': 'SD', '47': 'TN', '48': 'TX', '49': 'UT',
-  '50': 'VT', '51': 'VA', '53': 'WA', '54': 'WV', '55': 'WI',
+  '01': 'AL',
+  '02': 'AK',
+  '04': 'AZ',
+  '05': 'AR',
+  '06': 'CA',
+  '08': 'CO',
+  '09': 'CT',
+  '10': 'DE',
+  '11': 'DC',
+  '12': 'FL',
+  '13': 'GA',
+  '15': 'HI',
+  '16': 'ID',
+  '17': 'IL',
+  '18': 'IN',
+  '19': 'IA',
+  '20': 'KS',
+  '21': 'KY',
+  '22': 'LA',
+  '23': 'ME',
+  '24': 'MD',
+  '25': 'MA',
+  '26': 'MI',
+  '27': 'MN',
+  '28': 'MS',
+  '29': 'MO',
+  '30': 'MT',
+  '31': 'NE',
+  '32': 'NV',
+  '33': 'NH',
+  '34': 'NJ',
+  '35': 'NM',
+  '36': 'NY',
+  '37': 'NC',
+  '38': 'ND',
+  '39': 'OH',
+  '40': 'OK',
+  '41': 'OR',
+  '42': 'PA',
+  '44': 'RI',
+  '45': 'SC',
+  '46': 'SD',
+  '47': 'TN',
+  '48': 'TX',
+  '49': 'UT',
+  '50': 'VT',
+  '51': 'VA',
+  '53': 'WA',
+  '54': 'WV',
+  '55': 'WI',
   '56': 'WY',
 };
 
@@ -139,13 +174,10 @@ export function USMapChart({ stateData, clinics, isLoading }: USMapChartProps) {
     [stateData, maxCount]
   );
 
-  const handleMouseEnter = useCallback(
-    (stateCode: string, event: React.MouseEvent) => {
-      setHoveredState(stateCode);
-      setTooltipPos({ x: event.clientX, y: event.clientY });
-    },
-    []
-  );
+  const handleMouseEnter = useCallback((stateCode: string, event: React.MouseEvent) => {
+    setHoveredState(stateCode);
+    setTooltipPos({ x: event.clientX, y: event.clientY });
+  }, []);
 
   const handleMouseMove = useCallback((event: React.MouseEvent) => {
     setTooltipPos({ x: event.clientX, y: event.clientY });
@@ -169,11 +201,9 @@ export function USMapChart({ stateData, clinics, isLoading }: USMapChartProps) {
   return (
     <div className="rounded-2xl border border-gray-200 bg-white">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 pt-5 pb-2">
+      <div className="flex items-center justify-between px-6 pb-2 pt-5">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">
-            Client Distribution by State
-          </h2>
+          <h2 className="text-lg font-semibold text-gray-900">Client Distribution by State</h2>
           <p className="mt-0.5 text-sm text-gray-500">
             {totalPatients.toLocaleString()} clients across {statesWithData} states
           </p>
@@ -203,8 +233,14 @@ export function USMapChart({ stateData, clinics, isLoading }: USMapChartProps) {
                   <Geography
                     key={geo.rsmKey}
                     geography={geo}
-                    onMouseEnter={(e) => handleMouseEnter(stateCode, e as unknown as React.MouseEvent)}
-                    onMouseMove={handleMouseMove as unknown as (event: React.MouseEvent<SVGPathElement, MouseEvent>) => void}
+                    onMouseEnter={(e) =>
+                      handleMouseEnter(stateCode, e as unknown as React.MouseEvent)
+                    }
+                    onMouseMove={
+                      handleMouseMove as unknown as (
+                        event: React.MouseEvent<SVGPathElement, MouseEvent>
+                      ) => void
+                    }
                     onMouseLeave={handleMouseLeave}
                     style={{
                       default: {
@@ -317,13 +353,8 @@ export function USMapChart({ stateData, clinics, isLoading }: USMapChartProps) {
         <div className="flex flex-wrap items-center gap-4">
           {clinics.map((clinic) => (
             <div key={clinic.id} className="flex items-center gap-2">
-              <div
-                className="h-3 w-3 rounded-full"
-                style={{ backgroundColor: clinic.color }}
-              />
-              <span className="text-xs font-medium text-gray-700">
-                {clinic.name}
-              </span>
+              <div className="h-3 w-3 rounded-full" style={{ backgroundColor: clinic.color }} />
+              <span className="text-xs font-medium text-gray-700">{clinic.name}</span>
               <span className="text-xs text-gray-400">
                 ({clinic.totalPatients.toLocaleString()})
               </span>

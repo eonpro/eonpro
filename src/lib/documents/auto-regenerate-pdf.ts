@@ -59,9 +59,7 @@ export async function tryAutoRegeneratePdf(
         (intakeDataSource?.submissionId as string) ??
         document.sourceSubmissionId ??
         `auto-regen-${document.id}`,
-      submittedAt: new Date(
-        (intakeDataSource?.receivedAt as string) ?? document.createdAt
-      ),
+      submittedAt: new Date((intakeDataSource?.receivedAt as string) ?? document.createdAt),
       patient: {
         firstName: (patientData.firstName as string) ?? patient.firstName ?? '',
         lastName: (patientData.lastName as string) ?? patient.lastName ?? '',
@@ -70,7 +68,7 @@ export async function tryAutoRegeneratePdf(
         dob: (patientData.dob as string) ?? patient.dob ?? '',
         gender: (patientData.gender as string) ?? patient.gender ?? undefined,
         address1: (patientData.address1 as string) ?? patient.address1 ?? undefined,
-        address2: (patientData.address2 as string) ?? (patient.address2 ?? undefined),
+        address2: (patientData.address2 as string) ?? patient.address2 ?? undefined,
         city: (patientData.city as string) ?? patient.city ?? undefined,
         state: (patientData.state as string) ?? patient.state ?? undefined,
         zip: (patientData.zip as string) ?? patient.zip ?? undefined,
@@ -90,7 +88,7 @@ export async function tryAutoRegeneratePdf(
 
     await prisma.patientDocument.update({
       where: { id: document.id },
-        data: {
+      data: {
         data: new Uint8Array(stored.dataBuffer),
         s3DataKey: stored.s3DataKey,
         mimeType: 'application/pdf',

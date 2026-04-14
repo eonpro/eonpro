@@ -15,7 +15,10 @@ import { standardRateLimiter } from '@/lib/security/rate-limiter-redis';
 const profilePatchSchema = z.object({
   displayName: z.string().min(1).max(100).optional(),
   email: z.string().email('Invalid email').optional(),
-  phone: z.string().regex(/^\+?\d{10,15}$/, 'Invalid phone number').optional(),
+  phone: z
+    .string()
+    .regex(/^\+?\d{10,15}$/, 'Invalid phone number')
+    .optional(),
 });
 
 async function handlePatch(request: NextRequest, user: AuthUser) {

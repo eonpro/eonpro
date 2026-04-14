@@ -40,433 +40,474 @@ const rescheduleSchema = z.object({
  * GET /api/patient-portal/appointments
  * Get patient's appointments or available slots
  */
-export const GET = withAuth(async (req: NextRequest, user) => {
-  try {
-    const searchParams = req.nextUrl.searchParams;
-    const action = searchParams.get('action');
+export const GET = withAuth(
+  async (req: NextRequest, user) => {
+    try {
+      const searchParams = req.nextUrl.searchParams;
+      const action = searchParams.get('action');
 
-    // For patients, ensure they have a patient profile
-    let patientId: number | undefined;
-    if (user.role === 'patient') {
-      if (!user.patientId) {
-        return NextResponse.json({ error: 'Patient profile not found' }, { status: 404 });
+      // For patients, ensure they have a patient profile
+      let patientId: number | undefined;
+      if (user.role === 'patient') {
+        if (!user.patientId) {
+          return NextResponse.json({ error: 'Patient profile not found' }, { status: 404 });
+        }
+        patientId = user.patientId;
+      } else {
+        patientId = searchParams.get('patientId')
+          ? parseInt(searchParams.get('patientId')!)
+          : undefined;
       }
-      patientId = user.patientId;
-    } else {
-      patientId = searchParams.get('patientId')
-        ? parseInt(searchParams.get('patientId')!)
-        : undefined;
-    }
 
-    // Verify patient belongs to user's clinic when non-patient provides patientId
-    if (patientId && user.role !== 'patient') {
-      const patientRecord = await prisma.patient.findFirst({
-        where: {
-          id: patientId,
-          ...(user.clinicId ? { clinicId: user.clinicId } : {}),
-        },
-        select: { id: true },
-      });
-      if (!patientRecord) {
-        return NextResponse.json(
-          { error: 'Patient not found or access denied' },
-          { status: 403 }
+      // Verify patient belongs to user's clinic when non-patient provides patientId
+      if (patientId && user.role !== 'patient') {
+        const patientRecord = await prisma.patient.findFirst({
+          where: {
+            id: patientId,
+            ...(user.clinicId ? { clinicId: user.clinicId } : {}),
+          },
+          select: { id: true },
+        });
+        if (!patientRecord) {
+          return NextResponse.json(
+            { error: 'Patient not found or access denied' },
+            { status: 403 }
+          );
+        }
+      }
+
+      // Get available slots for booking
+      if (action === 'available-slots') {
+        const providerId = searchParams.get('providerId');
+        const date = searchParams.get('date');
+        const duration = searchParams.get('duration');
+        // Use user's clinicId for multi-tenant isolation
+        const clinicId = user.clinicId;
+
+        if (!providerId || !date) {
+          return NextResponse.json({ error: 'providerId and date are required' }, { status: 400 });
+        }
+
+        const slots = await getAvailableSlots(
+          parseInt(providerId),
+          new Date(date),
+          duration ? parseInt(duration) : 15,
+          clinicId || undefined
         );
-      }
-    }
 
-    // Get available slots for booking
-    if (action === 'available-slots') {
-      const providerId = searchParams.get('providerId');
-      const date = searchParams.get('date');
-      const duration = searchParams.get('duration');
-      // Use user's clinicId for multi-tenant isolation
-      const clinicId = user.clinicId;
+        // Filter to only available slots
+        const availableSlots = slots.filter((slot) => slot.available);
 
-      if (!providerId || !date) {
-        return NextResponse.json({ error: 'providerId and date are required' }, { status: 400 });
+        return NextResponse.json({ slots: availableSlots });
       }
 
-      const slots = await getAvailableSlots(
-        parseInt(providerId),
-        new Date(date),
-        duration ? parseInt(duration) : 15,
-        clinicId || undefined
-      );
+      // Get available appointment types for self-scheduling
+      if (action === 'appointment-types') {
+        const clinicId = user.clinicId;
 
-      // Filter to only available slots
-      const availableSlots = slots.filter((slot) => slot.available);
+        try {
+          const types = await prisma.appointmentTypeConfig.findMany({
+            where: {
+              isActive: true,
+              allowSelfScheduling: true,
+              ...(clinicId && { clinicId }),
+            },
+            select: {
+              id: true,
+              name: true,
+              description: true,
+              duration: true,
+              price: true,
+              requiresVideoLink: true,
+            },
+            orderBy: { name: 'asc' },
+          });
 
-      return NextResponse.json({ slots: availableSlots });
-    }
-
-    // Get available appointment types for self-scheduling
-    if (action === 'appointment-types') {
-      const clinicId = user.clinicId;
-
-      try {
-        const types = await prisma.appointmentTypeConfig.findMany({
-          where: {
-            isActive: true,
-            allowSelfScheduling: true,
-            ...(clinicId && { clinicId }),
-          },
-          select: {
-            id: true,
-            name: true,
-            description: true,
-            duration: true,
-            price: true,
-            requiresVideoLink: true,
-          },
-          orderBy: { name: 'asc' },
-        });
-
-        return NextResponse.json({ appointmentTypes: types });
-      } catch (err) {
-        logger.warn('AppointmentTypeConfig query failed (table may not exist yet)', {
-          error: err instanceof Error ? err.message : 'Unknown',
-        });
-        return NextResponse.json({ appointmentTypes: [] });
+          return NextResponse.json({ appointmentTypes: types });
+        } catch (err) {
+          logger.warn('AppointmentTypeConfig query failed (table may not exist yet)', {
+            error: err instanceof Error ? err.message : 'Unknown',
+          });
+          return NextResponse.json({ appointmentTypes: [] });
+        }
       }
-    }
 
-    // Get available providers
-    if (action === 'providers') {
-      const clinicId = user.clinicId;
+      // Get available providers
+      if (action === 'providers') {
+        const clinicId = user.clinicId;
 
-      try {
-        const providers = await prisma.provider.findMany({
-          where: {
-            ...(clinicId && { clinicId }),
-            availability: {
-              some: {
-                isActive: true,
+        try {
+          const providers = await prisma.provider.findMany({
+            where: {
+              ...(clinicId && { clinicId }),
+              availability: {
+                some: {
+                  isActive: true,
+                },
               },
             },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              titleLine: true,
+            },
+            orderBy: { lastName: 'asc' },
+          });
+
+          return NextResponse.json({ providers });
+        } catch (err) {
+          logger.warn('Provider availability query failed', {
+            error: err instanceof Error ? err.message : 'Unknown',
+          });
+          return NextResponse.json({ providers: [] });
+        }
+      }
+
+      // Fetch a single appointment by ID (used by patient telehealth join page)
+      const appointmentIdParam = searchParams.get('appointmentId');
+      if (appointmentIdParam) {
+        const apptId = parseInt(appointmentIdParam, 10);
+        if (isNaN(apptId)) {
+          return NextResponse.json({ error: 'Invalid appointmentId' }, { status: 400 });
+        }
+
+        const appointment = await prisma.appointment.findFirst({
+          where: {
+            id: apptId,
+            ...(patientId ? { patientId } : {}),
           },
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            titleLine: true,
+          include: {
+            provider: {
+              select: { id: true, firstName: true, lastName: true, titleLine: true },
+            },
           },
-          orderBy: { lastName: 'asc' },
         });
 
-        return NextResponse.json({ providers });
-      } catch (err) {
-        logger.warn('Provider availability query failed', {
-          error: err instanceof Error ? err.message : 'Unknown',
+        if (!appointment) {
+          return NextResponse.json({ error: 'Appointment not found' }, { status: 404 });
+        }
+
+        // Verify ownership for patient role
+        if (user.role === 'patient' && appointment.patientId !== patientId) {
+          return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+        }
+
+        const providerName = appointment.provider
+          ? `${appointment.provider.titleLine ?? ''} ${appointment.provider.firstName} ${appointment.provider.lastName}`.trim()
+          : undefined;
+
+        await logPHIAccess(req, user, 'PatientAppointment', String(apptId), appointment.patientId, {
+          action: 'telehealth_join_view',
         });
-        return NextResponse.json({ providers: [] });
+
+        return NextResponse.json({
+          appointment: {
+            ...appointment,
+            providerName,
+          },
+        });
       }
+
+      // Default: Get patient's appointments
+      if (!patientId) {
+        return NextResponse.json({ error: 'patientId is required' }, { status: 400 });
+      }
+
+      const upcoming = searchParams.get('upcoming') === 'true';
+      const past = searchParams.get('past') === 'true';
+
+      const now = new Date();
+      let startDate: Date;
+      let endDate: Date;
+
+      if (upcoming) {
+        startDate = now;
+        endDate = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000); // Next year
+      } else if (past) {
+        startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000); // Last year
+        endDate = now;
+      } else {
+        startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000); // Last 90 days
+        endDate = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000); // Next 90 days
+      }
+
+      const appointments = await getAppointments({
+        patientId,
+        startDate,
+        endDate,
+        status: upcoming ? [AppointmentStatus.SCHEDULED, AppointmentStatus.CONFIRMED] : undefined,
+      });
+
+      await logPHIAccess(req, user, 'PatientAppointment', String(patientId), patientId, {
+        appointmentCount: appointments.length,
+      });
+
+      return NextResponse.json({ appointments });
+    } catch (error) {
+      return handleApiError(error, { context: { route: 'GET /api/patient-portal/appointments' } });
     }
+  },
+  { roles: ['patient', 'admin', 'provider', 'staff', 'super_admin'] }
+);
 
-    // Fetch a single appointment by ID (used by patient telehealth join page)
-    const appointmentIdParam = searchParams.get('appointmentId');
-    if (appointmentIdParam) {
-      const apptId = parseInt(appointmentIdParam, 10);
-      if (isNaN(apptId)) {
-        return NextResponse.json({ error: 'Invalid appointmentId' }, { status: 400 });
+/**
+ * POST /api/patient-portal/appointments
+ * Book a new appointment
+ */
+export const POST = withAuth(
+  async (req: NextRequest, user) => {
+    try {
+      // Verify patient role
+      if (user.role === 'patient' && !user.patientId) {
+        return NextResponse.json({ error: 'Patient profile not found' }, { status: 404 });
       }
 
-      const appointment = await prisma.appointment.findFirst({
-        where: {
-          id: apptId,
-          ...(patientId ? { patientId } : {}),
-        },
-        include: {
-          provider: {
-            select: { id: true, firstName: true, lastName: true, titleLine: true },
-          },
-        },
+      const body = await req.json();
+      const parsed = bookAppointmentSchema.safeParse(body);
+
+      if (!parsed.success) {
+        return NextResponse.json(
+          { error: 'Invalid request data', details: parsed.error.issues },
+          { status: 400 }
+        );
+      }
+
+      // Get patient ID
+      const patientId = user.role === 'patient' ? user.patientId! : body.patientId;
+      if (!patientId) {
+        return NextResponse.json({ error: 'patientId is required' }, { status: 400 });
+      }
+
+      // Verify provider exists and accepts self-scheduling
+      const provider = await prisma.provider.findUnique({
+        where: { id: parsed.data.providerId },
+        select: { id: true, clinicId: true, firstName: true, lastName: true },
+      });
+
+      if (!provider) {
+        return NextResponse.json({ error: 'Provider not found' }, { status: 404 });
+      }
+
+      // If appointment type specified, verify it allows self-scheduling
+      if (parsed.data.appointmentTypeId) {
+        const appointmentType = await prisma.appointmentTypeConfig.findUnique({
+          where: { id: parsed.data.appointmentTypeId },
+        });
+
+        if (!appointmentType || !appointmentType.allowSelfScheduling) {
+          return NextResponse.json(
+            { error: 'This appointment type is not available for self-scheduling' },
+            { status: 400 }
+          );
+        }
+      }
+
+      // Create the appointment
+      const result = await createAppointment({
+        clinicId: provider.clinicId || undefined,
+        patientId,
+        providerId: parsed.data.providerId,
+        appointmentTypeId: parsed.data.appointmentTypeId,
+        startTime: new Date(parsed.data.startTime),
+        duration: parsed.data.duration || 15,
+        type: (parsed.data.type as AppointmentModeType) || AppointmentModeType.IN_PERSON,
+        reason: parsed.data.reason,
+        notes: parsed.data.notes,
+        createdById: user.id,
+      });
+
+      if (!result.success) {
+        return NextResponse.json({ error: result.error }, { status: 400 });
+      }
+
+      logger.info('Patient self-booked appointment', {
+        appointmentId: result.appointment.id,
+        patientId,
+        providerId: parsed.data.providerId,
+        bookedBy: user.id,
+      });
+
+      await logPHICreate(
+        req,
+        user,
+        'PatientAppointment',
+        String(result.appointment.id),
+        patientId,
+        {
+          providerId: parsed.data.providerId,
+          appointmentTypeId: parsed.data.appointmentTypeId,
+        }
+      );
+
+      return NextResponse.json({ appointment: result.appointment }, { status: 201 });
+    } catch (error) {
+      return handleApiError(error, { context: { route: 'POST /api/patient-portal/appointments' } });
+    }
+  },
+  { roles: ['patient', 'admin', 'provider', 'staff', 'super_admin'] }
+);
+
+/**
+ * PATCH /api/patient-portal/appointments
+ * Reschedule an appointment
+ */
+export const PATCH = withAuth(
+  async (req: NextRequest, user) => {
+    try {
+      const body = await req.json();
+      const parsed = rescheduleSchema.safeParse(body);
+
+      if (!parsed.success) {
+        return NextResponse.json(
+          { error: 'Invalid request data', details: parsed.error.issues },
+          { status: 400 }
+        );
+      }
+
+      // Verify patient owns this appointment
+      const appointment = await prisma.appointment.findUnique({
+        where: { id: parsed.data.appointmentId },
+        select: { patientId: true, status: true },
       });
 
       if (!appointment) {
         return NextResponse.json({ error: 'Appointment not found' }, { status: 404 });
       }
 
-      // Verify ownership for patient role
-      if (user.role === 'patient' && appointment.patientId !== patientId) {
-        return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      if (user.role === 'patient' && appointment.patientId !== user.patientId) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
       }
 
-      const providerName = appointment.provider
-        ? `${appointment.provider.titleLine ?? ''} ${appointment.provider.firstName} ${appointment.provider.lastName}`.trim()
-        : undefined;
-
-      await logPHIAccess(req, user, 'PatientAppointment', String(apptId), appointment.patientId, {
-        action: 'telehealth_join_view',
-      });
-
-      return NextResponse.json({
-        appointment: {
-          ...appointment,
-          providerName,
-        },
-      });
-    }
-
-    // Default: Get patient's appointments
-    if (!patientId) {
-      return NextResponse.json({ error: 'patientId is required' }, { status: 400 });
-    }
-
-    const upcoming = searchParams.get('upcoming') === 'true';
-    const past = searchParams.get('past') === 'true';
-
-    const now = new Date();
-    let startDate: Date;
-    let endDate: Date;
-
-    if (upcoming) {
-      startDate = now;
-      endDate = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000); // Next year
-    } else if (past) {
-      startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000); // Last year
-      endDate = now;
-    } else {
-      startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000); // Last 90 days
-      endDate = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000); // Next 90 days
-    }
-
-    const appointments = await getAppointments({
-      patientId,
-      startDate,
-      endDate,
-      status: upcoming ? [AppointmentStatus.SCHEDULED, AppointmentStatus.CONFIRMED] : undefined,
-    });
-
-    await logPHIAccess(req, user, 'PatientAppointment', String(patientId), patientId, {
-      appointmentCount: appointments.length,
-    });
-
-    return NextResponse.json({ appointments });
-  } catch (error) {
-    return handleApiError(error, { context: { route: 'GET /api/patient-portal/appointments' } });
-  }
-}, { roles: ['patient', 'admin', 'provider', 'staff', 'super_admin'] });
-
-/**
- * POST /api/patient-portal/appointments
- * Book a new appointment
- */
-export const POST = withAuth(async (req: NextRequest, user) => {
-  try {
-    // Verify patient role
-    if (user.role === 'patient' && !user.patientId) {
-      return NextResponse.json({ error: 'Patient profile not found' }, { status: 404 });
-    }
-
-    const body = await req.json();
-    const parsed = bookAppointmentSchema.safeParse(body);
-
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: 'Invalid request data', details: parsed.error.issues },
-        { status: 400 }
-      );
-    }
-
-    // Get patient ID
-    const patientId = user.role === 'patient' ? user.patientId! : body.patientId;
-    if (!patientId) {
-      return NextResponse.json({ error: 'patientId is required' }, { status: 400 });
-    }
-
-    // Verify provider exists and accepts self-scheduling
-    const provider = await prisma.provider.findUnique({
-      where: { id: parsed.data.providerId },
-      select: { id: true, clinicId: true, firstName: true, lastName: true },
-    });
-
-    if (!provider) {
-      return NextResponse.json({ error: 'Provider not found' }, { status: 404 });
-    }
-
-    // If appointment type specified, verify it allows self-scheduling
-    if (parsed.data.appointmentTypeId) {
-      const appointmentType = await prisma.appointmentTypeConfig.findUnique({
-        where: { id: parsed.data.appointmentTypeId },
-      });
-
-      if (!appointmentType || !appointmentType.allowSelfScheduling) {
+      // Check if appointment can be rescheduled
+      if (!['SCHEDULED', 'CONFIRMED'].includes(appointment.status)) {
         return NextResponse.json(
-          { error: 'This appointment type is not available for self-scheduling' },
+          { error: 'This appointment cannot be rescheduled' },
           { status: 400 }
         );
       }
-    }
 
-    // Create the appointment
-    const result = await createAppointment({
-      clinicId: provider.clinicId || undefined,
-      patientId,
-      providerId: parsed.data.providerId,
-      appointmentTypeId: parsed.data.appointmentTypeId,
-      startTime: new Date(parsed.data.startTime),
-      duration: parsed.data.duration || 15,
-      type: (parsed.data.type as AppointmentModeType) || AppointmentModeType.IN_PERSON,
-      reason: parsed.data.reason,
-      notes: parsed.data.notes,
-      createdById: user.id,
-    });
-
-    if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 400 });
-    }
-
-    logger.info('Patient self-booked appointment', {
-      appointmentId: result.appointment.id,
-      patientId,
-      providerId: parsed.data.providerId,
-      bookedBy: user.id,
-    });
-
-    await logPHICreate(req, user, 'PatientAppointment', String(result.appointment.id), patientId, {
-      providerId: parsed.data.providerId,
-      appointmentTypeId: parsed.data.appointmentTypeId,
-    });
-
-    return NextResponse.json({ appointment: result.appointment }, { status: 201 });
-  } catch (error) {
-    return handleApiError(error, { context: { route: 'POST /api/patient-portal/appointments' } });
-  }
-}, { roles: ['patient', 'admin', 'provider', 'staff', 'super_admin'] });
-
-/**
- * PATCH /api/patient-portal/appointments
- * Reschedule an appointment
- */
-export const PATCH = withAuth(async (req: NextRequest, user) => {
-  try {
-    const body = await req.json();
-    const parsed = rescheduleSchema.safeParse(body);
-
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: 'Invalid request data', details: parsed.error.issues },
-        { status: 400 }
+      const result = await rescheduleAppointment(
+        parsed.data.appointmentId,
+        new Date(parsed.data.newStartTime),
+        undefined,
+        parsed.data.reason || 'Patient rescheduled'
       );
-    }
 
-    // Verify patient owns this appointment
-    const appointment = await prisma.appointment.findUnique({
-      where: { id: parsed.data.appointmentId },
-      select: { patientId: true, status: true },
-    });
+      if (!result.success) {
+        return NextResponse.json({ error: result.error }, { status: 400 });
+      }
 
-    if (!appointment) {
-      return NextResponse.json({ error: 'Appointment not found' }, { status: 404 });
-    }
+      logger.info('Patient rescheduled appointment', {
+        oldAppointmentId: parsed.data.appointmentId,
+        newAppointmentId: result.newAppointment.id,
+        rescheduledBy: user.id,
+      });
 
-    if (user.role === 'patient' && appointment.patientId !== user.patientId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
-
-    // Check if appointment can be rescheduled
-    if (!['SCHEDULED', 'CONFIRMED'].includes(appointment.status)) {
-      return NextResponse.json(
-        { error: 'This appointment cannot be rescheduled' },
-        { status: 400 }
+      await logPHIUpdate(
+        req,
+        user,
+        'PatientAppointment',
+        String(parsed.data.appointmentId),
+        appointment.patientId,
+        ['startTime', 'status'],
+        {
+          newAppointmentId: result.newAppointment.id,
+          reason: parsed.data.reason,
+        }
       );
+
+      return NextResponse.json({
+        success: true,
+        oldAppointment: result.oldAppointment,
+        newAppointment: result.newAppointment,
+      });
+    } catch (error) {
+      return handleApiError(error, {
+        context: { route: 'PATCH /api/patient-portal/appointments' },
+      });
     }
-
-    const result = await rescheduleAppointment(
-      parsed.data.appointmentId,
-      new Date(parsed.data.newStartTime),
-      undefined,
-      parsed.data.reason || 'Patient rescheduled'
-    );
-
-    if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 400 });
-    }
-
-    logger.info('Patient rescheduled appointment', {
-      oldAppointmentId: parsed.data.appointmentId,
-      newAppointmentId: result.newAppointment.id,
-      rescheduledBy: user.id,
-    });
-
-    await logPHIUpdate(req, user, 'PatientAppointment', String(parsed.data.appointmentId), appointment.patientId, ['startTime', 'status'], {
-      newAppointmentId: result.newAppointment.id,
-      reason: parsed.data.reason,
-    });
-
-    return NextResponse.json({
-      success: true,
-      oldAppointment: result.oldAppointment,
-      newAppointment: result.newAppointment,
-    });
-  } catch (error) {
-    return handleApiError(error, { context: { route: 'PATCH /api/patient-portal/appointments' } });
-  }
-}, { roles: ['patient', 'admin', 'provider', 'staff', 'super_admin'] });
+  },
+  { roles: ['patient', 'admin', 'provider', 'staff', 'super_admin'] }
+);
 
 /**
  * DELETE /api/patient-portal/appointments
  * Cancel an appointment
  */
-export const DELETE = withAuth(async (req: NextRequest, user) => {
-  try {
-    const searchParams = req.nextUrl.searchParams;
-    const appointmentId = searchParams.get('appointmentId');
-    const reason = searchParams.get('reason');
+export const DELETE = withAuth(
+  async (req: NextRequest, user) => {
+    try {
+      const searchParams = req.nextUrl.searchParams;
+      const appointmentId = searchParams.get('appointmentId');
+      const reason = searchParams.get('reason');
 
-    if (!appointmentId) {
-      return NextResponse.json({ error: 'appointmentId is required' }, { status: 400 });
-    }
+      if (!appointmentId) {
+        return NextResponse.json({ error: 'appointmentId is required' }, { status: 400 });
+      }
 
-    // Verify patient owns this appointment
-    const appointment = await prisma.appointment.findUnique({
-      where: { id: parseInt(appointmentId) },
-      select: { patientId: true, status: true, startTime: true },
-    });
+      // Verify patient owns this appointment
+      const appointment = await prisma.appointment.findUnique({
+        where: { id: parseInt(appointmentId) },
+        select: { patientId: true, status: true, startTime: true },
+      });
 
-    if (!appointment) {
-      return NextResponse.json({ error: 'Appointment not found' }, { status: 404 });
-    }
+      if (!appointment) {
+        return NextResponse.json({ error: 'Appointment not found' }, { status: 404 });
+      }
 
-    if (user.role === 'patient' && appointment.patientId !== user.patientId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
+      if (user.role === 'patient' && appointment.patientId !== user.patientId) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+      }
 
-    // Check if appointment can be cancelled
-    if (!['SCHEDULED', 'CONFIRMED'].includes(appointment.status)) {
-      return NextResponse.json({ error: 'This appointment cannot be cancelled' }, { status: 400 });
-    }
+      // Check if appointment can be cancelled
+      if (!['SCHEDULED', 'CONFIRMED'].includes(appointment.status)) {
+        return NextResponse.json(
+          { error: 'This appointment cannot be cancelled' },
+          { status: 400 }
+        );
+      }
 
-    // Check cancellation policy (e.g., 24 hours before)
-    const hoursUntilAppointment =
-      (new Date(appointment.startTime).getTime() - Date.now()) / (1000 * 60 * 60);
-    if (hoursUntilAppointment < 24 && user.role === 'patient') {
-      return NextResponse.json(
-        { error: 'Appointments must be cancelled at least 24 hours in advance' },
-        { status: 400 }
+      // Check cancellation policy (e.g., 24 hours before)
+      const hoursUntilAppointment =
+        (new Date(appointment.startTime).getTime() - Date.now()) / (1000 * 60 * 60);
+      if (hoursUntilAppointment < 24 && user.role === 'patient') {
+        return NextResponse.json(
+          { error: 'Appointments must be cancelled at least 24 hours in advance' },
+          { status: 400 }
+        );
+      }
+
+      const result = await cancelAppointment(
+        parseInt(appointmentId),
+        reason || 'Cancelled by patient'
       );
+
+      if (!result.success) {
+        return NextResponse.json({ error: result.error }, { status: 400 });
+      }
+
+      logger.info('Patient cancelled appointment', {
+        appointmentId,
+        cancelledBy: user.id,
+        reason,
+      });
+
+      await logPHIDelete(
+        req,
+        user,
+        'PatientAppointment',
+        appointmentId,
+        appointment.patientId,
+        reason || 'Cancelled by patient'
+      );
+
+      return NextResponse.json({ success: true, appointment: result.appointment });
+    } catch (error) {
+      return handleApiError(error, {
+        context: { route: 'DELETE /api/patient-portal/appointments' },
+      });
     }
-
-    const result = await cancelAppointment(
-      parseInt(appointmentId),
-      reason || 'Cancelled by patient'
-    );
-
-    if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 400 });
-    }
-
-    logger.info('Patient cancelled appointment', {
-      appointmentId,
-      cancelledBy: user.id,
-      reason,
-    });
-
-    await logPHIDelete(req, user, 'PatientAppointment', appointmentId, appointment.patientId, reason || 'Cancelled by patient');
-
-    return NextResponse.json({ success: true, appointment: result.appointment });
-  } catch (error) {
-    return handleApiError(error, { context: { route: 'DELETE /api/patient-portal/appointments' } });
-  }
-}, { roles: ['patient', 'admin', 'provider', 'staff', 'super_admin'] });
+  },
+  { roles: ['patient', 'admin', 'provider', 'staff', 'super_admin'] }
+);

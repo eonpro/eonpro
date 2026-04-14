@@ -18,7 +18,11 @@ function formatDuration(minutes: number) {
 }
 
 export default function TimeTrackingCard({ ticketId, refreshKey = 0 }: TimeTrackingCardProps) {
-  const [summary, setSummary] = useState<{ totalMinutes: number; totalEntries: number; uniqueWorkers: number } | null>(null);
+  const [summary, setSummary] = useState<{
+    totalMinutes: number;
+    totalEntries: number;
+    uniqueWorkers: number;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchSummary = useCallback(async () => {

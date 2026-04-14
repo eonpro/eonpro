@@ -52,18 +52,14 @@ export default function CTA({ id }: { id: string }) {
     }
   };
 
-  const {
-    price,
-    text: planText,
-    frequency: frequencyLabel,
-  } = getPlanDisplayInfo();
+  const { price, text: planText, frequency: frequencyLabel } = getPlanDisplayInfo();
 
   const totalPrice = price + addonTotal;
 
   return (
-    <div className="text-center mx-auto flex flex-col gap-6 sm:gap-8" id={id}>
+    <div className="mx-auto flex flex-col gap-6 text-center sm:gap-8" id={id}>
       <div>
-        <h3 className="sm:whitespace-nowrap checkout-title text-center">
+        <h3 className="checkout-title text-center sm:whitespace-nowrap">
           <span className="capitalize">{selectedProduct.name}</span> prescribed{' '}
           <span className="inline sm:hidden">
             <br />
@@ -73,18 +69,14 @@ export default function CTA({ id }: { id: string }) {
         <p>
           {planText} No contracts, cancel anytime. Medication is included.
           {addonTotal > 0 && (
-            <span className="block text-sm text-primary mt-1">
+            <span className="text-primary mt-1 block text-sm">
               Includes ${addonTotal} in add-ons
             </span>
           )}
         </p>
       </div>
 
-      <Button
-        onClick={goToNextStep}
-        text="Continue to Shipping"
-        className="max-w-sm mx-auto"
-      />
+      <Button onClick={goToNextStep} text="Continue to Shipping" className="mx-auto max-w-sm" />
     </div>
   );
 }

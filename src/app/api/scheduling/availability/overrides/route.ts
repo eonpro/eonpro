@@ -60,8 +60,7 @@ export const GET = withAuth(async (req: NextRequest, user) => {
       };
     }
 
-    const resolvedClinicId =
-      user.role === 'super_admin' ? undefined : (user.clinicId ?? undefined);
+    const resolvedClinicId = user.role === 'super_admin' ? undefined : (user.clinicId ?? undefined);
     if (resolvedClinicId) {
       where.OR = [{ clinicId: resolvedClinicId }, { clinicId: null }];
     }
@@ -140,15 +139,11 @@ export const DELETE = withAuth(async (req: NextRequest, user) => {
     const date = searchParams.get('date');
 
     if (!providerId || !date) {
-      return NextResponse.json(
-        { error: 'providerId and date are required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'providerId and date are required' }, { status: 400 });
     }
 
     const dateOnly = dbDate(date);
-    const resolvedClinicId =
-      user.role === 'super_admin' ? undefined : (user.clinicId ?? undefined);
+    const resolvedClinicId = user.role === 'super_admin' ? undefined : (user.clinicId ?? undefined);
 
     await prisma.providerDateOverride.deleteMany({
       where: {

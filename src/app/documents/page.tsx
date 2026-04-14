@@ -79,7 +79,6 @@ export default function DocumentManagementPage() {
         setDocuments(data);
       }
     } catch (error: unknown) {
-      
       logger.error('Failed to load documents:', error);
     } finally {
       setLoading(false);

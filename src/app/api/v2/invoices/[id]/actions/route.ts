@@ -260,14 +260,12 @@ export async function POST(
         // Allow VOID invoices to be deleted even if they have past payments (cleanup from profile)
         const hasCompletedPayments =
           invoice.status !== 'VOID' &&
-          (invoice.payments?.some(
-            (p) => p.status === 'SUCCEEDED' || p.status === 'PROCESSING'
-          ) ?? false);
+          (invoice.payments?.some((p) => p.status === 'SUCCEEDED' || p.status === 'PROCESSING') ??
+            false);
         if (hasCompletedPayments) {
           return NextResponse.json(
             {
-              error:
-                'Cannot delete an invoice with completed payments. Void or refund instead.',
+              error: 'Cannot delete an invoice with completed payments. Void or refund instead.',
             },
             { status: 400 }
           );
@@ -290,10 +288,13 @@ export async function POST(
             });
           }
         }
-        await prisma.$transaction(async (tx) => {
-          await tx.invoiceItem.deleteMany({ where: { invoiceId } });
-          await tx.invoice.delete({ where: { id: invoiceId } });
-        }, { timeout: 15000 });
+        await prisma.$transaction(
+          async (tx) => {
+            await tx.invoiceItem.deleteMany({ where: { invoiceId } });
+            await tx.invoice.delete({ where: { id: invoiceId } });
+          },
+          { timeout: 15000 }
+        );
         logger.info('Invoice deleted via v2 actions', { invoiceId });
         return NextResponse.json({
           success: true,

@@ -128,7 +128,8 @@ export default function ClinicBillingPage() {
         setSummary(data.summary ?? null);
       } else {
         const err = await response.json().catch(() => ({}));
-        process.env.NODE_ENV === 'development' && console.error('Clinic fees error', response.status, err);
+        process.env.NODE_ENV === 'development' &&
+          console.error('Clinic fees error', response.status, err);
       }
     } catch (error) {
       process.env.NODE_ENV === 'development' && console.error('Failed to fetch clinics:', error);
@@ -198,7 +199,10 @@ export default function ClinicBillingPage() {
                   ...c,
                   value:
                     (c.operator === 'in' || c.operator === 'notIn') && typeof c.value === 'string'
-                      ? c.value.split(',').map((s) => s.trim()).filter(Boolean)
+                      ? c.value
+                          .split(',')
+                          .map((s) => s.trim())
+                          .filter(Boolean)
                       : c.value,
                 })),
               }))
@@ -393,9 +397,7 @@ export default function ClinicBillingPage() {
                     {(item.pendingAmountCents ?? 0) > 0 ? (
                       <span className="font-medium text-[#4fa77e]">
                         {formatCurrency(item.pendingAmountCents ?? 0)}
-                        <span className="ml-1 text-gray-500">
-                          ({item.pendingCount ?? 0} fees)
-                        </span>
+                        <span className="ml-1 text-gray-500">({item.pendingCount ?? 0} fees)</span>
                       </span>
                     ) : (
                       '-'
@@ -655,7 +657,9 @@ export default function ClinicBillingPage() {
                             onClick={() =>
                               setFormData({
                                 ...formData,
-                                customFeeRules: formData.customFeeRules.filter((r) => r.id !== rule.id),
+                                customFeeRules: formData.customFeeRules.filter(
+                                  (r) => r.id !== rule.id
+                                ),
                               })
                             }
                             className="rounded p-1 text-red-600 hover:bg-red-50"
@@ -680,14 +684,19 @@ export default function ClinicBillingPage() {
                             />
                           </div>
                           <div>
-                            <label className="block text-xs text-gray-500">Priority (lower first)</label>
+                            <label className="block text-xs text-gray-500">
+                              Priority (lower first)
+                            </label>
                             <input
                               type="number"
                               min={0}
                               value={rule.priority}
                               onChange={(e) => {
                                 const next = [...formData.customFeeRules];
-                                next[idx] = { ...rule, priority: parseInt(e.target.value, 10) || 0 };
+                                next[idx] = {
+                                  ...rule,
+                                  priority: parseInt(e.target.value, 10) || 0,
+                                };
                                 setFormData({ ...formData, customFeeRules: next });
                               }}
                               className="mt-0.5 w-full rounded border border-gray-200 px-2 py-1 text-xs"
@@ -701,7 +710,10 @@ export default function ClinicBillingPage() {
                                 const next = [...formData.customFeeRules];
                                 next[idx] = {
                                   ...rule,
-                                  appliesTo: e.target.value as 'PRESCRIPTION' | 'TRANSMISSION' | 'BOTH',
+                                  appliesTo: e.target.value as
+                                    | 'PRESCRIPTION'
+                                    | 'TRANSMISSION'
+                                    | 'BOTH',
                                 };
                                 setFormData({ ...formData, customFeeRules: next });
                               }}
@@ -725,7 +737,10 @@ export default function ClinicBillingPage() {
                                     action,
                                     charge:
                                       action === 'CHARGE'
-                                        ? { type: 'FLAT', amountCents: rule.charge?.amountCents ?? 0 }
+                                        ? {
+                                            type: 'FLAT',
+                                            amountCents: rule.charge?.amountCents ?? 0,
+                                          }
                                         : undefined,
                                   };
                                   setFormData({ ...formData, customFeeRules: next });
@@ -771,7 +786,9 @@ export default function ClinicBillingPage() {
                                           charge: {
                                             ...rule.charge,
                                             type: 'FLAT',
-                                            amountCents: Math.round(parseFloat(e.target.value || '0') * 100),
+                                            amountCents: Math.round(
+                                              parseFloat(e.target.value || '0') * 100
+                                            ),
                                           },
                                         };
                                         setFormData({ ...formData, customFeeRules: next });
@@ -792,7 +809,9 @@ export default function ClinicBillingPage() {
                                           charge: {
                                             ...rule.charge,
                                             type: 'PERCENTAGE',
-                                            basisPoints: Math.round(parseFloat(e.target.value || '0') * 100),
+                                            basisPoints: Math.round(
+                                              parseFloat(e.target.value || '0') * 100
+                                            ),
                                           },
                                         };
                                         setFormData({ ...formData, customFeeRules: next });
@@ -801,7 +820,8 @@ export default function ClinicBillingPage() {
                                     />
                                   )}
                                   <span className="text-xs text-gray-500">
-                                    Min $ <input
+                                    Min ${' '}
+                                    <input
                                       type="number"
                                       min={0}
                                       step={0.01}
@@ -813,7 +833,9 @@ export default function ClinicBillingPage() {
                                           charge: {
                                             type: rule.charge?.type ?? 'FLAT',
                                             ...rule.charge,
-                                            minCents: Math.round(parseFloat(e.target.value || '0') * 100),
+                                            minCents: Math.round(
+                                              parseFloat(e.target.value || '0') * 100
+                                            ),
                                           },
                                         };
                                         setFormData({ ...formData, customFeeRules: next });
@@ -822,7 +844,8 @@ export default function ClinicBillingPage() {
                                     />
                                   </span>
                                   <span className="text-xs text-gray-500">
-                                    Max $ <input
+                                    Max ${' '}
+                                    <input
                                       type="number"
                                       min={0}
                                       step={0.01}
@@ -835,7 +858,10 @@ export default function ClinicBillingPage() {
                                           charge: {
                                             type: rule.charge?.type ?? 'FLAT',
                                             ...rule.charge,
-                                            maxCents: v === '' ? undefined : Math.round(parseFloat(v || '0') * 100),
+                                            maxCents:
+                                              v === ''
+                                                ? undefined
+                                                : Math.round(parseFloat(v || '0') * 100),
                                           },
                                         };
                                         setFormData({ ...formData, customFeeRules: next });
@@ -848,7 +874,9 @@ export default function ClinicBillingPage() {
                             </div>
                           </div>
                           <div className="col-span-2">
-                            <label className="block text-xs text-gray-500">Conditions (all must match)</label>
+                            <label className="block text-xs text-gray-500">
+                              Conditions (all must match)
+                            </label>
                             <div className="mt-1 space-y-1">
                               {rule.conditions.map((cond, cidx) => (
                                 <div key={cidx} className="flex flex-wrap items-center gap-1">
@@ -896,11 +924,17 @@ export default function ClinicBillingPage() {
                                   </select>
                                   <input
                                     type="text"
-                                    value={Array.isArray(cond.value) ? cond.value.join(',') : String(cond.value)}
+                                    value={
+                                      Array.isArray(cond.value)
+                                        ? cond.value.join(',')
+                                        : String(cond.value)
+                                    }
                                     onChange={(e) => {
                                       const raw = e.target.value;
-                                      const isNum = cond.field === 'orderTotalCents' || cond.field === 'rxCount';
-                                      const value = isNum ? (parseInt(raw, 10) || 0) : raw;
+                                      const isNum =
+                                        cond.field === 'orderTotalCents' ||
+                                        cond.field === 'rxCount';
+                                      const value = isNum ? parseInt(raw, 10) || 0 : raw;
                                       const next = [...formData.customFeeRules];
                                       const conds = [...rule.conditions];
                                       conds[cidx] = { ...cond, value };
@@ -928,7 +962,10 @@ export default function ClinicBillingPage() {
                                 type="button"
                                 onClick={() => {
                                   const next = [...formData.customFeeRules];
-                                  const conds = [...rule.conditions, { field: 'medName', operator: 'contains', value: '' }];
+                                  const conds = [
+                                    ...rule.conditions,
+                                    { field: 'medName', operator: 'contains', value: '' },
+                                  ];
                                   next[idx] = { ...rule, conditions: conds };
                                   setFormData({ ...formData, customFeeRules: next });
                                 }}

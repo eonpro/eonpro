@@ -26,17 +26,19 @@ export const definition: ChatCompletionTool = {
   },
 };
 
-export async function execute(
-  params: { medication: string; phase: string },
-): Promise<unknown> {
+export async function execute(params: { medication: string; phase: string }): Promise<unknown> {
   const medTemplates = SIG_TEMPLATES[params.medication as keyof typeof SIG_TEMPLATES];
-  if (!medTemplates || typeof medTemplates === 'object' && 'injectionSites' in medTemplates) {
-    return { error: `No SIG templates for "${params.medication}". Available: semaglutide, tirzepatide.` };
+  if (!medTemplates || (typeof medTemplates === 'object' && 'injectionSites' in medTemplates)) {
+    return {
+      error: `No SIG templates for "${params.medication}". Available: semaglutide, tirzepatide.`,
+    };
   }
 
   const template = (medTemplates as Record<string, unknown>)[params.phase];
   if (!template) {
-    return { error: `No template for phase "${params.phase}". Available: initiation, escalation, maintenance.` };
+    return {
+      error: `No template for phase "${params.phase}". Available: initiation, escalation, maintenance.`,
+    };
   }
 
   return {

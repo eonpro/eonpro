@@ -1,9 +1,9 @@
 /**
  * Product Configuration Loader
- * 
+ *
  * Dynamically loads product configuration based on VITE_PRODUCT_ID environment variable.
  * This allows the same codebase to serve different products on different subdomains.
- * 
+ *
  * Usage:
  *   VITE_PRODUCT_ID=semaglutide  → semaglutide.eonmeds.com
  *   VITE_PRODUCT_ID=tirzepatide  → tirzepatide.eonmeds.com
@@ -40,11 +40,11 @@ const productRegistry: ProductRegistry = {
  */
 export function getProductId(): ProductId {
   const envProductId = process.env.NEXT_PUBLIC_EONMEDS_PRODUCT_ID as string | undefined;
-  
+
   if (envProductId && envProductId in productRegistry) {
     return envProductId as ProductId;
   }
-  
+
   // Default to semaglutide
   console.warn(`[ProductConfig] VITE_PRODUCT_ID not set or invalid, defaulting to 'semaglutide'`);
   return 'semaglutide';
@@ -57,11 +57,11 @@ export function getProductId(): ProductId {
 export async function loadProductConfig(): Promise<ProductConfig> {
   const productId = getProductId();
   const loader = productRegistry[productId];
-  
+
   if (!loader) {
     throw new Error(`[ProductConfig] No configuration found for product: ${productId}`);
   }
-  
+
   try {
     const module = await loader();
     console.log(`[ProductConfig] Loaded configuration for: ${productId}`);
@@ -89,14 +89,14 @@ export function useProductConfig(): {
   if (cachedConfig) {
     return { config: cachedConfig, isLoading: false, error: null };
   }
-  
+
   if (!loadingPromise) {
     loadingPromise = loadProductConfig().then((config) => {
       cachedConfig = config;
       return config;
     });
   }
-  
+
   return { config: null, isLoading: true, error: null };
 }
 
@@ -105,7 +105,7 @@ export function useProductConfig(): {
  */
 export async function preloadProductConfig(): Promise<ProductConfig> {
   if (cachedConfig) return cachedConfig;
-  
+
   const config = await loadProductConfig();
   cachedConfig = config;
   return config;

@@ -72,7 +72,6 @@ export const GET = withAuth(
         },
       });
     } catch (error: unknown) {
-
       logger.error('Error fetching settings:', error);
       return NextResponse.json({ error: 'Failed to fetch settings' }, { status: 500 });
     }
@@ -166,7 +165,7 @@ export const PUT = withAuth(
           data: {
             userId: user.id > 0 ? user.id : undefined,
             action: 'SETTING_UPDATED',
-            details: ({
+            details: {
               settingId,
               category: categoryName,
               subcategory: subcategoryName,
@@ -176,13 +175,15 @@ export const PUT = withAuth(
                 : getSettingValue(settingId, settingDef.defaultValue),
               newValue: settingDef.sensitive ? '***' : value,
               updatedBy: user.id,
-            }) as any,
+            } as any,
             ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
             userAgent: req.headers.get('user-agent'),
           } as any,
         })
         .catch((error: Error) => {
-          logger.warn('Failed to create audit log:', { error: error instanceof Error ? error.message : String(error) });
+          logger.warn('Failed to create audit log:', {
+            error: error instanceof Error ? error.message : String(error),
+          });
         });
 
       logger.info('Setting updated', { settingId, userId: user.id });
@@ -211,7 +212,6 @@ export const PUT = withAuth(
         },
       });
     } catch (error: unknown) {
-
       logger.error('Error updating setting:', error);
       return NextResponse.json({ error: 'Failed to update setting' }, { status: 500 });
     }
@@ -360,14 +360,13 @@ export const POST = withAuth(
 
       // Log test attempt
       logger.info('Integration test', {
-      integration,
-      userId: user.id,
-      success: testResult.success,
-    });
+        integration,
+        userId: user.id,
+        success: testResult.success,
+      });
 
       return NextResponse.json(testResult);
     } catch (error: unknown) {
-
       logger.error('Error testing integration:', error);
       return NextResponse.json({ error: 'Failed to test integration' }, { status: 500 });
     }

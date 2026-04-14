@@ -79,13 +79,22 @@ export default function ScribePanel({
       try {
         const micPromise = navigator.mediaDevices.getUserMedia({ audio: true });
         const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Microphone permission timed out. Please allow microphone access and try again.')), 15_000)
+          setTimeout(
+            () =>
+              reject(
+                new Error(
+                  'Microphone permission timed out. Please allow microphone access and try again.'
+                )
+              ),
+            15_000
+          )
         );
         stream = await Promise.race([micPromise, timeoutPromise]);
       } catch (micErr) {
         const micMsg = micErr instanceof Error ? micErr.message : 'Microphone access denied';
         throw new Error(
-          micMsg.includes('timed out') ? micMsg
+          micMsg.includes('timed out')
+            ? micMsg
             : micMsg.includes('denied') || micMsg.includes('NotAllowedError')
               ? 'Microphone access was denied. Please allow microphone access in your browser settings and try again.'
               : `Microphone error: ${micMsg}`
@@ -109,7 +118,9 @@ export default function ScribePanel({
         try {
           const errBody = await startRes.json();
           serverMsg = errBody.details || errBody.error || serverMsg;
-        } catch { /* response not JSON */ }
+        } catch {
+          /* response not JSON */
+        }
         throw new Error(serverMsg);
       }
       const startData = await startRes.json();
@@ -174,7 +185,9 @@ export default function ScribePanel({
             if (!res.ok) {
               chunkErrorCountRef.current += 1;
               if (chunkErrorCountRef.current >= 3) {
-                setError('Transcription service unavailable. Recording continues — SOAP note can be written manually.');
+                setError(
+                  'Transcription service unavailable. Recording continues — SOAP note can be written manually.'
+                );
               }
               return;
             }
@@ -196,7 +209,9 @@ export default function ScribePanel({
           } catch {
             chunkErrorCountRef.current += 1;
             if (chunkErrorCountRef.current >= 3) {
-              setError('Transcription service unavailable. Recording continues — SOAP note can be written manually.');
+              setError(
+                'Transcription service unavailable. Recording continues — SOAP note can be written manually.'
+              );
             }
           }
         })();
@@ -205,7 +220,11 @@ export default function ScribePanel({
       sendIntervalRef.current = sendInterval;
     } catch (err) {
       if (mediaRecorderRef.current) {
-        try { mediaRecorderRef.current.stop(); } catch { /* already stopped */ }
+        try {
+          mediaRecorderRef.current.stop();
+        } catch {
+          /* already stopped */
+        }
         mediaRecorderRef.current = null;
       }
       const msg = err instanceof Error ? err.message : 'Failed to start recording';
@@ -233,14 +252,32 @@ export default function ScribePanel({
   }, []);
 
   useEffect(() => {
-    if (isCallActive && !recording && !initializing && !startFailed && appointmentId && patientId && providerId) {
+    if (
+      isCallActive &&
+      !recording &&
+      !initializing &&
+      !startFailed &&
+      appointmentId &&
+      patientId &&
+      providerId
+    ) {
       void startRecording();
     }
 
     if (!isCallActive && recording) {
       stopRecording();
     }
-  }, [isCallActive, recording, initializing, startFailed, appointmentId, patientId, providerId, startRecording, stopRecording]);
+  }, [
+    isCallActive,
+    recording,
+    initializing,
+    startFailed,
+    appointmentId,
+    patientId,
+    providerId,
+    startRecording,
+    stopRecording,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -268,9 +305,7 @@ export default function ScribePanel({
             AI Scribe
           </span>
         </div>
-        {recording && (
-          <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-        )}
+        {recording && <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />}
       </button>
     );
   }
@@ -307,7 +342,11 @@ export default function ScribePanel({
             </div>
             {startFailed && isCallActive && (
               <button
-                onClick={() => { setStartFailed(false); setError(null); void startRecording(); }}
+                onClick={() => {
+                  setStartFailed(false);
+                  setError(null);
+                  void startRecording();
+                }}
                 className="mt-2 flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-700"
               >
                 <Mic className="h-3.5 w-3.5" />
@@ -338,13 +377,14 @@ export default function ScribePanel({
             </p>
             {recording && (
               <p className="mt-2 text-[10px] text-gray-400">
-                Captures audio from your microphone. For best results, use speakers instead of headphones so patient audio is picked up.
+                Captures audio from your microphone. For best results, use speakers instead of
+                headphones so patient audio is picked up.
               </p>
             )}
             {isCallActive && !recording && !initializing && appointmentId && providerId && (
               <button
                 onClick={() => void startRecording()}
-                className="mt-4 flex items-center gap-1.5 mx-auto rounded-lg bg-blue-600 px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-blue-700"
+                className="mx-auto mt-4 flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-blue-700"
               >
                 <Mic className="h-3.5 w-3.5" />
                 Start AI Scribe
@@ -363,7 +403,10 @@ export default function ScribePanel({
                   {getSpeakerLabel(seg.speaker)}
                 </span>
                 <span className="text-[10px] text-gray-300">
-                  {new Date(seg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  {new Date(seg.timestamp).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
                 </span>
               </div>
               <p className="text-xs leading-relaxed text-gray-700">{seg.text}</p>
@@ -386,7 +429,11 @@ export default function ScribePanel({
               </button>
             ) : (
               <button
-                onClick={() => { setStartFailed(false); setError(null); void startRecording(); }}
+                onClick={() => {
+                  setStartFailed(false);
+                  setError(null);
+                  void startRecording();
+                }}
                 disabled={initializing}
                 className="flex items-center gap-1.5 rounded-lg bg-blue-100 px-3 py-1.5 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-200 disabled:opacity-50"
               >
@@ -395,9 +442,7 @@ export default function ScribePanel({
               </button>
             )}
           </div>
-          <span className="text-[10px] text-gray-400">
-            {segments.length} segments
-          </span>
+          <span className="text-[10px] text-gray-400">{segments.length} segments</span>
         </div>
       </div>
     </div>

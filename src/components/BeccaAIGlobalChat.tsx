@@ -36,10 +36,23 @@ function BeccaButton({ onClick }: { onClick: () => void }) {
       aria-label="Open Becca AI (⌘K)"
     >
       <span className="absolute inset-0 animate-ping rounded-full bg-[#17aa7b]/20" />
-      <svg className="relative z-10 h-8 w-8" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-        <path fill="#17aa7b" d="M189.75 96.06c0 48.469-39.565 87.76-88.37 87.76s-88.37-39.291-88.37-87.76S52.575 8.3 101.38 8.3s88.37 39.291 88.37 87.76" />
-        <path d="M188.99 111.68c-1.14 11.72-6.76 23.55-13.29 33.18-44 64.98-142.97 44.5-160.53-30.53 2.86-1.27 2.58 3.48 3.28 4.67 18.24 30.58 59.69 30.56 80.17 2.44 14.04-19.28 17.69-58.24 49.09-55.01 37.23 3.83 32.22 61.81-6.7 58.09-9.69-.93-21.13-15.97-28.67-5.23-3.94 5.61-1.03 9.23 3.34 13.18 18.66 16.88 53.79 10.92 67.13-9.97 2.17-3.39 3.14-8.13 6.17-10.82z" fill="#17aa7b" />
-        <path d="M188.99 79.19c-3.98-5.01-5.71-11.01-10.19-15.88-19.35-21.04-54.75-19.06-71.74 3.85-15.05 20.29-21.04 68.64-57.86 55.47-31.03-11.1-21.09-58.47 12.48-56.31 1.29.08 9.83 1.9 10.17 2.3.48.55-.28 1.99-.72 2.68-4.61 7.17-17.94 15.08-23.79 23.82-6.11 9.11 4.68 18.42 12.8 12.8 4.27-2.96 14.53-13.78 18.91-18.12 3.33-3.3 15.22-14.3 16.07-17.93 2.47-10.51-14.36-19.35-22.68-21.6-18.92-5.11-40.51 1.84-51.54 18.42-1.42 2.13-2.22 5.14-3.59 6.99-.52.69-1.3 2.14-2.15.87C27.99 26.4 76.36-3.61 127.19 10.63c31.77 8.9 55.96 36.19 61.8 68.56" fill="#17aa7b" />
+      <svg
+        className="relative z-10 h-8 w-8"
+        viewBox="0 0 200 200"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          fill="#17aa7b"
+          d="M189.75 96.06c0 48.469-39.565 87.76-88.37 87.76s-88.37-39.291-88.37-87.76S52.575 8.3 101.38 8.3s88.37 39.291 88.37 87.76"
+        />
+        <path
+          d="M188.99 111.68c-1.14 11.72-6.76 23.55-13.29 33.18-44 64.98-142.97 44.5-160.53-30.53 2.86-1.27 2.58 3.48 3.28 4.67 18.24 30.58 59.69 30.56 80.17 2.44 14.04-19.28 17.69-58.24 49.09-55.01 37.23 3.83 32.22 61.81-6.7 58.09-9.69-.93-21.13-15.97-28.67-5.23-3.94 5.61-1.03 9.23 3.34 13.18 18.66 16.88 53.79 10.92 67.13-9.97 2.17-3.39 3.14-8.13 6.17-10.82z"
+          fill="#17aa7b"
+        />
+        <path
+          d="M188.99 79.19c-3.98-5.01-5.71-11.01-10.19-15.88-19.35-21.04-54.75-19.06-71.74 3.85-15.05 20.29-21.04 68.64-57.86 55.47-31.03-11.1-21.09-58.47 12.48-56.31 1.29.08 9.83 1.9 10.17 2.3.48.55-.28 1.99-.72 2.68-4.61 7.17-17.94 15.08-23.79 23.82-6.11 9.11 4.68 18.42 12.8 12.8 4.27-2.96 14.53-13.78 18.91-18.12 3.33-3.3 15.22-14.3 16.07-17.93 2.47-10.51-14.36-19.35-22.68-21.6-18.92-5.11-40.51 1.84-51.54 18.42-1.42 2.13-2.22 5.14-3.59 6.99-.52.69-1.3 2.14-2.15.87C27.99 26.4 76.36-3.61 127.19 10.63c31.77 8.9 55.96 36.19 61.8 68.56"
+          fill="#17aa7b"
+        />
       </svg>
       <span className="pointer-events-none absolute left-full ml-3 whitespace-nowrap rounded-md bg-gray-900 px-2 py-1 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
         Becca AI <kbd className="ml-1 rounded bg-gray-700 px-1 font-mono text-[10px]">⌘K</kbd>
@@ -137,7 +150,10 @@ export default function BeccaAIGlobalChat({ userEmail }: BeccaAIGlobalChatProps)
   }, [showChat, toggleChat]);
 
   // Visibility
-  const isPublicPage = PUBLIC_PAGES.some((p) => pathname?.startsWith(p)) || pathname === '/' || pathname === '/dashboard';
+  const isPublicPage =
+    PUBLIC_PAGES.some((p) => pathname?.startsWith(p)) ||
+    pathname === '/' ||
+    pathname === '/dashboard';
   const hasAllowedRole = userRole && ALLOWED_ROLES.includes(userRole);
 
   if (!isAuthenticated || isPublicPage || !hasAllowedRole) return null;
@@ -149,7 +165,9 @@ export default function BeccaAIGlobalChat({ userEmail }: BeccaAIGlobalChatProps)
     <>
       {/* Floating button */}
       {!showChat && (
-        <div className={`fixed bottom-6 left-[88px] z-[9999]${hideOnMobile ? ' hidden sm:block' : ''}`}>
+        <div
+          className={`fixed bottom-6 left-[88px] z-[9999]${hideOnMobile ? 'hidden sm:block' : ''}`}
+        >
           <BeccaButton onClick={() => setShowChat(true)} />
         </div>
       )}
@@ -163,9 +181,18 @@ export default function BeccaAIGlobalChat({ userEmail }: BeccaAIGlobalChatProps)
               <div className="flex items-center gap-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#17aa7b]/10">
                   <svg className="h-6 w-6" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-                    <path fill="#17aa7b" d="M189.75 96.06c0 48.469-39.565 87.76-88.37 87.76s-88.37-39.291-88.37-87.76S52.575 8.3 101.38 8.3s88.37 39.291 88.37 87.76" />
-                    <path d="M188.99 111.68c-1.14 11.72-6.76 23.55-13.29 33.18-44 64.98-142.97 44.5-160.53-30.53 2.86-1.27 2.58 3.48 3.28 4.67 18.24 30.58 59.69 30.56 80.17 2.44 14.04-19.28 17.69-58.24 49.09-55.01 37.23 3.83 32.22 61.81-6.7 58.09-9.69-.93-21.13-15.97-28.67-5.23-3.94 5.61-1.03 9.23 3.34 13.18 18.66 16.88 53.79 10.92 67.13-9.97 2.17-3.39 3.14-8.13 6.17-10.82z" fill="#17aa7b" />
-                    <path d="M188.99 79.19c-3.98-5.01-5.71-11.01-10.19-15.88-19.35-21.04-54.75-19.06-71.74 3.85-15.05 20.29-21.04 68.64-57.86 55.47-31.03-11.1-21.09-58.47 12.48-56.31 1.29.08 9.83 1.9 10.17 2.3.48.55-.28 1.99-.72 2.68-4.61 7.17-17.94 15.08-23.79 23.82-6.11 9.11 4.68 18.42 12.8 12.8 4.27-2.96 14.53-13.78 18.91-18.12 3.33-3.3 15.22-14.3 16.07-17.93 2.47-10.51-14.36-19.35-22.68-21.6-18.92-5.11-40.51 1.84-51.54 18.42-1.42 2.13-2.22 5.14-3.59 6.99-.52.69-1.3 2.14-2.15.87C27.99 26.4 76.36-3.61 127.19 10.63c31.77 8.9 55.96 36.19 61.8 68.56" fill="#17aa7b" />
+                    <path
+                      fill="#17aa7b"
+                      d="M189.75 96.06c0 48.469-39.565 87.76-88.37 87.76s-88.37-39.291-88.37-87.76S52.575 8.3 101.38 8.3s88.37 39.291 88.37 87.76"
+                    />
+                    <path
+                      d="M188.99 111.68c-1.14 11.72-6.76 23.55-13.29 33.18-44 64.98-142.97 44.5-160.53-30.53 2.86-1.27 2.58 3.48 3.28 4.67 18.24 30.58 59.69 30.56 80.17 2.44 14.04-19.28 17.69-58.24 49.09-55.01 37.23 3.83 32.22 61.81-6.7 58.09-9.69-.93-21.13-15.97-28.67-5.23-3.94 5.61-1.03 9.23 3.34 13.18 18.66 16.88 53.79 10.92 67.13-9.97 2.17-3.39 3.14-8.13 6.17-10.82z"
+                      fill="#17aa7b"
+                    />
+                    <path
+                      d="M188.99 79.19c-3.98-5.01-5.71-11.01-10.19-15.88-19.35-21.04-54.75-19.06-71.74 3.85-15.05 20.29-21.04 68.64-57.86 55.47-31.03-11.1-21.09-58.47 12.48-56.31 1.29.08 9.83 1.9 10.17 2.3.48.55-.28 1.99-.72 2.68-4.61 7.17-17.94 15.08-23.79 23.82-6.11 9.11 4.68 18.42 12.8 12.8 4.27-2.96 14.53-13.78 18.91-18.12 3.33-3.3 15.22-14.3 16.07-17.93 2.47-10.51-14.36-19.35-22.68-21.6-18.92-5.11-40.51 1.84-51.54 18.42-1.42 2.13-2.22 5.14-3.59 6.99-.52.69-1.3 2.14-2.15.87C27.99 26.4 76.36-3.61 127.19 10.63c31.77 8.9 55.96 36.19 61.8 68.56"
+                      fill="#17aa7b"
+                    />
                   </svg>
                 </div>
                 <div>
@@ -181,8 +208,18 @@ export default function BeccaAIGlobalChat({ userEmail }: BeccaAIGlobalChatProps)
                   onClick={() => setShowChat(false)}
                   className="flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-gray-100"
                 >
-                  <svg className="h-5 w-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <svg
+                    className="h-5 w-5 text-gray-500"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
                   </svg>
                 </button>
               </div>
@@ -192,8 +229,18 @@ export default function BeccaAIGlobalChat({ userEmail }: BeccaAIGlobalChatProps)
             {patientInfo?.name && (
               <div className="border-b border-[#17aa7b]/10 bg-[#17aa7b]/5 px-4 py-2">
                 <div className="flex items-center gap-2 text-sm">
-                  <svg className="h-4 w-4 shrink-0 text-[#17aa7b]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  <svg
+                    className="h-4 w-4 shrink-0 text-[#17aa7b]"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                    />
                   </svg>
                   <span className="font-medium text-[#17aa7b]">{patientInfo.name}</span>
                 </div>
@@ -202,15 +249,22 @@ export default function BeccaAIGlobalChat({ userEmail }: BeccaAIGlobalChatProps)
                     { label: 'Orders', query: `Show ${patientInfo.name}'s recent orders` },
                     { label: 'Rx', query: `What prescriptions does ${patientInfo.name} have?` },
                     { label: 'SOAP', query: `Show ${patientInfo.name}'s latest SOAP notes` },
-                    { label: 'Tracking', query: `What's the tracking status for ${patientInfo.name}?` },
+                    {
+                      label: 'Tracking',
+                      query: `What's the tracking status for ${patientInfo.name}?`,
+                    },
                     { label: 'Weight', query: `Show ${patientInfo.name}'s weight history` },
                   ].map((chip) => (
                     <button
                       key={chip.label}
                       onClick={() => {
-                        const chatEl = document.querySelector<HTMLTextAreaElement>('[data-becca-input]');
+                        const chatEl =
+                          document.querySelector<HTMLTextAreaElement>('[data-becca-input]');
                         if (chatEl) {
-                          const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
+                          const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+                            window.HTMLTextAreaElement.prototype,
+                            'value'
+                          )?.set;
                           nativeInputValueSetter?.call(chatEl, chip.query);
                           chatEl.dispatchEvent(new Event('input', { bubbles: true }));
                           chatEl.form?.requestSubmit?.();
@@ -244,10 +298,18 @@ export default function BeccaAIGlobalChat({ userEmail }: BeccaAIGlobalChatProps)
 
       <style jsx global>{`
         @keyframes slideUp {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
         }
-        .animate-slideUp { animation: slideUp 0.3s ease-out; }
+        .animate-slideUp {
+          animation: slideUp 0.3s ease-out;
+        }
       `}</style>
     </>
   );

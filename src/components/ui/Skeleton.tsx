@@ -237,11 +237,7 @@ export function ChartSkeleton({ type = 'bar', height = 300, className }: ChartSk
         {type === 'bar' && (
           <div className="flex h-full items-end justify-around gap-2">
             {[65, 45, 80, 55, 70, 40, 75].map((h, i) => (
-              <Skeleton
-                key={i}
-                className="flex-1 rounded-t"
-                style={{ height: `${h}%` }}
-              />
+              <Skeleton key={i} className="flex-1 rounded-t" style={{ height: `${h}%` }} />
             ))}
           </div>
         )}

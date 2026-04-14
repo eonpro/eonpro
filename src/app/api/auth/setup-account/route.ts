@@ -86,7 +86,8 @@ export async function GET(request: NextRequest) {
     if (!resetToken) {
       return NextResponse.json({
         valid: false,
-        error: 'This link has expired or is invalid. Please contact your administrator for a new invitation.',
+        error:
+          'This link has expired or is invalid. Please contact your administrator for a new invitation.',
       });
     }
 
@@ -192,7 +193,10 @@ async function handlePost(request: NextRequest) {
 
     if (!resetToken) {
       return NextResponse.json(
-        { error: 'This link has expired or is invalid. Please contact your administrator for a new invitation.' },
+        {
+          error:
+            'This link has expired or is invalid. Please contact your administrator for a new invitation.',
+        },
         { status: 400 }
       );
     }
@@ -207,38 +211,41 @@ async function handlePost(request: NextRequest) {
     const passwordHash = await bcrypt.hash(password, 12);
     const ipAddress = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || undefined;
 
-    await prisma.$transaction(async (tx) => {
-      await tx.user.update({
-        where: { id: resetToken.userId },
-        data: {
-          passwordHash,
-          lastPasswordChange: new Date(),
-          failedLoginAttempts: 0,
-          lockedUntil: null,
-        },
-      });
-
-      await tx.passwordResetToken.update({
-        where: { id: resetToken.id },
-        data: { used: true, usedAt: new Date() },
-      });
-
-      await tx.auditLog.create({
-        data: {
-          userId: resetToken.userId,
-          action: 'ACCOUNT_SETUP_COMPLETED',
-          resource: 'User',
-          resourceId: resetToken.userId,
-          details: {
-            role: resetToken.user.role,
-            clinicId: resetToken.user.clinicId,
-            ipAddress,
+    await prisma.$transaction(
+      async (tx) => {
+        await tx.user.update({
+          where: { id: resetToken.userId },
+          data: {
+            passwordHash,
+            lastPasswordChange: new Date(),
+            failedLoginAttempts: 0,
+            lockedUntil: null,
           },
-          ipAddress,
-          clinicId: resetToken.user.clinicId,
-        },
-      });
-    }, { isolationLevel: 'Serializable', timeout: 15000 });
+        });
+
+        await tx.passwordResetToken.update({
+          where: { id: resetToken.id },
+          data: { used: true, usedAt: new Date() },
+        });
+
+        await tx.auditLog.create({
+          data: {
+            userId: resetToken.userId,
+            action: 'ACCOUNT_SETUP_COMPLETED',
+            resource: 'User',
+            resourceId: resetToken.userId,
+            details: {
+              role: resetToken.user.role,
+              clinicId: resetToken.user.clinicId,
+              ipAddress,
+            },
+            ipAddress,
+            clinicId: resetToken.user.clinicId,
+          },
+        });
+      },
+      { isolationLevel: 'Serializable', timeout: 15000 }
+    );
 
     logger.info('[SetupAccount] Completed', {
       userId: resetToken.userId,

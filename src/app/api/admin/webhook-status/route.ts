@@ -24,12 +24,15 @@ export async function GET(req: NextRequest) {
         withReadFallback((db) =>
           db.clinic.findFirst({
             where: {
-              OR: [{ subdomain: 'eonmeds' }, { name: { contains: 'EONMEDS', mode: 'insensitive' } }],
+              OR: [
+                { subdomain: 'eonmeds' },
+                { name: { contains: 'EONMEDS', mode: 'insensitive' } },
+              ],
             },
             select: { id: true, name: true, subdomain: true },
-          }),
+          })
         ),
-      'adminWebhookStatus:findClinic',
+      'adminWebhookStatus:findClinic'
     );
     if (!clinicResult.success) {
       throw new Error(clinicResult.error?.message ?? 'Failed to load clinic');
@@ -56,9 +59,9 @@ export async function GET(req: NextRequest) {
                 createdAt: true,
                 tags: true,
               },
-            }),
+            })
           ),
-        'adminWebhookStatus:recentPatients',
+        'adminWebhookStatus:recentPatients'
       ),
       executeDbRead(
         () =>
@@ -78,9 +81,9 @@ export async function GET(req: NextRequest) {
                 sourceSubmissionId: true,
                 createdAt: true,
               },
-            }),
+            })
           ),
-        'adminWebhookStatus:recentDocuments',
+        'adminWebhookStatus:recentDocuments'
       ),
       executeDbRead(
         () =>
@@ -99,9 +102,9 @@ export async function GET(req: NextRequest) {
                 createdAt: true,
                 ipAddress: true,
               },
-            }),
+            })
           ),
-        'adminWebhookStatus:recentAuditLogs',
+        'adminWebhookStatus:recentAuditLogs'
       ),
     ]);
 

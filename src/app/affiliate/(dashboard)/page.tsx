@@ -244,7 +244,10 @@ export default function AffiliateDashboard() {
         >
           <div className="mb-4 flex items-center justify-between sm:mb-6">
             <h2 className="text-sm font-semibold text-gray-900 sm:text-base">This Month</h2>
-            <Link href="/affiliate/analytics" className="text-xs text-gray-500 hover:text-gray-700 sm:text-sm">
+            <Link
+              href="/affiliate/analytics"
+              className="text-xs text-gray-500 hover:text-gray-700 sm:text-sm"
+            >
               View all
             </Link>
           </div>
@@ -283,7 +286,10 @@ export default function AffiliateDashboard() {
             className="flex items-center justify-between p-4 transition-colors hover:bg-gray-50"
           >
             <div className="flex items-center gap-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full" style={{ backgroundColor: 'var(--brand-accent-light)' }}>
+              <div
+                className="flex h-10 w-10 items-center justify-center rounded-full"
+                style={{ backgroundColor: 'var(--brand-accent-light)' }}
+              >
                 <svg
                   className="h-5 w-5"
                   style={{ color: 'var(--brand-accent)' }}
@@ -319,7 +325,10 @@ export default function AffiliateDashboard() {
             className="flex items-center justify-between p-4 transition-colors hover:bg-gray-50"
           >
             <div className="flex items-center gap-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full" style={{ backgroundColor: 'var(--brand-accent-light)' }}>
+              <div
+                className="flex h-10 w-10 items-center justify-center rounded-full"
+                style={{ backgroundColor: 'var(--brand-accent-light)' }}
+              >
                 <svg
                   className="h-5 w-5"
                   style={{ color: 'var(--brand-accent)' }}
@@ -416,7 +425,11 @@ export default function AffiliateDashboard() {
                             ? 'bg-gray-50'
                             : ''
                       }`}
-                      style={activity.type === 'payout' ? { backgroundColor: 'var(--brand-accent-light)' } : undefined}
+                      style={
+                        activity.type === 'payout'
+                          ? { backgroundColor: 'var(--brand-accent-light)' }
+                          : undefined
+                      }
                     >
                       {activity.type === 'conversion' && (
                         <svg

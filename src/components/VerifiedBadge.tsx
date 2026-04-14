@@ -12,10 +12,7 @@ const sizeMap = {
 
 export default function VerifiedBadge({ size = 'sm', className = '' }: VerifiedBadgeProps) {
   return (
-    <span
-      title="Identity Verified"
-      className={`inline-flex shrink-0 items-center ${className}`}
-    >
+    <span title="Identity Verified" className={`inline-flex shrink-0 items-center ${className}`}>
       <svg
         viewBox="0 0 22 22"
         fill="none"

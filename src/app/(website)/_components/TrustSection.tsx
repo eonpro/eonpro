@@ -1,14 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import {
-  ShieldCheck,
-  Lock,
-  FileSearch,
-  Building2,
-  KeyRound,
-  Eye,
-} from 'lucide-react';
+import { ShieldCheck, Lock, FileSearch, Building2, KeyRound, Eye } from 'lucide-react';
 
 const TRUST_ITEMS = [
   {
@@ -57,8 +50,10 @@ export default function TrustSection() {
     const el = ref.current;
     if (!el) return;
     const obs = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) setVisible(true); },
-      { threshold: 0.1 },
+      ([entry]) => {
+        if (entry.isIntersecting) setVisible(true);
+      },
+      { threshold: 0.1 }
     );
     obs.observe(el);
     return () => obs.disconnect();
@@ -79,13 +74,13 @@ export default function TrustSection() {
             Built for trust, designed for compliance
           </h2>
           <p className="mt-6 text-lg leading-relaxed text-white/50">
-            Healthcare data demands the highest standards. EonPro treats every
-            byte of patient data as sacred — encrypted, audited, and isolated.
+            Healthcare data demands the highest standards. EonPro treats every byte of patient data
+            as sacred — encrypted, audited, and isolated.
           </p>
         </div>
 
         <div
-          className={`grid gap-6 sm:grid-cols-2 lg:grid-cols-3 transition-all duration-700 delay-200 ${
+          className={`grid gap-6 transition-all delay-200 duration-700 sm:grid-cols-2 lg:grid-cols-3 ${
             visible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
           }`}
         >
@@ -101,9 +96,7 @@ export default function TrustSection() {
                   <Icon className="h-6 w-6" />
                 </div>
                 <h3 className="text-lg font-semibold text-white">{item.title}</h3>
-                <p className="mt-3 text-sm leading-relaxed text-white/50">
-                  {item.description}
-                </p>
+                <p className="mt-3 text-sm leading-relaxed text-white/50">{item.description}</p>
               </div>
             );
           })}

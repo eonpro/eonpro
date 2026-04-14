@@ -73,7 +73,7 @@ export interface PatientDeduplicationService {
     email: string | null | undefined,
     dob: string | null | undefined,
     clinicId: number,
-    tx?: Prisma.TransactionClient,
+    tx?: Prisma.TransactionClient
   ): Promise<Patient | null>;
 
   /**
@@ -83,7 +83,7 @@ export interface PatientDeduplicationService {
    */
   resolvePatientForIntake(
     data: IntakePatientData,
-    options: ResolvePatientOptions,
+    options: ResolvePatientOptions
   ): Promise<ResolvePatientResult>;
 }
 
@@ -100,9 +100,11 @@ const PLACEHOLDER_EMAILS = new Set([
 ]);
 
 function isPlaceholderEmail(v: string): boolean {
-  return PLACEHOLDER_EMAILS.has(v.toLowerCase().trim()) ||
+  return (
+    PLACEHOLDER_EMAILS.has(v.toLowerCase().trim()) ||
     v.endsWith('@intake.local') ||
-    v.endsWith('@placeholder.local');
+    v.endsWith('@placeholder.local')
+  );
 }
 
 function isPlaceholderPhone(v: string): boolean {
@@ -119,14 +121,14 @@ function isPlaceholderDob(v: string): boolean {
 // ============================================================================
 
 export function createPatientDeduplicationService(
-  db: PrismaClient = prisma,
+  db: PrismaClient = prisma
 ): PatientDeduplicationService {
   return {
     async findDuplicate(
       email: string | null | undefined,
       dob: string | null | undefined,
       clinicId: number,
-      tx?: Prisma.TransactionClient,
+      tx?: Prisma.TransactionClient
     ): Promise<Patient | null> {
       const emailH = computeEmailHash(email);
       const dobH = computeDobHash(dob);
@@ -143,7 +145,7 @@ export function createPatientDeduplicationService(
 
     async resolvePatientForIntake(
       data: IntakePatientData,
-      options: ResolvePatientOptions,
+      options: ResolvePatientOptions
     ): Promise<ResolvePatientResult> {
       const { clinicId, tags, notes, source, sourceMetadata, skipEncryption, tx } = options;
       const client = tx ?? db;
@@ -206,7 +208,11 @@ export function createPatientDeduplicationService(
       });
 
       const phiData = skipEncryption ? data : encryptPatientPHI({ ...data });
-      const hashEnriched = withPatientHashes(phiData as unknown as Record<string, unknown>, data.email, data.dob);
+      const hashEnriched = withPatientHashes(
+        phiData as unknown as Record<string, unknown>,
+        data.email,
+        data.dob
+      );
 
       const created = await client.patient.create({
         data: {
@@ -253,7 +259,7 @@ export function createPatientDeduplicationService(
 function buildMergeUpdate(
   incoming: IntakePatientData,
   existing: Patient,
-  incomingTags: string[],
+  incomingTags: string[]
 ): Prisma.PatientUpdateInput {
   const merged: Record<string, unknown> = {};
   const existingRec = existing as unknown as Record<string, unknown>;

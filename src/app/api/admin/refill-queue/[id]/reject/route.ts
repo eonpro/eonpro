@@ -9,7 +9,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuthParams, AuthUser } from '@/lib/auth/middleware-with-params';
 import { logger } from '@/lib/logger';
-import { handleApiError, BadRequestError, NotFoundError, ForbiddenError } from '@/domains/shared/errors';
+import {
+  handleApiError,
+  BadRequestError,
+  NotFoundError,
+  ForbiddenError,
+} from '@/domains/shared/errors';
 import { getRefillById, rejectRefill } from '@/services/refill';
 
 interface RouteContext {
@@ -40,12 +45,16 @@ export const POST = withAuthParams(
 
       // Check if already processed
       if (refill.adminApproved !== null) {
-        throw new BadRequestError(`Refill already ${refill.adminApproved ? 'approved' : 'rejected'}`);
+        throw new BadRequestError(
+          `Refill already ${refill.adminApproved ? 'approved' : 'rejected'}`
+        );
       }
 
       // Check status
       if (refill.status !== 'PENDING_ADMIN') {
-        throw new BadRequestError(`Cannot reject refill in status: ${refill.status}. Must be PENDING_ADMIN.`);
+        throw new BadRequestError(
+          `Cannot reject refill in status: ${refill.status}. Must be PENDING_ADMIN.`
+        );
       }
 
       const body = await req.json();

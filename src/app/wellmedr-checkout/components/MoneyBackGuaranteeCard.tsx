@@ -2,17 +2,17 @@ import Image from 'next/image';
 
 export default function MoneyBackGuaranteeCard() {
   return (
-    <div className="relative bg-linear-to-r from-secondary text-white to-secondary/70 rounded-2xl p-6 sm:p-8 max-w-2xl mx-auto">
+    <div className="bg-linear-to-r from-secondary to-secondary/70 relative mx-auto max-w-2xl rounded-2xl p-6 text-white sm:p-8">
       <div className="absolute inset-0">
         <Image
           src="/assets/patterns/mesh-gradient.webp"
           alt="Mesh gradient"
           fill
-          className="w-full h-full object-cover"
+          className="h-full w-full object-cover"
         />
       </div>
 
-      <div className="relative z-10 flex flex-col sm:flex-row gap-6 sm:gap-10 items-center">
+      <div className="relative z-10 flex flex-col items-center gap-6 sm:flex-row sm:gap-10">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           width={120}
@@ -23,15 +23,12 @@ export default function MoneyBackGuaranteeCard() {
           loading="lazy"
         />
         <div>
-          <h3 className="text-xl font-semibold text-center sm:text-left mb-2">
-            Weight loss{' '}
-            <span className="italic-primary text-white font-light">
-              guarantee
-            </span>
+          <h3 className="mb-2 text-center text-xl font-semibold sm:text-left">
+            Weight loss <span className="italic-primary font-light text-white">guarantee</span>
           </h3>
           <p className="text-center sm:text-left">
-            If you do not lose weight by the end of your complete program, we
-            give you all of your money back. It&apos;s that simple!
+            If you do not lose weight by the end of your complete program, we give you all of your
+            money back. It&apos;s that simple!
           </p>
         </div>
       </div>

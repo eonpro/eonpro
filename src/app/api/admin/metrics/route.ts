@@ -49,7 +49,9 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     const [health, dlqStats] = await Promise.all([
       getHealthStatus(),
       getQueueStats().catch((err) => {
-        logger.warn('[Metrics] Failed to get DLQ stats', { error: err instanceof Error ? err.message : String(err) });
+        logger.warn('[Metrics] Failed to get DLQ stats', {
+          error: err instanceof Error ? err.message : String(err),
+        });
         return null;
       }),
     ]);
@@ -104,7 +106,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
             recentAuditLogs,
           };
         }),
-      'adminMetrics:aggregates',
+      'adminMetrics:aggregates'
     );
     if (!metricsReadResult.success || !metricsReadResult.data) {
       throw new Error(metricsReadResult.error?.message ?? 'Failed to load admin metrics');

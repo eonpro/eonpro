@@ -43,7 +43,9 @@ async function handleGet(req: NextRequest) {
     const policies = await getAllPoliciesWithStatus();
     return NextResponse.json({ policies });
   } catch (error: unknown) {
-    logger.error('Error fetching policies', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('Error fetching policies', {
+      error: error instanceof Error ? error.message : String(error),
+    });
 
     // Check if it's a database table not found error
     const prismaError = error as { code?: string; meta?: { table?: string } };

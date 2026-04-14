@@ -1250,26 +1250,32 @@ export async function triggerRefillForSubscriptionPayment(
   });
 
   if (isStripeVerified) {
-    logger.info('[RefillQueue] Triggered refill for subscription payment (→ auto-approved → provider queue)', {
-      refillId: refill.id,
-      subscriptionId,
-      patientId: subscription.patientId,
-      clinicId: subscription.clinicId,
-      stripePaymentId,
-    });
+    logger.info(
+      '[RefillQueue] Triggered refill for subscription payment (→ auto-approved → provider queue)',
+      {
+        refillId: refill.id,
+        subscriptionId,
+        patientId: subscription.patientId,
+        clinicId: subscription.clinicId,
+        stripePaymentId,
+      }
+    );
 
     // Notify providers directly — prescription is ready for them
     notifyRefillApproved(refill).catch(() => {});
     // Also notify admins for visibility
     notifyRefillDue(subscription, refill).catch(() => {});
   } else {
-    logger.info('[RefillQueue] Triggered refill for subscription payment (→ pending admin review)', {
-      refillId: refill.id,
-      subscriptionId,
-      patientId: subscription.patientId,
-      clinicId: subscription.clinicId,
-      stripePaymentId,
-    });
+    logger.info(
+      '[RefillQueue] Triggered refill for subscription payment (→ pending admin review)',
+      {
+        refillId: refill.id,
+        subscriptionId,
+        patientId: subscription.patientId,
+        clinicId: subscription.clinicId,
+        stripePaymentId,
+      }
+    );
 
     // Notify admins that a refill is due
     notifyRefillDue(subscription, refill).catch(() => {});
@@ -1323,9 +1329,7 @@ export async function createManualRefillsForSubscription(
   }
 
   const vialCount =
-    subscription.vialCount ||
-    vialCountFromPlanCategory(subscription.planId) ||
-    DEFAULT_VIAL_COUNT;
+    subscription.vialCount || vialCountFromPlanCategory(subscription.planId) || DEFAULT_VIAL_COUNT;
   const intervalDays = calculateIntervalDays(vialCount);
   const planMonths = subscription.intervalCount || 1;
   const intervalMonths =
@@ -1452,7 +1456,8 @@ function extractMedicationName(planName: string | null): string | undefined {
   const lower = planName.toLowerCase();
   if (lower.includes('semaglutide')) return 'Semaglutide';
   if (lower.includes('tirzepatide')) return 'Tirzepatide';
-  if (lower.includes('elite') && lower.includes('bundle')) return 'Elite Bundle (NAD+, Sermorelin, B12)';
+  if (lower.includes('elite') && lower.includes('bundle'))
+    return 'Elite Bundle (NAD+, Sermorelin, B12)';
   if (lower.includes('nad')) return 'NAD+';
   if (lower.includes('sermorelin')) return 'Sermorelin';
   if (lower.includes('b12') || lower.includes('cyanocobalamin')) return 'Cyanocobalamin (B12)';
@@ -1494,7 +1499,8 @@ async function notifyRefillDue(
     const firstName = safeDecryptForNotification(subscription.patient?.firstName ?? null);
     const lastName = safeDecryptForNotification(subscription.patient?.lastName ?? null);
     const patientName = `${firstName} ${lastName}`.trim() || 'Patient';
-    const medicationName = extractMedicationName(subscription.planName) || subscription.planName || 'Medication';
+    const medicationName =
+      extractMedicationName(subscription.planName) || subscription.planName || 'Medication';
 
     const { notificationEvents } = await import('@/services/notification/notificationEvents');
 
@@ -1534,7 +1540,8 @@ async function notifyRefillApproved(refill: RefillQueue): Promise<void> {
     const firstName = safeDecryptForNotification(patient?.firstName ?? null);
     const lastName = safeDecryptForNotification(patient?.lastName ?? null);
     const patientName = `${firstName} ${lastName}`.trim() || 'Patient';
-    const medName = refill.medicationName || extractMedicationName(refill.planName) || 'Prescription';
+    const medName =
+      refill.medicationName || extractMedicationName(refill.planName) || 'Prescription';
 
     const { notificationEvents } = await import('@/services/notification/notificationEvents');
 

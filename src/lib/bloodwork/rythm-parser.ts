@@ -9,11 +9,17 @@ import { extractBloodworkTextFromPdf } from './quest-parser';
 const RYTHM_CATEGORY_RULES: Array<{ pattern: RegExp; category: QuestParsedRow['category'] }> = [
   { pattern: /(CHOLESTEROL|TRIGLYCERIDE|APOB|LDL|HDL|HS-CRP|RATIO)/i, category: 'heart' },
   { pattern: /(GLUCOSE|ALBUMIN|CREATININE|REMNANT)/i, category: 'metabolic' },
-  { pattern: /(TESTOSTERONE|ESTROGEN|ESTRADIOL|SHBG|TSH|THYROID|FREE T3|VITAMIN D)/i, category: 'hormones' },
+  {
+    pattern: /(TESTOSTERONE|ESTROGEN|ESTRADIOL|SHBG|TSH|THYROID|FREE T3|VITAMIN D)/i,
+    category: 'hormones',
+  },
 ];
 
 function normalizeName(name: string): string {
-  return name.replace(/\s+/g, ' ').replace(/^[\u2022\u2023\u25CF\u25CB\u25E6\u00B7]\s*/, '').trim();
+  return name
+    .replace(/\s+/g, ' ')
+    .replace(/^[\u2022\u2023\u25CF\u25CB\u25E6\u00B7]\s*/, '')
+    .trim();
 }
 
 function getCategory(testName: string): QuestParsedRow['category'] {
@@ -87,7 +93,10 @@ function parseResultFromLine(line: string): QuestParsedRow | null {
   const clean = normalizeName(line);
   if (!clean || !looksLikeResultLine(clean)) return null;
 
-  const parts = clean.split(/\s{2,}|\t/).map((p) => p.trim()).filter(Boolean);
+  const parts = clean
+    .split(/\s{2,}|\t/)
+    .map((p) => p.trim())
+    .filter(Boolean);
   if (parts.length >= 4) {
     const [rawTest, rawValue, rawUnit, rawRange] = parts;
     if (!rawTest || !rawValue || !rawUnit || !rawRange) return null;

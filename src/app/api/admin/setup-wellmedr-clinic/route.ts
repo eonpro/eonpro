@@ -81,7 +81,9 @@ export async function POST(req: NextRequest) {
       note: 'Set WELLMEDR_CLINIC_ID env var to ' + clinic.id,
     });
   } catch (error) {
-    logger.error('Error setting up Wellmedr clinic', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('Error setting up Wellmedr clinic', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return Response.json(
       {
         success: false,

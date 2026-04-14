@@ -30,9 +30,10 @@ export const GET = withAuth(
     try {
       requirePermission(toPermissionContext(user), 'invoice:view');
 
-      const clinicId = user.role === 'super_admin'
-        ? parseInt(new URL(req.url).searchParams.get('clinicId') ?? '0')
-        : user.clinicId;
+      const clinicId =
+        user.role === 'super_admin'
+          ? parseInt(new URL(req.url).searchParams.get('clinicId') ?? '0')
+          : user.clinicId;
 
       if (!clinicId) {
         return NextResponse.json({ error: 'clinicId required' }, { status: 400 });
@@ -73,7 +74,10 @@ export const POST = withAuth(
       }
 
       const allowedTypes = ['application/pdf', 'text/csv', 'application/vnd.ms-excel'];
-      const isCsv = file.name.toLowerCase().endsWith('.csv') || file.type === 'text/csv' || file.type === 'application/vnd.ms-excel';
+      const isCsv =
+        file.name.toLowerCase().endsWith('.csv') ||
+        file.type === 'text/csv' ||
+        file.type === 'application/vnd.ms-excel';
       if (!isCsv && file.type !== 'application/pdf') {
         return NextResponse.json({ error: 'Only PDF and CSV files are accepted' }, { status: 400 });
       }

@@ -21,7 +21,7 @@ export default function Testimonials() {
       </div>
 
       {/* Testimonials */}
-      <div className="flex flex-col sm:flex-row gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row">
         {testimonials.map((testimonial, idx) => (
           <Fragment key={`tstm_${idx}`}>
             <TestimonialCard testimonial={testimonial} />

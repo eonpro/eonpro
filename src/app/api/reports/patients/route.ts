@@ -76,7 +76,8 @@ async function getPatientReportsHandler(req: NextRequest, user: AuthUser): Promi
         });
 
       case 'by-gender':
-        const demographicsForGender = await reportingService.getDemographicsSummary(dateRangeParams);
+        const demographicsForGender =
+          await reportingService.getDemographicsSummary(dateRangeParams);
         return NextResponse.json({
           genderBreakdown: demographicsForGender.genderBreakdown,
           maleCount: demographicsForGender.maleCount,

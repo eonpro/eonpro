@@ -31,8 +31,12 @@ function parseDates(req: NextRequest): { startDate: Date; endDate: Date } {
   return { startDate, endDate };
 }
 
-function fmtD(d: Date) { return d.toISOString().slice(0, 10); }
-function fmtUSD(cents: number) { return (cents / 100).toFixed(2); }
+function fmtD(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+function fmtUSD(cents: number) {
+  return (cents / 100).toFixed(2);
+}
 
 async function handleGet(req: NextRequest): Promise<Response> {
   const p = req.nextUrl.searchParams;
@@ -77,7 +81,7 @@ async function handleGet(req: NextRequest): Promise<Response> {
         },
       });
 
-      type EventRow = typeof events[number];
+      type EventRow = (typeof events)[number];
 
       // Calculate weeks in the reporting period for base pay proration
       const periodMs = endDate.getTime() - startDate.getTime();
@@ -89,8 +93,17 @@ async function handleGet(req: NextRequest): Promise<Response> {
       // if a migration hasn't been applied yet.
       // ---------------------------------------------------------------
       let employeeSalaries: Array<{
-        userId: number; weeklyBasePayCents: number; hourlyRateCents: number | null;
-        clinicId: number; user: { id: number; firstName: string; lastName: string; email: string; role: string } | null;
+        userId: number;
+        weeklyBasePayCents: number;
+        hourlyRateCents: number | null;
+        clinicId: number;
+        user: {
+          id: number;
+          firstName: string;
+          lastName: string;
+          email: string;
+          role: string;
+        } | null;
         clinic: { id: number; name: string } | null;
       }> = [];
       try {
@@ -105,7 +118,9 @@ async function handleGet(req: NextRequest): Promise<Response> {
         employeeSalaries = await prisma.employeeSalary.findMany({
           where: employeeSalaryWhere,
           include: {
-            user: { select: { id: true, firstName: true, lastName: true, email: true, role: true } },
+            user: {
+              select: { id: true, firstName: true, lastName: true, email: true, role: true },
+            },
             clinic: { select: { id: true, name: true } },
           },
         });
@@ -117,23 +132,26 @@ async function handleGet(req: NextRequest): Promise<Response> {
 
       const repIds = [...new Set(events.map((e) => e.salesRepId))];
       let planAssignments: Array<{
-        salesRepId: number; weeklyBasePayCents: number | null; hourlyRateCents: number | null;
+        salesRepId: number;
+        weeklyBasePayCents: number | null;
+        hourlyRateCents: number | null;
       }> = [];
       try {
-        planAssignments = repIds.length > 0
-          ? await prisma.salesRepPlanAssignment.findMany({
-              where: {
-                salesRepId: { in: repIds },
-                effectiveFrom: { lte: endDate },
-                OR: [{ effectiveTo: null }, { effectiveTo: { gte: startDate } }],
-              },
-              select: {
-                salesRepId: true,
-                weeklyBasePayCents: true,
-                hourlyRateCents: true,
-              },
-            })
-          : [];
+        planAssignments =
+          repIds.length > 0
+            ? await prisma.salesRepPlanAssignment.findMany({
+                where: {
+                  salesRepId: { in: repIds },
+                  effectiveFrom: { lte: endDate },
+                  OR: [{ effectiveTo: null }, { effectiveTo: { gte: startDate } }],
+                },
+                select: {
+                  salesRepId: true,
+                  weeklyBasePayCents: true,
+                  hourlyRateCents: true,
+                },
+              })
+            : [];
       } catch (planErr) {
         logger.warn('[SalesReps] PlanAssignment salary query failed — column may not exist yet', {
           error: planErr instanceof Error ? planErr.message : 'Unknown',
@@ -141,16 +159,19 @@ async function handleGet(req: NextRequest): Promise<Response> {
       }
 
       // Build combined base pay map: EmployeeSalary takes priority over SalesRepPlanAssignment
-      const basePayByUser = new Map<number, {
-        weeklyBasePayCents: number;
-        hourlyRateCents: number | null;
-        periodBasePayCents: number;
-        userName: string;
-        userEmail: string;
-        userRole: string;
-        clinicId: number;
-        clinicName: string;
-      }>();
+      const basePayByUser = new Map<
+        number,
+        {
+          weeklyBasePayCents: number;
+          hourlyRateCents: number | null;
+          periodBasePayCents: number;
+          userName: string;
+          userEmail: string;
+          userRole: string;
+          clinicId: number;
+          clinicName: string;
+        }
+      >();
 
       for (const es of employeeSalaries) {
         if (es.weeklyBasePayCents > 0) {
@@ -158,7 +179,10 @@ async function handleGet(req: NextRequest): Promise<Response> {
             weeklyBasePayCents: es.weeklyBasePayCents,
             hourlyRateCents: es.hourlyRateCents,
             periodBasePayCents: es.weeklyBasePayCents * periodWeeks,
-            userName: `${es.user?.firstName || ''} ${es.user?.lastName || ''}`.trim() || es.user?.email || `User #${es.userId}`,
+            userName:
+              `${es.user?.firstName || ''} ${es.user?.lastName || ''}`.trim() ||
+              es.user?.email ||
+              `User #${es.userId}`,
             userEmail: es.user?.email || '',
             userRole: es.user?.role || '',
             clinicId: es.clinicId,
@@ -168,7 +192,11 @@ async function handleGet(req: NextRequest): Promise<Response> {
       }
 
       for (const pa of planAssignments) {
-        if (pa.weeklyBasePayCents && pa.weeklyBasePayCents > 0 && !basePayByUser.has(pa.salesRepId)) {
+        if (
+          pa.weeklyBasePayCents &&
+          pa.weeklyBasePayCents > 0 &&
+          !basePayByUser.has(pa.salesRepId)
+        ) {
           basePayByUser.set(pa.salesRepId, {
             weeklyBasePayCents: pa.weeklyBasePayCents,
             hourlyRateCents: pa.hourlyRateCents,
@@ -183,41 +211,51 @@ async function handleGet(req: NextRequest): Promise<Response> {
       }
 
       // Per-rep/employee summary with new/recurring breakdown and status counts
-      const repSummaries = new Map<number, {
-        name: string;
-        email: string;
-        userRole: string;
-        clinicId: number;
-        clinicName: string;
-        totalEvents: number;
-        totalRevenueCents: number;
-        totalCommissionCents: number;
-        totalBaseCents: number;
-        totalVolumeTierCents: number;
-        totalProductCents: number;
-        totalMultiItemCents: number;
-        manualCount: number;
-        stripeCount: number;
-        newSaleCount: number;
-        newSaleCommissionCents: number;
-        recurringCount: number;
-        recurringCommissionCents: number;
-        pendingCount: number;
-        pendingCents: number;
-        approvedCount: number;
-        approvedCents: number;
-        paidCount: number;
-        paidCents: number;
-        reversedCount: number;
-        reversedCents: number;
-        totalOverrideCommissionCents: number;
-        totalOverrideEvents: number;
-        weeklyBasePayCents: number;
-        periodBasePayCents: number;
-        periodWeeks: number;
-      }>();
+      const repSummaries = new Map<
+        number,
+        {
+          name: string;
+          email: string;
+          userRole: string;
+          clinicId: number;
+          clinicName: string;
+          totalEvents: number;
+          totalRevenueCents: number;
+          totalCommissionCents: number;
+          totalBaseCents: number;
+          totalVolumeTierCents: number;
+          totalProductCents: number;
+          totalMultiItemCents: number;
+          manualCount: number;
+          stripeCount: number;
+          newSaleCount: number;
+          newSaleCommissionCents: number;
+          recurringCount: number;
+          recurringCommissionCents: number;
+          pendingCount: number;
+          pendingCents: number;
+          approvedCount: number;
+          approvedCents: number;
+          paidCount: number;
+          paidCents: number;
+          reversedCount: number;
+          reversedCents: number;
+          totalOverrideCommissionCents: number;
+          totalOverrideEvents: number;
+          weeklyBasePayCents: number;
+          periodBasePayCents: number;
+          periodWeeks: number;
+        }
+      >();
 
-      function ensureRepSummary(userId: number, name: string, email: string, clinicId: number, clinicName: string, userRole?: string) {
+      function ensureRepSummary(
+        userId: number,
+        name: string,
+        email: string,
+        clinicId: number,
+        clinicName: string,
+        userRole?: string
+      ) {
         if (!repSummaries.has(userId)) {
           const bp = basePayByUser.get(userId);
           repSummaries.set(userId, {
@@ -258,13 +296,29 @@ async function handleGet(req: NextRequest): Promise<Response> {
 
       // Add salary-only employees (STAFF/SALES_REP without commission events)
       for (const [userId, bp] of basePayByUser) {
-        ensureRepSummary(userId, bp.userName, bp.userEmail, bp.clinicId, bp.clinicName, bp.userRole);
+        ensureRepSummary(
+          userId,
+          bp.userName,
+          bp.userEmail,
+          bp.clinicId,
+          bp.clinicName,
+          bp.userRole
+        );
       }
 
       for (const ev of events) {
         const repId = ev.salesRepId;
-        const repName = `${ev.salesRep?.firstName || ''} ${ev.salesRep?.lastName || ''}`.trim() || ev.salesRep?.email || `Rep #${repId}`;
-        ensureRepSummary(repId, repName, ev.salesRep?.email || '', ev.clinicId, ev.clinic?.name || '');
+        const repName =
+          `${ev.salesRep?.firstName || ''} ${ev.salesRep?.lastName || ''}`.trim() ||
+          ev.salesRep?.email ||
+          `Rep #${repId}`;
+        ensureRepSummary(
+          repId,
+          repName,
+          ev.salesRep?.email || '',
+          ev.clinicId,
+          ev.clinic?.name || ''
+        );
 
         const s = repSummaries.get(repId)!;
         s.totalEvents++;
@@ -285,10 +339,19 @@ async function handleGet(req: NextRequest): Promise<Response> {
           s.newSaleCommissionCents += ev.commissionAmountCents;
         }
 
-        if (ev.status === 'PENDING') { s.pendingCount++; s.pendingCents += ev.commissionAmountCents; }
-        else if (ev.status === 'APPROVED') { s.approvedCount++; s.approvedCents += ev.commissionAmountCents; }
-        else if (ev.status === 'PAID') { s.paidCount++; s.paidCents += ev.commissionAmountCents; }
-        else if (ev.status === 'REVERSED') { s.reversedCount++; s.reversedCents += ev.commissionAmountCents; }
+        if (ev.status === 'PENDING') {
+          s.pendingCount++;
+          s.pendingCents += ev.commissionAmountCents;
+        } else if (ev.status === 'APPROVED') {
+          s.approvedCount++;
+          s.approvedCents += ev.commissionAmountCents;
+        } else if (ev.status === 'PAID') {
+          s.paidCount++;
+          s.paidCents += ev.commissionAmountCents;
+        } else if (ev.status === 'REVERSED') {
+          s.reversedCount++;
+          s.reversedCents += ev.commissionAmountCents;
+        }
       }
 
       // Override events
@@ -304,42 +367,57 @@ async function handleGet(req: NextRequest): Promise<Response> {
       }
 
       let overrideEvents: Array<{
-        id: number; occurredAt: Date; overrideRepId: number; subordinateRepId: number;
-        clinicId: number; eventAmountCents: number; overridePercentBps: number;
-        commissionAmountCents: number; status: string; stripeEventId: string | null;
-        isManual: boolean; notes: string | null; metadata: any;
+        id: number;
+        occurredAt: Date;
+        overrideRepId: number;
+        subordinateRepId: number;
+        clinicId: number;
+        eventAmountCents: number;
+        overridePercentBps: number;
+        commissionAmountCents: number;
+        status: string;
+        stripeEventId: string | null;
+        isManual: boolean;
+        notes: string | null;
+        metadata: any;
         overrideRep: { id: number; firstName: string; lastName: string; email: string } | null;
         clinic: { id: number; name: string } | null;
       }> = [];
       try {
-        overrideEvents = await prisma.salesRepOverrideCommissionEvent.findMany({
+        overrideEvents = (await prisma.salesRepOverrideCommissionEvent.findMany({
           where: overrideWhere,
           orderBy: [{ overrideRepId: 'asc' }, { occurredAt: 'asc' }],
           include: {
             overrideRep: { select: { id: true, firstName: true, lastName: true, email: true } },
             clinic: { select: { id: true, name: true } },
           },
-        }) as any;
+        })) as any;
       } catch (overrideErr) {
         logger.warn('[SalesReps] Override commission query failed — table may not exist yet', {
           error: overrideErr instanceof Error ? overrideErr.message : 'Unknown',
         });
       }
 
-      const overrideRepSummaries = new Map<number, {
-        name: string;
-        email: string;
-        clinicName: string;
-        totalOverrideEvents: number;
-        totalOverrideRevenueCents: number;
-        totalOverrideCommissionCents: number;
-      }>();
+      const overrideRepSummaries = new Map<
+        number,
+        {
+          name: string;
+          email: string;
+          clinicName: string;
+          totalOverrideEvents: number;
+          totalOverrideRevenueCents: number;
+          totalOverrideCommissionCents: number;
+        }
+      >();
 
       for (const ov of overrideEvents) {
         const repId = ov.overrideRepId;
         if (!overrideRepSummaries.has(repId)) {
           overrideRepSummaries.set(repId, {
-            name: `${ov.overrideRep?.firstName || ''} ${ov.overrideRep?.lastName || ''}`.trim() || ov.overrideRep?.email || `Rep #${repId}`,
+            name:
+              `${ov.overrideRep?.firstName || ''} ${ov.overrideRep?.lastName || ''}`.trim() ||
+              ov.overrideRep?.email ||
+              `Rep #${repId}`,
             email: ov.overrideRep?.email || '',
             clinicName: ov.clinic?.name || '',
             totalOverrideEvents: 0,
@@ -378,15 +456,32 @@ async function handleGet(req: NextRequest): Promise<Response> {
       };
       for (const ev of events) {
         const c = ev.commissionAmountCents;
-        if (ev.status === 'PENDING') { statusBreakdown.pending.count++; statusBreakdown.pending.cents += c; }
-        else if (ev.status === 'APPROVED') { statusBreakdown.approved.count++; statusBreakdown.approved.cents += c; }
-        else if (ev.status === 'PAID') { statusBreakdown.paid.count++; statusBreakdown.paid.cents += c; }
-        else if (ev.status === 'REVERSED') { statusBreakdown.reversed.count++; statusBreakdown.reversed.cents += c; }
-        if (ev.isRecurring) { newVsRecurring.recurring.count++; newVsRecurring.recurring.cents += c; }
-        else { newVsRecurring.newSale.count++; newVsRecurring.newSale.cents += c; }
+        if (ev.status === 'PENDING') {
+          statusBreakdown.pending.count++;
+          statusBreakdown.pending.cents += c;
+        } else if (ev.status === 'APPROVED') {
+          statusBreakdown.approved.count++;
+          statusBreakdown.approved.cents += c;
+        } else if (ev.status === 'PAID') {
+          statusBreakdown.paid.count++;
+          statusBreakdown.paid.cents += c;
+        } else if (ev.status === 'REVERSED') {
+          statusBreakdown.reversed.count++;
+          statusBreakdown.reversed.cents += c;
+        }
+        if (ev.isRecurring) {
+          newVsRecurring.recurring.count++;
+          newVsRecurring.recurring.cents += c;
+        } else {
+          newVsRecurring.newSale.count++;
+          newVsRecurring.newSale.cents += c;
+        }
       }
 
-      const totalBasePayCents = Array.from(repSummaries.values()).reduce((a, r) => a + r.periodBasePayCents, 0);
+      const totalBasePayCents = Array.from(repSummaries.values()).reduce(
+        (a, r) => a + r.periodBasePayCents,
+        0
+      );
       const directCommCents = events.reduce((a, e) => a + e.commissionAmountCents, 0);
       const grandTotal = {
         events: events.length,
@@ -439,7 +534,10 @@ async function handleGet(req: NextRequest): Promise<Response> {
         csv += `\n=== EVENT DETAIL ===\n`;
         csv += `Date,Sales Rep,Email,Clinic,Status,Type,Source,Revenue,Base,Volume Tier,Product,Multi-Item,Total Commission,Plan,Notes,Stripe Event\n`;
         for (const ev of filteredEvents) {
-          const repName = `${ev.salesRep?.firstName || ''} ${ev.salesRep?.lastName || ''}`.trim() || ev.salesRep?.email || '';
+          const repName =
+            `${ev.salesRep?.firstName || ''} ${ev.salesRep?.lastName || ''}`.trim() ||
+            ev.salesRep?.email ||
+            '';
           const meta = (ev.metadata as Record<string, any>) || {};
           const saleType = ev.isRecurring ? 'Recurring' : 'New Sale';
           const source = ev.isManual ? 'Manual' : 'Stripe';
@@ -450,7 +548,10 @@ async function handleGet(req: NextRequest): Promise<Response> {
           csv += `\n=== OVERRIDE COMMISSION DETAIL ===\n`;
           csv += `Date,Override Rep,Email,Clinic,Status,Subordinate Revenue,Override Rate,Override Commission,Stripe Event\n`;
           for (const ov of overrideEvents) {
-            const repName = `${ov.overrideRep?.firstName || ''} ${ov.overrideRep?.lastName || ''}`.trim() || ov.overrideRep?.email || '';
+            const repName =
+              `${ov.overrideRep?.firstName || ''} ${ov.overrideRep?.lastName || ''}`.trim() ||
+              ov.overrideRep?.email ||
+              '';
             csv += `${ov.occurredAt.toISOString().slice(0, 10)},"${repName}","${ov.overrideRep?.email || ''}","${ov.clinic?.name || ''}",${ov.status},$${fmtUSD(ov.eventAmountCents)},${(ov.overridePercentBps / 100).toFixed(2)}%,$${fmtUSD(ov.commissionAmountCents)},${ov.stripeEventId || ''}\n`;
           }
 
@@ -474,7 +575,8 @@ async function handleGet(req: NextRequest): Promise<Response> {
           salesRepId: userId,
           ...s,
           combinedTotalCents: s.totalCommissionCents + s.totalOverrideCommissionCents,
-          totalPayrollCents: s.totalCommissionCents + s.totalOverrideCommissionCents + s.periodBasePayCents,
+          totalPayrollCents:
+            s.totalCommissionCents + s.totalOverrideCommissionCents + s.periodBasePayCents,
         })),
         overrideRepSummaries: Array.from(overrideRepSummaries.entries()).map(([repId, s]) => ({
           salesRepId: repId,
@@ -505,7 +607,8 @@ async function handleGet(req: NextRequest): Promise<Response> {
           id: ov.id,
           occurredAt: ov.occurredAt,
           overrideRepId: ov.overrideRepId,
-          overrideRepName: `${ov.overrideRep?.firstName || ''} ${ov.overrideRep?.lastName || ''}`.trim(),
+          overrideRepName:
+            `${ov.overrideRep?.firstName || ''} ${ov.overrideRep?.lastName || ''}`.trim(),
           overrideRepEmail: ov.overrideRep?.email,
           subordinateRepId: ov.subordinateRepId,
           clinicName: ov.clinic?.name,
@@ -548,10 +651,14 @@ async function handlePatch(req: NextRequest): Promise<Response> {
     const body = await req.json();
     const parsed = patchSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Validation failed', details: parsed.error.flatten() }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Validation failed', details: parsed.error.flatten() },
+        { status: 400 }
+      );
     }
 
-    const { action, eventIds, overrideEventIds, salesRepId, clinicId, startDate, endDate } = parsed.data;
+    const { action, eventIds, overrideEventIds, salesRepId, clinicId, startDate, endDate } =
+      parsed.data;
     const now = new Date();
     const targetStatus = action === 'mark_paid' ? 'PAID' : 'APPROVED';
     const fromStatus = action === 'mark_paid' ? 'APPROVED' : 'PENDING';

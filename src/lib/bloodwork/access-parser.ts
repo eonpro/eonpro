@@ -29,7 +29,11 @@ function normalize(s: string): string {
   return (s || '').replace(/\s+/g, ' ').trim();
 }
 
-function toValue(resultRaw: string): { value: string; valueNumeric: number | null; flag: 'H' | 'L' | null } {
+function toValue(resultRaw: string): {
+  value: string;
+  valueNumeric: number | null;
+  flag: 'H' | 'L' | null;
+} {
   const cleaned = normalize(resultRaw).replace(/\*/g, '');
   const m = cleaned.match(/^([<>]?\s*-?\d+(?:\.\d+)?)(?:\s*([HL]))?$/i);
   if (!m) {
@@ -63,8 +67,14 @@ function deriveFlag(valueNumeric: number | null, min?: number, max?: number): 'H
 function categoryFor(testName: string): QuestParsedRow['category'] {
   const t = testName.toUpperCase();
   if (/CHOLESTEROL|TRIGLYCERIDE|LDL|HDL|APOB|RATIO|CRP/.test(t)) return 'heart';
-  if (/GLUCOSE|BUN|CREATININE|EGFR|SODIUM|POTASSIUM|CHLORIDE|CARBON DIOXIDE|PROTEIN|ALBUMIN|GLOBULIN|BILIRUBIN|ALKALINE/.test(t)) return 'metabolic';
-  if (/TESTOSTERONE|ESTRADIOL|ESTROGEN|FSH|LH|PROLACTIN|PSA|T3|THYROID|SHBG/.test(t)) return 'hormones';
+  if (
+    /GLUCOSE|BUN|CREATININE|EGFR|SODIUM|POTASSIUM|CHLORIDE|CARBON DIOXIDE|PROTEIN|ALBUMIN|GLOBULIN|BILIRUBIN|ALKALINE/.test(
+      t
+    )
+  )
+    return 'metabolic';
+  if (/TESTOSTERONE|ESTRADIOL|ESTROGEN|FSH|LH|PROLACTIN|PSA|T3|THYROID|SHBG/.test(t))
+    return 'hormones';
   if (/WBC|RBC|HEMOGLOBIN|HEMATOCRIT|MCV|MCH|MCHC|RDW|PLATELETS/.test(t)) return 'blood';
   return 'other';
 }
@@ -140,14 +150,23 @@ export function parseAccessText(fullText: string): QuestParsedResult {
     let resultRaw = '';
     let referenceRaw = '';
     let unitRaw = '';
-    const parts = normalized.split(/\s{2,}|\t/).map((p) => p.trim()).filter(Boolean);
+    const parts = normalized
+      .split(/\s{2,}|\t/)
+      .map((p) => p.trim())
+      .filter(Boolean);
     if (parts.length >= 4) {
       testName = normalize(parts[0] || '');
       resultRaw = normalize(parts[1] || '');
       referenceRaw = normalize(parts[2] || '');
       unitRaw = normalize(parts[3] || '');
     }
-    if (!testName || !resultRaw || !referenceRaw || !unitRaw || !ACCESS_UNITS.some((u) => unitRaw.toLowerCase().includes(u.toLowerCase()))) {
+    if (
+      !testName ||
+      !resultRaw ||
+      !referenceRaw ||
+      !unitRaw ||
+      !ACCESS_UNITS.some((u) => unitRaw.toLowerCase().includes(u.toLowerCase()))
+    ) {
       const m = normalized.match(singleSpaceRowRegex);
       if (!m) continue;
       testName = normalize(m[1] || '');

@@ -1,15 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import {
-  MessageSquare,
-  Send,
-  Paperclip,
-  MoreVertical,
-  Phone,
-  Video,
-  Circle,
-} from 'lucide-react';
+import { MessageSquare, Send, Paperclip, MoreVertical, Phone, Video, Circle } from 'lucide-react';
 import { normalizedIncludes } from '@/lib/utils/search';
 
 interface Chat {

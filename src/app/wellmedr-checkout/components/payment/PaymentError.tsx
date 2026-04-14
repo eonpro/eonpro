@@ -1,13 +1,8 @@
 export default function PaymentError() {
   return (
-    <div className="w-full flex flex-col gap-4 items-center justify-center p-8 bg-red-50 rounded-lg border border-red-200">
+    <div className="flex w-full flex-col items-center justify-center gap-4 rounded-lg border border-red-200 bg-red-50 p-8">
       <div className="text-red-600">
-        <svg
-          className="w-12 h-12 mx-auto"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
+        <svg className="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -16,12 +11,9 @@ export default function PaymentError() {
           />
         </svg>
       </div>
-      <h3 className="text-lg font-semibold text-red-900">
-        Payment System Unavailable
-      </h3>
-      <p className="text-center text-red-700 max-w-md">
-        We're unable to process payments at this time. Please contact support or
-        try again later.
+      <h3 className="text-lg font-semibold text-red-900">Payment System Unavailable</h3>
+      <p className="max-w-md text-center text-red-700">
+        We're unable to process payments at this time. Please contact support or try again later.
       </p>
     </div>
   );

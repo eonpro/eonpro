@@ -4,25 +4,23 @@ import { PRODUCT_NOBG_IMAGE } from '@/app/wellmedr-checkout/data/products';
 
 export default function ProductRecommendationCard() {
   return (
-    <div className="card flex flex-col sm:flex-row items-center justify-between gap-4">
-      <div className="flex flex-col gap-2 text-center sm:text-left max-w-[380px]">
+    <div className="card flex flex-col items-center justify-between gap-4 sm:flex-row">
+      <div className="flex max-w-[380px] flex-col gap-2 text-center sm:text-left">
         <h3 className="card-title">Our recommendation</h3>
         <p className="text-base sm:text-lg">
           Based on your intake form, we recommend{' '}
           <span className="italic-primary">
             {' '}
-            <span className="capitalize text-lg">Tirzepatide</span> injections.
+            <span className="text-lg capitalize">Tirzepatide</span> injections.
           </span>{' '}
-          This is the most effective and popular option of all GLP-1
-          medications.
+          This is the most effective and popular option of all GLP-1 medications.
         </p>
-        <p className="text-sm sm:text-base font-light hidden sm:block">
-          Note: you can choose whichever medication you prefer, regardless of
-          our recommendation!
+        <p className="hidden text-sm font-light sm:block sm:text-base">
+          Note: you can choose whichever medication you prefer, regardless of our recommendation!
         </p>
       </div>
 
-      <div className="sm:shrink-0 flex items-center justify-center relative bg-[radial-gradient(circle,var(--color-secondary),#ffffff_40%,#ffffff_100%)]">
+      <div className="relative flex items-center justify-center bg-[radial-gradient(circle,var(--color-secondary),#ffffff_40%,#ffffff_100%)] sm:shrink-0">
         <Image
           src={PRODUCT_NOBG_IMAGE}
           alt="Wellmedr Tirzepatide injections box"
@@ -32,15 +30,14 @@ export default function ProductRecommendationCard() {
           placeholder="blur"
         />
 
-        <div className="absolute top-1/2 left-[10%] rounded-smooth px-2 py-1 flex items-center gap-1 bg-white text-primary">
+        <div className="rounded-smooth text-primary absolute left-[10%] top-1/2 flex items-center gap-1 bg-white px-2 py-1">
           <span className="text-xs font-semibold">Most popular</span>
           <Star />
         </div>
       </div>
 
-      <p className="text-sm sm:text-base font-light block sm:hidden text-center">
-        Note: you can choose whichever medication you prefer, regardless of our
-        recommendation!
+      <p className="block text-center text-sm font-light sm:hidden sm:text-base">
+        Note: you can choose whichever medication you prefer, regardless of our recommendation!
       </p>
     </div>
   );

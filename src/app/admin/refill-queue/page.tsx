@@ -241,13 +241,16 @@ export default function AdminRefillQueuePage() {
     setActionError(null);
 
     try {
-      const response = await apiFetch(`/api/admin/refill-queue/${selectedRefill.id}/verify-payment`, {
-        method: 'POST',
-        body: JSON.stringify({
-          method: paymentForm.method,
-          paymentReference: paymentForm.paymentReference || undefined,
-        }),
-      });
+      const response = await apiFetch(
+        `/api/admin/refill-queue/${selectedRefill.id}/verify-payment`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            method: paymentForm.method,
+            paymentReference: paymentForm.paymentReference || undefined,
+          }),
+        }
+      );
 
       const data = await response.json();
 
@@ -274,10 +277,13 @@ export default function AdminRefillQueuePage() {
     setActionError(null);
 
     try {
-      const response = await apiFetch(`/api/admin/refill-queue/${selectedRefill.id}/verify-payment`, {
-        method: 'POST',
-        body: JSON.stringify({ autoMatch: true }),
-      });
+      const response = await apiFetch(
+        `/api/admin/refill-queue/${selectedRefill.id}/verify-payment`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ autoMatch: true }),
+        }
+      );
 
       const data = await response.json();
 
@@ -364,9 +370,7 @@ export default function AdminRefillQueuePage() {
         `/api/subscriptions/${selectedRefill.subscription.id}/${action}`,
         {
           method: 'POST',
-          body: JSON.stringify(
-            action === 'cancel' ? { cancelAtPeriodEnd: false } : {}
-          ),
+          body: JSON.stringify(action === 'cancel' ? { cancelAtPeriodEnd: false } : {}),
         }
       );
 
@@ -388,9 +392,7 @@ export default function AdminRefillQueuePage() {
 
   const filteredRefills = refills.filter((r) => {
     if (!searchQuery) return true;
-    const patientName = r.patient
-      ? `${r.patient.firstName} ${r.patient.lastName}`
-      : '';
+    const patientName = r.patient ? `${r.patient.firstName} ${r.patient.lastName}` : '';
     const email = r.patient?.email || '';
     const medication = r.medicationName || '';
     return (
@@ -463,7 +465,9 @@ export default function AdminRefillQueuePage() {
               <Pill className="h-5 w-5" />
               <span className="text-sm font-medium">Provider Queue</span>
             </div>
-            <p className="mt-2 text-2xl font-bold text-[var(--brand-primary)]">{stats.pendingProvider}</p>
+            <p className="mt-2 text-2xl font-bold text-[var(--brand-primary)]">
+              {stats.pendingProvider}
+            </p>
           </div>
           <div className="rounded-xl bg-gray-50 p-4">
             <div className="flex items-center gap-2 text-gray-700">
@@ -859,9 +863,7 @@ export default function AdminRefillQueuePage() {
               {/* Subscription Info */}
               {selectedRefill.subscription && (
                 <div className="rounded-lg bg-indigo-50 p-4">
-                  <h3 className="mb-2 text-sm font-semibold uppercase text-gray-500">
-                    Membership
-                  </h3>
+                  <h3 className="mb-2 text-sm font-semibold uppercase text-gray-500">Membership</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-sm text-gray-500">Plan</p>
@@ -999,34 +1001,33 @@ export default function AdminRefillQueuePage() {
               )}
 
               {/* Subscription management actions */}
-              {selectedRefill.subscription &&
-                selectedRefill.subscription.status !== 'CANCELED' && (
-                  <div className="border-t border-gray-200 pt-3">
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
-                      Membership Actions
-                    </p>
-                    <div className="flex gap-3">
-                      {selectedRefill.subscription.status === 'ACTIVE' && (
-                        <button
-                          onClick={() => setShowSubActionModal('pause')}
-                          disabled={processing}
-                          className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-yellow-300 py-2 text-sm font-medium text-yellow-700 hover:bg-yellow-50 disabled:opacity-50"
-                        >
-                          <Pause className="h-4 w-4" />
-                          Pause
-                        </button>
-                      )}
+              {selectedRefill.subscription && selectedRefill.subscription.status !== 'CANCELED' && (
+                <div className="border-t border-gray-200 pt-3">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                    Membership Actions
+                  </p>
+                  <div className="flex gap-3">
+                    {selectedRefill.subscription.status === 'ACTIVE' && (
                       <button
-                        onClick={() => setShowSubActionModal('cancel')}
+                        onClick={() => setShowSubActionModal('pause')}
                         disabled={processing}
-                        className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-red-300 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+                        className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-yellow-300 py-2 text-sm font-medium text-yellow-700 hover:bg-yellow-50 disabled:opacity-50"
                       >
-                        <Trash2 className="h-4 w-4" />
-                        Cancel Membership
+                        <Pause className="h-4 w-4" />
+                        Pause
                       </button>
-                    </div>
+                    )}
+                    <button
+                      onClick={() => setShowSubActionModal('cancel')}
+                      disabled={processing}
+                      className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-red-300 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Cancel Membership
+                    </button>
                   </div>
-                )}
+                </div>
+              )}
 
               {/* View patient profile */}
               {selectedRefill.patientId && (

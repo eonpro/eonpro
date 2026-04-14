@@ -107,9 +107,15 @@ async function findClinicByCredentials(authHeader: string | null): Promise<{
 
       try {
         decryptedPassword = decrypt(clinic.lifefileInboundPassword);
-        logger.info('[LIFEFILE DATA PUSH] Decrypted password', { clinicId: clinic.id, length: decryptedPassword?.length });
+        logger.info('[LIFEFILE DATA PUSH] Decrypted password', {
+          clinicId: clinic.id,
+          length: decryptedPassword?.length,
+        });
       } catch (e: unknown) {
-        logger.error('[LIFEFILE DATA PUSH] Decryption failed', { clinicId: clinic.id, error: (e as any).message });
+        logger.error('[LIFEFILE DATA PUSH] Decryption failed', {
+          clinicId: clinic.id,
+          error: (e as any).message,
+        });
         continue;
       }
 
@@ -291,7 +297,14 @@ async function processOrderStatus(clinicId: number, data: any) {
             });
           }
         } catch (err) {
-          logger.warn('[LIFEFILE DATA PUSH] Notification failed:', { error: err instanceof Error ? (err instanceof Error ? err.message : String(err)) : String(err) });
+          logger.warn('[LIFEFILE DATA PUSH] Notification failed:', {
+            error:
+              err instanceof Error
+                ? err instanceof Error
+                  ? err.message
+                  : String(err)
+                : String(err),
+          });
         }
       }
     } else {
@@ -337,7 +350,10 @@ export async function POST(req: NextRequest) {
         ? 'Clinic not found for username'
         : 'Invalid password';
       await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
-        logger.warn('[LifeFile DataPush] Failed to persist webhook log for auth failure', { error: err instanceof Error ? (err instanceof Error ? err.message : String(err)) : String(err) });
+        logger.warn('[LifeFile DataPush] Failed to persist webhook log for auth failure', {
+          error:
+            err instanceof Error ? (err instanceof Error ? err.message : String(err)) : String(err),
+        });
       });
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -351,7 +367,10 @@ export async function POST(req: NextRequest) {
     if (!rawBody) {
       webhookLogData.errorMessage = 'Empty request body';
       await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
-        logger.warn('[LifeFile DataPush] Failed to persist webhook log for empty body', { error: err instanceof Error ? (err instanceof Error ? err.message : String(err)) : String(err) });
+        logger.warn('[LifeFile DataPush] Failed to persist webhook log for empty body', {
+          error:
+            err instanceof Error ? (err instanceof Error ? err.message : String(err)) : String(err),
+        });
       });
       return NextResponse.json({ error: 'Empty request body' }, { status: 400 });
     }
@@ -360,7 +379,10 @@ export async function POST(req: NextRequest) {
       webhookLogData.statusCode = 413;
       webhookLogData.errorMessage = 'Payload too large';
       await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
-        logger.warn('[LifeFile DataPush] Failed to persist webhook log for oversized payload', { error: err instanceof Error ? (err instanceof Error ? err.message : String(err)) : String(err) });
+        logger.warn('[LifeFile DataPush] Failed to persist webhook log for oversized payload', {
+          error:
+            err instanceof Error ? (err instanceof Error ? err.message : String(err)) : String(err),
+        });
       });
       return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
     }
@@ -373,7 +395,14 @@ export async function POST(req: NextRequest) {
         webhookLogData.statusCode = 400;
         webhookLogData.errorMessage = 'Invalid XML structure';
         await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
-          logger.warn('[LifeFile DataPush] Failed to persist webhook log for invalid XML', { error: err instanceof Error ? (err instanceof Error ? err.message : String(err)) : String(err) });
+          logger.warn('[LifeFile DataPush] Failed to persist webhook log for invalid XML', {
+            error:
+              err instanceof Error
+                ? err instanceof Error
+                  ? err.message
+                  : String(err)
+                : String(err),
+          });
         });
         return NextResponse.json({ error: 'Invalid XML format' }, { status: 400 });
       }
@@ -386,7 +415,14 @@ export async function POST(req: NextRequest) {
         webhookLogData.statusCode = 400;
         webhookLogData.errorMessage = 'Invalid JSON or payload must be an object';
         await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
-          logger.warn('[LifeFile DataPush] Failed to persist webhook log for invalid JSON', { error: err instanceof Error ? (err instanceof Error ? err.message : String(err)) : String(err) });
+          logger.warn('[LifeFile DataPush] Failed to persist webhook log for invalid JSON', {
+            error:
+              err instanceof Error
+                ? err instanceof Error
+                  ? err.message
+                  : String(err)
+                : String(err),
+          });
         });
         return NextResponse.json({ error: 'Invalid JSON format' }, { status: 400 });
       }
@@ -416,7 +452,10 @@ export async function POST(req: NextRequest) {
     webhookLogData.processingTimeMs = processingTime;
 
     await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
-      logger.warn('[LifeFile DataPush] Failed to persist webhook log', { error: err instanceof Error ? (err instanceof Error ? err.message : String(err)) : String(err) });
+      logger.warn('[LifeFile DataPush] Failed to persist webhook log', {
+        error:
+          err instanceof Error ? (err instanceof Error ? err.message : String(err)) : String(err),
+      });
     });
 
     logger.info(`[LIFEFILE DATA PUSH] Completed in ${processingTime}ms`);
@@ -429,7 +468,12 @@ export async function POST(req: NextRequest) {
       processingTimeMs: processingTime,
     });
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? (error instanceof Error ? error.message : String(error)) : 'Unknown error';
+    const errorMessage =
+      error instanceof Error
+        ? error instanceof Error
+          ? error.message
+          : String(error)
+        : 'Unknown error';
     logger.error('[LIFEFILE DATA PUSH] Error', {
       message: errorMessage,
       name: error instanceof Error ? (error instanceof Error ? error.name : 'Error') : undefined,
@@ -441,7 +485,10 @@ export async function POST(req: NextRequest) {
     webhookLogData.processingTimeMs = Date.now() - startTime;
 
     await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
-      logger.warn('[LifeFile DataPush] Failed to persist webhook log for processing error', { error: err instanceof Error ? (err instanceof Error ? err.message : String(err)) : String(err) });
+      logger.warn('[LifeFile DataPush] Failed to persist webhook log for processing error', {
+        error:
+          err instanceof Error ? (err instanceof Error ? err.message : String(err)) : String(err),
+      });
     });
 
     return NextResponse.json(

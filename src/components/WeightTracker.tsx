@@ -147,12 +147,18 @@ export default function WeightTracker({
               });
           if (response.ok) {
             const result = await safeParseJson(response);
-            const rawLogs = Array.isArray(result) ? result : (result && typeof result === 'object' && 'data' in result ? (result as { data?: unknown[] }).data : null) ?? [];
-            const formattedData = rawLogs.map((log: { recordedAt?: string; weight?: number; id?: number }) => ({
-              dateInput: log.recordedAt ?? '',
-              currentWeightInput: Number(log.weight) || 0,
-              id: log.id != null ? String(log.id) : '',
-            }));
+            const rawLogs = Array.isArray(result)
+              ? result
+              : ((result && typeof result === 'object' && 'data' in result
+                  ? (result as { data?: unknown[] }).data
+                  : null) ?? []);
+            const formattedData = rawLogs.map(
+              (log: { recordedAt?: string; weight?: number; id?: number }) => ({
+                dateInput: log.recordedAt ?? '',
+                currentWeightInput: Number(log.weight) || 0,
+                id: log.id != null ? String(log.id) : '',
+              })
+            );
             setWeightData(formattedData);
             localStorage.setItem(`weightData_${patientId}`, JSON.stringify(formattedData));
           } else if ((response.status === 401 || response.status === 403) && !usePortalFetch) {
@@ -161,7 +167,9 @@ export default function WeightTracker({
             if (parsed && Array.isArray(parsed)) setWeightData(parsed);
           }
         } catch (error) {
-          logger.error('Failed to fetch weight data', { error: error instanceof Error ? error.message : 'Unknown' });
+          logger.error('Failed to fetch weight data', {
+            error: error instanceof Error ? error.message : 'Unknown',
+          });
           const stored = localStorage.getItem(`weightData_${patientId}`);
           const parsed = safeParseJsonString<WeightEntry[]>(stored);
           if (parsed && Array.isArray(parsed)) setWeightData(parsed);
@@ -215,12 +223,21 @@ export default function WeightTracker({
 
         if (response.ok) {
           const savedLog = await safeParseJson(response);
-          const id = savedLog && typeof savedLog === 'object' && 'id' in savedLog ? (savedLog as { id: number }).id : null;
+          const id =
+            savedLog && typeof savedLog === 'object' && 'id' in savedLog
+              ? (savedLog as { id: number }).id
+              : null;
           if (id != null) newEntry.id = String(id);
           if (weightLogsFromParent == null) setWeightData((prev) => [...prev, newEntry]);
         } else {
           const errBody = await safeParseJson(response);
-          const msg = errBody && typeof errBody === 'object' && 'error' in errBody && typeof (errBody as { error: unknown }).error === 'string' ? (errBody as { error: string }).error : 'Failed to save weight';
+          const msg =
+            errBody &&
+            typeof errBody === 'object' &&
+            'error' in errBody &&
+            typeof (errBody as { error: unknown }).error === 'string'
+              ? (errBody as { error: string }).error
+              : 'Failed to save weight';
           throw new Error(msg);
         }
       } else {
@@ -236,7 +253,9 @@ export default function WeightTracker({
       if (onWeightSaved) onWeightSaved();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to save weight';
-      logger.error('Failed to save weight', { error: error instanceof Error ? error.message : 'Unknown' });
+      logger.error('Failed to save weight', {
+        error: error instanceof Error ? error.message : 'Unknown',
+      });
       setSaveError(message);
       toast.error(message);
     } finally {
@@ -379,18 +398,26 @@ export default function WeightTracker({
 
         <div className="relative">
           <div className="mb-0.5 flex items-center gap-2 sm:mb-1">
-            <Scale className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${heroTheme === 'light' ? 'text-white/60' : 'text-gray-700/60'}`} />
-            <span className={`text-[10px] font-semibold uppercase tracking-wider sm:text-xs ${heroTheme === 'light' ? 'text-white/60' : 'text-gray-700/60'}`}>
+            <Scale
+              className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${heroTheme === 'light' ? 'text-white/60' : 'text-gray-700/60'}`}
+            />
+            <span
+              className={`text-[10px] font-semibold uppercase tracking-wider sm:text-xs ${heroTheme === 'light' ? 'text-white/60' : 'text-gray-700/60'}`}
+            >
               {t('weightTrackerCurrentWeight')}
             </span>
           </div>
 
           <div className="flex items-end justify-between gap-2">
             <div className="flex min-w-0 items-baseline gap-2 sm:gap-3">
-              <span className={`text-4xl font-semibold tracking-tight sm:text-5xl md:text-7xl ${heroTheme === 'light' ? 'text-white' : 'text-gray-900'}`}>
+              <span
+                className={`text-4xl font-semibold tracking-tight sm:text-5xl md:text-7xl ${heroTheme === 'light' ? 'text-white' : 'text-gray-900'}`}
+              >
                 {latestWeight || '---'}
               </span>
-              <span className={`mb-1 text-lg font-medium sm:mb-2 sm:text-2xl ${heroTheme === 'light' ? 'text-white/70' : 'text-gray-700/70'}`}>
+              <span
+                className={`mb-1 text-lg font-medium sm:mb-2 sm:text-2xl ${heroTheme === 'light' ? 'text-white/70' : 'text-gray-700/70'}`}
+              >
                 {t('weightTrackerLbs')}
               </span>
             </div>
@@ -400,19 +427,27 @@ export default function WeightTracker({
                 className={`flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 backdrop-blur-sm sm:gap-2 sm:rounded-2xl sm:px-5 sm:py-3 ${
                   heroTheme === 'light'
                     ? 'bg-white/20'
-                    : weightChange < 0 ? 'bg-emerald-500/20' : 'bg-rose-500/20'
+                    : weightChange < 0
+                      ? 'bg-emerald-500/20'
+                      : 'bg-rose-500/20'
                 }`}
               >
                 {weightChange < 0 ? (
-                  <TrendingDown className={`h-4 w-4 sm:h-5 sm:w-5 ${heroTheme === 'light' ? 'text-white' : 'text-emerald-700'}`} />
+                  <TrendingDown
+                    className={`h-4 w-4 sm:h-5 sm:w-5 ${heroTheme === 'light' ? 'text-white' : 'text-emerald-700'}`}
+                  />
                 ) : (
-                  <TrendingUp className={`h-4 w-4 sm:h-5 sm:w-5 ${heroTheme === 'light' ? 'text-white' : 'text-rose-700'}`} />
+                  <TrendingUp
+                    className={`h-4 w-4 sm:h-5 sm:w-5 ${heroTheme === 'light' ? 'text-white' : 'text-rose-700'}`}
+                  />
                 )}
                 <span
                   className={`text-sm font-semibold sm:text-lg ${
                     heroTheme === 'light'
                       ? 'text-white'
-                      : weightChange < 0 ? 'text-emerald-700' : 'text-rose-700'
+                      : weightChange < 0
+                        ? 'text-emerald-700'
+                        : 'text-rose-700'
                   }`}
                 >
                   {Math.abs(weightChange).toFixed(1)} {t('weightTrackerLbs')}
@@ -424,8 +459,12 @@ export default function WeightTracker({
           {/* BMI Badge - single row, smaller on mobile */}
           {showBMI && currentBMI && bmiCategory && (
             <div className="mt-3 flex flex-wrap items-center gap-2 sm:mt-4 md:mt-6 md:gap-3">
-              <div className={`rounded-lg px-3 py-1.5 backdrop-blur-sm sm:rounded-xl sm:px-4 sm:py-2 ${heroTheme === 'light' ? 'bg-white/20' : 'bg-black/10'}`}>
-                <span className={`text-xs font-semibold sm:text-sm ${heroTheme === 'light' ? 'text-white' : 'text-gray-800'}`}>
+              <div
+                className={`rounded-lg px-3 py-1.5 backdrop-blur-sm sm:rounded-xl sm:px-4 sm:py-2 ${heroTheme === 'light' ? 'bg-white/20' : 'bg-black/10'}`}
+              >
+                <span
+                  className={`text-xs font-semibold sm:text-sm ${heroTheme === 'light' ? 'text-white' : 'text-gray-800'}`}
+                >
                   BMI {currentBMI.toFixed(1)}
                 </span>
               </div>
@@ -499,7 +538,9 @@ export default function WeightTracker({
             <span className="absolute inset-0 translate-y-full bg-black/10 transition-transform duration-300 group-hover:translate-y-0" />
             {isLoading ? (
               <div className="flex items-center justify-center gap-2">
-                <div className={`h-5 w-5 animate-spin rounded-full border-2 border-t-transparent ${heroTheme === 'light' ? 'border-white' : 'border-gray-900'}`} />
+                <div
+                  className={`h-5 w-5 animate-spin rounded-full border-2 border-t-transparent ${heroTheme === 'light' ? 'border-white' : 'border-gray-900'}`}
+                />
                 <span className="relative">{t('weightTrackerSaving')}</span>
               </div>
             ) : showSuccess ? (

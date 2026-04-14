@@ -115,7 +115,9 @@ const fmt = (cents: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
 
 const fmtDate = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null;
+  iso
+    ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    : null;
 
 const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
   MATCHED: { label: 'Matched', cls: 'bg-emerald-100 text-emerald-700' },
@@ -163,11 +165,16 @@ export default function PharmacyInvoiceDetailPage() {
 
   // Debounce search
   useEffect(() => {
-    const t = setTimeout(() => { setDebouncedSearch(search); setPage(1); }, 400);
+    const t = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 400);
     return () => clearTimeout(t);
   }, [search]);
 
-  useEffect(() => { setPage(1); }, [filter]);
+  useEffect(() => {
+    setPage(1);
+  }, [filter]);
 
   // Fetch data
   const fetchDetail = useCallback(async () => {
@@ -189,12 +196,16 @@ export default function PharmacyInvoiceDetailPage() {
         setTotalGroups(json.data.totalGroups ?? 0);
         setPdfUrl(json.data.pdfUrl ?? null);
       }
-    } catch { /* handled */ } finally {
+    } catch {
+      /* handled */
+    } finally {
       setLoading(false);
     }
   }, [uploadId, page, filter, debouncedSearch]);
 
-  useEffect(() => { if (uploadId) fetchDetail(); }, [uploadId, fetchDetail]);
+  useEffect(() => {
+    if (uploadId) fetchDetail();
+  }, [uploadId, fetchDetail]);
 
   const toggleOrder = (id: string) =>
     setExpandedOrders((prev) => {
@@ -225,7 +236,9 @@ export default function PharmacyInvoiceDetailPage() {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#efece7]">
         <p className="text-gray-500">Invoice not found.</p>
-        <button onClick={() => router.back()} className="text-emerald-600 hover:underline">Go back</button>
+        <button onClick={() => router.back()} className="text-emerald-600 hover:underline">
+          Go back
+        </button>
       </div>
     );
   }
@@ -237,8 +250,14 @@ export default function PharmacyInvoiceDetailPage() {
     <div className="min-h-screen bg-[#efece7]">
       <div className="mx-auto max-w-7xl px-6 py-8">
         {/* Back */}
-        <a href="/admin/pharmacy-invoices" onClick={(e) => { e.preventDefault(); window.location.href = '/admin/pharmacy-invoices'; }}
-          className="mb-6 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
+        <a
+          href="/admin/pharmacy-invoices"
+          onClick={(e) => {
+            e.preventDefault();
+            window.location.href = '/admin/pharmacy-invoices';
+          }}
+          className="mb-6 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+        >
           <ArrowLeft className="h-4 w-4" /> Back to invoices
         </a>
 
@@ -249,12 +268,17 @@ export default function PharmacyInvoiceDetailPage() {
               Invoice {up.invoiceNumber ? `#${up.invoiceNumber}` : up.fileName}
             </h1>
             <p className="mt-1 text-sm text-gray-500">
-              {up.pharmacyName ?? 'Pharmacy'} &middot; {fmtDate(up.invoiceDate) ?? fmtDate(up.createdAt ?? null) ?? ''}
+              {up.pharmacyName ?? 'Pharmacy'} &middot;{' '}
+              {fmtDate(up.invoiceDate) ?? fmtDate(up.createdAt ?? null) ?? ''}
             </p>
           </div>
           {pdfUrl && (
-            <a href={pdfUrl} target="_blank" rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+            <a
+              href={pdfUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
               <Download className="h-4 w-4" /> View Original
             </a>
           )}
@@ -263,9 +287,26 @@ export default function PharmacyInvoiceDetailPage() {
         {/* Summary Cards */}
         <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-5">
           <Card label="Invoice Total" value={fmt(summary.totalCents)} color="text-gray-900" />
-          <Card label="Matched" value={`${fmt(summary.matchedCents)}`} sub={`${up.matchedCount} items (${matchPct}%)`} color="text-emerald-600" icon={CheckCircle} />
-          <Card label="Unmatched" value={fmt(summary.unmatchedCents)} sub={`${up.unmatchedCount} items`} color="text-red-600" icon={XCircle} />
-          <Card label="Disputed" value={String(up.discrepancyCount)} color="text-purple-600" icon={Flag} />
+          <Card
+            label="Matched"
+            value={`${fmt(summary.matchedCents)}`}
+            sub={`${up.matchedCount} items (${matchPct}%)`}
+            color="text-emerald-600"
+            icon={CheckCircle}
+          />
+          <Card
+            label="Unmatched"
+            value={fmt(summary.unmatchedCents)}
+            sub={`${up.unmatchedCount} items`}
+            color="text-red-600"
+            icon={XCircle}
+          />
+          <Card
+            label="Disputed"
+            value={String(up.discrepancyCount)}
+            color="text-purple-600"
+            icon={Flag}
+          />
           <Card label="Match Rate" value={`${matchPct}%`} color="text-blue-600" />
         </div>
 
@@ -273,8 +314,14 @@ export default function PharmacyInvoiceDetailPage() {
         <div className="mb-8 h-2.5 overflow-hidden rounded-full bg-gray-200">
           {up.totalLineItems > 0 && (
             <>
-              <div className="float-left h-full bg-emerald-500" style={{ width: `${(up.matchedCount / up.totalLineItems) * 100}%` }} />
-              <div className="float-left h-full bg-blue-400" style={{ width: `${(up.discrepancyCount / up.totalLineItems) * 100}%` }} />
+              <div
+                className="float-left h-full bg-emerald-500"
+                style={{ width: `${(up.matchedCount / up.totalLineItems) * 100}%` }}
+              />
+              <div
+                className="float-left h-full bg-blue-400"
+                style={{ width: `${(up.discrepancyCount / up.totalLineItems) * 100}%` }}
+              />
             </>
           )}
         </div>
@@ -283,48 +330,80 @@ export default function PharmacyInvoiceDetailPage() {
         <div className="mb-4 flex flex-wrap items-center gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <input type="text" placeholder="Search order, patient, rx, medication..." value={search}
+            <input
+              type="text"
+              placeholder="Search order, patient, rx, medication..."
+              value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-4 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500" />
+              className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-4 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            />
           </div>
-          {['all', 'MATCHED', 'MANUALLY_MATCHED', 'UNMATCHED', 'DISPUTED', 'DUPLICATES'].map((f) => (
-            <button key={f} onClick={() => setFilter(f)}
-              className={`rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
-                filter === f ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'
-              }`}>
-              {f === 'all' ? 'All' : f === 'DUPLICATES' ? 'Duplicates' : STATUS_BADGE[f]?.label ?? f}
-            </button>
-          ))}
+          {['all', 'MATCHED', 'MANUALLY_MATCHED', 'UNMATCHED', 'DISPUTED', 'DUPLICATES'].map(
+            (f) => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
+                  filter === f
+                    ? 'bg-gray-900 text-white'
+                    : 'bg-white text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                {f === 'all'
+                  ? 'All'
+                  : f === 'DUPLICATES'
+                    ? 'Duplicates'
+                    : (STATUS_BADGE[f]?.label ?? f)}
+              </button>
+            )
+          )}
         </div>
 
         {/* Order groups */}
         <div className="space-y-2">
           {loading && (
-            <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-gray-400" /></div>
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+            </div>
           )}
           {!loading && orderGroups.length === 0 && (
-            <div className="rounded-xl bg-white py-12 text-center text-sm text-gray-400">No orders match your filters.</div>
+            <div className="rounded-xl bg-white py-12 text-center text-sm text-gray-400">
+              No orders match your filters.
+            </div>
           )}
-          {!loading && orderGroups.map((g) => (
-            <OrderGroupRow key={g.lifefileOrderId} group={g} expanded={expandedOrders.has(g.lifefileOrderId)}
-              onToggle={() => toggleOrder(g.lifefileOrderId)}
-              onMatch={() => setMatchModalGroup(g)}
-              onSaveItem={saveLineItem}
-              uploadId={uploadId} />
-          ))}
+          {!loading &&
+            orderGroups.map((g) => (
+              <OrderGroupRow
+                key={g.lifefileOrderId}
+                group={g}
+                expanded={expandedOrders.has(g.lifefileOrderId)}
+                onToggle={() => toggleOrder(g.lifefileOrderId)}
+                onMatch={() => setMatchModalGroup(g)}
+                onSaveItem={saveLineItem}
+                uploadId={uploadId}
+              />
+            ))}
         </div>
 
         {/* Pagination */}
         {totalPages > 1 && (
           <div className="mt-6 flex items-center justify-between text-sm text-gray-500">
-            <span>Page {page} of {totalPages} ({totalGroups} orders)</span>
+            <span>
+              Page {page} of {totalPages} ({totalGroups} orders)
+            </span>
             <div className="flex gap-2">
-              <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}
-                className="rounded-md border border-gray-300 px-3 py-1.5 hover:bg-gray-50 disabled:opacity-50">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="rounded-md border border-gray-300 px-3 py-1.5 hover:bg-gray-50 disabled:opacity-50"
+              >
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
-                className="rounded-md border border-gray-300 px-3 py-1.5 hover:bg-gray-50 disabled:opacity-50">
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="rounded-md border border-gray-300 px-3 py-1.5 hover:bg-gray-50 disabled:opacity-50"
+              >
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
@@ -338,7 +417,10 @@ export default function PharmacyInvoiceDetailPage() {
           uploadId={uploadId}
           group={matchModalGroup}
           onClose={() => setMatchModalGroup(null)}
-          onMatched={() => { setMatchModalGroup(null); fetchDetail(); }}
+          onMatched={() => {
+            setMatchModalGroup(null);
+            fetchDetail();
+          }}
         />
       )}
     </div>
@@ -349,14 +431,26 @@ export default function PharmacyInvoiceDetailPage() {
 // Card
 // ---------------------------------------------------------------------------
 
-function Card({ label, value, sub, color, icon: Icon }: {
-  label: string; value: string; sub?: string; color: string; icon?: React.ElementType;
+function Card({
+  label,
+  value,
+  sub,
+  color,
+  icon: Icon,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  color: string;
+  icon?: React.ElementType;
 }) {
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4">
       <div className="flex items-center gap-2">
         {Icon && <Icon className={`h-4 w-4 ${color}`} />}
-        <span className="text-[11px] font-medium uppercase tracking-wider text-gray-400">{label}</span>
+        <span className="text-[11px] font-medium uppercase tracking-wider text-gray-400">
+          {label}
+        </span>
       </div>
       <div className={`mt-1.5 text-lg font-bold ${color}`}>{value}</div>
       {sub && <div className="text-xs text-gray-400">{sub}</div>}
@@ -368,23 +462,49 @@ function Card({ label, value, sub, color, icon: Icon }: {
 // Order Group Row
 // ---------------------------------------------------------------------------
 
-function OrderGroupRow({ group: g, expanded, onToggle, onMatch, onSaveItem, uploadId }: {
-  group: OrderGroup; expanded: boolean; onToggle: () => void;
-  onMatch: () => void; onSaveItem: (id: number, data: Record<string, unknown>) => void; uploadId: string;
+function OrderGroupRow({
+  group: g,
+  expanded,
+  onToggle,
+  onMatch,
+  onSaveItem,
+  uploadId,
+}: {
+  group: OrderGroup;
+  expanded: boolean;
+  onToggle: () => void;
+  onMatch: () => void;
+  onSaveItem: (id: number, data: Record<string, unknown>) => void;
+  uploadId: string;
 }) {
   const badge = STATUS_BADGE[g.matchStatus] ?? STATUS_BADGE.PENDING;
   const patient = g.lineItems.find((li) => li.patientName)?.patientName ?? '—';
   const doctor = g.lineItems.find((li) => li.doctorName)?.doctorName;
-  const medItems = g.lineItems.filter((li) => li.lineType === 'MEDICATION' || li.lineType === 'SUPPLY');
+  const medItems = g.lineItems.filter(
+    (li) => li.lineType === 'MEDICATION' || li.lineType === 'SUPPLY'
+  );
   const isUnmatched = g.matchStatus === 'UNMATCHED' || g.matchStatus === 'PENDING';
 
   return (
-    <div className={`overflow-hidden rounded-xl border bg-white ${
-      isUnmatched ? 'border-red-200' : g.matchStatus === 'DISPUTED' ? 'border-purple-200' : 'border-gray-200'
-    }`}>
+    <div
+      className={`overflow-hidden rounded-xl border bg-white ${
+        isUnmatched
+          ? 'border-red-200'
+          : g.matchStatus === 'DISPUTED'
+            ? 'border-purple-200'
+            : 'border-gray-200'
+      }`}
+    >
       {/* Header */}
-      <button onClick={onToggle} className="flex w-full items-center gap-4 px-5 py-3.5 text-left hover:bg-gray-50">
-        <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${badge.cls}`}>{badge.label}</span>
+      <button
+        onClick={onToggle}
+        className="flex w-full items-center gap-4 px-5 py-3.5 text-left hover:bg-gray-50"
+      >
+        <span
+          className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${badge.cls}`}
+        >
+          {badge.label}
+        </span>
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
@@ -403,12 +523,21 @@ function OrderGroupRow({ group: g, expanded, onToggle, onMatch, onSaveItem, uplo
           <span className="text-xs text-gray-400">{medItems.length} items</span>
           <span className="text-sm font-semibold text-gray-900">{fmt(g.subtotalCents)}</span>
           {isUnmatched && (
-            <button onClick={(e) => { e.stopPropagation(); onMatch(); }}
-              className="rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-emerald-700">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onMatch();
+              }}
+              className="rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-emerald-700"
+            >
               <Link2 className="mr-1 inline h-3 w-3" /> Match
             </button>
           )}
-          {expanded ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
+          {expanded ? (
+            <ChevronUp className="h-4 w-4 text-gray-400" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-gray-400" />
+          )}
         </div>
       </button>
 
@@ -418,14 +547,14 @@ function OrderGroupRow({ group: g, expanded, onToggle, onMatch, onSaveItem, uplo
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50 text-left text-[11px] font-medium uppercase tracking-wider text-gray-400">
-                <th className="px-5 py-2 w-16">Type</th>
+                <th className="w-16 px-5 py-2">Type</th>
                 <th className="px-5 py-2">Rx / Fill</th>
                 <th className="px-5 py-2">Medication</th>
-                <th className="px-5 py-2 text-right w-12">Qty</th>
-                <th className="px-5 py-2 text-right w-24">Price</th>
-                <th className="px-5 py-2 text-right w-24">Amount</th>
-                <th className="px-5 py-2 w-48">Notes</th>
-                <th className="px-5 py-2 w-20">Dispute</th>
+                <th className="w-12 px-5 py-2 text-right">Qty</th>
+                <th className="w-24 px-5 py-2 text-right">Price</th>
+                <th className="w-24 px-5 py-2 text-right">Amount</th>
+                <th className="w-48 px-5 py-2">Notes</th>
+                <th className="w-20 px-5 py-2">Dispute</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -444,23 +573,39 @@ function OrderGroupRow({ group: g, expanded, onToggle, onMatch, onSaveItem, uplo
 // Line Item Row (with inline editing)
 // ---------------------------------------------------------------------------
 
-function LineItemRow({ li, onSave }: { li: LineItem; onSave: (data: Record<string, unknown>) => void }) {
+function LineItemRow({
+  li,
+  onSave,
+}: {
+  li: LineItem;
+  onSave: (data: Record<string, unknown>) => void;
+}) {
   const Icon = LINE_ICON[li.lineType] ?? FileText;
   const [editingNotes, setEditingNotes] = useState(false);
   const [notes, setNotes] = useState(li.adminNotes ?? '');
   const [editingAmount, setEditingAmount] = useState(false);
-  const [adjAmount, setAdjAmount] = useState(li.adjustedAmountCents != null ? String(li.adjustedAmountCents / 100) : '');
+  const [adjAmount, setAdjAmount] = useState(
+    li.adjustedAmountCents != null ? String(li.adjustedAmountCents / 100) : ''
+  );
   const notesRef = useRef<HTMLInputElement>(null);
 
   const effectiveAmount = li.adjustedAmountCents ?? li.amountCents;
 
   return (
-    <tr className={`hover:bg-gray-50 ${li.disputed ? 'bg-purple-50/50' : li.isDuplicate ? 'bg-orange-50/50' : ''}`}>
+    <tr
+      className={`hover:bg-gray-50 ${li.disputed ? 'bg-purple-50/50' : li.isDuplicate ? 'bg-orange-50/50' : ''}`}
+    >
       <td className="px-5 py-2">
         <div className="flex items-center gap-1 text-gray-400">
           <Icon className="h-3.5 w-3.5" />
           <span className="text-[11px]">
-            {li.lineType === 'MEDICATION' ? 'Rx' : li.lineType === 'SUPPLY' ? 'Supply' : li.lineType === 'SHIPPING_CARRIER' ? 'Ship' : 'Fee'}
+            {li.lineType === 'MEDICATION'
+              ? 'Rx'
+              : li.lineType === 'SUPPLY'
+                ? 'Supply'
+                : li.lineType === 'SHIPPING_CARRIER'
+                  ? 'Ship'
+                  : 'Fee'}
           </span>
         </div>
       </td>
@@ -468,15 +613,24 @@ function LineItemRow({ li, onSave }: { li: LineItem; onSave: (data: Record<strin
         {li.rxNumber && <span>Rx {li.rxNumber}</span>}
         {li.fillId && <span className="ml-1 text-gray-300">/ {li.fillId}</span>}
         {li.isDuplicate && (
-          <span className="ml-1 rounded bg-orange-100 px-1.5 py-0.5 text-[10px] font-semibold text-orange-700" title={`Duplicate of item #${li.duplicateOfLineItemId}`}>
+          <span
+            className="ml-1 rounded bg-orange-100 px-1.5 py-0.5 text-[10px] font-semibold text-orange-700"
+            title={`Duplicate of item #${li.duplicateOfLineItemId}`}
+          >
             DUPE
           </span>
         )}
       </td>
       <td className="max-w-xs truncate px-5 py-2 text-xs text-gray-700">
         {li.medicationName ? (
-          <><span className="font-medium">{li.medicationName}</span>{li.strength && ` ${li.strength}`}{li.vialSize && ` (${li.vialSize})`}</>
-        ) : li.shippingMethod ?? '—'}
+          <>
+            <span className="font-medium">{li.medicationName}</span>
+            {li.strength && ` ${li.strength}`}
+            {li.vialSize && ` (${li.vialSize})`}
+          </>
+        ) : (
+          (li.shippingMethod ?? '—')
+        )}
       </td>
       <td className="px-5 py-2 text-right text-xs text-gray-500">{li.quantity}</td>
       <td className="px-5 py-2 text-right text-xs text-gray-500">{fmt(li.unitPriceCents)}</td>
@@ -485,16 +639,39 @@ function LineItemRow({ li, onSave }: { li: LineItem; onSave: (data: Record<strin
         {editingAmount ? (
           <div className="flex items-center justify-end gap-1">
             <span className="text-xs text-gray-400">$</span>
-            <input type="number" step="0.01" value={adjAmount} onChange={(e) => setAdjAmount(e.target.value)}
-              className="w-20 rounded border border-gray-300 px-1.5 py-0.5 text-right text-xs" autoFocus />
-            <button onClick={() => { onSave({ adjustedAmountCents: adjAmount ? Math.round(parseFloat(adjAmount) * 100) : null }); setEditingAmount(false); }}
-              className="text-emerald-600"><Check className="h-3.5 w-3.5" /></button>
-            <button onClick={() => setEditingAmount(false)} className="text-gray-400"><X className="h-3.5 w-3.5" /></button>
+            <input
+              type="number"
+              step="0.01"
+              value={adjAmount}
+              onChange={(e) => setAdjAmount(e.target.value)}
+              className="w-20 rounded border border-gray-300 px-1.5 py-0.5 text-right text-xs"
+              autoFocus
+            />
+            <button
+              onClick={() => {
+                onSave({
+                  adjustedAmountCents: adjAmount ? Math.round(parseFloat(adjAmount) * 100) : null,
+                });
+                setEditingAmount(false);
+              }}
+              className="text-emerald-600"
+            >
+              <Check className="h-3.5 w-3.5" />
+            </button>
+            <button onClick={() => setEditingAmount(false)} className="text-gray-400">
+              <X className="h-3.5 w-3.5" />
+            </button>
           </div>
         ) : (
-          <button onClick={() => setEditingAmount(true)}
+          <button
+            onClick={() => setEditingAmount(true)}
             className={`text-xs font-medium ${li.adjustedAmountCents != null ? 'text-blue-600 underline decoration-dashed' : 'text-gray-900'}`}
-            title={li.adjustedAmountCents != null ? `Original: ${fmt(li.amountCents)}` : 'Click to adjust'}>
+            title={
+              li.adjustedAmountCents != null
+                ? `Original: ${fmt(li.amountCents)}`
+                : 'Click to adjust'
+            }
+          >
             {fmt(effectiveAmount)}
           </button>
         )}
@@ -503,27 +680,57 @@ function LineItemRow({ li, onSave }: { li: LineItem; onSave: (data: Record<strin
       <td className="px-5 py-2">
         {editingNotes ? (
           <div className="flex items-center gap-1">
-            <input ref={notesRef} value={notes} onChange={(e) => setNotes(e.target.value)}
-              className="w-full rounded border border-gray-300 px-1.5 py-0.5 text-xs" autoFocus
-              onKeyDown={(e) => { if (e.key === 'Enter') { onSave({ adminNotes: notes || null }); setEditingNotes(false); } }} />
-            <button onClick={() => { onSave({ adminNotes: notes || null }); setEditingNotes(false); }}
-              className="text-emerald-600"><Check className="h-3.5 w-3.5" /></button>
+            <input
+              ref={notesRef}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="w-full rounded border border-gray-300 px-1.5 py-0.5 text-xs"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  onSave({ adminNotes: notes || null });
+                  setEditingNotes(false);
+                }
+              }}
+            />
+            <button
+              onClick={() => {
+                onSave({ adminNotes: notes || null });
+                setEditingNotes(false);
+              }}
+              className="text-emerald-600"
+            >
+              <Check className="h-3.5 w-3.5" />
+            </button>
           </div>
         ) : (
-          <button onClick={() => setEditingNotes(true)}
-            className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-700">
+          <button
+            onClick={() => setEditingNotes(true)}
+            className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-700"
+          >
             <MessageSquare className="h-3 w-3" />
-            {li.adminNotes ? <span className="text-gray-600">{li.adminNotes.slice(0, 30)}</span> : 'Add note'}
+            {li.adminNotes ? (
+              <span className="text-gray-600">{li.adminNotes.slice(0, 30)}</span>
+            ) : (
+              'Add note'
+            )}
           </button>
         )}
       </td>
       {/* Dispute toggle */}
       <td className="px-5 py-2 text-center">
-        <button onClick={() => onSave({ disputed: !li.disputed, matchStatus: !li.disputed ? 'DISPUTED' : 'UNMATCHED' })}
+        <button
+          onClick={() =>
+            onSave({ disputed: !li.disputed, matchStatus: !li.disputed ? 'DISPUTED' : 'UNMATCHED' })
+          }
           className={`rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors ${
-            li.disputed ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-400 hover:bg-red-50 hover:text-red-500'
-          }`}>
-          <Flag className="mr-0.5 inline h-3 w-3" />{li.disputed ? 'Disputed' : 'Flag'}
+            li.disputed
+              ? 'bg-purple-100 text-purple-700'
+              : 'bg-gray-100 text-gray-400 hover:bg-red-50 hover:text-red-500'
+          }`}
+        >
+          <Flag className="mr-0.5 inline h-3 w-3" />
+          {li.disputed ? 'Disputed' : 'Flag'}
         </button>
       </td>
     </tr>
@@ -534,8 +741,16 @@ function LineItemRow({ li, onSave }: { li: LineItem; onSave: (data: Record<strin
 // Manual Match Modal
 // ---------------------------------------------------------------------------
 
-function ManualMatchModal({ uploadId, group, onClose, onMatched }: {
-  uploadId: string; group: OrderGroup; onClose: () => void; onMatched: () => void;
+function ManualMatchModal({
+  uploadId,
+  group,
+  onClose,
+  onMatched,
+}: {
+  uploadId: string;
+  group: OrderGroup;
+  onClose: () => void;
+  onMatched: () => void;
 }) {
   // Default to Order ID tab with the lifefileOrderId pre-filled
   const [tab, setTab] = useState<'search' | 'orderId'>('orderId');
@@ -546,22 +761,25 @@ function ManualMatchModal({ uploadId, group, onClose, onMatched }: {
   const [matching, setMatching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const doSearch = useCallback(async (q: string, lifefileOrderId?: string) => {
-    setSearching(true);
-    setError(null);
-    try {
-      const p = new URLSearchParams();
-      if (lifefileOrderId) p.set('lifefileOrderId', lifefileOrderId);
-      else if (q) p.set('q', q);
-      const res = await apiFetch(`/api/admin/pharmacy-invoices/${uploadId}/search-orders?${p}`);
-      const json = await res.json();
-      setResults(json.data ?? []);
-    } catch {
-      setError('Search failed');
-    } finally {
-      setSearching(false);
-    }
-  }, [uploadId]);
+  const doSearch = useCallback(
+    async (q: string, lifefileOrderId?: string) => {
+      setSearching(true);
+      setError(null);
+      try {
+        const p = new URLSearchParams();
+        if (lifefileOrderId) p.set('lifefileOrderId', lifefileOrderId);
+        else if (q) p.set('q', q);
+        const res = await apiFetch(`/api/admin/pharmacy-invoices/${uploadId}/search-orders?${p}`);
+        const json = await res.json();
+        setResults(json.data ?? []);
+      } catch {
+        setError('Search failed');
+      } finally {
+        setSearching(false);
+      }
+    },
+    [uploadId]
+  );
 
   // Auto-search: try lifefileOrderId first, fall back to recent orders
   useEffect(() => {
@@ -620,8 +838,14 @@ function ManualMatchModal({ uploadId, group, onClose, onMatched }: {
   const patient = group.lineItems.find((li) => li.patientName)?.patientName ?? 'Unknown';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Modal header */}
         <div className="flex items-center justify-between border-b px-6 py-4">
           <div>
@@ -630,17 +854,23 @@ function ManualMatchModal({ uploadId, group, onClose, onMatched }: {
               Order #{group.lifefileOrderId} &middot; {patient} &middot; {fmt(group.subtotalCents)}
             </p>
           </div>
-          <button onClick={onClose} className="rounded-lg p-1 hover:bg-gray-100"><X className="h-5 w-5 text-gray-400" /></button>
+          <button onClick={onClose} className="rounded-lg p-1 hover:bg-gray-100">
+            <X className="h-5 w-5 text-gray-400" />
+          </button>
         </div>
 
         {/* Tabs */}
         <div className="flex border-b px-6">
-          <button onClick={() => setTab('search')}
-            className={`border-b-2 px-4 py-3 text-sm font-medium ${tab === 'search' ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-gray-500'}`}>
+          <button
+            onClick={() => setTab('search')}
+            className={`border-b-2 px-4 py-3 text-sm font-medium ${tab === 'search' ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-gray-500'}`}
+          >
             <User className="mr-1.5 inline h-4 w-4" /> Search by Patient
           </button>
-          <button onClick={() => setTab('orderId')}
-            className={`border-b-2 px-4 py-3 text-sm font-medium ${tab === 'orderId' ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-gray-500'}`}>
+          <button
+            onClick={() => setTab('orderId')}
+            className={`border-b-2 px-4 py-3 text-sm font-medium ${tab === 'orderId' ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-gray-500'}`}
+          >
             <Link2 className="mr-1.5 inline h-4 w-4" /> Enter Order ID
           </button>
         </div>
@@ -660,23 +890,37 @@ function ManualMatchModal({ uploadId, group, onClose, onMatched }: {
               <div className="mb-4 flex gap-2">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  <input type="text" value={query} onChange={(e) => setQuery(e.target.value)}
+                  <input
+                    type="text"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
                     placeholder="Patient name, order number, medication..."
                     className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-4 text-sm focus:border-emerald-500 focus:outline-none"
-                    onKeyDown={(e) => { if (e.key === 'Enter') doSearch(query); }} />
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') doSearch(query);
+                    }}
+                  />
                 </div>
-                <button onClick={() => doSearch(query)} disabled={searching}
-                  className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
+                <button
+                  onClick={() => doSearch(query)}
+                  disabled={searching}
+                  className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                >
                   {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Search'}
                 </button>
               </div>
 
               <div className="max-h-72 space-y-2 overflow-y-auto">
                 {results.length === 0 && !searching && (
-                  <p className="py-8 text-center text-sm text-gray-400">No orders found. Try a different search term.</p>
+                  <p className="py-8 text-center text-sm text-gray-400">
+                    No orders found. Try a different search term.
+                  </p>
                 )}
                 {results.map((r) => (
-                  <div key={r.id} className="flex items-center justify-between rounded-lg border border-gray-200 p-3 hover:bg-gray-50">
+                  <div
+                    key={r.id}
+                    className="flex items-center justify-between rounded-lg border border-gray-200 p-3 hover:bg-gray-50"
+                  >
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold text-gray-900">{r.patientName}</span>
@@ -685,10 +929,17 @@ function ManualMatchModal({ uploadId, group, onClose, onMatched }: {
                       <div className="mt-0.5 text-xs text-gray-500">
                         {fmtDate(r.createdAt)} &middot; Dr. {r.providerName} &middot; {r.rxCount} Rx
                       </div>
-                      {r.medications && <div className="mt-0.5 text-xs text-gray-400 truncate max-w-md">{r.medications}</div>}
+                      {r.medications && (
+                        <div className="mt-0.5 max-w-md truncate text-xs text-gray-400">
+                          {r.medications}
+                        </div>
+                      )}
                     </div>
-                    <button onClick={() => handleMatch(r.id)} disabled={matching}
-                      className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
+                    <button
+                      onClick={() => handleMatch(r.id)}
+                      disabled={matching}
+                      className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                    >
                       {matching ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Match'}
                     </button>
                   </div>
@@ -700,20 +951,32 @@ function ManualMatchModal({ uploadId, group, onClose, onMatched }: {
           {tab === 'orderId' && (
             <div className="flex flex-col gap-4">
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Lifefile Order ID</label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Lifefile Order ID
+                </label>
                 <div className="flex gap-2">
-                  <input type="text" value={orderIdInput} onChange={(e) => setOrderIdInput(e.target.value)}
+                  <input
+                    type="text"
+                    value={orderIdInput}
+                    onChange={(e) => setOrderIdInput(e.target.value)}
                     placeholder="e.g. 101127010"
                     className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
-                    onKeyDown={(e) => { if (e.key === 'Enter') handleMatchByOrderId(); }} />
-                  <button onClick={handleMatchByOrderId} disabled={matching || !orderIdInput.trim()}
-                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleMatchByOrderId();
+                    }}
+                  />
+                  <button
+                    onClick={handleMatchByOrderId}
+                    disabled={matching || !orderIdInput.trim()}
+                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                  >
                     {matching ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Match'}
                   </button>
                 </div>
               </div>
               <p className="text-xs text-gray-400">
-                Enter the Lifefile order number to match all {group.lineItems.length} line items in this group to that order.
+                Enter the Lifefile order number to match all {group.lineItems.length} line items in
+                this group to that order.
               </p>
             </div>
           )}

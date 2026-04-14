@@ -17,10 +17,7 @@ import {
 import { createSessionRecord } from '@/lib/auth/session-manager';
 import { withApiHandler } from '@/domains/shared/errors';
 import { standardRateLimit } from '@/lib/rateLimit';
-import {
-  getRequestHostWithUrlFallback,
-  shouldUseEonproCookieDomain,
-} from '@/lib/request-host';
+import { getRequestHostWithUrlFallback, shouldUseEonproCookieDomain } from '@/lib/request-host';
 
 async function refreshTokenHandler(req: NextRequest) {
   try {
@@ -46,7 +43,9 @@ async function refreshTokenHandler(req: NextRequest) {
       try {
         const fallbackResult = await jwtVerify(refreshToken, JWT_SECRET);
         payload = fallbackResult.payload;
-        logger.warn('Refresh token verified with legacy JWT_SECRET — will rotate to JWT_REFRESH_SECRET');
+        logger.warn(
+          'Refresh token verified with legacy JWT_SECRET — will rotate to JWT_REFRESH_SECRET'
+        );
       } catch {
         logger.warn('Invalid refresh token attempt');
         return NextResponse.json({ error: 'Invalid or expired refresh token' }, { status: 401 });
@@ -118,9 +117,7 @@ async function refreshTokenHandler(req: NextRequest) {
         );
 
         const expiry =
-          userRole === 'patient'
-            ? AUTH_CONFIG.tokenExpiry.patient
-            : AUTH_CONFIG.tokenExpiry.access;
+          userRole === 'patient' ? AUTH_CONFIG.tokenExpiry.patient : AUTH_CONFIG.tokenExpiry.access;
         const tokenPayload: Record<string, unknown> = {
           id: appUser.id,
           email: appUser.email,
@@ -141,18 +138,11 @@ async function refreshTokenHandler(req: NextRequest) {
           tokenPayload.patientId = (appUser as { patientId?: number }).patientId;
         // Compute effective permissions from role defaults + per-user overrides
         {
-          const {
-            getEffectivePermissionStrings,
-            getEffectiveFeatureStrings,
-            parseOverrides,
-          } = await import('@/lib/auth/permissions');
+          const { getEffectivePermissionStrings, getEffectiveFeatureStrings, parseOverrides } =
+            await import('@/lib/auth/permissions');
 
-          const permOverrides = parseOverrides(
-            (appUser as { permissions?: unknown }).permissions,
-          );
-          const featOverrides = parseOverrides(
-            (appUser as { features?: unknown }).features,
-          );
+          const permOverrides = parseOverrides((appUser as { permissions?: unknown }).permissions);
+          const featOverrides = parseOverrides((appUser as { features?: unknown }).features);
 
           tokenPayload.permissions = getEffectivePermissionStrings(userRole, permOverrides);
           tokenPayload.features = getEffectiveFeatureStrings(userRole, featOverrides);
@@ -221,7 +211,10 @@ async function refreshTokenHandler(req: NextRequest) {
     }
 
     // No session with this hash: check for reuse before falling back to legacy lookups
-    const userExists = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+    const userExists = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
     if (userExists) {
       const hasRotatedSessions = await prisma.userSession.count({
         where: { userId, refreshTokenHash: { not: null } },
@@ -315,12 +308,7 @@ async function refreshTokenHandler(req: NextRequest) {
     // Check for admin (special case)
     if (userId === 0 && process.env.ADMIN_EMAIL) {
       // Create session record so production auth (validateSession) can find it
-      const { sessionId } = await createSessionRecord(
-        '0',
-        'admin',
-        undefined,
-        req
-      );
+      const { sessionId } = await createSessionRecord('0', 'admin', undefined, req);
 
       const newAccessToken = await new SignJWT({
         id: 0,

@@ -173,7 +173,8 @@ export default function LeaderboardPage() {
           });
         }
       } catch (error) {
-        process.env.NODE_ENV === 'development' && console.error('Failed to fetch leaderboard:', error);
+        process.env.NODE_ENV === 'development' &&
+          console.error('Failed to fetch leaderboard:', error);
       } finally {
         setLoading(false);
       }

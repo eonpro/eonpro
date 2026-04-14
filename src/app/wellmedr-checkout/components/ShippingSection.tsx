@@ -11,23 +11,11 @@ export default function ShippingSection() {
 
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
-          <InputField
-            name="shippingAddress.firstName"
-            placeholder="First name"
-            type="text"
-          />
-          <InputField
-            name="shippingAddress.lastName"
-            placeholder="Last name"
-            type="text"
-          />
+          <InputField name="shippingAddress.firstName" placeholder="First name" type="text" />
+          <InputField name="shippingAddress.lastName" placeholder="Last name" type="text" />
         </div>
 
-        <InputField
-          name="shippingAddress.address"
-          placeholder="Address"
-          type="text"
-        />
+        <InputField name="shippingAddress.address" placeholder="Address" type="text" />
 
         <InputField
           name="shippingAddress.apt"
@@ -35,12 +23,8 @@ export default function ShippingSection() {
           type="text"
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <InputField
-            name="shippingAddress.city"
-            placeholder="City"
-            type="text"
-          />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <InputField name="shippingAddress.city" placeholder="City" type="text" />
           <SelectField
             name="shippingAddress.state"
             options={US_STATES.map((state) => ({
@@ -49,11 +33,7 @@ export default function ShippingSection() {
             }))}
             placeholder="State"
           />
-          <InputField
-            name="shippingAddress.zipCode"
-            placeholder="Zip Code"
-            type="text"
-          />
+          <InputField name="shippingAddress.zipCode" placeholder="Zip Code" type="text" />
         </div>
       </div>
     </div>

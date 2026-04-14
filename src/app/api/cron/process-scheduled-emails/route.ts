@@ -22,7 +22,13 @@ const CRON_SECRET = process.env.CRON_SECRET;
 const BATCH_SIZE = 50;
 const MAX_RETRIES = 3;
 
-type PerClinicResult = { sent: number; failed: number; skipped: number; errors: string[]; cleanedUp: number };
+type PerClinicResult = {
+  sent: number;
+  failed: number;
+  skipped: number;
+  errors: string[];
+  cleanedUp: number;
+};
 
 export async function GET(req: NextRequest) {
   return processScheduledEmails(req);
@@ -100,8 +106,14 @@ async function processScheduledEmails(req: NextRequest) {
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('[Scheduled Emails] Cron job failed', { error: errorMessage, elapsedMs: Date.now() - startTime });
-    return NextResponse.json({ success: false, error: errorMessage, elapsedMs: Date.now() - startTime }, { status: 500 });
+    logger.error('[Scheduled Emails] Cron job failed', {
+      error: errorMessage,
+      elapsedMs: Date.now() - startTime,
+    });
+    return NextResponse.json(
+      { success: false, error: errorMessage, elapsedMs: Date.now() - startTime },
+      { status: 500 }
+    );
   }
 }
 
@@ -150,7 +162,11 @@ async function processScheduledEmailsForClinic(clinicId: number | null): Promise
       if (scheduledEmail.recipientUser && !scheduledEmail.recipientUser.emailNotificationsEnabled) {
         await prisma.scheduledEmail.update({
           where: { id: scheduledEmail.id },
-          data: { status: 'CANCELLED', processedAt: new Date(), errorMessage: 'User has disabled email notifications' },
+          data: {
+            status: 'CANCELLED',
+            processedAt: new Date(),
+            errorMessage: 'User has disabled email notifications',
+          },
         });
         result.skipped++;
         continue;
@@ -185,7 +201,9 @@ async function processScheduledEmailsForClinic(clinicId: number | null): Promise
           },
         });
         result.failed++;
-        result.errors.push(`ID ${scheduledEmail.id}: ${emailResult.error}${shouldRetry ? ' (will retry)' : ''}`);
+        result.errors.push(
+          `ID ${scheduledEmail.id}: ${emailResult.error}${shouldRetry ? ' (will retry)' : ''}`
+        );
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -266,7 +284,11 @@ async function processNullClinicEmails(): Promise<PerClinicResult> {
       if (scheduledEmail.recipientUser && !scheduledEmail.recipientUser.emailNotificationsEnabled) {
         await basePrisma.scheduledEmail.update({
           where: { id: scheduledEmail.id },
-          data: { status: 'CANCELLED', processedAt: new Date(), errorMessage: 'User has disabled email notifications' },
+          data: {
+            status: 'CANCELLED',
+            processedAt: new Date(),
+            errorMessage: 'User has disabled email notifications',
+          },
         });
         result.skipped++;
         continue;
@@ -301,7 +323,9 @@ async function processNullClinicEmails(): Promise<PerClinicResult> {
           },
         });
         result.failed++;
-        result.errors.push(`ID ${scheduledEmail.id}: ${emailResult.error}${shouldRetry ? ' (will retry)' : ''}`);
+        result.errors.push(
+          `ID ${scheduledEmail.id}: ${emailResult.error}${shouldRetry ? ' (will retry)' : ''}`
+        );
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';

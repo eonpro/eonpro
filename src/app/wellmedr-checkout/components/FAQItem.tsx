@@ -3,28 +3,20 @@
 import cn from '@/app/wellmedr-checkout/lib/cn';
 import { useState } from 'react';
 
-const FAQItem = ({
-  question,
-  answer,
-}: {
-  question: string;
-  answer: string;
-}) => {
+const FAQItem = ({ question, answer }: { question: string; answer: string }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="bg-white rounded-smoothest border border-border overflow-hidden p-6 sm:p-10">
+    <div className="rounded-smoothest border-border overflow-hidden border bg-white p-6 sm:p-10">
       <button
-        className="w-full flex justify-between items-center gap-10 sm:gap-40 lg:gap-56 text-left"
+        className="flex w-full items-center justify-between gap-10 text-left sm:gap-40 lg:gap-56"
         onClick={() => setIsOpen((prev) => !prev)}
         aria-expanded={isOpen}
         type="button"
       >
-        <h4 className="text-[1.125rem] sm:text-[1.5rem] font-medium">
-          {question}
-        </h4>
+        <h4 className="text-[1.125rem] font-medium sm:text-[1.5rem]">{question}</h4>
         <div
-          className={`transition-transform duration-500 text-white bg-foreground rounded-full p-1 ${
+          className={`bg-foreground rounded-full p-1 text-white transition-transform duration-500 ${
             isOpen ? 'rotate-45' : 'rotate-0'
           }`}
         >
@@ -47,12 +39,12 @@ const FAQItem = ({
       </button>
       <div
         className={cn(
-          'transition-all duration-500 ease-in-out overflow-hidden',
-          isOpen ? 'max-h-96' : 'max-h-0',
+          'overflow-hidden transition-all duration-500 ease-in-out',
+          isOpen ? 'max-h-96' : 'max-h-0'
         )}
       >
         <div className="pt-4">
-          <p className="text-sm sm:text-lg text-foreground">{answer}</p>
+          <p className="text-foreground text-sm sm:text-lg">{answer}</p>
         </div>
       </div>
     </div>

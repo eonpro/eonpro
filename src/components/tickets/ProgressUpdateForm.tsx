@@ -66,7 +66,9 @@ export default function ProgressUpdateForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const transitions = STATUS_TRANSITIONS[currentStatus] || [{ value: '', label: 'No status change' }];
+  const transitions = STATUS_TRANSITIONS[currentStatus] || [
+    { value: '', label: 'No status change' },
+  ];
   const isResolved = ['RESOLVED', 'CLOSED', 'CANCELLED'].includes(currentStatus);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -121,7 +123,10 @@ export default function ProgressUpdateForm({
 
       <textarea
         value={comment}
-        onChange={(e) => { setComment(e.target.value); setError(null); }}
+        onChange={(e) => {
+          setComment(e.target.value);
+          setError(null);
+        }}
         placeholder="Add a progress update, note, or comment..."
         rows={3}
         className="w-full rounded-lg border border-gray-300 p-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -147,7 +152,9 @@ export default function ProgressUpdateForm({
               className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm"
             >
               {transitions.map((t) => (
-                <option key={t.value} value={t.value}>{t.label}</option>
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
               ))}
             </select>
           )}
@@ -158,17 +165,15 @@ export default function ProgressUpdateForm({
           disabled={submitting || (!comment.trim() && !newStatus)}
           className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {submitting ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Send className="h-4 w-4" />
-          )}
+          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           {newStatus ? 'Update & Change Status' : 'Add Update'}
         </button>
       </div>
 
       {error && (
-        <p className="mt-2 text-sm text-red-600" role="alert">{error}</p>
+        <p className="mt-2 text-sm text-red-600" role="alert">
+          {error}
+        </p>
       )}
     </form>
   );

@@ -27,10 +27,7 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
 
     const clinic = await basePrisma.clinic.findFirst({
       where: {
-        OR: [
-          { subdomain: clinicSlug },
-          { customDomain: clinicSlug },
-        ],
+        OR: [{ subdomain: clinicSlug }, { customDomain: clinicSlug }],
       },
       select: {
         id: true,
@@ -48,10 +45,7 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
         where: {
           clinicId: clinic.id,
           isActive: true,
-          OR: [
-            { treatmentType: templateSlug },
-            { name: templateSlug },
-          ],
+          OR: [{ treatmentType: templateSlug }, { name: templateSlug }],
         },
         orderBy: { updatedAt: 'desc' },
         take: 20,
@@ -117,11 +111,12 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
         return NextResponse.json({ error: 'Template not found' }, { status: 404 });
       }
 
-      const template = candidates.find((t) => {
-        const meta = t.metadata as Record<string, unknown> | null;
-        const cfg = meta?.formConfig as FormConfig | undefined;
-        return !!cfg?.startStep && Array.isArray(cfg?.steps) && cfg.steps.length > 0;
-      }) ?? candidates[0];
+      const template =
+        candidates.find((t) => {
+          const meta = t.metadata as Record<string, unknown> | null;
+          const cfg = meta?.formConfig as FormConfig | undefined;
+          return !!cfg?.startStep && Array.isArray(cfg?.steps) && cfg.steps.length > 0;
+        }) ?? candidates[0];
 
       const metadata = template.metadata as Record<string, unknown> | null;
       const dbFormConfig = metadata?.formConfig as FormConfig | undefined;
@@ -130,8 +125,7 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
       // which includes state options, height options, and all conditional branching.
       // The DB may have a stale snapshot — the TS file is the source of truth.
       const isWeightLoss =
-        templateSlug === 'weight-loss' ||
-        template.treatmentType === 'weight-loss';
+        templateSlug === 'weight-loss' || template.treatmentType === 'weight-loss';
 
       const isOtMens = isWeightLoss && (clinicSlug === 'ot' || clinicSlug === 'otmens');
       const isWellmedr = isWeightLoss && clinicSlug === 'wellmedr';
@@ -145,40 +139,41 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
       const formConfig = isOtTRT
         ? { ...otMensTRTIntakeConfig, id: `template-${template.id}` }
         : isOtPeptides
-        ? { ...otMensPeptideIntakeConfig, id: `template-${template.id}` }
-        : isWellmedr
-        ? { ...wellmedrIntakeConfig, id: `template-${template.id}` }
-        : isOtMens
-        ? { ...otMensIntakeConfig, id: `template-${template.id}` }
-        : isWeightLoss
-        ? { ...weightLossIntakeConfig, id: `template-${template.id}` }
-        : dbFormConfig;
+          ? { ...otMensPeptideIntakeConfig, id: `template-${template.id}` }
+          : isWellmedr
+            ? { ...wellmedrIntakeConfig, id: `template-${template.id}` }
+            : isOtMens
+              ? { ...otMensIntakeConfig, id: `template-${template.id}` }
+              : isWeightLoss
+                ? { ...weightLossIntakeConfig, id: `template-${template.id}` }
+                : dbFormConfig;
 
       if (formConfig) {
         const settings = clinic.settings as Record<string, unknown> | null;
         const portalSettings = settings?.patientPortal as Record<string, unknown> | null;
 
-        const branding: FormBranding = (isOtPeptides || isOtTRT)
-          ? {
-              logo: otMensPeptideIntakeConfig.branding?.logo ?? undefined,
-              primaryColor: '#413d3d',
-              accentColor: '#cab172',
-              secondaryColor: '#f5ecd8',
-            }
-          : isWellmedr
-          ? {
-              logo: wellmedrIntakeConfig.branding?.logo ?? '/wellmedr-logo.svg',
-              primaryColor: '#0C2631',
-              accentColor: '#7B95A9',
-              secondaryColor: '#F7F7F9',
-            }
-          : {
-              logo: (portalSettings?.logoUrl as string) ?? undefined,
-              primaryColor: (portalSettings?.primaryColor as string) ?? '#413d3d',
-              accentColor: (portalSettings?.accentColor as string) ?? '#f0feab',
-              secondaryColor: (portalSettings?.secondaryColor as string) ?? '#4fa87f',
-              ...(dbFormConfig?.branding ?? {}),
-            };
+        const branding: FormBranding =
+          isOtPeptides || isOtTRT
+            ? {
+                logo: otMensPeptideIntakeConfig.branding?.logo ?? undefined,
+                primaryColor: '#413d3d',
+                accentColor: '#cab172',
+                secondaryColor: '#f5ecd8',
+              }
+            : isWellmedr
+              ? {
+                  logo: wellmedrIntakeConfig.branding?.logo ?? '/wellmedr-logo.svg',
+                  primaryColor: '#0C2631',
+                  accentColor: '#7B95A9',
+                  secondaryColor: '#F7F7F9',
+                }
+              : {
+                  logo: (portalSettings?.logoUrl as string) ?? undefined,
+                  primaryColor: (portalSettings?.primaryColor as string) ?? '#413d3d',
+                  accentColor: (portalSettings?.accentColor as string) ?? '#f0feab',
+                  secondaryColor: (portalSettings?.secondaryColor as string) ?? '#4fa87f',
+                  ...(dbFormConfig?.branding ?? {}),
+                };
 
         return NextResponse.json({
           config: formConfig,
@@ -194,7 +189,9 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
         const isWellmedrFallback = clinicSlug === 'wellmedr';
         const fallbackConfig = isWellmedrFallback
           ? wellmedrIntakeConfig
-          : isOtFallback ? otMensIntakeConfig : weightLossIntakeConfig;
+          : isOtFallback
+            ? otMensIntakeConfig
+            : weightLossIntakeConfig;
         const branding: FormBranding = isWellmedrFallback
           ? {
               logo: wellmedrIntakeConfig.branding?.logo ?? '/wellmedr-logo.svg',
@@ -203,18 +200,18 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
               secondaryColor: '#F7F7F9',
             }
           : isOtFallback
-          ? {
-              logo: otMensIntakeConfig.branding?.logo ?? undefined,
-              primaryColor: '#413d3d',
-              accentColor: '#cab172',
-              secondaryColor: '#f5ecd8',
-            }
-          : {
-              logo: (portalSettings?.logoUrl as string) ?? undefined,
-              primaryColor: (portalSettings?.primaryColor as string) ?? '#413d3d',
-              accentColor: (portalSettings?.accentColor as string) ?? '#f0feab',
-              secondaryColor: (portalSettings?.secondaryColor as string) ?? '#4fa87f',
-            };
+            ? {
+                logo: otMensIntakeConfig.branding?.logo ?? undefined,
+                primaryColor: '#413d3d',
+                accentColor: '#cab172',
+                secondaryColor: '#f5ecd8',
+              }
+            : {
+                logo: (portalSettings?.logoUrl as string) ?? undefined,
+                primaryColor: (portalSettings?.primaryColor as string) ?? '#413d3d',
+                accentColor: (portalSettings?.accentColor as string) ?? '#f0feab',
+                secondaryColor: (portalSettings?.secondaryColor as string) ?? '#4fa87f',
+              };
         return NextResponse.json({
           config: { ...fallbackConfig, id: `template-${template.id}` },
           branding,

@@ -53,7 +53,11 @@ export type EventHandler<T extends Record<string, unknown> = Record<string, unkn
 ) => Promise<void>;
 
 export interface DomainEventBus {
-  publish(event: Omit<DomainEvent, 'metadata'> & { metadata: Partial<EventMetadata> & { userId: string; clinicId: string } }): Promise<void>;
+  publish(
+    event: Omit<DomainEvent, 'metadata'> & {
+      metadata: Partial<EventMetadata> & { userId: string; clinicId: string };
+    }
+  ): Promise<void>;
   subscribe(eventType: string, handler: EventHandler): () => void;
   unsubscribeAll(eventType?: string): void;
 }
@@ -107,7 +111,9 @@ class InProcessEventBus implements DomainEventBus {
   private maxLogSize = 1000;
 
   async publish(
-    event: Omit<DomainEvent, 'metadata'> & { metadata: Partial<EventMetadata> & { userId: string; clinicId: string } }
+    event: Omit<DomainEvent, 'metadata'> & {
+      metadata: Partial<EventMetadata> & { userId: string; clinicId: string };
+    }
   ): Promise<void> {
     const fullEvent: DomainEvent = {
       type: event.type,

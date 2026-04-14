@@ -128,7 +128,10 @@ async function getReportsHandler(request: NextRequest, user: AuthUser) {
     logger.error('[STRIPE REPORTS] Error:', error);
 
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : String(error) || 'Failed to generate report' },
+      {
+        error:
+          error instanceof Error ? error.message : String(error) || 'Failed to generate report',
+      },
       { status: 500 }
     );
   }
@@ -248,11 +251,17 @@ async function generateSummaryReport(
     fetchAllCharges({ created: { gte: startTimestamp, lte: endTimestamp } }),
     fetchAllRefunds({ created: { gte: startTimestamp, lte: endTimestamp } }),
     stripe.balance.retrieve({}, reqOpts as any),
-    stripe.customers.list({ created: { gte: startTimestamp, lte: endTimestamp }, limit: 100 }, reqOpts),
+    stripe.customers.list(
+      { created: { gte: startTimestamp, lte: endTimestamp }, limit: 100 },
+      reqOpts
+    ),
     fetchAllSubscriptions(),
     stripe.invoices.list({ status: 'open', limit: 100 }, reqOpts),
     fetchAllInvoices({ created: { gte: startTimestamp, lte: endTimestamp } }),
-    stripe.balanceTransactions.list({ created: { gte: startTimestamp, lte: endTimestamp }, limit: 100 }, reqOpts),
+    stripe.balanceTransactions.list(
+      { created: { gte: startTimestamp, lte: endTimestamp }, limit: 100 },
+      reqOpts
+    ),
   ]);
 
   const successfulCharges = charges.filter((c) => c.status === 'succeeded');
@@ -558,13 +567,17 @@ async function generateCustomerReport(
 
   async function fetchAllPaginated<T extends { id: string }>(
     listFn: (params: any, opts?: any) => Promise<{ data: T[]; has_more: boolean }>,
-    baseParams: Record<string, any>,
+    baseParams: Record<string, any>
   ): Promise<T[]> {
     const all: T[] = [];
     let hasMore = true;
     let startingAfter: string | undefined;
     while (hasMore) {
-      const params = { ...baseParams, limit: 100, ...(startingAfter && { starting_after: startingAfter }) };
+      const params = {
+        ...baseParams,
+        limit: 100,
+        ...(startingAfter && { starting_after: startingAfter }),
+      };
       const response = await listFn(params, reqOpts);
       all.push(...response.data);
       hasMore = response.has_more;
@@ -575,14 +588,12 @@ async function generateCustomerReport(
   }
 
   const [newCustomersList, chargesList] = await Promise.all([
-    fetchAllPaginated(
-      stripe.customers.list.bind(stripe.customers),
-      { created: { gte: startTimestamp, lte: endTimestamp } },
-    ),
-    fetchAllPaginated(
-      stripe.charges.list.bind(stripe.charges),
-      { created: { gte: startTimestamp, lte: endTimestamp } },
-    ),
+    fetchAllPaginated(stripe.customers.list.bind(stripe.customers), {
+      created: { gte: startTimestamp, lte: endTimestamp },
+    }),
+    fetchAllPaginated(stripe.charges.list.bind(stripe.charges), {
+      created: { gte: startTimestamp, lte: endTimestamp },
+    }),
   ]);
   const newCustomers = { data: newCustomersList };
   const charges = { data: chargesList };

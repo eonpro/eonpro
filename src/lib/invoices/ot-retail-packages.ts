@@ -33,10 +33,7 @@ export interface OtRetailPackage {
   notes?: string;
 }
 
-function ac(
-  m3Usd: number,
-  m1Usd?: number,
-): Partial<Record<OtRetailDurationMonths, number>> {
+function ac(m3Usd: number, m1Usd?: number): Partial<Record<OtRetailDurationMonths, number>> {
   const m6 = Math.round(m3Usd * 2 * 0.97);
   const m12 = Math.round(m6 * 2 * 0.97);
   const o: Partial<Record<OtRetailDurationMonths, number>> = {
@@ -359,14 +356,17 @@ export function getOtRetailPackageById(id: string): OtRetailPackage | undefined 
 /** Resolved retail price for a package at a given duration, or null if not sold. */
 export function getOtRetailPackagePriceCents(
   pkg: OtRetailPackage,
-  months: OtRetailDurationMonths,
+  months: OtRetailDurationMonths
 ): number | null {
   if (pkg.maxDurationMonths != null && months > pkg.maxDurationMonths) return null;
   const c = pkg.priceCentsByDurationMonths[months];
   return c !== undefined ? c : null;
 }
 
-export function filterOtRetailPackages(packages: OtRetailPackage[], query: string): OtRetailPackage[] {
+export function filterOtRetailPackages(
+  packages: OtRetailPackage[],
+  query: string
+): OtRetailPackage[] {
   const q = query.trim().toLowerCase();
   if (!q) return packages;
   return packages.filter(
@@ -374,7 +374,7 @@ export function filterOtRetailPackages(packages: OtRetailPackage[], query: strin
       p.name.toLowerCase().includes(q) ||
       p.id.toLowerCase().includes(q) ||
       p.subtitle.toLowerCase().includes(q) ||
-      (p.notes && p.notes.toLowerCase().includes(q)),
+      (p.notes && p.notes.toLowerCase().includes(q))
   );
 }
 
@@ -391,7 +391,9 @@ function usdCell(cents: number | null | undefined): string {
 }
 
 /** UTF-8 BOM CSV for Excel — full duration columns. */
-export function exportOtRetailPackagesCsv(packages: OtRetailPackage[] = OT_RETAIL_PACKAGES): string {
+export function exportOtRetailPackagesCsv(
+  packages: OtRetailPackage[] = OT_RETAIL_PACKAGES
+): string {
   const BOM = '\uFEFF';
   const header = [
     'id',
@@ -425,7 +427,7 @@ export function exportOtRetailPackagesCsv(packages: OtRetailPackage[] = OT_RETAI
       p.notes ?? '',
     ]
       .map((c) => escapeCsvCell(String(c)))
-      .join(','),
+      .join(',')
   );
   return [BOM, header, ...lines].join('\r\n');
 }

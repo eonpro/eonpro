@@ -24,7 +24,12 @@ import { isDLQConfigured, queueFailedSubmission } from '@/lib/queue/deadLetterQu
 import { uploadToS3 } from '@/lib/integrations/aws/s3Service';
 import { isS3Enabled, FileCategory } from '@/lib/integrations/aws/s3Config';
 import { generatePatientId } from '@/lib/patients';
-import { decryptPHI, encryptPatientPHI, computeEmailHash, computeDobHash } from '@/lib/security/phi-encryption';
+import {
+  decryptPHI,
+  encryptPatientPHI,
+  computeEmailHash,
+  computeDobHash,
+} from '@/lib/security/phi-encryption';
 import { buildPatientSearchIndex } from '@/lib/utils/search';
 import { storeIntakeData } from '@/lib/storage/document-data-store';
 
@@ -397,35 +402,34 @@ export async function POST(req: NextRequest) {
   // set so the multi-tenant Prisma middleware knows the active clinic.
   // ═══════════════════════════════════════════════════════════════════
   return runWithClinicContext(clinicId, async () => {
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 7: UPSERT PATIENT
+    // ═══════════════════════════════════════════════════════════════════
+    let patient: any;
+    let isNewPatient = false;
 
-  // ═══════════════════════════════════════════════════════════════════
-  // STEP 7: UPSERT PATIENT
-  // ═══════════════════════════════════════════════════════════════════
-  let patient: any;
-  let isNewPatient = false;
+    const patientData = normalizePatientData(normalized.patient);
 
-  const patientData = normalizePatientData(normalized.patient);
+    // Build tags based on treatment type
+    const baseTags = getTagsForTreatment(treatmentType);
+    const submissionTags = isPartialSubmission
+      ? [...baseTags, 'partial-lead', 'needs-followup']
+      : [...baseTags, 'complete-intake'];
 
-  // Build tags based on treatment type
-  const baseTags = getTagsForTreatment(treatmentType);
-  const submissionTags = isPartialSubmission
-    ? [...baseTags, 'partial-lead', 'needs-followup']
-    : [...baseTags, 'complete-intake'];
+    // Build notes
+    const buildNotes = (existing: string | null | undefined) => {
+      const parts: string[] = [];
+      if (existing && !existing.includes(normalized.submissionId)) {
+        parts.push(existing);
+      }
+      parts.push(
+        `[${new Date().toISOString()}] ${isPartialSubmission ? 'PARTIAL' : 'COMPLETE'} - ${treatmentLabel}: ${normalized.submissionId}`
+      );
+      return parts.join('\n');
+    };
 
-  // Build notes
-  const buildNotes = (existing: string | null | undefined) => {
-    const parts: string[] = [];
-    if (existing && !existing.includes(normalized.submissionId)) {
-      parts.push(existing);
-    }
-    parts.push(
-      `[${new Date().toISOString()}] ${isPartialSubmission ? 'PARTIAL' : 'COMPLETE'} - ${treatmentLabel}: ${normalized.submissionId}`
-    );
-    return parts.join('\n');
-  };
-
-  try {
-    // Create new patient only. No auto-merge; duplicate profiles are merged manually.
+    try {
+      // Create new patient only. No auto-merge; duplicate profiles are merged manually.
       const MAX_RETRIES = 5;
       let retryCount = 0;
       let created = false;
@@ -469,7 +473,9 @@ export async function POST(req: NextRequest) {
         } catch (createErr: unknown) {
           const prismaErr = createErr as { code?: string; meta?: { target?: string | string[] } };
           const target = prismaErr?.meta?.target;
-          const hasPatientIdTarget = Array.isArray(target) ? target.includes('patientId') : String(target ?? '').includes('patientId');
+          const hasPatientIdTarget = Array.isArray(target)
+            ? target.includes('patientId')
+            : String(target ?? '').includes('patientId');
           if (prismaErr?.code === 'P2002' && hasPatientIdTarget) {
             retryCount++;
             logger.warn(
@@ -487,484 +493,502 @@ export async function POST(req: NextRequest) {
           `Failed to create patient after ${MAX_RETRIES} retries due to patientId conflicts`
         );
       }
-  } catch (err) {
-    const errorMsg = err instanceof Error ? err.message : 'Unknown error';
-    logger.error(`[OVERTIME-INTAKE ${requestId}] CRITICAL: Patient upsert failed:`, {
-      error: errorMsg,
-      patientData: {
-        email: patientData?.email,
-        firstName: patientData?.firstName,
-        lastName: patientData?.lastName,
-        clinicId,
-      },
-    });
-    recordError('overtime-intake', `Patient creation failed: ${errorMsg}`, { requestId });
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+      logger.error(`[OVERTIME-INTAKE ${requestId}] CRITICAL: Patient upsert failed:`, {
+        error: errorMsg,
+        patientData: {
+          email: patientData?.email,
+          firstName: patientData?.firstName,
+          lastName: patientData?.lastName,
+          clinicId,
+        },
+      });
+      recordError('overtime-intake', `Patient creation failed: ${errorMsg}`, { requestId });
 
-    if (isDLQConfigured()) {
+      if (isDLQConfigured()) {
+        try {
+          await queueFailedSubmission(
+            payload,
+            'overtime-intake',
+            `Patient creation failed: ${errorMsg}`,
+            {
+              patientEmail: normalized?.patient?.email,
+              submissionId: normalized?.submissionId || requestId,
+              treatmentType,
+            }
+          );
+          logger.info(`[OVERTIME-INTAKE ${requestId}] Queued to DLQ for retry`);
+        } catch (dlqErr) {
+          logger.error(`[OVERTIME-INTAKE ${requestId}] Failed to queue to DLQ:`, dlqErr);
+        }
+      }
+
+      return Response.json(
+        {
+          error: `Failed to create patient: ${errorMsg}`,
+          code: 'PATIENT_ERROR',
+          requestId,
+          partialSuccess: false,
+          queued: isDLQConfigured(),
+        },
+        { status: 500 }
+      );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 8: GENERATE PDF (non-critical)
+    // ═══════════════════════════════════════════════════════════════════
+    let pdfContent: Buffer | null = null;
+    try {
+      pdfContent = await generateIntakePdf(normalized, patient);
+      logger.debug(`[OVERTIME-INTAKE ${requestId}] ✓ PDF: ${pdfContent.byteLength} bytes`);
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'Unknown error';
+      logger.warn(`[OVERTIME-INTAKE ${requestId}] PDF generation failed (continuing):`, {
+        error: errMsg,
+      });
+      errors.push('PDF generation failed');
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 9: STORE PDF (non-critical)
+    // ═══════════════════════════════════════════════════════════════════
+    let stored: { filename: string; pdfBuffer: Buffer } | null = null;
+    if (pdfContent) {
       try {
-        await queueFailedSubmission(
-          payload,
-          'overtime-intake',
-          `Patient creation failed: ${errorMsg}`,
-          {
-            patientEmail: normalized?.patient?.email,
-            submissionId: normalized?.submissionId || requestId,
-            treatmentType,
-          }
-        );
-        logger.info(`[OVERTIME-INTAKE ${requestId}] Queued to DLQ for retry`);
-      } catch (dlqErr) {
-        logger.error(`[OVERTIME-INTAKE ${requestId}] Failed to queue to DLQ:`, dlqErr);
+        stored = await storeIntakePdf({
+          patientId: patient.id,
+          submissionId: normalized.submissionId,
+          pdfBuffer: pdfContent,
+        });
+        logger.debug(`[OVERTIME-INTAKE ${requestId}] ✓ PDF prepared: ${stored.filename}`);
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : 'Unknown error';
+        logger.warn(`[OVERTIME-INTAKE ${requestId}] PDF preparation failed (continuing):`, {
+          error: errMsg,
+        });
+        errors.push('PDF preparation failed');
       }
     }
 
-    return Response.json(
-      {
-        error: `Failed to create patient: ${errorMsg}`,
-        code: 'PATIENT_ERROR',
-        requestId,
-        partialSuccess: false,
-        queued: isDLQConfigured(),
-      },
-      { status: 500 }
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  // STEP 8: GENERATE PDF (non-critical)
-  // ═══════════════════════════════════════════════════════════════════
-  let pdfContent: Buffer | null = null;
-  try {
-    pdfContent = await generateIntakePdf(normalized, patient);
-    logger.debug(`[OVERTIME-INTAKE ${requestId}] ✓ PDF: ${pdfContent.byteLength} bytes`);
-  } catch (err) {
-    const errMsg = err instanceof Error ? err.message : 'Unknown error';
-    logger.warn(`[OVERTIME-INTAKE ${requestId}] PDF generation failed (continuing):`, {
-      error: errMsg,
-    });
-    errors.push('PDF generation failed');
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  // STEP 9: STORE PDF (non-critical)
-  // ═══════════════════════════════════════════════════════════════════
-  let stored: { filename: string; pdfBuffer: Buffer } | null = null;
-  if (pdfContent) {
-    try {
-      stored = await storeIntakePdf({
-        patientId: patient.id,
-        submissionId: normalized.submissionId,
-        pdfBuffer: pdfContent,
-      });
-      logger.debug(`[OVERTIME-INTAKE ${requestId}] ✓ PDF prepared: ${stored.filename}`);
-    } catch (err) {
-      const errMsg = err instanceof Error ? err.message : 'Unknown error';
-      logger.warn(`[OVERTIME-INTAKE ${requestId}] PDF preparation failed (continuing):`, {
-        error: errMsg,
-      });
-      errors.push('PDF preparation failed');
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 10: UPLOAD PDF TO S3 (if configured)
+    // ═══════════════════════════════════════════════════════════════════
+    let pdfExternalUrl: string | null = null;
+    if (pdfContent && stored) {
+      try {
+        if (isS3Enabled()) {
+          const s3Result = await uploadToS3({
+            file: pdfContent,
+            fileName: stored.filename,
+            category: FileCategory.INTAKE_FORMS,
+            patientId: patient.id,
+            contentType: 'application/pdf',
+            metadata: {
+              submissionId: normalized.submissionId,
+              patientEmail: normalized.patient.email,
+              source: 'overtime-intake',
+              treatmentType,
+              clinic: 'overtime',
+            },
+          });
+          pdfExternalUrl = s3Result.url;
+          logger.debug(`[OVERTIME-INTAKE ${requestId}] ✓ PDF uploaded to S3: ${s3Result.key}`);
+        }
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : 'Unknown error';
+        logger.warn(`[OVERTIME-INTAKE ${requestId}] S3 upload failed (continuing):`, {
+          error: errMsg,
+        });
+        errors.push('S3 PDF upload failed');
+      }
     }
-  }
 
-  // ═══════════════════════════════════════════════════════════════════
-  // STEP 10: UPLOAD PDF TO S3 (if configured)
-  // ═══════════════════════════════════════════════════════════════════
-  let pdfExternalUrl: string | null = null;
-  if (pdfContent && stored) {
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 11: CREATE DOCUMENT RECORD
+    // ═══════════════════════════════════════════════════════════════════
+    let patientDocument: any = null;
     try {
-      if (isS3Enabled()) {
-        const s3Result = await uploadToS3({
-          file: pdfContent,
-          fileName: stored.filename,
-          category: FileCategory.INTAKE_FORMS,
-          patientId: patient.id,
-          contentType: 'application/pdf',
-          metadata: {
-            submissionId: normalized.submissionId,
-            patientEmail: normalized.patient.email,
-            source: 'overtime-intake',
-            treatmentType,
-            clinic: 'overtime',
+      const existingDoc = await prisma.patientDocument.findUnique({
+        where: { sourceSubmissionId: normalized.submissionId },
+        select: { id: true, externalUrl: true },
+      });
+
+      const ipAddress =
+        req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+      const userAgent = req.headers.get('user-agent') || 'unknown';
+      const consentTimestamp = new Date().toISOString();
+
+      // Store raw payload keys for affiliate debugging (helps diagnose missing fields)
+      const rawPayloadKeys = Object.keys(payload);
+      const rawAffiliateFields: Record<string, string> = {};
+      for (const key of rawPayloadKeys) {
+        const lower = key.toLowerCase().replace(/\s+/g, '');
+        if (
+          lower.includes('url') ||
+          lower.includes('ref') ||
+          lower.includes('promo') ||
+          lower.includes('affiliate')
+        ) {
+          const val = payload[key as keyof typeof payload];
+          if (val && typeof val === 'string') {
+            rawAffiliateFields[key] = val.substring(0, 300);
+          }
+        }
+      }
+
+      const intakeDataToStore = {
+        submissionId: normalized.submissionId,
+        sections: normalized.sections,
+        answers: normalized.answers,
+        source: 'overtime-intake',
+        treatmentType,
+        treatmentLabel,
+        clinicId: clinicId,
+        receivedAt: consentTimestamp,
+        pdfGenerated: !!pdfContent,
+        pdfUrl: pdfExternalUrl,
+        checkoutCompleted: isComplete,
+        promoCode: extractPromoCode(payload),
+        ipAddress,
+        userAgent,
+        consentTimestamp,
+        // Debug: raw payload structure for affiliate troubleshooting
+        _debug: {
+          payloadKeyCount: rawPayloadKeys.length,
+          payloadKeys: rawPayloadKeys,
+          affiliateRelatedFields: rawAffiliateFields,
+        },
+      };
+
+      // Dual-write: S3 + DB `data` column (Phase 3.3)
+      const { s3DataKey, dataBuffer: intakeDataBuffer } = await storeIntakeData(intakeDataToStore, {
+        documentId: existingDoc?.id,
+        patientId: patient.id,
+        clinicId,
+      });
+
+      if (existingDoc) {
+        patientDocument = await prisma.patientDocument.update({
+          where: { id: existingDoc.id },
+          data: {
+            filename: stored?.filename || `overtime-intake-${normalized.submissionId}.json`,
+            data: new Uint8Array(intakeDataBuffer),
+            ...(s3DataKey != null ? { s3DataKey } : {}),
+            externalUrl: pdfExternalUrl || existingDoc.externalUrl,
           },
         });
-        pdfExternalUrl = s3Result.url;
-        logger.debug(`[OVERTIME-INTAKE ${requestId}] ✓ PDF uploaded to S3: ${s3Result.key}`);
+        logger.debug(`[OVERTIME-INTAKE ${requestId}] ✓ Updated document: ${patientDocument.id}`);
+      } else {
+        patientDocument = await prisma.patientDocument.create({
+          data: {
+            patientId: patient.id,
+            clinicId: clinicId,
+            filename: stored?.filename || `overtime-intake-${normalized.submissionId}.json`,
+            mimeType: 'application/json',
+            category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
+            data: new Uint8Array(intakeDataBuffer),
+            ...(s3DataKey != null ? { s3DataKey } : {}),
+            externalUrl: pdfExternalUrl,
+            source: 'overtime-intake',
+            sourceSubmissionId: normalized.submissionId,
+          },
+        });
+        logger.debug(`[OVERTIME-INTAKE ${requestId}] ✓ Created document: ${patientDocument.id}`);
       }
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : 'Unknown error';
-      logger.warn(`[OVERTIME-INTAKE ${requestId}] S3 upload failed (continuing):`, {
-        error: errMsg,
-      });
-      errors.push('S3 PDF upload failed');
+      logger.error(`[OVERTIME-INTAKE ${requestId}] Document record failed:`, { error: errMsg });
+      errors.push('Document record creation failed');
     }
-  }
 
-  // ═══════════════════════════════════════════════════════════════════
-  // STEP 11: CREATE DOCUMENT RECORD
-  // ═══════════════════════════════════════════════════════════════════
-  let patientDocument: any = null;
-  try {
-    const existingDoc = await prisma.patientDocument.findUnique({
-      where: { sourceSubmissionId: normalized.submissionId },
-      select: { id: true, externalUrl: true },
-    });
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 12: GENERATE SOAP NOTE (only for complete submissions)
+    // ═══════════════════════════════════════════════════════════════════
+    let soapNoteId: number | null = null;
 
-    const ipAddress =
-      req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
-    const userAgent = req.headers.get('user-agent') || 'unknown';
-    const consentTimestamp = new Date().toISOString();
+    if (!isPartialSubmission && patientDocument) {
+      try {
+        logger.debug(`[OVERTIME-INTAKE ${requestId}] Generating SOAP note...`);
+        const soapNote = await generateSOAPFromIntake(patient.id, patientDocument.id);
+        soapNoteId = soapNote.id;
+        logger.info(`[OVERTIME-INTAKE ${requestId}] ✓ SOAP Note generated: ID ${soapNoteId}`);
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : 'Unknown error';
+        logger.warn(`[OVERTIME-INTAKE ${requestId}] SOAP generation failed (non-fatal):`, {
+          error: errMsg,
+        });
+        errors.push(`SOAP generation failed: ${errMsg}`);
+      }
+    } else if (isPartialSubmission) {
+      logger.debug(`[OVERTIME-INTAKE ${requestId}] Skipping SOAP for partial submission`);
+    }
 
-    // Store raw payload keys for affiliate debugging (helps diagnose missing fields)
-    const rawPayloadKeys = Object.keys(payload);
-    const rawAffiliateFields: Record<string, string> = {};
-    for (const key of rawPayloadKeys) {
-      const lower = key.toLowerCase().replace(/\s+/g, '');
-      if (lower.includes('url') || lower.includes('ref') || lower.includes('promo') || lower.includes('affiliate')) {
-        const val = payload[key as keyof typeof payload];
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 13: TRACK PROMO CODE / AFFILIATE REFERRAL (CRITICAL FOR AFFILIATE PROGRAM)
+    // ═══════════════════════════════════════════════════════════════════
+    // -----------------------------------------------------------------------
+    // CRITICAL AFFILIATE DIAGNOSTICS — Log everything for attribution debugging
+    // -----------------------------------------------------------------------
+    const allPayloadKeys = Object.keys(payload);
+
+    // Find ALL fields that might contain affiliate data (case-insensitive search)
+    const affiliateRelevantFields: Record<string, string> = {};
+    for (const key of allPayloadKeys) {
+      const lower = key.toLowerCase();
+      if (
+        lower.includes('url') ||
+        lower.includes('referr') ||
+        lower.includes('ref') ||
+        lower.includes('promo') ||
+        lower.includes('affiliate') ||
+        lower.includes('influencer') ||
+        lower.includes('recommend') ||
+        lower.includes('partner') ||
+        lower.includes('code')
+      ) {
+        const val = payload[key];
         if (val && typeof val === 'string') {
-          rawAffiliateFields[key] = val.substring(0, 300);
+          affiliateRelevantFields[key] = val.substring(0, 300);
         }
       }
     }
 
-    const intakeDataToStore = {
-      submissionId: normalized.submissionId,
-      sections: normalized.sections,
-      answers: normalized.answers,
-      source: 'overtime-intake',
-      treatmentType,
-      treatmentLabel,
-      clinicId: clinicId,
-      receivedAt: consentTimestamp,
-      pdfGenerated: !!pdfContent,
-      pdfUrl: pdfExternalUrl,
-      checkoutCompleted: isComplete,
-      promoCode: extractPromoCode(payload),
-      ipAddress,
-      userAgent,
-      consentTimestamp,
-      // Debug: raw payload structure for affiliate troubleshooting
-      _debug: {
-        payloadKeyCount: rawPayloadKeys.length,
-        payloadKeys: rawPayloadKeys,
-        affiliateRelatedFields: rawAffiliateFields,
-      },
-    };
-
-    // Dual-write: S3 + DB `data` column (Phase 3.3)
-    const { s3DataKey, dataBuffer: intakeDataBuffer } = await storeIntakeData(
-      intakeDataToStore,
-      { documentId: existingDoc?.id, patientId: patient.id, clinicId }
+    logger.info(
+      `[OVERTIME-INTAKE ${requestId}] AFFILIATE DIAG — Payload has ${allPayloadKeys.length} keys:`,
+      {
+        allKeys: allPayloadKeys,
+        affiliateRelevantFields,
+        hasUrlWithParams: allPayloadKeys.some(
+          (k) => k.toLowerCase().replace(/\s+/g, '') === 'urlwithparameters'
+        ),
+        hasUrl: allPayloadKeys.some((k) => k.toLowerCase().trim() === 'url'),
+        hasReferrer: allPayloadKeys.some((k) => k.toLowerCase().trim() === 'referrer'),
+      }
     );
 
-    if (existingDoc) {
-      patientDocument = await prisma.patientDocument.update({
-        where: { id: existingDoc.id },
-        data: {
-          filename: stored?.filename || `overtime-intake-${normalized.submissionId}.json`,
-          data: new Uint8Array(intakeDataBuffer),
-          ...(s3DataKey != null ? { s3DataKey } : {}),
-          externalUrl: pdfExternalUrl || existingDoc.externalUrl,
-        },
-      });
-      logger.debug(`[OVERTIME-INTAKE ${requestId}] ✓ Updated document: ${patientDocument.id}`);
-    } else {
-      patientDocument = await prisma.patientDocument.create({
-        data: {
-          patientId: patient.id,
-          clinicId: clinicId,
-          filename: stored?.filename || `overtime-intake-${normalized.submissionId}.json`,
-          mimeType: 'application/json',
-          category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
-          data: new Uint8Array(intakeDataBuffer),
-          ...(s3DataKey != null ? { s3DataKey } : {}),
-          externalUrl: pdfExternalUrl,
-          source: 'overtime-intake',
-          sourceSubmissionId: normalized.submissionId,
-        },
-      });
-      logger.debug(`[OVERTIME-INTAKE ${requestId}] ✓ Created document: ${patientDocument.id}`);
-    }
-  } catch (err) {
-    const errMsg = err instanceof Error ? err.message : 'Unknown error';
-    logger.error(`[OVERTIME-INTAKE ${requestId}] Document record failed:`, { error: errMsg });
-    errors.push('Document record creation failed');
-  }
+    const promoCode = extractPromoCode(payload);
+    let referralTracked = false;
+    let modernAffiliateTracked = false;
 
-  // ═══════════════════════════════════════════════════════════════════
-  // STEP 12: GENERATE SOAP NOTE (only for complete submissions)
-  // ═══════════════════════════════════════════════════════════════════
-  let soapNoteId: number | null = null;
+    logger.info(`[OVERTIME-INTAKE ${requestId}] Extracted promo code: ${promoCode || '(none)'}`);
 
-  if (!isPartialSubmission && patientDocument) {
-    try {
-      logger.debug(`[OVERTIME-INTAKE ${requestId}] Generating SOAP note...`);
-      const soapNote = await generateSOAPFromIntake(patient.id, patientDocument.id);
-      soapNoteId = soapNote.id;
-      logger.info(`[OVERTIME-INTAKE ${requestId}] ✓ SOAP Note generated: ID ${soapNoteId}`);
-    } catch (err) {
-      const errMsg = err instanceof Error ? err.message : 'Unknown error';
-      logger.warn(`[OVERTIME-INTAKE ${requestId}] SOAP generation failed (non-fatal):`, {
-        error: errMsg,
-      });
-      errors.push(`SOAP generation failed: ${errMsg}`);
-    }
-  } else if (isPartialSubmission) {
-    logger.debug(`[OVERTIME-INTAKE ${requestId}] Skipping SOAP for partial submission`);
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  // STEP 13: TRACK PROMO CODE / AFFILIATE REFERRAL (CRITICAL FOR AFFILIATE PROGRAM)
-  // ═══════════════════════════════════════════════════════════════════
-  // -----------------------------------------------------------------------
-  // CRITICAL AFFILIATE DIAGNOSTICS — Log everything for attribution debugging
-  // -----------------------------------------------------------------------
-  const allPayloadKeys = Object.keys(payload);
-
-  // Find ALL fields that might contain affiliate data (case-insensitive search)
-  const affiliateRelevantFields: Record<string, string> = {};
-  for (const key of allPayloadKeys) {
-    const lower = key.toLowerCase();
-    if (
-      lower.includes('url') ||
-      lower.includes('referr') ||
-      lower.includes('ref') ||
-      lower.includes('promo') ||
-      lower.includes('affiliate') ||
-      lower.includes('influencer') ||
-      lower.includes('recommend') ||
-      lower.includes('partner') ||
-      lower.includes('code')
-    ) {
-      const val = payload[key];
-      if (val && typeof val === 'string') {
-        affiliateRelevantFields[key] = val.substring(0, 300);
-      }
-    }
-  }
-
-  logger.info(`[OVERTIME-INTAKE ${requestId}] AFFILIATE DIAG — Payload has ${allPayloadKeys.length} keys:`, {
-    allKeys: allPayloadKeys,
-    affiliateRelevantFields,
-    hasUrlWithParams: allPayloadKeys.some(k => k.toLowerCase().replace(/\s+/g, '') === 'urlwithparameters'),
-    hasUrl: allPayloadKeys.some(k => k.toLowerCase().trim() === 'url'),
-    hasReferrer: allPayloadKeys.some(k => k.toLowerCase().trim() === 'referrer'),
-  });
-
-  const promoCode = extractPromoCode(payload);
-  let referralTracked = false;
-  let modernAffiliateTracked = false;
-
-  logger.info(`[OVERTIME-INTAKE ${requestId}] Extracted promo code: ${promoCode || '(none)'}`);
-
-  if (promoCode) {
-    // Track in affiliate system (Affiliate/AffiliateTouch tables)
-    // This enables the affiliate dashboard, commission tracking, and payouts
-    try {
-      const result = await attributeFromIntake(patient.id, promoCode, clinicId, 'overtime-intake');
-      if (result) {
-        referralTracked = true;
-        modernAffiliateTracked = true;
-        logger.info(
-          `[OVERTIME-INTAKE ${requestId}] ✓ Affiliate Tracked: ${result.refCode} -> affiliateId=${result.affiliateId}`
+    if (promoCode) {
+      // Track in affiliate system (Affiliate/AffiliateTouch tables)
+      // This enables the affiliate dashboard, commission tracking, and payouts
+      try {
+        const result = await attributeFromIntake(
+          patient.id,
+          promoCode,
+          clinicId,
+          'overtime-intake'
         );
-      } else {
-        // No AffiliateRefCode exists yet (e.g. code from Airtable "Who recommended OT Mens Health to you?")
-        // Tag the profile with the code so we can reconcile later when the code is created
-        const tagged = await tagPatientWithReferralCodeOnly(patient.id, promoCode, clinicId);
-        if (tagged) {
+        if (result) {
           referralTracked = true;
+          modernAffiliateTracked = true;
           logger.info(
-            `[OVERTIME-INTAKE ${requestId}] ✓ Profile tagged with referral code (no affiliate yet): ${promoCode}`
+            `[OVERTIME-INTAKE ${requestId}] ✓ Affiliate Tracked: ${result.refCode} -> affiliateId=${result.affiliateId}`
           );
         } else {
-          logger.debug(
-            `[OVERTIME-INTAKE ${requestId}] No affiliate match for code: ${promoCode}`
+          // No AffiliateRefCode exists yet (e.g. code from Airtable "Who recommended OT Mens Health to you?")
+          // Tag the profile with the code so we can reconcile later when the code is created
+          const tagged = await tagPatientWithReferralCodeOnly(patient.id, promoCode, clinicId);
+          if (tagged) {
+            referralTracked = true;
+            logger.info(
+              `[OVERTIME-INTAKE ${requestId}] ✓ Profile tagged with referral code (no affiliate yet): ${promoCode}`
+            );
+          } else {
+            logger.debug(
+              `[OVERTIME-INTAKE ${requestId}] No affiliate match for code: ${promoCode}`
+            );
+          }
+        }
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : 'Unknown error';
+        logger.warn(`[OVERTIME-INTAKE ${requestId}] Affiliate tracking failed:`, {
+          error: errMsg,
+          promoCode,
+        });
+        errors.push(`Affiliate tracking failed: ${promoCode}`);
+      }
+    } else {
+      // No promo code found — try fallback attribution via referrer URL or recent touch
+      try {
+        const referrerUrl = (payload['Referrer'] || payload['referrer'] || '') as string;
+        const fallback = await attributeByRecentTouch(patient.id, referrerUrl || null, clinicId);
+        if (fallback) {
+          referralTracked = true;
+          modernAffiliateTracked = true;
+          logger.info(
+            `[OVERTIME-INTAKE ${requestId}] ✓ Fallback affiliate attribution: ${fallback.refCode} -> affiliateId=${fallback.affiliateId}`
           );
         }
+      } catch (fallbackErr) {
+        const errMsg = fallbackErr instanceof Error ? fallbackErr.message : 'Unknown error';
+        logger.warn(`[OVERTIME-INTAKE ${requestId}] Fallback attribution failed:`, {
+          error: errMsg,
+        });
       }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 14: AUDIT LOG
+    // ═══════════════════════════════════════════════════════════════════
+    try {
+      await prisma.auditLog.create({
+        data: {
+          action: isPartialSubmission ? 'PARTIAL_INTAKE_RECEIVED' : 'PATIENT_INTAKE_RECEIVED',
+          resource: 'Patient',
+          resourceId: patient.id,
+          userId: 0,
+          details: {
+            source: 'overtime-intake',
+            submissionId: normalized.submissionId,
+            treatmentType,
+            treatmentLabel,
+            checkoutCompleted: isComplete,
+            clinicId,
+            clinicName,
+            isNewPatient,
+            isPartialSubmission,
+            documentId: patientDocument?.id,
+            soapNoteId,
+            promoCode,
+            referralTracked,
+            modernAffiliateTracked,
+            errors: errors.length > 0 ? errors : undefined,
+          },
+          ipAddress:
+            req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'webhook',
+        },
+      });
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : 'Unknown error';
-      logger.warn(`[OVERTIME-INTAKE ${requestId}] Affiliate tracking failed:`, {
-        error: errMsg,
-        promoCode,
-      });
-      errors.push(`Affiliate tracking failed: ${promoCode}`);
+      logger.warn(`[OVERTIME-INTAKE ${requestId}] Audit log failed:`, { error: errMsg });
     }
-  } else {
-    // No promo code found — try fallback attribution via referrer URL or recent touch
-    try {
-      const referrerUrl = (payload['Referrer'] || payload['referrer'] || '') as string;
-      const fallback = await attributeByRecentTouch(patient.id, referrerUrl || null, clinicId);
-      if (fallback) {
-        referralTracked = true;
-        modernAffiliateTracked = true;
-        logger.info(
-          `[OVERTIME-INTAKE ${requestId}] ✓ Fallback affiliate attribution: ${fallback.refCode} -> affiliateId=${fallback.affiliateId}`
-        );
-      }
-    } catch (fallbackErr) {
-      const errMsg = fallbackErr instanceof Error ? fallbackErr.message : 'Unknown error';
-      logger.warn(`[OVERTIME-INTAKE ${requestId}] Fallback attribution failed:`, { error: errMsg });
-    }
-  }
 
-  // ═══════════════════════════════════════════════════════════════════
-  // STEP 14: AUDIT LOG
-  // ═══════════════════════════════════════════════════════════════════
-  try {
-    await prisma.auditLog.create({
-      data: {
-        action: isPartialSubmission ? 'PARTIAL_INTAKE_RECEIVED' : 'PATIENT_INTAKE_RECEIVED',
-        resource: 'Patient',
-        resourceId: patient.id,
-        userId: 0,
-        details: {
-          source: 'overtime-intake',
-          submissionId: normalized.submissionId,
-          treatmentType,
-          treatmentLabel,
-          checkoutCompleted: isComplete,
+    // ═══════════════════════════════════════════════════════════════════
+    // SUCCESS RESPONSE
+    // ═══════════════════════════════════════════════════════════════════
+    const duration = Date.now() - startTime;
+    recordSuccess('overtime-intake', duration);
+
+    // Decrypt patient PHI for display in notifications and response
+    const decryptedFirstName = safeDecrypt(patient.firstName) || 'Patient';
+    const decryptedLastName = safeDecrypt(patient.lastName) || '';
+    const decryptedEmail = safeDecrypt(patient.email) || '';
+    const patientDisplayName = `${decryptedFirstName} ${decryptedLastName}`.trim();
+
+    // ═══════════════════════════════════════════════════════════════════
+    // NOTIFY PROVIDERS - New patient ready for prescription
+    // ═══════════════════════════════════════════════════════════════════
+    if (isComplete && isNewPatient) {
+      try {
+        await notificationService.notifyProviders({
           clinicId,
-          clinicName,
-          isNewPatient,
-          isPartialSubmission,
-          documentId: patientDocument?.id,
-          soapNoteId,
-          promoCode,
-          referralTracked,
-          modernAffiliateTracked,
-          errors: errors.length > 0 ? errors : undefined,
-        },
-        ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'webhook',
-      },
-    });
-  } catch (err) {
-    const errMsg = err instanceof Error ? err.message : 'Unknown error';
-    logger.warn(`[OVERTIME-INTAKE ${requestId}] Audit log failed:`, { error: errMsg });
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  // SUCCESS RESPONSE
-  // ═══════════════════════════════════════════════════════════════════
-  const duration = Date.now() - startTime;
-  recordSuccess('overtime-intake', duration);
-
-  // Decrypt patient PHI for display in notifications and response
-  const decryptedFirstName = safeDecrypt(patient.firstName) || 'Patient';
-  const decryptedLastName = safeDecrypt(patient.lastName) || '';
-  const decryptedEmail = safeDecrypt(patient.email) || '';
-  const patientDisplayName = `${decryptedFirstName} ${decryptedLastName}`.trim();
-
-  // ═══════════════════════════════════════════════════════════════════
-  // NOTIFY PROVIDERS - New patient ready for prescription
-  // ═══════════════════════════════════════════════════════════════════
-  if (isComplete && isNewPatient) {
-    try {
-      await notificationService.notifyProviders({
-        clinicId,
-        category: 'PRESCRIPTION',
-        priority: 'HIGH',
-        title: 'New Patient Ready for Rx',
-        message: `${patientDisplayName} completed ${treatmentLabel} intake and is ready for prescription review.`,
-        actionUrl: `/provider/prescription-queue?patientId=${patient.id}`,
-        metadata: {
-          patientId: patient.id,
-          patientName: patientDisplayName,
-          treatmentType,
-          treatmentLabel,
-          submissionId: normalized.submissionId,
-        },
-        sourceType: 'webhook',
-        sourceId: `overtime-intake-${normalized.submissionId}`,
-      });
-      logger.debug(`[OVERTIME-INTAKE ${requestId}] ✓ Sent notification to providers`);
-    } catch (notifyError) {
-      // Non-blocking - log but don't fail webhook
-      logger.warn(`[OVERTIME-INTAKE ${requestId}] Failed to send provider notification`, {
-        error: notifyError instanceof Error ? notifyError.message : 'Unknown error',
-      });
+          category: 'PRESCRIPTION',
+          priority: 'HIGH',
+          title: 'New Patient Ready for Rx',
+          message: `${patientDisplayName} completed ${treatmentLabel} intake and is ready for prescription review.`,
+          actionUrl: `/provider/prescription-queue?patientId=${patient.id}`,
+          metadata: {
+            patientId: patient.id,
+            patientName: patientDisplayName,
+            treatmentType,
+            treatmentLabel,
+            submissionId: normalized.submissionId,
+          },
+          sourceType: 'webhook',
+          sourceId: `overtime-intake-${normalized.submissionId}`,
+        });
+        logger.debug(`[OVERTIME-INTAKE ${requestId}] ✓ Sent notification to providers`);
+      } catch (notifyError) {
+        // Non-blocking - log but don't fail webhook
+        logger.warn(`[OVERTIME-INTAKE ${requestId}] Failed to send provider notification`, {
+          error: notifyError instanceof Error ? notifyError.message : 'Unknown error',
+        });
+      }
     }
-  }
 
-  logger.info(
-    `[OVERTIME-INTAKE ${requestId}] ✓ SUCCESS in ${duration}ms (${errors.length} warnings)`
-  );
+    logger.info(
+      `[OVERTIME-INTAKE ${requestId}] ✓ SUCCESS in ${duration}ms (${errors.length} warnings)`
+    );
 
-  return Response.json({
-    success: true,
-    requestId,
+    return Response.json({
+      success: true,
+      requestId,
 
-    // ═══════════════════════════════════════════════════════════════════
-    // BIDIRECTIONAL SYNC FIELDS - Store these in Airtable!
-    // ═══════════════════════════════════════════════════════════════════
-    eonproPatientId: patient.patientId,
-    eonproDatabaseId: patient.id,
-    submissionId: normalized.submissionId,
+      // ═══════════════════════════════════════════════════════════════════
+      // BIDIRECTIONAL SYNC FIELDS - Store these in Airtable!
+      // ═══════════════════════════════════════════════════════════════════
+      eonproPatientId: patient.patientId,
+      eonproDatabaseId: patient.id,
+      submissionId: normalized.submissionId,
 
-    // Treatment info
-    treatment: {
-      type: treatmentType,
-      label: treatmentLabel,
-    },
+      // Treatment info
+      treatment: {
+        type: treatmentType,
+        label: treatmentLabel,
+      },
 
-    // Patient info
-    patient: {
-      id: patient.id,
-      patientId: patient.patientId,
-      name: patientDisplayName,
-      email: decryptedEmail,
-      isNew: isNewPatient,
-    },
+      // Patient info
+      patient: {
+        id: patient.id,
+        patientId: patient.patientId,
+        name: patientDisplayName,
+        email: decryptedEmail,
+        isNew: isNewPatient,
+      },
 
-    // Submission details
-    submission: {
-      checkoutCompleted: isComplete,
-      isPartial: isPartialSubmission,
-    },
+      // Submission details
+      submission: {
+        checkoutCompleted: isComplete,
+        isPartial: isPartialSubmission,
+      },
 
-    // Document info
-    document: patientDocument
-      ? {
-          id: patientDocument.id,
-          filename: stored?.filename,
-          pdfUrl: pdfExternalUrl,
-        }
-      : null,
+      // Document info
+      document: patientDocument
+        ? {
+            id: patientDocument.id,
+            filename: stored?.filename,
+            pdfUrl: pdfExternalUrl,
+          }
+        : null,
 
-    // SOAP note (if generated)
-    soapNote: soapNoteId
-      ? {
-          id: soapNoteId,
-          status: 'DRAFT',
-        }
-      : null,
+      // SOAP note (if generated)
+      soapNote: soapNoteId
+        ? {
+            id: soapNoteId,
+            status: 'DRAFT',
+          }
+        : null,
 
-    // Affiliate tracking
-    affiliate: promoCode
-      ? {
-          code: promoCode,
-          legacyTracked: referralTracked,
-          modernTracked: modernAffiliateTracked,
-        }
-      : null,
+      // Affiliate tracking
+      affiliate: promoCode
+        ? {
+            code: promoCode,
+            legacyTracked: referralTracked,
+            modernTracked: modernAffiliateTracked,
+          }
+        : null,
 
-    // Clinic info
-    clinic: {
-      id: clinicId,
-      name: clinicName,
-    },
+      // Clinic info
+      clinic: {
+        id: clinicId,
+        name: clinicName,
+      },
 
-    // Metadata
-    processingTimeMs: duration,
-    processingTime: `${duration}ms`,
-    message: isNewPatient ? 'Patient created successfully' : 'Patient updated successfully',
-    warnings: errors.length > 0 ? errors : undefined,
+      // Metadata
+      processingTimeMs: duration,
+      processingTime: `${duration}ms`,
+      message: isNewPatient ? 'Patient created successfully' : 'Patient updated successfully',
+      warnings: errors.length > 0 ? errors : undefined,
 
-    // Legacy field names
-    patientId: patient.id,
-  });
-
+      // Legacy field names
+      patientId: patient.id,
+    });
   }); // end runWithClinicContext
 }
 

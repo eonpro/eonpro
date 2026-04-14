@@ -54,9 +54,7 @@ async function acquireCronLock(): Promise<boolean> {
 
 async function releaseCronLock(): Promise<void> {
   try {
-    await prisma.$queryRaw(
-      Prisma.sql`SELECT pg_advisory_unlock(${DATA_RETENTION_LOCK_KEY})`
-    );
+    await prisma.$queryRaw(Prisma.sql`SELECT pg_advisory_unlock(${DATA_RETENTION_LOCK_KEY})`);
   } catch (error) {
     logger.warn('[DataRetentionCron] Failed to release advisory lock', {
       error: error instanceof Error ? error.message : 'Unknown',
@@ -80,10 +78,7 @@ async function anonymizeOldTouches(): Promise<number> {
     const result = await prisma.affiliateTouch.updateMany({
       where: {
         createdAt: { lt: cutoffDate },
-        OR: [
-          { visitorFingerprint: { not: '' } },
-          { ipAddressHash: { not: null } },
-        ],
+        OR: [{ visitorFingerprint: { not: '' } }, { ipAddressHash: { not: null } }],
         // Only process records that haven't been anonymized yet
         // (visitorFingerprint is non-null string or ipAddressHash is non-null)
       },

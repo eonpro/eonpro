@@ -38,7 +38,6 @@ export async function GET(req: NextRequest) {
       totalCount: await prisma.webhookLog.count(),
     });
   } catch (error: unknown) {
-
     logger.error('Webhook log test error:', error);
     return Response.json(
       {

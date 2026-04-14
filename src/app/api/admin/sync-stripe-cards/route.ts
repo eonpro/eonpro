@@ -36,7 +36,7 @@ async function handler(req: NextRequest, user: AuthUser): Promise<Response> {
     if (!parsed.success) {
       return NextResponse.json(
         { error: 'Invalid input', details: parsed.error.flatten() },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -55,7 +55,7 @@ async function handler(req: NextRequest, user: AuthUser): Promise<Response> {
         dryRun,
         includeExpired,
         limit: limit || undefined,
-      }),
+      })
     );
 
     return NextResponse.json({

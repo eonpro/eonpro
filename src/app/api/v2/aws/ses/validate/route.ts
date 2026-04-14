@@ -35,7 +35,6 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error: unknown) {
-
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[SES Validate] Error:', error);
 

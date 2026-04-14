@@ -59,7 +59,9 @@ export const GET = withAuth(
         })),
       });
     } catch (error) {
-      logger.error('Failed to fetch commission plans', { error: error instanceof Error ? error.message : String(error) });
+      logger.error('Failed to fetch commission plans', {
+        error: error instanceof Error ? error.message : String(error),
+      });
 
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       const isPrismaTableError =
@@ -205,7 +207,9 @@ export const POST = withAuth(
         { status: 201 }
       );
     } catch (error) {
-      logger.error('Failed to create commission plan', { error: error instanceof Error ? error.message : String(error) });
+      logger.error('Failed to create commission plan', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return NextResponse.json({ error: 'Failed to create commission plan' }, { status: 500 });
     }
   },

@@ -802,7 +802,14 @@ export default function ClinicPortalSettingsPage() {
                   {/* Preview Header */}
                   <div className="flex items-center gap-3 bg-white px-4 py-3">
                     {settings.logoUrl ? (
-                      <img src={settings.logoUrl} alt="Logo" className="h-6 w-auto" width={120} height={24} loading="lazy" />
+                      <img
+                        src={settings.logoUrl}
+                        alt="Logo"
+                        className="h-6 w-auto"
+                        width={120}
+                        height={24}
+                        loading="lazy"
+                      />
                     ) : (
                       <div
                         className="flex h-6 w-6 items-center justify-center rounded text-xs font-bold text-white"

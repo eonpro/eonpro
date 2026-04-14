@@ -54,11 +54,19 @@ async function getHandler(request: NextRequest, user: AuthUser) {
         return NextResponse.json({ success: true, type: 'journals', ...data });
       }
       default:
-        return NextResponse.json({ error: 'Invalid type', validTypes: ['waterfall', 'journals'] }, { status: 400 });
+        return NextResponse.json(
+          { error: 'Invalid type', validTypes: ['waterfall', 'journals'] },
+          { status: 400 }
+        );
     }
   } catch (error) {
-    logger.error('[RevRec API] GET failed', { error: error instanceof Error ? error.message : 'Unknown' });
-    return NextResponse.json({ error: 'Failed to fetch revenue recognition data' }, { status: 500 });
+    logger.error('[RevRec API] GET failed', {
+      error: error instanceof Error ? error.message : 'Unknown',
+    });
+    return NextResponse.json(
+      { error: 'Failed to fetch revenue recognition data' },
+      { status: 500 }
+    );
   }
 }
 
@@ -85,10 +93,15 @@ async function postHandler(request: NextRequest, user: AuthUser) {
         return NextResponse.json({ success: true, ...result });
       }
       default:
-        return NextResponse.json({ error: 'Invalid action', validActions: ['process', 'sync'] }, { status: 400 });
+        return NextResponse.json(
+          { error: 'Invalid action', validActions: ['process', 'sync'] },
+          { status: 400 }
+        );
     }
   } catch (error) {
-    logger.error('[RevRec API] POST failed', { error: error instanceof Error ? error.message : 'Unknown' });
+    logger.error('[RevRec API] POST failed', {
+      error: error instanceof Error ? error.message : 'Unknown',
+    });
     return NextResponse.json({ error: 'Operation failed' }, { status: 500 });
   }
 }

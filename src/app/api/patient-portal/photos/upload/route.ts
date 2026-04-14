@@ -15,7 +15,12 @@ import { logger } from '@/lib/logger';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { generateSignedUrl } from '@/lib/integrations/aws/s3Service';
-import { STORAGE_CONFIG, isS3Enabled, isS3Configured, s3Config } from '@/lib/integrations/aws/s3Config';
+import {
+  STORAGE_CONFIG,
+  isS3Enabled,
+  isS3Configured,
+  s3Config,
+} from '@/lib/integrations/aws/s3Config';
 import { isFeatureEnabled } from '@/lib/features';
 import { PatientPhotoType } from '@prisma/client';
 import { logPHICreate } from '@/lib/audit/hipaa-audit';

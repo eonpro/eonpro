@@ -13,9 +13,7 @@ export const GET = withAdminAuth(async (req: NextRequest, user) => {
 
     // Build clinic filter for non-super-admin users
     const clinicFilter =
-      user.role !== 'super_admin' && user.clinicId
-        ? { clinicId: user.clinicId }
-        : {};
+      user.role !== 'super_admin' && user.clinicId ? { clinicId: user.clinicId } : {};
 
     const statsReadResult = await executeDbRead(
       () =>
@@ -111,7 +109,7 @@ export const GET = withAdminAuth(async (req: NextRequest, user) => {
             pendingInvoices,
           };
         }),
-      'adminBillingStats:allReads',
+      'adminBillingStats:allReads'
     );
     if (!statsReadResult.success || !statsReadResult.data) {
       throw new Error(statsReadResult.error?.message ?? 'Failed to load billing statistics');
@@ -162,11 +160,9 @@ export const GET = withAdminAuth(async (req: NextRequest, user) => {
       pendingInvoices: formattedInvoices,
     });
   } catch (error) {
-    logger.error(
-      'Admin Billing Stats API error',
-      error instanceof Error ? error : undefined,
-      { route: 'GET /api/admin/billing/stats' }
-    );
+    logger.error('Admin Billing Stats API error', error instanceof Error ? error : undefined, {
+      route: 'GET /api/admin/billing/stats',
+    });
     return NextResponse.json({ error: 'Failed to fetch billing statistics' }, { status: 500 });
   }
 });

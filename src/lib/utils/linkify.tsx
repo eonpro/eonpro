@@ -1,17 +1,13 @@
 import type { MouseEvent, ReactNode } from 'react';
 
-const URL_REGEX =
-  /(?:https?:\/\/|www\.)(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(?:\/[^\s<)}\]]*)?/g;
+const URL_REGEX = /(?:https?:\/\/|www\.)(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(?:\/[^\s<)}\]]*)?/g;
 
 /**
  * Splits text on URLs and returns an array of React nodes where
  * bare URLs become clickable <a> tags and everything else stays as text.
  * Meant to be composed with decodeHtmlEntities (decode first, then linkify).
  */
-export function linkifyText(
-  text: string,
-  opts?: { className?: string }
-): ReactNode[] {
+export function linkifyText(text: string, opts?: { className?: string }): ReactNode[] {
   if (!text) return [text];
 
   const nodes: ReactNode[] = [];

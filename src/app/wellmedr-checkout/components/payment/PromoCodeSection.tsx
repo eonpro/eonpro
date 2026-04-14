@@ -23,10 +23,7 @@ interface PromoCodeSectionProps {
   onPromoApplied?: (result: { clientSecret?: string; status?: string }) => void;
 }
 
-const PromoCodeSection = ({
-  subscriptionId,
-  onPromoApplied,
-}: PromoCodeSectionProps = {}) => {
+const PromoCodeSection = ({ subscriptionId, onPromoApplied }: PromoCodeSectionProps = {}) => {
   const { setValue, getValues, watch } = useFormContext<CheckoutFormData>();
 
   // Watch form values to restore state after remount
@@ -51,12 +48,10 @@ const PromoCodeSection = ({
                 ? `$${formDiscountAmount.toFixed(0)} OFF`
                 : '',
         }
-      : null,
+      : null
   );
   const [error, setError] = useState<string | null>(null);
-  const [lastAppliedCode, setLastAppliedCode] = useState<string>(
-    formPromoCode || '',
-  );
+  const [lastAppliedCode, setLastAppliedCode] = useState<string>(formPromoCode || '');
   const [promoCode, setPromoCode] = useState<string>(formPromoCode || '');
   const [discountLabel, setDiscountLabel] = useState<string | undefined>(
     formPromotionCodeId
@@ -65,10 +60,10 @@ const PromoCodeSection = ({
         : formDiscountAmount && formDiscountAmount > 0
           ? `$${formDiscountAmount.toFixed(0)} OFF`
           : undefined
-      : undefined,
+      : undefined
   );
   const [buttonContent, setButtonContent] = useState<string | React.ReactNode>(
-    formPromotionCodeId ? 'Applied!' : 'Apply',
+    formPromotionCodeId ? 'Applied!' : 'Apply'
   );
 
   const productName = getValues('selectedProduct')?.name;
@@ -125,20 +120,11 @@ const PromoCodeSection = ({
                 status: applyResponse.data?.status,
               });
             } else {
-              throw new Error(
-                applyResponse.error ||
-                  'Failed to apply promo code to subscription',
-              );
+              throw new Error(applyResponse.error || 'Failed to apply promo code to subscription');
             }
           } catch (applyError: any) {
-            logger.error(
-              'Error applying promo code to subscription:',
-              applyError,
-            );
-            setError(
-              applyError?.message ||
-                'Failed to apply promo code. Please try again.',
-            );
+            logger.error('Error applying promo code to subscription:', applyError);
+            setError(applyError?.message || 'Failed to apply promo code. Please try again.');
             setIsApplying(false);
             return;
           }
@@ -236,18 +222,18 @@ const PromoCodeSection = ({
       isApplying ||
       !promoCode.trim() ||
       (!!appliedDiscount && promoCode.trim() === lastAppliedCode),
-    [isApplying, promoCode, appliedDiscount, lastAppliedCode],
+    [isApplying, promoCode, appliedDiscount, lastAppliedCode]
   );
 
   return (
     <div className="w-full space-y-3">
-      <div className="flex items-end gap-3 w-full">
+      <div className="flex w-full items-end gap-3">
         <div className="flex-1">
-          <div className="w-full max-w-2xl flex flex-col gap-2">
+          <div className="flex w-full max-w-2xl flex-col gap-2">
             <label className="form-label">Promo code</label>
             <div className="relative">
-              <div className="absolute left-4 sm:left-6 top-1/2 transform -translate-y-1/2 w-5 h-5 text-foreground z-10">
-                <PromoCodeIcon className="w-full h-full" />
+              <div className="text-foreground absolute left-4 top-1/2 z-10 h-5 w-5 -translate-y-1/2 transform sm:left-6">
+                <PromoCodeIcon className="h-full w-full" />
               </div>
               <input
                 type="text"
@@ -274,8 +260,8 @@ const PromoCodeSection = ({
                 className="form-input w-full pl-12 sm:pl-14"
               />
               {discountLabel && (
-                <div className="absolute right-4 sm:top-1/2 z-0 transform bottom-2 sm:bottom-auto sm:-translate-y-1/2">
-                  <div className="rounded-full px-3 py-1 bg-green-100 text-green-700 text-[0.625rem] sm:text-xs font-medium uppercase">
+                <div className="absolute bottom-2 right-4 z-0 transform sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2">
+                  <div className="rounded-full bg-green-100 px-3 py-1 text-[0.625rem] font-medium uppercase text-green-700 sm:text-xs">
                     {discountLabel}
                   </div>
                 </div>
@@ -296,11 +282,7 @@ const PromoCodeSection = ({
         </div>
       </div>
 
-      {error && (
-        <div className="text-sm text-red-500 mt-2 flex items-center gap-2">
-          {error}
-        </div>
-      )}
+      {error && <div className="mt-2 flex items-center gap-2 text-sm text-red-500">{error}</div>}
     </div>
   );
 };

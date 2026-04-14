@@ -169,11 +169,7 @@ export function emitWarningAlert(title: string, details: Record<string, unknown>
  * Track a metric that can trigger Sentry metric alerts.
  * Useful for query counts, response times, etc.
  */
-export function trackAlertMetric(
-  name: string,
-  value: number,
-  tags?: Record<string, string>
-): void {
+export function trackAlertMetric(name: string, value: number, tags?: Record<string, string>): void {
   try {
     Sentry.metrics.distribution(name, value, {
       ...(tags ? { tags: tags as Record<string, string> } : {}),

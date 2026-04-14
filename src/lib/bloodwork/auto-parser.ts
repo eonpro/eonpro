@@ -20,10 +20,15 @@ export function parseBloodworkTextAuto(fullText: string): ParsedBloodworkDocumen
   const lower = fullText.toLowerCase();
   const looksLikeRythm =
     lower.includes('rythm') ||
-    (lower.includes('performance range') && lower.includes('test') && lower.includes('value') && lower.includes('unit'));
+    (lower.includes('performance range') &&
+      lower.includes('test') &&
+      lower.includes('value') &&
+      lower.includes('unit'));
   const looksLikeAccess =
     lower.includes('access medical labs') ||
-    (lower.includes('out of range summary') && lower.includes('test name') && lower.includes('reference range'));
+    (lower.includes('out of range summary') &&
+      lower.includes('test name') &&
+      lower.includes('reference range'));
 
   if (looksLikeAccess) {
     return {

@@ -206,7 +206,9 @@ async function loginHandler(request: NextRequest) {
   } catch (error) {
     logger.error('[Affiliate Auth] Login error', {
       error: error instanceof Error ? error.message : 'Unknown error',
-      ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
+      ...(process.env.NODE_ENV === 'development' && {
+        stack: error instanceof Error ? error.stack : undefined,
+      }),
     });
 
     return NextResponse.json({ error: 'Login failed' }, { status: 500 });

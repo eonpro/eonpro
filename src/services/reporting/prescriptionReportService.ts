@@ -17,14 +17,7 @@ import { decryptPHI } from '@/lib/security/phi-encryption';
 // Types
 // ============================================================================
 
-export type ReportPeriod =
-  | 'day'
-  | 'week'
-  | 'month'
-  | 'quarter'
-  | 'semester'
-  | 'year'
-  | 'custom';
+export type ReportPeriod = 'day' | 'week' | 'month' | 'quarter' | 'semester' | 'year' | 'custom';
 
 export interface PrescriptionReportFilters {
   period: ReportPeriod;
@@ -105,7 +98,8 @@ function formatRxBreakdown(
 ): string[] {
   return rxs
     .map((rx, index) => {
-      const medication = [rx.medName, rx.strength, rx.form].filter(Boolean).join(' ').trim() || 'Unknown medication';
+      const medication =
+        [rx.medName, rx.strength, rx.form].filter(Boolean).join(' ').trim() || 'Unknown medication';
       const quantityRaw = String(rx.quantity ?? '').trim();
       const quantity = quantityRaw ? ` - Qty ${quantityRaw}` : '';
       return `Vial ${index + 1}: ${medication}${quantity}`;
@@ -149,7 +143,8 @@ interface ReportOrder {
 }
 
 function mapOrderToDetail(order: ReportOrder): PrescriptionDetailRow {
-  const patientName = `${safeDecrypt(order.patient.firstName)} ${safeDecrypt(order.patient.lastName)}`.trim();
+  const patientName =
+    `${safeDecrypt(order.patient.firstName)} ${safeDecrypt(order.patient.lastName)}`.trim();
   const providerName = `${order.provider.firstName ?? ''} ${order.provider.lastName ?? ''}`.trim();
   const vialBreakdown = formatRxBreakdown(order.rxs);
 

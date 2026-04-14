@@ -23,7 +23,14 @@ export async function POST(request: Request) {
       responses?: Record<string, unknown>;
     };
 
-    console.log('[airtable-sync] POST received, sessionId:', sessionId, 'recordId:', recordId, 'responseKeys:', responses ? Object.keys(responses).length : 0);
+    console.log(
+      '[airtable-sync] POST received, sessionId:',
+      sessionId,
+      'recordId:',
+      recordId,
+      'responseKeys:',
+      responses ? Object.keys(responses).length : 0
+    );
 
     if (!responses || typeof responses !== 'object') {
       console.warn('[airtable-sync] Missing responses in body');
@@ -31,7 +38,12 @@ export async function POST(request: Request) {
     }
 
     const fields = mapIntakeToAirtable(responses);
-    console.log('[airtable-sync] Mapped fields:', Object.keys(fields).length, '→', Object.keys(fields).join(', '));
+    console.log(
+      '[airtable-sync] Mapped fields:',
+      Object.keys(fields).length,
+      '→',
+      Object.keys(fields).join(', ')
+    );
 
     if (!fields || Object.keys(fields).length === 0) {
       console.log('[airtable-sync] No mappable fields, skipping');

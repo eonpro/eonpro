@@ -78,10 +78,9 @@ async function handleGet(request: NextRequest, user: AuthUser) {
     });
 
     const isSuperAdmin = user.role === 'super_admin';
-    const scopeClinicId =
-      isSuperAdmin
-        ? (await basePrisma.clinic.findFirst({ select: { id: true } }))?.id
-        : user.clinicId ?? getClinicContext();
+    const scopeClinicId = isSuperAdmin
+      ? (await basePrisma.clinic.findFirst({ select: { id: true } }))?.id
+      : (user.clinicId ?? getClinicContext());
     if (scopeClinicId == null) {
       return NextResponse.json(
         { error: 'No clinic context available for query tests and counts' },
@@ -99,9 +98,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
     const dataQueryResult = await runWithClinicContext(scopeClinicId, () => testCriticalQueries());
 
     // 3. Check Data Integrity (scoped to clinic unless super_admin; raw SQL includes clinicId filter)
-    const dataIntegrityResult = await checkDataIntegrity(
-      isSuperAdmin ? undefined : scopeClinicId
-    );
+    const dataIntegrityResult = await checkDataIntegrity(isSuperAdmin ? undefined : scopeClinicId);
 
     // 4. Get Record Counts (scoped to same clinic)
     const countsResult = await runWithClinicContext(scopeClinicId, () => getRecordCounts());
@@ -165,7 +162,9 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       },
     });
   } catch (error: unknown) {
-    logger.error('[DataIntegrity] Check failed', { error: (error instanceof Error ? error.message : String(error)) });
+    logger.error('[DataIntegrity] Check failed', {
+      error: error instanceof Error ? error.message : String(error),
+    });
 
     return NextResponse.json(
       {
@@ -230,7 +229,9 @@ async function handlePost(req: NextRequest, user: AuthUser) {
     const effectiveClinicId = user.role === 'super_admin' ? body.clinicId : user.clinicId;
     const clinicFilter: Prisma.PatientWhereInput = effectiveClinicId
       ? { clinicId: effectiveClinicId }
-      : (user.role === 'super_admin' ? {} : { clinicId: user.clinicId! });
+      : user.role === 'super_admin'
+        ? {}
+        : { clinicId: user.clinicId! };
 
     const where: Prisma.PatientWhereInput = {
       ...clinicFilter,
@@ -315,10 +316,23 @@ async function handlePost(req: NextRequest, user: AuthUser) {
     });
   } catch (error) {
     logger.error('searchIndex backfill failed', {
-      error: error instanceof Error ? (error instanceof Error ? error.message : String(error)) : String(error),
+      error:
+        error instanceof Error
+          ? error instanceof Error
+            ? error.message
+            : String(error)
+          : String(error),
     });
     return NextResponse.json(
-      { error: 'Backfill failed', details: error instanceof Error ? (error instanceof Error ? error.message : String(error)) : String(error) },
+      {
+        error: 'Backfill failed',
+        details:
+          error instanceof Error
+            ? error instanceof Error
+              ? error.message
+              : String(error)
+            : String(error),
+      },
       { status: 500 }
     );
   }
@@ -553,7 +567,7 @@ async function checkDataIntegrity(clinicId?: number): Promise<DataIntegrityResul
       type: 'CHECK_FAILED',
       severity: 'critical',
       count: 1,
-      message: `Failed to check data integrity: ${(error instanceof Error ? error.message : String(error))}`,
+      message: `Failed to check data integrity: ${error instanceof Error ? error.message : String(error)}`,
     });
   }
 

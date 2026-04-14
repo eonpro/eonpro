@@ -72,7 +72,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
     if (!isS3Enabled()) {
       return NextResponse.json(
         { error: 'Photo upload is not available. Storage service not configured.' },
-        { status: 503 },
+        { status: 503 }
       );
     }
 
@@ -97,7 +97,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
     if (file.size > MAX_PHOTO_SIZE) {
       return NextResponse.json(
         { error: `File too large (max ${MAX_PHOTO_SIZE / 1024 / 1024}MB)` },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -151,7 +151,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
         Body: buffer,
         ContentType: mimeType,
         ServerSideEncryption: 'AES256',
-      }),
+      })
     );
 
     // Upload thumbnail server-side
@@ -168,7 +168,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
             Body: thumbBuffer,
             ContentType: mimeType,
             ServerSideEncryption: 'AES256',
-          }),
+          })
         );
       } catch {
         thumbnailKey = null;
@@ -220,10 +220,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
       photoType: type,
     });
 
-    return NextResponse.json(
-      { photo: { ...photo, s3Url } },
-      { status: 201 },
-    );
+    return NextResponse.json({ photo: { ...photo, s3Url } }, { status: 201 });
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[Photos Direct Upload] Error', {
@@ -231,10 +228,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
       error: msg,
       stack: error instanceof Error ? error.stack : undefined,
     });
-    return NextResponse.json(
-      { error: 'Upload failed. Please try again.' },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: 'Upload failed. Please try again.' }, { status: 500 });
   }
 }
 

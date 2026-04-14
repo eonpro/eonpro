@@ -55,11 +55,17 @@ async function handler(req: NextRequest, user: AuthUser) {
       );
     }
 
-    const { flowType, templateId, clinicSlug, templateSlug, salesRepId, patientEmail, patientPhone } =
-      parsed.data;
+    const {
+      flowType,
+      templateId,
+      clinicSlug,
+      templateSlug,
+      salesRepId,
+      patientEmail,
+      patientPhone,
+    } = parsed.data;
 
-    const effectiveSalesRepId =
-      salesRepId ?? (user.role === 'sales_rep' ? user.id : undefined);
+    const effectiveSalesRepId = salesRepId ?? (user.role === 'sales_rep' ? user.id : undefined);
 
     if (effectiveSalesRepId && effectiveSalesRepId !== user.id) {
       const repUser = await basePrisma.user.findUnique({
@@ -73,7 +79,9 @@ async function handler(req: NextRequest, user: AuthUser) {
 
     const requestHost = req.headers.get('host') || req.headers.get('x-forwarded-host');
     const protocol = req.headers.get('x-forwarded-proto') || 'https';
-    const baseUrl = requestHost ? `${protocol}://${requestHost}` : process.env.NEXT_PUBLIC_APP_URL || '';
+    const baseUrl = requestHost
+      ? `${protocol}://${requestHost}`
+      : process.env.NEXT_PUBLIC_APP_URL || '';
 
     if (flowType === 'questionnaire') {
       return await handleQuestionnaire({
@@ -225,7 +233,12 @@ async function ensureSalesRepRefCode(salesRepId: number, clinicId: number): Prom
         });
         return refCode;
       } catch (err: unknown) {
-        if (err && typeof err === 'object' && 'code' in err && (err as { code: string }).code === 'P2002') {
+        if (
+          err &&
+          typeof err === 'object' &&
+          'code' in err &&
+          (err as { code: string }).code === 'P2002'
+        ) {
           continue;
         }
         throw err;

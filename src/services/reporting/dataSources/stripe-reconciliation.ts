@@ -1,11 +1,22 @@
-import { getStripeForClinic, getStripeForPlatform, withConnectedAccount } from '@/lib/stripe/connect';
+import {
+  getStripeForClinic,
+  getStripeForPlatform,
+  withConnectedAccount,
+} from '@/lib/stripe/connect';
 import type Stripe from 'stripe';
-import type { DataSourceAdapter, ReportConfig, ReportResult, DataSourceDef, ReportRow } from '../types';
+import type {
+  DataSourceAdapter,
+  ReportConfig,
+  ReportResult,
+  DataSourceDef,
+  ReportRow,
+} from '../types';
 
 const definition: DataSourceDef = {
   id: 'stripe-reconciliation',
   name: 'Stripe Reconciliation',
-  description: 'Payment reconciliation report comparing charges, refunds, fees, and payouts for accounting',
+  description:
+    'Payment reconciliation report comparing charges, refunds, fees, and payouts for accounting',
   icon: 'Scale',
   columns: [
     { id: 'category', label: 'Category', type: 'string', groupable: true },
@@ -17,18 +28,27 @@ const definition: DataSourceDef = {
   ],
   filters: [
     { field: 'dateRange', label: 'Date Range', type: 'date_range' },
-    { field: 'category', label: 'Category', type: 'multi_select', options: [
-      { value: 'charges', label: 'Charges' }, { value: 'refunds', label: 'Refunds' },
-      { value: 'fees', label: 'Fees' }, { value: 'payouts', label: 'Payouts' },
-      { value: 'balance', label: 'Balance' },
-    ]},
+    {
+      field: 'category',
+      label: 'Category',
+      type: 'multi_select',
+      options: [
+        { value: 'charges', label: 'Charges' },
+        { value: 'refunds', label: 'Refunds' },
+        { value: 'fees', label: 'Fees' },
+        { value: 'payouts', label: 'Payouts' },
+        { value: 'balance', label: 'Balance' },
+      ],
+    },
   ],
-  groupByOptions: [
-    { id: 'category', label: 'By Category' },
-  ],
+  groupByOptions: [{ id: 'category', label: 'By Category' }],
 };
 
-async function fetchAllCharges(stripe: Stripe, params: Stripe.ChargeListParams, connectedOpts?: object): Promise<Stripe.Charge[]> {
+async function fetchAllCharges(
+  stripe: Stripe,
+  params: Stripe.ChargeListParams,
+  connectedOpts?: object
+): Promise<Stripe.Charge[]> {
   const all: Stripe.Charge[] = [];
   let hasMore = true;
   let startingAfter: string | undefined;
@@ -50,7 +70,11 @@ async function fetchAllCharges(stripe: Stripe, params: Stripe.ChargeListParams, 
   return all;
 }
 
-async function fetchAllRefunds(stripe: Stripe, params: Stripe.RefundListParams, connectedOpts?: object): Promise<Stripe.Refund[]> {
+async function fetchAllRefunds(
+  stripe: Stripe,
+  params: Stripe.RefundListParams,
+  connectedOpts?: object
+): Promise<Stripe.Refund[]> {
   const all: Stripe.Refund[] = [];
   let hasMore = true;
   let startingAfter: string | undefined;
@@ -94,13 +118,18 @@ async function execute(config: ReportConfig): Promise<ReportResult> {
   const createdFilter = { gte: startTs, lte: endTs };
 
   const [balance, balanceTransactions, payouts, charges, refunds] = await Promise.all([
-    stripe.balance.retrieve({}, context.stripeAccountId ? { stripeAccount: context.stripeAccountId } : undefined),
+    stripe.balance.retrieve(
+      {},
+      context.stripeAccountId ? { stripeAccount: context.stripeAccountId } : undefined
+    ),
     stripe.balanceTransactions.list({
-      created: createdFilter, limit: 100,
+      created: createdFilter,
+      limit: 100,
       ...(context.stripeAccountId ? { stripeAccount: context.stripeAccountId } : {}),
     } as any),
     stripe.payouts.list({
-      created: createdFilter, limit: 100,
+      created: createdFilter,
+      limit: 100,
       ...(context.stripeAccountId ? { stripeAccount: context.stripeAccountId } : {}),
     } as any),
     fetchAllCharges(stripe, { created: createdFilter }, connectedOpts),
@@ -127,28 +156,115 @@ async function execute(config: ReportConfig): Promise<ReportResult> {
   });
 
   const rows: ReportRow[] = [
-    { id: 'charges', category: 'charges', description: 'Total Charges (Succeeded)', amount: totalCharges, count: successfulCharges.length, date: '', referenceId: '' },
-    { id: 'refunds', category: 'refunds', description: 'Total Refunds', amount: -totalRefunds, count: refunds.length, date: '', referenceId: '' },
-    { id: 'fees', category: 'fees', description: 'Total Stripe Fees', amount: -totalFees, count: balanceTransactions.data.length, date: '', referenceId: '' },
+    {
+      id: 'charges',
+      category: 'charges',
+      description: 'Total Charges (Succeeded)',
+      amount: totalCharges,
+      count: successfulCharges.length,
+      date: '',
+      referenceId: '',
+    },
+    {
+      id: 'refunds',
+      category: 'refunds',
+      description: 'Total Refunds',
+      amount: -totalRefunds,
+      count: refunds.length,
+      date: '',
+      referenceId: '',
+    },
+    {
+      id: 'fees',
+      category: 'fees',
+      description: 'Total Stripe Fees',
+      amount: -totalFees,
+      count: balanceTransactions.data.length,
+      date: '',
+      referenceId: '',
+    },
     ...Object.entries(feeBreakdown).map(([type, amount]) => ({
-      id: `fee_${type}`, category: 'fees', description: `Fee: ${type}`, amount: -amount, count: 0, date: '', referenceId: '',
+      id: `fee_${type}`,
+      category: 'fees',
+      description: `Fee: ${type}`,
+      amount: -amount,
+      count: 0,
+      date: '',
+      referenceId: '',
     })),
-    { id: 'payouts', category: 'payouts', description: 'Total Payouts (Paid)', amount: -totalPayouts, count: paidPayouts.length, date: '', referenceId: '' },
+    {
+      id: 'payouts',
+      category: 'payouts',
+      description: 'Total Payouts (Paid)',
+      amount: -totalPayouts,
+      count: paidPayouts.length,
+      date: '',
+      referenceId: '',
+    },
     ...paidPayouts.map((p) => ({
-      id: p.id, category: 'payouts', description: p.description || 'Payout', amount: -p.amount, count: 1,
-      date: new Date(p.created * 1000).toISOString(), referenceId: p.id,
+      id: p.id,
+      category: 'payouts',
+      description: p.description || 'Payout',
+      amount: -p.amount,
+      count: 1,
+      date: new Date(p.created * 1000).toISOString(),
+      referenceId: p.id,
     })),
-    { id: 'balance_expected', category: 'balance', description: 'Expected Balance', amount: expectedBalance, count: 0, date: '', referenceId: '' },
-    { id: 'balance_actual', category: 'balance', description: 'Actual Balance (Available + Pending)', amount: actualBalance, count: 0, date: '', referenceId: '' },
-    { id: 'balance_available', category: 'balance', description: 'Available Balance', amount: availableBalance, count: 0, date: '', referenceId: '' },
-    { id: 'balance_pending', category: 'balance', description: 'Pending Balance', amount: pendingBalance, count: 0, date: '', referenceId: '' },
-    { id: 'balance_diff', category: 'balance', description: 'Reconciliation Difference', amount: actualBalance - expectedBalance, count: 0, date: '', referenceId: '' },
+    {
+      id: 'balance_expected',
+      category: 'balance',
+      description: 'Expected Balance',
+      amount: expectedBalance,
+      count: 0,
+      date: '',
+      referenceId: '',
+    },
+    {
+      id: 'balance_actual',
+      category: 'balance',
+      description: 'Actual Balance (Available + Pending)',
+      amount: actualBalance,
+      count: 0,
+      date: '',
+      referenceId: '',
+    },
+    {
+      id: 'balance_available',
+      category: 'balance',
+      description: 'Available Balance',
+      amount: availableBalance,
+      count: 0,
+      date: '',
+      referenceId: '',
+    },
+    {
+      id: 'balance_pending',
+      category: 'balance',
+      description: 'Pending Balance',
+      amount: pendingBalance,
+      count: 0,
+      date: '',
+      referenceId: '',
+    },
+    {
+      id: 'balance_diff',
+      category: 'balance',
+      description: 'Reconciliation Difference',
+      amount: actualBalance - expectedBalance,
+      count: 0,
+      date: '',
+      referenceId: '',
+    },
   ];
 
-  const categoryFilters = config.filters.filter((f) => f.field === 'category').map((f) => f.value).flat();
-  const filteredRows = categoryFilters.length > 0
-    ? rows.filter((r) => categoryFilters.includes(r.category as string))
-    : rows;
+  const categoryFilters = config.filters
+    .filter((f) => f.field === 'category')
+    .map((f) => f.value)
+    .flat();
+  const filteredRows =
+    categoryFilters.length > 0
+      ? rows.filter((r) => categoryFilters.includes(r.category as string))
+      : rows;
 
   const summary: Record<string, number> = {
     totalCharges,

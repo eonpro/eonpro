@@ -5,7 +5,11 @@
  * net revenue trends, and simple linear forecasting from Stripe data.
  */
 
-import { getStripeForClinic, getStripeForPlatform, withConnectedAccount } from '@/lib/stripe/connect';
+import {
+  getStripeForClinic,
+  getStripeForPlatform,
+  withConnectedAccount,
+} from '@/lib/stripe/connect';
 import type Stripe from 'stripe';
 import type { StripeContext } from '@/lib/stripe/connect';
 import { logger } from '@/lib/logger';
@@ -102,7 +106,10 @@ function connOpts(ctx: StripeContext): Record<string, string> {
   return ctx.stripeAccountId ? { stripeAccount: ctx.stripeAccountId } : {};
 }
 
-async function fetchAllSubscriptions(stripe: Stripe, opts: Record<string, any>): Promise<Stripe.Subscription[]> {
+async function fetchAllSubscriptions(
+  stripe: Stripe,
+  opts: Record<string, any>
+): Promise<Stripe.Subscription[]> {
   const all: Stripe.Subscription[] = [];
   let hasMore = true;
   let startingAfter: string | undefined;
@@ -119,7 +126,11 @@ async function fetchAllSubscriptions(stripe: Stripe, opts: Record<string, any>):
   return all;
 }
 
-async function fetchAllCharges(stripe: Stripe, params: Stripe.ChargeListParams, opts: Record<string, any>): Promise<Stripe.Charge[]> {
+async function fetchAllCharges(
+  stripe: Stripe,
+  params: Stripe.ChargeListParams,
+  opts: Record<string, any>
+): Promise<Stripe.Charge[]> {
   const all: Stripe.Charge[] = [];
   let hasMore = true;
   let startingAfter: string | undefined;
@@ -174,7 +185,10 @@ export async function getMRRTimeSeries(clinicId?: number, months = 12): Promise<
           if (price.recurring.interval === 'year') {
             mrr += Math.round(amount / 12);
           } else if (price.recurring.interval === 'month') {
-            mrr += amount * (price.recurring.interval_count || 1) === 1 ? amount : Math.round(amount / (price.recurring.interval_count || 1));
+            mrr +=
+              amount * (price.recurring.interval_count || 1) === 1
+                ? amount
+                : Math.round(amount / (price.recurring.interval_count || 1));
           } else {
             mrr += amount;
           }
@@ -229,8 +243,10 @@ export async function getChurnAnalytics(clinicId?: number, months = 12): Promise
 
       if (wasActiveAtMonthStart) {
         activeAtStart++;
-        if ((canceledAt && canceledAt >= monthStart && canceledAt < nextMonth) ||
-            (endedAt && endedAt >= monthStart && endedAt < nextMonth)) {
+        if (
+          (canceledAt && canceledAt >= monthStart && canceledAt < nextMonth) ||
+          (endedAt && endedAt >= monthStart && endedAt < nextMonth)
+        ) {
           churned++;
         }
       }
@@ -261,11 +277,7 @@ export async function getCohortRevenue(clinicId?: number, months = 12): Promise<
   startDate.setMonth(startDate.getMonth() - months);
   const startTs = Math.floor(startDate.getTime() / 1000);
 
-  const charges = await fetchAllCharges(
-    ctx.stripe,
-    { created: { gte: startTs } },
-    connOpts(ctx)
-  );
+  const charges = await fetchAllCharges(ctx.stripe, { created: { gte: startTs } }, connOpts(ctx));
 
   const succeeded = charges.filter((c) => c.status === 'succeeded');
 
@@ -274,9 +286,10 @@ export async function getCohortRevenue(clinicId?: number, months = 12): Promise<
   const customerCharges: Map<string, { month: string; amount: number }[]> = new Map();
 
   for (const charge of succeeded) {
-    const customerId = typeof charge.customer === 'string'
-      ? charge.customer
-      : charge.customer?.id || charge.billing_details?.email || charge.id;
+    const customerId =
+      typeof charge.customer === 'string'
+        ? charge.customer
+        : charge.customer?.id || charge.billing_details?.email || charge.id;
     const chargeMonth = monthKey(new Date(charge.created * 1000));
 
     if (!customerFirstMonth.has(customerId) || chargeMonth < customerFirstMonth.get(customerId)!) {
@@ -335,7 +348,10 @@ export async function getCohortRevenue(clinicId?: number, months = 12): Promise<
 // NET REVENUE TRENDS
 // ═══════════════════════════════════════════════════════════════════════════
 
-export async function getNetRevenueTrend(clinicId?: number, months = 12): Promise<RevenueTrendPoint[]> {
+export async function getNetRevenueTrend(
+  clinicId?: number,
+  months = 12
+): Promise<RevenueTrendPoint[]> {
   const ctx = await getContext(clinicId);
   const startDate = new Date();
   startDate.setMonth(startDate.getMonth() - months);
@@ -395,7 +411,10 @@ export async function getNetRevenueTrend(clinicId?: number, months = 12): Promis
 // REVENUE FORECASTING (linear regression)
 // ═══════════════════════════════════════════════════════════════════════════
 
-export async function getRevenueForecasting(clinicId?: number, historicalMonths = 12): Promise<ForecastPoint[]> {
+export async function getRevenueForecasting(
+  clinicId?: number,
+  historicalMonths = 12
+): Promise<ForecastPoint[]> {
   const trends = await getNetRevenueTrend(clinicId, historicalMonths);
 
   if (trends.length < 3) return [];
@@ -426,7 +445,9 @@ export async function getRevenueForecasting(clinicId?: number, historicalMonths 
   for (let i = 1; i <= forecastMonths; i++) {
     const x = n - 1 + i;
     const projected = Math.round(slope * x + intercept);
-    const margin = Math.round(1.96 * se * Math.sqrt(1 + 1 / n + ((x - sumX / n) ** 2) / (sumX2 - sumX * sumX / n)));
+    const margin = Math.round(
+      1.96 * se * Math.sqrt(1 + 1 / n + (x - sumX / n) ** 2 / (sumX2 - (sumX * sumX) / n))
+    );
 
     forecasts.push({
       month: addMonths(lastMonth, i),
@@ -448,17 +469,30 @@ export async function getRevenueForecasting(clinicId?: number, historicalMonths 
 
 export async function getAllAnalytics(clinicId?: number, months = 12) {
   const [mrr, churn, cohorts, trends, forecast] = await Promise.all([
-    getMRRTimeSeries(clinicId, months).catch((e) => { logger.error('[StripeAnalytics] MRR failed', { error: e.message }); return []; }),
-    getChurnAnalytics(clinicId, months).catch((e) => { logger.error('[StripeAnalytics] Churn failed', { error: e.message }); return []; }),
-    getCohortRevenue(clinicId, months).catch((e) => { logger.error('[StripeAnalytics] Cohorts failed', { error: e.message }); return []; }),
-    getNetRevenueTrend(clinicId, months).catch((e) => { logger.error('[StripeAnalytics] Trends failed', { error: e.message }); return []; }),
-    getRevenueForecasting(clinicId, months).catch((e) => { logger.error('[StripeAnalytics] Forecast failed', { error: e.message }); return []; }),
+    getMRRTimeSeries(clinicId, months).catch((e) => {
+      logger.error('[StripeAnalytics] MRR failed', { error: e.message });
+      return [];
+    }),
+    getChurnAnalytics(clinicId, months).catch((e) => {
+      logger.error('[StripeAnalytics] Churn failed', { error: e.message });
+      return [];
+    }),
+    getCohortRevenue(clinicId, months).catch((e) => {
+      logger.error('[StripeAnalytics] Cohorts failed', { error: e.message });
+      return [];
+    }),
+    getNetRevenueTrend(clinicId, months).catch((e) => {
+      logger.error('[StripeAnalytics] Trends failed', { error: e.message });
+      return [];
+    }),
+    getRevenueForecasting(clinicId, months).catch((e) => {
+      logger.error('[StripeAnalytics] Forecast failed', { error: e.message });
+      return [];
+    }),
   ]);
 
   const currentMrr = mrr.length > 0 ? mrr[mrr.length - 1] : null;
-  const avgChurn = churn.length > 0
-    ? churn.reduce((s, c) => s + c.churnRate, 0) / churn.length
-    : 0;
+  const avgChurn = churn.length > 0 ? churn.reduce((s, c) => s + c.churnRate, 0) / churn.length : 0;
   const totalNetRevenue = trends.reduce((s, t) => s + t.net, 0);
 
   return {

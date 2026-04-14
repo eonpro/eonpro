@@ -21,15 +21,21 @@ function evaluateClinicFedExRouting(clinic: ClinicFedExConfig, allowEnvFallback:
   const hasClientId = hasValue(clinic.fedexClientId);
   const hasClientSecret = hasValue(clinic.fedexClientSecret);
   const hasAccountNumber = hasValue(clinic.fedexAccountNumber);
-  const clinicConfigComplete = clinic.fedexEnabled && hasClientId && hasClientSecret && hasAccountNumber;
+  const clinicConfigComplete =
+    clinic.fedexEnabled && hasClientId && hasClientSecret && hasAccountNumber;
   const hasAnyClinicConfig = hasClientId || hasClientSecret || hasAccountNumber;
 
   try {
     const resolution = resolveCredentialsWithAttribution(clinic, { allowEnvFallback });
     const driftRisk =
-      resolution.source === 'env' && (clinic.fedexEnabled || hasAnyClinicConfig || allowEnvFallback);
+      resolution.source === 'env' &&
+      (clinic.fedexEnabled || hasAnyClinicConfig || allowEnvFallback);
     return {
-      status: clinicConfigComplete ? 'clinic_configured' : resolution.source === 'env' ? 'env_fallback' : 'unknown',
+      status: clinicConfigComplete
+        ? 'clinic_configured'
+        : resolution.source === 'env'
+          ? 'env_fallback'
+          : 'unknown',
       hasClientId,
       hasClientSecret,
       hasAccountNumber,
@@ -184,4 +190,3 @@ async function handleGetFedExVisibilityAudit(req: NextRequest, user: AuthUser) {
 export const GET = withAuth(handleGetFedExVisibilityAudit, {
   roles: ['super_admin', 'admin'],
 });
-

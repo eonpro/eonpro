@@ -168,7 +168,10 @@ export const POST = withAuthParams(
                 lifefileModifyResponse
               );
             } catch (shippingErr: unknown) {
-              logger.warn(`[ORDER MODIFY] Lifefile shipping update failed:`, (shippingErr as any).message);
+              logger.warn(
+                `[ORDER MODIFY] Lifefile shipping update failed:`,
+                (shippingErr as any).message
+              );
               lifefileError = (shippingErr as any).message;
             }
           }
@@ -182,7 +185,10 @@ export const POST = withAuthParams(
               lifefileModifyResponse = { ...lifefileModifyResponse, notes: notesResponse };
               logger.info(`[ORDER MODIFY] Lifefile notes added:`, notesResponse);
             } catch (notesErr: unknown) {
-              logger.warn(`[ORDER MODIFY] Lifefile notes addition failed:`, (notesErr as any).message);
+              logger.warn(
+                `[ORDER MODIFY] Lifefile notes addition failed:`,
+                (notesErr as any).message
+              );
               if (!lifefileError) lifefileError = (notesErr as any).message;
             }
           }
@@ -252,7 +258,10 @@ export const POST = withAuthParams(
     } catch (error: unknown) {
       logger.error('[ORDER MODIFY] Error:', error);
       return NextResponse.json(
-        { error: 'Failed to modify order', message: error instanceof Error ? error.message : String(error) },
+        {
+          error: 'Failed to modify order',
+          message: error instanceof Error ? error.message : String(error),
+        },
         { status: 500 }
       );
     }

@@ -46,7 +46,8 @@ async function handler(req: NextRequest, user: AuthUser, context?: Params) {
     }
 
     const providerClinicIds = await providerService.getClinicIdsForProviderUser(
-      user.id, user.providerId ?? null
+      user.id,
+      user.providerId ?? null
     );
 
     const order = await runWithClinicContext(user.clinicId, () =>

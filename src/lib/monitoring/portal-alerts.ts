@@ -176,9 +176,7 @@ export async function sendPortalAlert(payload: PortalAlertPayload): Promise<bool
   }
 
   const isRecovery = payload.status === 'healthy';
-  const message = isRecovery
-    ? buildRecoveryMessage(payload)
-    : buildDegradedMessage(payload);
+  const message = isRecovery ? buildRecoveryMessage(payload) : buildDegradedMessage(payload);
 
   try {
     const res = await fetch(webhookUrl, {

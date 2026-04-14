@@ -6,7 +6,7 @@ export const definition: ChatCompletionTool = {
   function: {
     name: 'get_clinic_statistics',
     description:
-      'Get aggregate statistics for the current clinic: total patients, orders, providers, today\'s activity, and pending items.',
+      "Get aggregate statistics for the current clinic: total patients, orders, providers, today's activity, and pending items.",
     parameters: {
       type: 'object',
       properties: {},
@@ -14,10 +14,7 @@ export const definition: ChatCompletionTool = {
   },
 };
 
-export async function execute(
-  _params: Record<string, never>,
-  clinicId: number,
-): Promise<unknown> {
+export async function execute(_params: Record<string, never>, clinicId: number): Promise<unknown> {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 

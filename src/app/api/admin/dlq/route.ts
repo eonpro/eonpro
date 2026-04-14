@@ -131,9 +131,9 @@ async function handlePost(req: NextRequest, user: AuthUser) {
       );
 
       logger.info('[DLQ Admin] Manually queued submission', {
-      queuedId,
-      userId: user.id,
-    });
+        queuedId,
+        userId: user.id,
+      });
       return NextResponse.json({ success: true, id: queuedId });
     }
 
@@ -155,9 +155,9 @@ async function handlePost(req: NextRequest, user: AuthUser) {
 
       const result = await response.json();
       logger.info('[DLQ Admin] Triggered manual retry', {
-      userId: user.id,
-      result,
-    });
+        userId: user.id,
+        result,
+      });
       return NextResponse.json(result);
     }
 

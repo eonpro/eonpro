@@ -135,7 +135,7 @@ export const GET = withAuthParams(async (req: NextRequest, user: any, context: R
               }
             : null,
         };
-      }),
+      })
     );
 
     return NextResponse.json({

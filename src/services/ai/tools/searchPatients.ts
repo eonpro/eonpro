@@ -20,10 +20,7 @@ export const definition: ChatCompletionTool = {
   },
 };
 
-export async function execute(
-  params: { query: string },
-  clinicId: number,
-): Promise<unknown> {
+export async function execute(params: { query: string }, clinicId: number): Promise<unknown> {
   const q = params.query.trim();
 
   const isEmail = q.includes('@');

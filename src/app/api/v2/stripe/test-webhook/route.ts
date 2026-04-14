@@ -110,7 +110,6 @@ export async function POST(req: NextRequest) {
       );
     }
   } catch (error: unknown) {
-
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[STRIPE_WEBHOOK_TEST] Error:', error);
     return NextResponse.json(

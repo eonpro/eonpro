@@ -130,18 +130,30 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
     // Stats: count distinct PATIENTS (not photos) by their overall verification state
     const clinicFilter = user.role !== 'super_admin' ? { clinicId: user.clinicId } : {};
-    const idPhotoBase = { type: { in: ['ID_FRONT' as const, 'ID_BACK' as const, 'SELFIE' as const] }, isDeleted: false, ...clinicFilter };
+    const idPhotoBase = {
+      type: { in: ['ID_FRONT' as const, 'ID_BACK' as const, 'SELFIE' as const] },
+      isDeleted: false,
+      ...clinicFilter,
+    };
 
     const [verifiedPatientCount, rejectedPatientCount, pendingPatientCount] = await Promise.all([
       prisma.patient.count({ where: { ...clinicFilter, identityVerified: true } }),
-      prisma.patientPhoto.findMany({
-        where: { ...idPhotoBase, verificationStatus: { in: ['REJECTED', 'EXPIRED'] } },
-        select: { patientId: true }, distinct: ['patientId'], take: 1000,
-      }).then((r) => r.length),
-      prisma.patientPhoto.findMany({
-        where: { ...idPhotoBase, verificationStatus: { in: ['PENDING', 'IN_REVIEW'] } },
-        select: { patientId: true }, distinct: ['patientId'], take: 1000,
-      }).then((r) => r.length),
+      prisma.patientPhoto
+        .findMany({
+          where: { ...idPhotoBase, verificationStatus: { in: ['REJECTED', 'EXPIRED'] } },
+          select: { patientId: true },
+          distinct: ['patientId'],
+          take: 1000,
+        })
+        .then((r) => r.length),
+      prisma.patientPhoto
+        .findMany({
+          where: { ...idPhotoBase, verificationStatus: { in: ['PENDING', 'IN_REVIEW'] } },
+          select: { patientId: true },
+          distinct: ['patientId'],
+          take: 1000,
+        })
+        .then((r) => r.length),
     ]);
 
     const statsByStatus: Record<string, number> = {
@@ -329,7 +341,12 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
         if (extraPhotos.length > 0) {
           await prisma.patientPhoto.updateMany({
             where: { id: { in: extraPhotos.map((p) => p.id) } },
-            data: { isDeleted: true, deletedAt: new Date(), deletedBy: user.id, deletionReason: 'auto_cleanup_after_verification' },
+            data: {
+              isDeleted: true,
+              deletedAt: new Date(),
+              deletedBy: user.id,
+              deletionReason: 'auto_cleanup_after_verification',
+            },
           });
 
           logger.info('[Verification Queue] Cleaned up extra photos after verification', {

@@ -29,13 +29,13 @@ function hexToRgb(hex: string): [number, number, number] {
 function lightenHex(hex: string, amount: number): string {
   const [r, g, b] = hexToRgb(hex);
   const lighten = (c: number) => Math.min(255, Math.round(c + (255 - c) * amount));
-  return `#${[lighten(r), lighten(g), lighten(b)].map(c => c.toString(16).padStart(2, '0')).join('')}`;
+  return `#${[lighten(r), lighten(g), lighten(b)].map((c) => c.toString(16).padStart(2, '0')).join('')}`;
 }
 
 function darkenHex(hex: string, amount: number): string {
   const [r, g, b] = hexToRgb(hex);
   const darken = (c: number) => Math.max(0, Math.round(c * (1 - amount)));
-  return `#${[darken(r), darken(g), darken(b)].map(c => c.toString(16).padStart(2, '0')).join('')}`;
+  return `#${[darken(r), darken(g), darken(b)].map((c) => c.toString(16).padStart(2, '0')).join('')}`;
 }
 
 const PRIMARY = '#10B981';
@@ -125,9 +125,7 @@ export default function RegisterPage() {
               : rawDob.includes('/')
                 ? (() => {
                     const [m, d, y] = rawDob.split('/');
-                    return y && m && d
-                      ? `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
-                      : '';
+                    return y && m && d ? `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}` : '';
                   })()
                 : ''
           );
@@ -149,13 +147,16 @@ export default function RegisterPage() {
     };
   }, [searchParams]);
 
-  const passwordRequirements = useMemo(() => [
-    { label: 'At least 8 characters', met: password.length >= 8 },
-    { label: 'One uppercase letter', met: /[A-Z]/.test(password) },
-    { label: 'One lowercase letter', met: /[a-z]/.test(password) },
-    { label: 'One number', met: /\d/.test(password) },
-    { label: 'One special character', met: /[!@#$%^&*(),.?":{}|<>]/.test(password) },
-  ], [password]);
+  const passwordRequirements = useMemo(
+    () => [
+      { label: 'At least 8 characters', met: password.length >= 8 },
+      { label: 'One uppercase letter', met: /[A-Z]/.test(password) },
+      { label: 'One lowercase letter', met: /[a-z]/.test(password) },
+      { label: 'One number', met: /\d/.test(password) },
+      { label: 'One special character', met: /[!@#$%^&*(),.?":{}|<>]/.test(password) },
+    ],
+    [password]
+  );
 
   const isPasswordValid = passwordRequirements.every((req) => req.met);
   const passwordsMatch = password === confirmPassword && password.length > 0;
@@ -288,7 +289,11 @@ export default function RegisterPage() {
     document.body.style.backgroundColor = darkBg;
     let meta = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement | null;
     const prevThemeColor = meta?.content;
-    if (!meta) { meta = document.createElement('meta'); meta.name = 'theme-color'; document.head.appendChild(meta); }
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.name = 'theme-color';
+      document.head.appendChild(meta);
+    }
     meta.content = darkBg;
     return () => {
       document.body.style.backgroundColor = prevBodyBg;
@@ -298,7 +303,10 @@ export default function RegisterPage() {
 
   if (inviteValidating) {
     return (
-      <div className="dark-login-bg flex min-h-[100dvh] items-center justify-center p-4" style={loginGlowVars as React.CSSProperties}>
+      <div
+        className="dark-login-bg flex min-h-[100dvh] items-center justify-center p-4"
+        style={loginGlowVars as React.CSSProperties}
+      >
         <div className="text-center">
           <div className="inline-block h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-white/70" />
           <p className="mt-4 text-white/50">Validating your invite link…</p>
@@ -308,10 +316,20 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="dark-login-bg flex min-h-[100dvh] flex-col items-center justify-center p-4" style={loginGlowVars as React.CSSProperties}>
+    <div
+      className="dark-login-bg flex min-h-[100dvh] flex-col items-center justify-center p-4"
+      style={loginGlowVars as React.CSSProperties}
+    >
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <img src={EONPRO_LOGO_DARK} alt="EONPRO" className="mx-auto mb-4 h-10 w-auto" width={160} height={40} style={{ maxHeight: 40, width: 'auto' }} />
+          <img
+            src={EONPRO_LOGO_DARK}
+            alt="EONPRO"
+            className="mx-auto mb-4 h-10 w-auto"
+            width={160}
+            height={40}
+            style={{ maxHeight: 40, width: 'auto' }}
+          />
           <h1 className="text-2xl font-bold text-white">Create Your Account</h1>
           <p className="mt-1 text-white/70">Patient Registration</p>
         </div>
@@ -368,7 +386,7 @@ export default function RegisterPage() {
                     value={clinicCode}
                     onChange={(e) => setClinicCode(e.target.value.toUpperCase())}
                     placeholder="e.g., CLINIC123"
-                    className="w-full rounded-xl border border-white/12 bg-white/[0.06] px-4 py-3 font-mono text-lg uppercase tracking-wider transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                    className="border-white/12 w-full rounded-xl border bg-white/[0.06] px-4 py-3 font-mono text-lg uppercase tracking-wider transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                     autoFocus
                     required
                   />
@@ -376,7 +394,9 @@ export default function RegisterPage() {
 
                 <div
                   className={`flex items-start gap-3 rounded-xl border transition-all duration-150 ${
-                    error ? 'border-red-500/30 bg-red-900/30 backdrop-blur-sm p-4 opacity-100' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                    error
+                      ? 'border-red-500/30 bg-red-900/30 p-4 opacity-100 backdrop-blur-sm'
+                      : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
                   }`}
                   aria-live="polite"
                 >
@@ -432,9 +452,12 @@ export default function RegisterPage() {
                     <p className="mt-2 font-semibold text-white">{clinic.name}</p>
                   )}
                 </div>
-                <div className="rounded-xl border border-white/10 bg-white/[0.06] backdrop-blur-sm px-4 py-3 text-center">
+                <div className="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 text-center backdrop-blur-sm">
                   <p className="text-sm text-white/70">
-                    Create your password for <strong className="text-white">{firstName} {lastName}</strong>
+                    Create your password for{' '}
+                    <strong className="text-white">
+                      {firstName} {lastName}
+                    </strong>
                   </p>
                   <p className="mt-1 text-xs text-white/50">{email}</p>
                 </div>
@@ -453,7 +476,7 @@ export default function RegisterPage() {
                       type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full rounded-xl border border-white/12 bg-white/[0.06] py-2.5 pl-12 pr-12 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                      className="border-white/12 w-full rounded-xl border bg-white/[0.06] py-2.5 pl-12 pr-12 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                       required
                     />
                     <button
@@ -465,19 +488,24 @@ export default function RegisterPage() {
                     </button>
                   </div>
                   <div className="mt-2 min-h-[110px] space-y-1">
-                    {password ? passwordRequirements.map((req, i) => (
-                      <div key={i} className="flex items-center gap-2 text-xs">
-                        {req.met ? (
-                          <Check className="h-3.5 w-3.5 text-emerald-500" />
-                        ) : (
-                          <div className="h-3.5 w-3.5 rounded-full border border-white/30" />
-                        )}
-                        <span className={req.met ? 'text-emerald-400' : 'text-white/50'}>
-                          {req.label}
-                        </span>
-                      </div>
-                    )) : (
-                      <p className="text-xs text-white/40">Must be at least 12 characters with uppercase, lowercase, number, and special character</p>
+                    {password ? (
+                      passwordRequirements.map((req, i) => (
+                        <div key={i} className="flex items-center gap-2 text-xs">
+                          {req.met ? (
+                            <Check className="h-3.5 w-3.5 text-emerald-500" />
+                          ) : (
+                            <div className="h-3.5 w-3.5 rounded-full border border-white/30" />
+                          )}
+                          <span className={req.met ? 'text-emerald-400' : 'text-white/50'}>
+                            {req.label}
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-xs text-white/40">
+                        Must be at least 12 characters with uppercase, lowercase, number, and
+                        special character
+                      </p>
                     )}
                   </div>
                 </div>
@@ -505,10 +533,16 @@ export default function RegisterPage() {
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70"
                     >
-                      {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      {showConfirmPassword ? (
+                        <EyeOff className="h-5 w-5" />
+                      ) : (
+                        <Eye className="h-5 w-5" />
+                      )}
                     </button>
                   </div>
-                  <p className={`mt-1 text-xs text-red-500 transition-opacity duration-150 ${confirmPassword && !passwordsMatch ? 'opacity-100' : 'pointer-events-none h-0 overflow-hidden opacity-0'}`}>
+                  <p
+                    className={`mt-1 text-xs text-red-500 transition-opacity duration-150 ${confirmPassword && !passwordsMatch ? 'opacity-100' : 'pointer-events-none h-0 overflow-hidden opacity-0'}`}
+                  >
                     Passwords do not match
                   </p>
                 </div>
@@ -540,18 +574,32 @@ export default function RegisterPage() {
                     className="cursor-pointer select-none pt-2.5 text-sm leading-relaxed text-white/70"
                   >
                     I agree to the{' '}
-                    <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-emerald-400 underline" onClick={(e) => e.stopPropagation()}>
+                    <a
+                      href="/terms"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-emerald-400 underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       Terms of Service
                     </a>{' '}
                     and{' '}
-                    <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-emerald-400 underline" onClick={(e) => e.stopPropagation()}>
+                    <a
+                      href="/privacy"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-emerald-400 underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       Privacy Policy
                     </a>
                   </label>
                 </div>
                 <div
                   className={`flex items-start gap-3 rounded-xl border transition-all duration-150 ${
-                    error ? 'border-red-500/30 bg-red-900/30 backdrop-blur-sm p-4 opacity-100' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                    error
+                      ? 'border-red-500/30 bg-red-900/30 p-4 opacity-100 backdrop-blur-sm'
+                      : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
                   }`}
                   aria-live="polite"
                 >
@@ -560,7 +608,8 @@ export default function RegisterPage() {
                       <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-500" />
                       <div className="text-sm text-red-400">
                         <p>{error}</p>
-                        {(error.toLowerCase().includes('already exists') || error.toLowerCase().includes('log in')) && (
+                        {(error.toLowerCase().includes('already exists') ||
+                          error.toLowerCase().includes('log in')) && (
                           <Link
                             href="/patient-login"
                             className="mt-2 inline-flex items-center gap-1 font-semibold text-emerald-300 underline underline-offset-2 hover:text-emerald-200"
@@ -595,32 +644,32 @@ export default function RegisterPage() {
             {step === 'details' && clinic && !inviteToken && (
               <form onSubmit={handleRegistrationSubmit} className="space-y-5">
                 {/* Clinic Display */}
-                <div className="mb-2 flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.06] backdrop-blur-sm p-3">
+                <div className="mb-2 flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.06] p-3 backdrop-blur-sm">
                   <div className="flex items-center gap-3">
-                        {clinic.logoUrl ? (
-                          <img
-                            src={clinic.logoUrl}
-                            alt={clinic.name}
-                            className="h-10 max-w-[80px] rounded-lg object-contain"
-                            height={40}
-                          />
-                        ) : (
-                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/10">
-                            <Building2 className="h-5 w-5 text-emerald-400" />
-                          </div>
-                        )}
-                        <div>
-                          <p className="text-xs font-medium text-emerald-400">Registering with</p>
-                          <p className="font-semibold text-white">{clinic.name}</p>
-                        </div>
+                    {clinic.logoUrl ? (
+                      <img
+                        src={clinic.logoUrl}
+                        alt={clinic.name}
+                        className="h-10 max-w-[80px] rounded-lg object-contain"
+                        height={40}
+                      />
+                    ) : (
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/10">
+                        <Building2 className="h-5 w-5 text-emerald-400" />
                       </div>
-                      <button
-                        type="button"
-                        onClick={handleBack}
-                        className="text-sm text-white/50 hover:text-white/70"
-                      >
-                        Change
-                      </button>
+                    )}
+                    <div>
+                      <p className="text-xs font-medium text-emerald-400">Registering with</p>
+                      <p className="font-semibold text-white">{clinic.name}</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleBack}
+                    className="text-sm text-white/50 hover:text-white/70"
+                  >
+                    Change
+                  </button>
                 </div>
 
                 {/* Name Fields */}
@@ -633,14 +682,16 @@ export default function RegisterPage() {
                       First Name
                     </label>
                     <div className="relative">
-                      <User className={`absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/40 transition-opacity duration-200 ${firstName ? 'opacity-0' : 'opacity-100'}`} />
+                      <User
+                        className={`absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/40 transition-opacity duration-200 ${firstName ? 'opacity-0' : 'opacity-100'}`}
+                      />
                       <input
                         id="firstName"
                         type="text"
                         value={firstName}
                         onChange={inviteToken ? undefined : (e) => setFirstName(e.target.value)}
                         readOnly={!!inviteToken}
-                        className={`w-full rounded-xl border border-white/12 py-2.5 pl-12 pr-4 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${inviteToken ? 'cursor-not-allowed bg-white/[0.03]' : 'bg-white'}`}
+                        className={`border-white/12 w-full rounded-xl border py-2.5 pl-12 pr-4 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${inviteToken ? 'cursor-not-allowed bg-white/[0.03]' : 'bg-white'}`}
                         required
                       />
                     </div>
@@ -658,7 +709,7 @@ export default function RegisterPage() {
                       value={lastName}
                       onChange={inviteToken ? undefined : (e) => setLastName(e.target.value)}
                       readOnly={!!inviteToken}
-                      className={`w-full rounded-xl border border-white/12 px-4 py-2.5 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${inviteToken ? 'cursor-not-allowed bg-white/[0.03]' : 'bg-white'}`}
+                      className={`border-white/12 w-full rounded-xl border px-4 py-2.5 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${inviteToken ? 'cursor-not-allowed bg-white/[0.03]' : 'bg-white'}`}
                       required
                     />
                   </div>
@@ -670,14 +721,16 @@ export default function RegisterPage() {
                     Email Address
                   </label>
                   <div className="relative">
-                    <Mail className={`absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/40 transition-opacity duration-200 ${email ? 'opacity-0' : 'opacity-100'}`} />
+                    <Mail
+                      className={`absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/40 transition-opacity duration-200 ${email ? 'opacity-0' : 'opacity-100'}`}
+                    />
                     <input
                       id="email"
                       type="email"
                       value={email}
                       onChange={inviteToken ? undefined : (e) => setEmail(e.target.value)}
                       readOnly={!!inviteToken}
-                      className={`w-full rounded-xl border border-white/12 py-2.5 pl-12 pr-4 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${inviteToken ? 'cursor-not-allowed bg-white/[0.03]' : 'bg-white'}`}
+                      className={`border-white/12 w-full rounded-xl border py-2.5 pl-12 pr-4 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${inviteToken ? 'cursor-not-allowed bg-white/[0.03]' : 'bg-white'}`}
                       required
                     />
                   </div>
@@ -689,7 +742,9 @@ export default function RegisterPage() {
                     Phone Number
                   </label>
                   <div className="relative">
-                    <Phone className={`absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/40 transition-opacity duration-200 ${phone ? 'opacity-0' : 'opacity-100'}`} />
+                    <Phone
+                      className={`absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/40 transition-opacity duration-200 ${phone ? 'opacity-0' : 'opacity-100'}`}
+                    />
                     <input
                       id="phone"
                       type="tel"
@@ -697,7 +752,7 @@ export default function RegisterPage() {
                       onChange={inviteToken ? undefined : handlePhoneChange}
                       placeholder="(555) 555-5555"
                       readOnly={!!inviteToken}
-                      className={`w-full rounded-xl border border-white/12 py-2.5 pl-12 pr-4 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${inviteToken ? 'cursor-not-allowed bg-white/[0.03]' : 'bg-white'}`}
+                      className={`border-white/12 w-full rounded-xl border py-2.5 pl-12 pr-4 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${inviteToken ? 'cursor-not-allowed bg-white/[0.03]' : 'bg-white'}`}
                       required
                     />
                   </div>
@@ -709,14 +764,16 @@ export default function RegisterPage() {
                     Date of Birth
                   </label>
                   <div className="relative">
-                    <Calendar className={`absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/40 transition-opacity duration-200 ${dob ? 'opacity-0' : 'opacity-100'}`} />
+                    <Calendar
+                      className={`absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/40 transition-opacity duration-200 ${dob ? 'opacity-0' : 'opacity-100'}`}
+                    />
                     <input
                       id="dob"
                       type="date"
                       value={dob}
                       onChange={inviteToken ? undefined : (e) => setDob(e.target.value)}
                       readOnly={!!inviteToken}
-                      className={`w-full rounded-xl border border-white/12 py-2.5 pl-12 pr-4 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${inviteToken ? 'cursor-not-allowed bg-white/[0.03]' : 'bg-white'}`}
+                      className={`border-white/12 w-full rounded-xl border py-2.5 pl-12 pr-4 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${inviteToken ? 'cursor-not-allowed bg-white/[0.03]' : 'bg-white'}`}
                       required
                     />
                   </div>
@@ -731,13 +788,15 @@ export default function RegisterPage() {
                     Password
                   </label>
                   <div className="relative">
-                    <Lock className={`absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/40 transition-opacity duration-200 ${password ? 'opacity-0' : 'opacity-100'}`} />
+                    <Lock
+                      className={`absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/40 transition-opacity duration-200 ${password ? 'opacity-0' : 'opacity-100'}`}
+                    />
                     <input
                       id="password"
                       type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full rounded-xl border border-white/12 bg-white/[0.06] py-2.5 pl-12 pr-12 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                      className="border-white/12 w-full rounded-xl border bg-white/[0.06] py-2.5 pl-12 pr-12 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                       required
                     />
                     <button
@@ -751,19 +810,24 @@ export default function RegisterPage() {
 
                   {/* Password Requirements — fixed height to prevent CLS */}
                   <div className="mt-2 min-h-[110px] space-y-1">
-                    {password ? passwordRequirements.map((req, i) => (
-                      <div key={i} className="flex items-center gap-2 text-xs">
-                        {req.met ? (
-                          <Check className="h-3.5 w-3.5 text-emerald-500" />
-                        ) : (
-                          <div className="h-3.5 w-3.5 rounded-full border border-white/30" />
-                        )}
-                        <span className={req.met ? 'text-emerald-400' : 'text-white/50'}>
-                          {req.label}
-                        </span>
-                      </div>
-                    )) : (
-                      <p className="text-xs text-white/40">Must be at least 12 characters with uppercase, lowercase, number, and special character</p>
+                    {password ? (
+                      passwordRequirements.map((req, i) => (
+                        <div key={i} className="flex items-center gap-2 text-xs">
+                          {req.met ? (
+                            <Check className="h-3.5 w-3.5 text-emerald-500" />
+                          ) : (
+                            <div className="h-3.5 w-3.5 rounded-full border border-white/30" />
+                          )}
+                          <span className={req.met ? 'text-emerald-400' : 'text-white/50'}>
+                            {req.label}
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-xs text-white/40">
+                        Must be at least 12 characters with uppercase, lowercase, number, and
+                        special character
+                      </p>
                     )}
                   </div>
                 </div>
@@ -800,7 +864,9 @@ export default function RegisterPage() {
                       )}
                     </button>
                   </div>
-                  <p className={`mt-1 text-xs text-red-500 transition-opacity duration-150 ${confirmPassword && !passwordsMatch ? 'opacity-100' : 'pointer-events-none h-0 overflow-hidden opacity-0'}`}>
+                  <p
+                    className={`mt-1 text-xs text-red-500 transition-opacity duration-150 ${confirmPassword && !passwordsMatch ? 'opacity-100' : 'pointer-events-none h-0 overflow-hidden opacity-0'}`}
+                  >
                     Passwords do not match
                   </p>
                 </div>
@@ -858,7 +924,9 @@ export default function RegisterPage() {
 
                 <div
                   className={`flex items-start gap-3 rounded-xl border transition-all duration-150 ${
-                    error ? 'border-red-500/30 bg-red-900/30 backdrop-blur-sm p-4 opacity-100' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                    error
+                      ? 'border-red-500/30 bg-red-900/30 p-4 opacity-100 backdrop-blur-sm'
+                      : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
                   }`}
                   aria-live="polite"
                 >
@@ -925,7 +993,7 @@ export default function RegisterPage() {
                   <p className="mt-1 font-semibold text-emerald-400">{email}</p>
                 </div>
 
-                <div className="rounded-xl bg-white/[0.06] backdrop-blur-sm border border-white/10 p-4 text-left">
+                <div className="rounded-xl border border-white/10 bg-white/[0.06] p-4 text-left backdrop-blur-sm">
                   <h3 className="mb-2 font-medium text-white">Next Steps:</h3>
                   <ol className="space-y-2 text-sm text-white/70">
                     <li className="flex items-start gap-2">
@@ -993,15 +1061,41 @@ export default function RegisterPage() {
         <div className="mt-8 p-6 text-center">
           <div className="mb-3 flex items-center justify-center gap-6 text-white/35">
             <span className="flex items-center gap-1.5 text-xs">
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+              <svg
+                className="h-3.5 w-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <rect x="3" y="11" width="18" height="11" rx="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
               Encrypted
             </span>
             <span className="flex items-center gap-1.5 text-xs">
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
+              <svg
+                className="h-3.5 w-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              </svg>
               HIPAA Compliant
             </span>
             <span className="flex items-center gap-1.5 text-xs">
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+              <svg
+                className="h-3.5 w-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                <polyline points="22 4 12 14.01 9 11.01" />
+              </svg>
               SOC 2
             </span>
           </div>

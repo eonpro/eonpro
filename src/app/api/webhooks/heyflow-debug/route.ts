@@ -38,7 +38,6 @@ export async function POST(request: NextRequest) {
       logger.debug('\nFound submissionId (alternative format)');
     }
   } catch (e: unknown) {
-
     logger.debug('\n✗ Body is not valid JSON');
   }
 

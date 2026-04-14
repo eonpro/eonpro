@@ -663,7 +663,12 @@ export async function sendSMS(message: SMSMessage): Promise<SMSResponse> {
       },
     };
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? (error instanceof Error ? error.message : String(error)) : 'Unknown error';
+    const errorMessage =
+      error instanceof Error
+        ? error instanceof Error
+          ? error.message
+          : String(error)
+        : 'Unknown error';
     const errorCode = (error as any).code || (error as any).errorCode;
 
     logger.error('[TWILIO_SMS_ERROR]', { error: errorMessage, code: errorCode });
@@ -683,7 +688,8 @@ export async function sendSMS(message: SMSMessage): Promise<SMSResponse> {
 
     return {
       success: false,
-      error: (error instanceof Error ? error.message : String(error)) || TWILIO_ERRORS.MESSAGE_FAILED,
+      error:
+        (error instanceof Error ? error.message : String(error)) || TWILIO_ERRORS.MESSAGE_FAILED,
       errorCode,
       details: error,
     };
@@ -751,7 +757,12 @@ export async function sendAppointmentReminder(
       templateType: 'APPOINTMENT_REMINDER',
     });
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? (error instanceof Error ? error.message : String(error)) : 'Unknown error';
+    const errorMessage =
+      error instanceof Error
+        ? error instanceof Error
+          ? error.message
+          : String(error)
+        : 'Unknown error';
     logger.error('[APPOINTMENT_REMINDER_ERROR]', { error, patientId });
     return {
       success: false,
@@ -805,7 +816,12 @@ export async function sendPrescriptionReady(
       templateType: 'PRESCRIPTION_READY',
     });
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? (error instanceof Error ? error.message : String(error)) : 'Unknown error';
+    const errorMessage =
+      error instanceof Error
+        ? error instanceof Error
+          ? error.message
+          : String(error)
+        : 'Unknown error';
     logger.error('[PRESCRIPTION_READY_ERROR]', { error, patientId });
     return {
       success: false,
@@ -853,7 +869,12 @@ export async function sendLabResultsReady(patientId: number): Promise<SMSRespons
       templateType: 'LAB_RESULTS_READY',
     });
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? (error instanceof Error ? error.message : String(error)) : 'Unknown error';
+    const errorMessage =
+      error instanceof Error
+        ? error instanceof Error
+          ? error.message
+          : String(error)
+        : 'Unknown error';
     logger.error('[LAB_RESULTS_ERROR]', { error, patientId });
     return {
       success: false,

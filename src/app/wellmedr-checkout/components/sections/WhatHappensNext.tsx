@@ -2,12 +2,12 @@ import WhatHappensNextItem from '../WhatHappensNextItem';
 
 export default function WhatHappensNext() {
   return (
-    <div className="card flex flex-col gap-6 justify-center items-center">
-      <h3 className="text-center card-title">What happens next?</h3>
+    <div className="card flex flex-col items-center justify-center gap-6">
+      <h3 className="card-title text-center">What happens next?</h3>
 
-      <div className="flex gap-6 max-w-2xl">
-        <div className="w-2 rounded-smooth bg-rainbow-to-b" />
-        <ul className="max-w-2xl flex flex-col gap-8">
+      <div className="flex max-w-2xl gap-6">
+        <div className="rounded-smooth bg-rainbow-to-b w-2" />
+        <ul className="flex max-w-2xl flex-col gap-8">
           <WhatHappensNextItem
             stepNo={1}
             title="Physician Review"
@@ -37,9 +37,8 @@ export default function WhatHappensNext() {
                 <span className="hidden md:inline">
                   <br />
                 </span>{' '}
-                You'll have{' '}
-                <span className="text-primary">unlimited, 24/7 access</span> to
-                our care team and licensed clinicians -{' '}
+                You'll have <span className="text-primary">unlimited, 24/7 access</span> to our care
+                team and licensed clinicians -{' '}
                 <span className="hidden md:inline">
                   <br />
                 </span>{' '}

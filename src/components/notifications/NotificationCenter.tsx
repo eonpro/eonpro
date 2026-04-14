@@ -308,7 +308,8 @@ export default function NotificationCenter({
 
     if (searchQuery) {
       result = result.filter(
-        (n) => normalizedIncludes(n.title, searchQuery) || normalizedIncludes(n.message, searchQuery)
+        (n) =>
+          normalizedIncludes(n.title, searchQuery) || normalizedIncludes(n.message, searchQuery)
       );
     }
 

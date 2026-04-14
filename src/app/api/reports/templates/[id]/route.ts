@@ -31,17 +31,33 @@ async function handleGet(_req: NextRequest, user: AuthUser, params: { id: string
     const id = parseInt(params.id, 10);
     if (isNaN(id)) return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
 
-    const fetch = async () => prisma.reportTemplate.findUnique({
-      where: { id },
-      include: {
-        createdBy: { select: { id: true, firstName: true, lastName: true, email: true } },
-        schedules: { select: { id: true, frequency: true, exportFormat: true, recipients: true, isActive: true, nextRunAt: true, lastRunAt: true } },
-      },
-    });
+    const fetch = async () =>
+      prisma.reportTemplate.findUnique({
+        where: { id },
+        include: {
+          createdBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+          schedules: {
+            select: {
+              id: true,
+              frequency: true,
+              exportFormat: true,
+              recipients: true,
+              isActive: true,
+              nextRunAt: true,
+              lastRunAt: true,
+            },
+          },
+        },
+      });
 
     const template = user.role === 'super_admin' ? await withoutClinicFilter(fetch) : await fetch();
     if (!template) return NextResponse.json({ error: 'Template not found' }, { status: 404 });
-    if (user.role !== 'super_admin' && !template.isSystemTemplate && !template.isShared && template.createdById !== user.id) {
+    if (
+      user.role !== 'super_admin' &&
+      !template.isSystemTemplate &&
+      !template.isShared &&
+      template.createdById !== user.id
+    ) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
@@ -58,12 +74,18 @@ async function handlePatch(req: NextRequest, user: AuthUser, params: { id: strin
 
     const body = await req.json();
     const parsed = patchSchema.safeParse(body);
-    if (!parsed.success) return NextResponse.json({ error: 'Validation failed', details: parsed.error.flatten() }, { status: 400 });
+    if (!parsed.success)
+      return NextResponse.json(
+        { error: 'Validation failed', details: parsed.error.flatten() },
+        { status: 400 }
+      );
 
     const existing = await prisma.reportTemplate.findUnique({ where: { id } });
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    if (existing.isSystemTemplate && user.role !== 'super_admin') return NextResponse.json({ error: 'Cannot modify system templates' }, { status: 403 });
-    if (user.role !== 'super_admin' && existing.createdById !== user.id) return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    if (existing.isSystemTemplate && user.role !== 'super_admin')
+      return NextResponse.json({ error: 'Cannot modify system templates' }, { status: 403 });
+    if (user.role !== 'super_admin' && existing.createdById !== user.id)
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
 
     const updated = await prisma.reportTemplate.update({
       where: { id },
@@ -72,7 +94,9 @@ async function handlePatch(req: NextRequest, user: AuthUser, params: { id: strin
 
     return NextResponse.json({ success: true, template: updated });
   } catch (error) {
-    return handleApiError(error, { context: { route: `PATCH /api/reports/templates/${params.id}` } });
+    return handleApiError(error, {
+      context: { route: `PATCH /api/reports/templates/${params.id}` },
+    });
   }
 }
 
@@ -83,13 +107,17 @@ async function handleDelete(_req: NextRequest, user: AuthUser, params: { id: str
 
     const existing = await prisma.reportTemplate.findUnique({ where: { id } });
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    if (existing.isSystemTemplate) return NextResponse.json({ error: 'Cannot delete system templates' }, { status: 403 });
-    if (user.role !== 'super_admin' && existing.createdById !== user.id) return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    if (existing.isSystemTemplate)
+      return NextResponse.json({ error: 'Cannot delete system templates' }, { status: 403 });
+    if (user.role !== 'super_admin' && existing.createdById !== user.id)
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
 
     await prisma.reportTemplate.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error) {
-    return handleApiError(error, { context: { route: `DELETE /api/reports/templates/${params.id}` } });
+    return handleApiError(error, {
+      context: { route: `DELETE /api/reports/templates/${params.id}` },
+    });
   }
 }
 

@@ -85,20 +85,20 @@ export function ChronicConditionsDetailStep({
   }, [responses]);
 
   const toggleCondition = useCallback((conditionId: string) => {
-    setSelectedConditions(prev => {
+    setSelectedConditions((prev) => {
       let newSelection: string[];
-      
+
       if (conditionId === 'none') {
         newSelection = prev.includes('none') ? [] : ['none'];
       } else {
-        const withoutNone = prev.filter(c => c !== 'none');
+        const withoutNone = prev.filter((c) => c !== 'none');
         if (prev.includes(conditionId)) {
-          newSelection = withoutNone.filter(c => c !== conditionId);
+          newSelection = withoutNone.filter((c) => c !== conditionId);
         } else {
           newSelection = [...withoutNone, conditionId];
         }
       }
-      
+
       return newSelection;
     });
   }, []);
@@ -108,7 +108,7 @@ export function ChronicConditionsDetailStep({
     if (selectedConditions.includes('other')) {
       setResponse('chronic_conditions_other', otherText);
     }
-    
+
     router.push(`${basePath}/${nextStep}`);
   }, [selectedConditions, otherText, setResponse, basePath, nextStep, router]);
 
@@ -120,25 +120,23 @@ export function ChronicConditionsDetailStep({
 
   if (!mounted) {
     return (
-      <div className="flex-1 flex items-center justify-center">
+      <div className="flex flex-1 items-center justify-center">
         <div className="animate-pulse text-[#413d3d]">Loading...</div>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 flex flex-col px-6 lg:px-8 pt-8 lg:pt-12 max-w-md lg:max-w-2xl mx-auto w-full pb-32">
+    <div className="mx-auto flex w-full max-w-md flex-1 flex-col px-6 pb-32 pt-8 lg:max-w-2xl lg:px-8 lg:pt-12">
       <div className="space-y-6">
-        <h1 className="text-[22px] lg:text-[28px] font-semibold leading-tight text-[#413d3d]">
+        <h1 className="text-[22px] font-semibold leading-tight text-[#413d3d] lg:text-[28px]">
           {isSpanish
             ? '¿Qué tipo de condición o enfermedad crónica padeces?'
             : 'What type of chronic condition or disease do you have?'}
         </h1>
 
         <p className="text-[14px] text-[#666]">
-          {isSpanish
-            ? 'Selecciona todas las que apliquen.'
-            : 'Select all that apply.'}
+          {isSpanish ? 'Selecciona todas las que apliquen.' : 'Select all that apply.'}
         </p>
 
         <div className="space-y-3">
@@ -147,7 +145,7 @@ export function ChronicConditionsDetailStep({
               key={option.id}
               type="button"
               onClick={() => toggleCondition(option.id)}
-              className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
+              className={`w-full rounded-xl border-2 p-4 text-left transition-all ${
                 selectedConditions.includes(option.id)
                   ? 'border-[#4fa87f] bg-[#f0feab]'
                   : 'border-gray-200 bg-white hover:border-gray-300'
@@ -155,15 +153,25 @@ export function ChronicConditionsDetailStep({
             >
               <div className="flex items-center gap-3">
                 <div
-                  className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 border-2 ${
+                  className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded border-2 ${
                     selectedConditions.includes(option.id)
                       ? 'border-[#413d3d] bg-[#413d3d]'
                       : 'border-gray-300 bg-white'
                   }`}
                 >
                   {selectedConditions.includes(option.id) && (
-                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                    <svg
+                      className="h-3 w-3 text-white"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2.5}
+                        d="M5 13l4 4L19 7"
+                      />
                     </svg>
                   )}
                 </div>
@@ -180,21 +188,21 @@ export function ChronicConditionsDetailStep({
               value={otherText}
               onChange={(e) => setOtherText(e.target.value)}
               placeholder={isSpanish ? 'Por favor especifica...' : 'Please specify...'}
-              className="w-full p-4 border-2 border-gray-200 rounded-xl text-[15px] focus:border-[var(--intake-accent,#4fa87f)] focus:outline-none"
+              className="w-full rounded-xl border-2 border-gray-200 p-4 text-[15px] focus:border-[var(--intake-accent,#4fa87f)] focus:outline-none"
             />
           </div>
         )}
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-white via-white to-transparent">
-        <div className="max-w-md mx-auto">
+      <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-white via-white to-transparent p-6">
+        <div className="mx-auto max-w-md">
           <button
             onClick={handleContinue}
             disabled={selectedConditions.length === 0}
-            className={`w-full py-4 rounded-full text-[16px] font-semibold transition-all ${
+            className={`w-full rounded-full py-4 text-[16px] font-semibold transition-all ${
               selectedConditions.length > 0
                 ? 'bg-[#413d3d] text-white hover:bg-[#2d2a2a]'
-                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                : 'cursor-not-allowed bg-gray-200 text-gray-400'
             }`}
           >
             {isSpanish ? 'Continuar' : 'Continue'}

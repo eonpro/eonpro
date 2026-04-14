@@ -1,16 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import {
-  FileText,
-  Upload,
-  Download,
-  Eye,
-  Trash2,
-  FolderOpen,
-  Filter,
-  Clock,
-} from 'lucide-react';
+import { FileText, Upload, Download, Eye, Trash2, FolderOpen, Filter, Clock } from 'lucide-react';
 import { normalizedIncludes } from '@/lib/utils/search';
 
 interface Document {

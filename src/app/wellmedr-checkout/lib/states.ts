@@ -169,9 +169,7 @@ export type StateName = keyof typeof STATE_NAME_TO_ABBREVIATION;
  * Convert a full state name to its abbreviation.
  * If the input is already an abbreviation or not found, returns the input as-is.
  */
-export function stateNameToAbbreviation(
-  stateName: string,
-): StateAbbreviation | string {
+export function stateNameToAbbreviation(stateName: string): StateAbbreviation | string {
   // First check if it's already an abbreviation
   const abbreviations = Object.values(STATE_NAME_TO_ABBREVIATION);
   if (abbreviations.includes(stateName as StateAbbreviation)) {

@@ -43,9 +43,17 @@ export default function PatientProfileView({ patient, documents }: Props) {
   const getTagColor = (tag: string) => {
     const colors = [
       { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700' },
-      { bg: 'bg-[var(--brand-primary-light)]', border: 'border-[var(--brand-primary-medium)]', text: 'text-[var(--brand-primary)]' },
+      {
+        bg: 'bg-[var(--brand-primary-light)]',
+        border: 'border-[var(--brand-primary-medium)]',
+        text: 'text-[var(--brand-primary)]',
+      },
       { bg: 'bg-pink-50', border: 'border-pink-200', text: 'text-pink-700' },
-      { bg: 'bg-[var(--brand-primary-light)]', border: 'border-[var(--brand-primary-medium)]', text: 'text-[var(--brand-primary)]' },
+      {
+        bg: 'bg-[var(--brand-primary-light)]',
+        border: 'border-[var(--brand-primary-medium)]',
+        text: 'text-[var(--brand-primary)]',
+      },
       { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-700' },
       { bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-700' },
       { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700' },
@@ -166,9 +174,7 @@ export default function PatientProfileView({ patient, documents }: Props) {
                 const hasZip = patient.zip && patient.zip.trim() !== '';
 
                 if (!hasAddr1 && !hasCity && !hasState && !hasZip) {
-                  return (
-                    <p className="mt-1 text-sm text-gray-400 italic">Not provided</p>
-                  );
+                  return <p className="mt-1 text-sm italic text-gray-400">Not provided</p>;
                 }
 
                 const addr1ContainsCityOrState =
@@ -186,15 +192,15 @@ export default function PatientProfileView({ patient, documents }: Props) {
                   const stateZip = [
                     hasState ? patient.state.trim() : '',
                     hasZip ? patient.zip.trim() : '',
-                  ].filter(Boolean).join(' ');
+                  ]
+                    .filter(Boolean)
+                    .join(' ');
                   if (stateZip) parts.push(stateZip);
                   fullAddress = parts.join(', ');
                 }
 
                 if (!fullAddress) {
-                  return (
-                    <p className="mt-1 text-sm text-gray-400 italic">Not provided</p>
-                  );
+                  return <p className="mt-1 text-sm italic text-gray-400">Not provided</p>;
                 }
 
                 const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`;

@@ -344,10 +344,8 @@ export async function POST(req: NextRequest) {
 
     if (action === 'sync_from_stripe') {
       // Bulk sync missing Stripe payments into the platform (for EonMeds 10k+ backlog)
-      const {
-        processStripePayment,
-        extractPaymentDataFromPaymentIntent,
-      } = await import('@/services/stripe/paymentMatchingService');
+      const { processStripePayment, extractPaymentDataFromPaymentIntent } =
+        await import('@/services/stripe/paymentMatchingService');
 
       const days = body.days ?? 30;
       const batchSize = Math.min(body.batchSize ?? 50, 100);

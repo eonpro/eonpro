@@ -121,17 +121,9 @@ export default function AdminLayout({ children, userData }: AdminLayoutProps) {
         <div className="mb-6 flex items-center justify-center px-4">
           <Link href="/dashboard">
             {sidebarExpanded ? (
-              <img
-                src={EONPRO_LOGO}
-                alt="EONPRO"
-                className="h-10 w-auto"
-              />
+              <img src={EONPRO_LOGO} alt="EONPRO" className="h-10 w-auto" />
             ) : (
-              <img
-                src={EONPRO_ICON}
-                alt="EONPRO"
-                className="h-10 w-10 object-contain"
-              />
+              <img src={EONPRO_ICON} alt="EONPRO" className="h-10 w-10 object-contain" />
             )}
           </Link>
         </div>

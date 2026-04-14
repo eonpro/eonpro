@@ -56,11 +56,7 @@ const queryBudgetStorage = new AsyncLocalStorage<QueryBudgetContext>();
  * Run a function within a query budget context.
  * Called by auth middleware alongside request context.
  */
-export function runWithQueryBudget<T>(
-  route: string,
-  requestId: string,
-  fn: () => T
-): T {
+export function runWithQueryBudget<T>(route: string, requestId: string, fn: () => T): T {
   const ctx: QueryBudgetContext = {
     queryCount: 0,
     cumulativeDbTimeMs: 0,
@@ -132,11 +128,13 @@ export function recordQuery(
  * Get the current query budget metrics for the active request.
  * Returns undefined if called outside a request scope.
  */
-export function getQueryBudgetMetrics(): {
-  queryCount: number;
-  cumulativeDbTimeMs: number;
-  route: string;
-} | undefined {
+export function getQueryBudgetMetrics():
+  | {
+      queryCount: number;
+      cumulativeDbTimeMs: number;
+      route: string;
+    }
+  | undefined {
   const ctx = queryBudgetStorage.getStore();
   if (!ctx) return undefined;
   return {
@@ -156,7 +154,8 @@ function emitRequestSummary(ctx: QueryBudgetContext): void {
   const level =
     ctx.queryCount >= QUERY_ERROR_THRESHOLD || ctx.cumulativeDbTimeMs >= CUMULATIVE_DB_TIME_ERROR_MS
       ? 'error'
-      : ctx.queryCount >= QUERY_WARN_THRESHOLD || ctx.cumulativeDbTimeMs >= CUMULATIVE_DB_TIME_WARN_MS
+      : ctx.queryCount >= QUERY_WARN_THRESHOLD ||
+          ctx.cumulativeDbTimeMs >= CUMULATIVE_DB_TIME_WARN_MS
         ? 'warn'
         : 'info';
 

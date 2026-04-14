@@ -43,7 +43,10 @@ export async function GET(request: NextRequest) {
       results.tests.databaseConnection = { status: 'PASS', message: 'Database connected' };
       results.summary.passed++;
     } catch (error: unknown) {
-      results.tests.databaseConnection = { status: 'FAIL', message: error instanceof Error ? error.message : String(error) };
+      results.tests.databaseConnection = {
+        status: 'FAIL',
+        message: error instanceof Error ? error.message : String(error),
+      };
       results.summary.failed++;
     }
 
@@ -56,7 +59,10 @@ export async function GET(request: NextRequest) {
       };
       results.summary.passed++;
     } catch (error: unknown) {
-      results.tests.clinicTable = { status: 'FAIL', message: error instanceof Error ? error.message : String(error) };
+      results.tests.clinicTable = {
+        status: 'FAIL',
+        message: error instanceof Error ? error.message : String(error),
+      };
       results.summary.failed++;
     }
 
@@ -96,7 +102,10 @@ export async function GET(request: NextRequest) {
       };
       results.summary.passed++;
     } catch (error: unknown) {
-      results.tests.clinicList = { status: 'FAIL', message: error instanceof Error ? error.message : String(error) };
+      results.tests.clinicList = {
+        status: 'FAIL',
+        message: error instanceof Error ? error.message : String(error),
+      };
       results.summary.failed++;
     }
 
@@ -280,7 +289,10 @@ export async function GET(request: NextRequest) {
           results.summary.failed++;
         }
       } catch (error: unknown) {
-        results.tests.clinicExists = { status: 'FAIL', message: error instanceof Error ? error.message : String(error) };
+        results.tests.clinicExists = {
+          status: 'FAIL',
+          message: error instanceof Error ? error.message : String(error),
+        };
         results.summary.failed++;
       }
     }
@@ -374,7 +386,10 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: unknown) {
     return NextResponse.json(
-      { error: 'Failed to create test clinic', message: error instanceof Error ? error.message : String(error) },
+      {
+        error: 'Failed to create test clinic',
+        message: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 }
     );
   }

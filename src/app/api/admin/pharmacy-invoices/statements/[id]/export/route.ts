@@ -24,7 +24,8 @@ export const GET = withAuth(
       if (isNaN(stmtId)) return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
 
       const clinicId = user.clinicId;
-      if (!clinicId) return NextResponse.json({ error: 'Clinic context required' }, { status: 400 });
+      if (!clinicId)
+        return NextResponse.json({ error: 'Clinic context required' }, { status: 400 });
 
       const csv = await exportStatementCsv(stmtId, clinicId);
       if (!csv) throw new NotFoundError('Statement not found');

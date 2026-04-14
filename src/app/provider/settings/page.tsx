@@ -100,7 +100,10 @@ export default function ProviderSettingsPage() {
     }
     try {
       const data = safeParseJsonString<Record<string, unknown>>(user);
-      if (!data) { router.push('/login'); return; }
+      if (!data) {
+        router.push('/login');
+        return;
+      }
       if (String(data?.role ?? '').toLowerCase() !== 'provider') {
         router.push('/login');
         return;

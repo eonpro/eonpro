@@ -26,7 +26,9 @@ import { normalizedIncludes } from '@/lib/utils/search';
 
 function useLandingPageUrl() {
   const [origin, setOrigin] = useState('');
-  useEffect(() => { setOrigin(window.location.origin); }, []);
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
   return (refCode: string) => `${origin}/affiliate/${encodeURIComponent(refCode)}`;
 }
 
@@ -169,9 +171,7 @@ export default function AdminAffiliatesPage() {
 
       const result = await response.json();
       const createdRefCode =
-        createForm.initialRefCode ||
-        result?.affiliate?.refCodes?.[0]?.refCode ||
-        '';
+        createForm.initialRefCode || result?.affiliate?.refCodes?.[0]?.refCode || '';
 
       // Show success state with URL if ref code exists
       if (createdRefCode) {
@@ -438,7 +438,10 @@ export default function AdminAffiliatesPage() {
                       </span>
                     )}
                     {affiliate.refCodes.length > 0 && (
-                      <p className="truncate text-[10px] text-gray-400" style={{ maxWidth: '200px' }}>
+                      <p
+                        className="truncate text-[10px] text-gray-400"
+                        style={{ maxWidth: '200px' }}
+                      >
                         {buildLandingPageUrl(affiliate.refCodes[0].refCode)}
                       </p>
                     )}
@@ -490,9 +493,16 @@ export default function AdminAffiliatesPage() {
                 <td className="whitespace-nowrap px-6 py-4">
                   <div className="text-sm">
                     <div className="flex items-center gap-3">
-                      <span className="text-gray-500" title="Clicks">{affiliate.stats.totalClicks ?? 0} <span className="text-xs">clicks</span></span>
-                      <span className="text-violet-600" title="Intakes">{affiliate.stats.totalIntakes ?? 0} <span className="text-xs">intakes</span></span>
-                      <span className="text-green-600" title="Conversions">{affiliate.stats.totalPaymentConversions ?? 0} <span className="text-xs">conv</span></span>
+                      <span className="text-gray-500" title="Clicks">
+                        {affiliate.stats.totalClicks ?? 0} <span className="text-xs">clicks</span>
+                      </span>
+                      <span className="text-violet-600" title="Intakes">
+                        {affiliate.stats.totalIntakes ?? 0} <span className="text-xs">intakes</span>
+                      </span>
+                      <span className="text-green-600" title="Conversions">
+                        {affiliate.stats.totalPaymentConversions ?? 0}{' '}
+                        <span className="text-xs">conv</span>
+                      </span>
                     </div>
                     <p className="mt-0.5 text-gray-500">
                       {formatCurrency(affiliate.stats.totalCommissionCents)} earned
@@ -531,7 +541,6 @@ export default function AdminAffiliatesPage() {
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6">
-
             {/* ---- Success State ---- */}
             {createSuccess ? (
               <div className="space-y-5 text-center">
@@ -654,9 +663,7 @@ export default function AdminAffiliatesPage() {
                       <input
                         type="text"
                         value={createForm.lastName}
-                        onChange={(e) =>
-                          setCreateForm((f) => ({ ...f, lastName: e.target.value }))
-                        }
+                        onChange={(e) => setCreateForm((f) => ({ ...f, lastName: e.target.value }))}
                         className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
                       />
                     </div>
@@ -668,16 +675,16 @@ export default function AdminAffiliatesPage() {
                       Landing Page URL Slug
                     </label>
                     <div className="mt-1 flex items-center rounded-lg border border-gray-300 focus-within:border-[var(--brand-primary)] focus-within:ring-1 focus-within:ring-[var(--brand-primary)]">
-                      <span className="flex-shrink-0 pl-3 text-sm text-gray-400">
-                        /affiliate/
-                      </span>
+                      <span className="flex-shrink-0 pl-3 text-sm text-gray-400">/affiliate/</span>
                       <input
                         type="text"
                         value={createForm.initialRefCode}
                         onChange={(e) =>
                           setCreateForm((f) => ({
                             ...f,
-                            initialRefCode: e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, ''),
+                            initialRefCode: e.target.value
+                              .toUpperCase()
+                              .replace(/[^A-Z0-9_-]/g, ''),
                           }))
                         }
                         placeholder="PARTNER_ABC"

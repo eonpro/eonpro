@@ -9,24 +9,26 @@ import { logger } from '@/lib/logger';
 function sanitizeForPdf(text: string): string {
   if (!text) return text;
 
-  return text
-    // Hawaiian ʻokina and similar modifier letters → apostrophe
-    .replace(/[\u02BB\u02BC\u02BD\u02BE\u02BF]/g, "'")
-    // Curly single quotes and prime marks → apostrophe
-    .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g, "'")
-    // Curly double quotes → straight double quote
-    .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"')
-    // En-dash, em-dash → hyphen
-    .replace(/[\u2013\u2014]/g, '-')
-    // Horizontal ellipsis → three dots
-    .replace(/\u2026/g, '...')
-    // Non-breaking space → regular space
-    .replace(/\u00A0/g, ' ')
-    // Bullet → asterisk
-    .replace(/\u2022/g, '*')
-    // Any remaining characters outside WinAnsi range (0x00-0xFF minus control chars)
-    // that aren't covered above — strip them to avoid encoding crashes
-    .replace(/[^\x20-\x7E\xA0-\xFF]/g, '');
+  return (
+    text
+      // Hawaiian ʻokina and similar modifier letters → apostrophe
+      .replace(/[\u02BB\u02BC\u02BD\u02BE\u02BF]/g, "'")
+      // Curly single quotes and prime marks → apostrophe
+      .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g, "'")
+      // Curly double quotes → straight double quote
+      .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"')
+      // En-dash, em-dash → hyphen
+      .replace(/[\u2013\u2014]/g, '-')
+      // Horizontal ellipsis → three dots
+      .replace(/\u2026/g, '...')
+      // Non-breaking space → regular space
+      .replace(/\u00A0/g, ' ')
+      // Bullet → asterisk
+      .replace(/\u2022/g, '*')
+      // Any remaining characters outside WinAnsi range (0x00-0xFF minus control chars)
+      // that aren't covered above — strip them to avoid encoding crashes
+      .replace(/[^\x20-\x7E\xA0-\xFF]/g, '')
+  );
 }
 
 // Default values - used as fallback if clinic-specific values not provided
@@ -242,7 +244,6 @@ export async function generatePrescriptionPDF(data: PrescriptionPdfData) {
           height: 50,
         });
       } catch (err: unknown) {
-        
         logger.error('Failed to embed signature image:', err);
       }
     }

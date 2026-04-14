@@ -25,12 +25,12 @@ async function findSalary(id: number, user: AuthUser) {
   const fetcher = () =>
     prisma.employeeSalary.findUnique({
       where: { id },
-      include: { user: { select: { id: true, firstName: true, lastName: true, email: true, role: true } } },
+      include: {
+        user: { select: { id: true, firstName: true, lastName: true, email: true, role: true } },
+      },
     });
 
-  const salary = user.role === 'super_admin'
-    ? await withoutClinicFilter(fetcher)
-    : await fetcher();
+  const salary = user.role === 'super_admin' ? await withoutClinicFilter(fetcher) : await fetcher();
 
   if (!salary) return null;
   if (user.role !== 'super_admin' && salary.clinicId !== user.clinicId) return null;
@@ -54,12 +54,17 @@ export const PATCH = withAuth(
       const body = await req.json();
       const parsed = patchSchema.safeParse(body);
       if (!parsed.success) {
-        return NextResponse.json({ error: 'Validation failed', details: parsed.error.flatten() }, { status: 400 });
+        return NextResponse.json(
+          { error: 'Validation failed', details: parsed.error.flatten() },
+          { status: 400 }
+        );
       }
 
       const data: Record<string, any> = {};
-      if (parsed.data.weeklyBasePayCents !== undefined) data.weeklyBasePayCents = parsed.data.weeklyBasePayCents;
-      if (parsed.data.hourlyRateCents !== undefined) data.hourlyRateCents = parsed.data.hourlyRateCents;
+      if (parsed.data.weeklyBasePayCents !== undefined)
+        data.weeklyBasePayCents = parsed.data.weeklyBasePayCents;
+      if (parsed.data.hourlyRateCents !== undefined)
+        data.hourlyRateCents = parsed.data.hourlyRateCents;
       if (parsed.data.notes !== undefined) data.notes = parsed.data.notes;
 
       if (Object.keys(data).length === 0) {
@@ -72,9 +77,10 @@ export const PATCH = withAuth(
           data,
         });
 
-      const updated = user.role === 'super_admin'
-        ? await withoutClinicFilter(updater)
-        : await runWithClinicContext(existing.clinicId, updater);
+      const updated =
+        user.role === 'super_admin'
+          ? await withoutClinicFilter(updater)
+          : await runWithClinicContext(existing.clinicId, updater);
 
       logger.info('[EmployeeSalaries] Updated', {
         salaryId,
@@ -90,7 +96,9 @@ export const PATCH = withAuth(
           id: updated.id,
           clinicId: updated.clinicId,
           userId: updated.userId,
-          userName: `${existing.user?.firstName || ''} ${existing.user?.lastName || ''}`.trim() || existing.user?.email,
+          userName:
+            `${existing.user?.firstName || ''} ${existing.user?.lastName || ''}`.trim() ||
+            existing.user?.email,
           userEmail: existing.user?.email,
           userRole: existing.user?.role,
           weeklyBasePayCents: updated.weeklyBasePayCents,
@@ -101,7 +109,9 @@ export const PATCH = withAuth(
         },
       });
     } catch (error) {
-      logger.error('[EmployeeSalaries PATCH]', { error: error instanceof Error ? error.message : 'Unknown' });
+      logger.error('[EmployeeSalaries PATCH]', {
+        error: error instanceof Error ? error.message : 'Unknown',
+      });
       return NextResponse.json({ error: 'Failed to update salary' }, { status: 500 });
     }
   },
@@ -141,7 +151,9 @@ export const DELETE = withAuth(
 
       return NextResponse.json({ success: true });
     } catch (error) {
-      logger.error('[EmployeeSalaries DELETE]', { error: error instanceof Error ? error.message : 'Unknown' });
+      logger.error('[EmployeeSalaries DELETE]', {
+        error: error instanceof Error ? error.message : 'Unknown',
+      });
       return NextResponse.json({ error: 'Failed to remove salary' }, { status: 500 });
     }
   },

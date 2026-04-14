@@ -154,11 +154,14 @@ export function checkBlobSelection(
 
   // If there's no select (loading all fields), the data blob is included implicitly
   if (!obj.select) {
-    logger.warn('[Guardrail] PatientDocument.findMany without select — blob data implicitly loaded', {
-      model,
-      action,
-      suggestion: 'Add explicit select to exclude patientDocument.data in list queries',
-    });
+    logger.warn(
+      '[Guardrail] PatientDocument.findMany without select — blob data implicitly loaded',
+      {
+        model,
+        action,
+        suggestion: 'Add explicit select to exclude patientDocument.data in list queries',
+      }
+    );
     return false;
   }
 

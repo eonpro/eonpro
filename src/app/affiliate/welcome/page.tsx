@@ -89,9 +89,56 @@ const PASSWORD_CHECKS: PasswordCheck[] = [
 ];
 
 const US_STATES = [
-  'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS',
-  'KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY',
-  'NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY',
+  'AL',
+  'AK',
+  'AZ',
+  'AR',
+  'CA',
+  'CO',
+  'CT',
+  'DE',
+  'FL',
+  'GA',
+  'HI',
+  'ID',
+  'IL',
+  'IN',
+  'IA',
+  'KS',
+  'KY',
+  'LA',
+  'ME',
+  'MD',
+  'MA',
+  'MI',
+  'MN',
+  'MS',
+  'MO',
+  'MT',
+  'NE',
+  'NV',
+  'NH',
+  'NJ',
+  'NM',
+  'NY',
+  'NC',
+  'ND',
+  'OH',
+  'OK',
+  'OR',
+  'PA',
+  'RI',
+  'SC',
+  'SD',
+  'TN',
+  'TX',
+  'UT',
+  'VT',
+  'VA',
+  'WA',
+  'WV',
+  'WI',
+  'WY',
 ];
 
 // ============================================================================
@@ -169,7 +216,9 @@ export default function AffiliateWelcomePage() {
 
     const loadData = async () => {
       try {
-        const res = await fetch(`/api/affiliate/auth/onboarding?token=${encodeURIComponent(token)}`);
+        const res = await fetch(
+          `/api/affiliate/auth/onboarding?token=${encodeURIComponent(token)}`
+        );
         const json = await res.json();
 
         if (!json.valid) {
@@ -277,14 +326,17 @@ export default function AffiliateWelcomePage() {
 
   // Step indicator
   const steps = ['welcome', 'profile', 'password'] as const;
-  const currentStepIndex = steps.indexOf(step as typeof steps[number]);
+  const currentStepIndex = steps.indexOf(step as (typeof steps)[number]);
 
   // ──────────────────────────────────────────────────────────────────────
   // Loading / Invalid states
   // ──────────────────────────────────────────────────────────────────────
   if (step === 'loading') {
     return (
-      <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: '#EFECE7' }}>
+      <div
+        className="flex min-h-screen items-center justify-center"
+        style={{ backgroundColor: '#EFECE7' }}
+      >
         <div className="text-center">
           <div
             className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-t-transparent"
@@ -298,7 +350,10 @@ export default function AffiliateWelcomePage() {
 
   if (step === 'invalid') {
     return (
-      <div className="flex min-h-screen items-center justify-center px-6" style={{ backgroundColor: '#EFECE7' }}>
+      <div
+        className="flex min-h-screen items-center justify-center px-6"
+        style={{ backgroundColor: '#EFECE7' }}
+      >
         <div className="w-full max-w-md text-center">
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-red-50">
             <XCircle className="h-8 w-8 text-red-500" />
@@ -313,7 +368,10 @@ export default function AffiliateWelcomePage() {
             >
               Request new setup link
             </a>
-            <a href="/affiliate/login" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
+            <a
+              href="/affiliate/login"
+              className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+            >
               <ArrowLeft className="h-4 w-4" /> Back to login
             </a>
           </div>
@@ -331,7 +389,13 @@ export default function AffiliateWelcomePage() {
         {/* Logo */}
         <div className="flex flex-col items-center pb-4 pt-10">
           {data?.clinic.logoUrl ? (
-            <img src={data.clinic.logoUrl} alt={data.clinic.name} width={180} height={40} className="h-10 max-w-[180px] object-contain" />
+            <img
+              src={data.clinic.logoUrl}
+              alt={data.clinic.name}
+              width={180}
+              height={40}
+              className="h-10 max-w-[180px] object-contain"
+            />
           ) : (
             <h1 className="text-2xl font-bold" style={{ color: primaryColor }}>
               {data?.clinic.name || 'Partner Portal'}
@@ -352,11 +416,7 @@ export default function AffiliateWelcomePage() {
                   }`}
                   style={i <= currentStepIndex ? { backgroundColor: primaryColor } : undefined}
                 >
-                  {i < currentStepIndex ? (
-                    <CheckCircle className="h-4 w-4" />
-                  ) : (
-                    i + 1
-                  )}
+                  {i < currentStepIndex ? <CheckCircle className="h-4 w-4" /> : i + 1}
                 </div>
                 {i < steps.length - 1 && (
                   <div
@@ -401,8 +461,9 @@ export default function AffiliateWelcomePage() {
                     Welcome, {data.user.firstName}!
                   </h1>
                   <p className="mt-2 text-sm text-gray-500">
-                    You&apos;re now a partner with <strong className="text-gray-700">{data.clinic.name}</strong>.
-                    Let&apos;s get your account set up in just a few steps.
+                    You&apos;re now a partner with{' '}
+                    <strong className="text-gray-700">{data.clinic.name}</strong>. Let&apos;s get
+                    your account set up in just a few steps.
                   </p>
                 </div>
 
@@ -414,7 +475,9 @@ export default function AffiliateWelcomePage() {
                     transition={{ delay: 0.2 }}
                     className="mb-4 rounded-2xl border border-gray-200 bg-white p-4 text-center"
                   >
-                    <p className="text-xs font-medium uppercase tracking-wider text-gray-400">Your referral code</p>
+                    <p className="text-xs font-medium uppercase tracking-wider text-gray-400">
+                      Your referral code
+                    </p>
                     <p className="mt-1 text-2xl font-bold tracking-widest text-gray-900">
                       {data.affiliate.refCodes[0]}
                     </p>
@@ -439,7 +502,9 @@ export default function AffiliateWelcomePage() {
                       {data.compensationPlan.name}
                     </h3>
                     {data.compensationPlan.description && (
-                      <p className="mb-4 text-sm text-gray-500">{data.compensationPlan.description}</p>
+                      <p className="mb-4 text-sm text-gray-500">
+                        {data.compensationPlan.description}
+                      </p>
                     )}
                     <div className="space-y-3">
                       {data.compensationPlan.details.map((detail, i) => (
@@ -512,21 +577,29 @@ export default function AffiliateWelcomePage() {
                   {/* Name row */}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-gray-500">First name</label>
+                      <label className="mb-1 block text-xs font-medium text-gray-500">
+                        First name
+                      </label>
                       <input
                         type="text"
                         value={profileForm.firstName}
-                        onChange={(e) => setProfileForm((p) => ({ ...p, firstName: e.target.value }))}
+                        onChange={(e) =>
+                          setProfileForm((p) => ({ ...p, firstName: e.target.value }))
+                        }
                         className="w-full rounded-xl border border-gray-200 bg-white px-3 py-3 text-sm text-gray-900 placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2"
                         style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-gray-500">Last name</label>
+                      <label className="mb-1 block text-xs font-medium text-gray-500">
+                        Last name
+                      </label>
                       <input
                         type="text"
                         value={profileForm.lastName}
-                        onChange={(e) => setProfileForm((p) => ({ ...p, lastName: e.target.value }))}
+                        onChange={(e) =>
+                          setProfileForm((p) => ({ ...p, lastName: e.target.value }))
+                        }
                         className="w-full rounded-xl border border-gray-200 bg-white px-3 py-3 text-sm text-gray-900 placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2"
                         style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                       />
@@ -535,11 +608,15 @@ export default function AffiliateWelcomePage() {
 
                   {/* Display name */}
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Display name</label>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">
+                      Display name
+                    </label>
                     <input
                       type="text"
                       value={profileForm.displayName}
-                      onChange={(e) => setProfileForm((p) => ({ ...p, displayName: e.target.value }))}
+                      onChange={(e) =>
+                        setProfileForm((p) => ({ ...p, displayName: e.target.value }))
+                      }
                       placeholder="How you want to appear publicly"
                       className="w-full rounded-xl border border-gray-200 bg-white px-3 py-3 text-sm text-gray-900 placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2"
                       style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
@@ -559,7 +636,9 @@ export default function AffiliateWelcomePage() {
 
                   {/* Phone */}
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Phone number</label>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">
+                      Phone number
+                    </label>
                     <input
                       type="tel"
                       value={profileForm.phone}
@@ -580,7 +659,9 @@ export default function AffiliateWelcomePage() {
                       <input
                         type="text"
                         value={profileForm.addressLine1}
-                        onChange={(e) => setProfileForm((p) => ({ ...p, addressLine1: e.target.value }))}
+                        onChange={(e) =>
+                          setProfileForm((p) => ({ ...p, addressLine1: e.target.value }))
+                        }
                         placeholder="Street address"
                         className="w-full rounded-xl border border-gray-200 bg-white px-3 py-3 text-sm text-gray-900 placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2"
                         style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
@@ -588,7 +669,9 @@ export default function AffiliateWelcomePage() {
                       <input
                         type="text"
                         value={profileForm.addressLine2}
-                        onChange={(e) => setProfileForm((p) => ({ ...p, addressLine2: e.target.value }))}
+                        onChange={(e) =>
+                          setProfileForm((p) => ({ ...p, addressLine2: e.target.value }))
+                        }
                         placeholder="Apt, suite, etc. (optional)"
                         className="w-full rounded-xl border border-gray-200 bg-white px-3 py-3 text-sm text-gray-900 placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2"
                         style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
@@ -598,7 +681,9 @@ export default function AffiliateWelcomePage() {
                           <input
                             type="text"
                             value={profileForm.city}
-                            onChange={(e) => setProfileForm((p) => ({ ...p, city: e.target.value }))}
+                            onChange={(e) =>
+                              setProfileForm((p) => ({ ...p, city: e.target.value }))
+                            }
                             placeholder="City"
                             className="w-full rounded-xl border border-gray-200 bg-white px-3 py-3 text-sm text-gray-900 placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2"
                             style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
@@ -607,13 +692,17 @@ export default function AffiliateWelcomePage() {
                         <div className="col-span-1">
                           <select
                             value={profileForm.state}
-                            onChange={(e) => setProfileForm((p) => ({ ...p, state: e.target.value }))}
+                            onChange={(e) =>
+                              setProfileForm((p) => ({ ...p, state: e.target.value }))
+                            }
                             className="w-full rounded-xl border border-gray-200 bg-white px-2 py-3 text-sm text-gray-900 focus:border-transparent focus:outline-none focus:ring-2"
                             style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                           >
                             <option value="">State</option>
                             {US_STATES.map((s) => (
-                              <option key={s} value={s}>{s}</option>
+                              <option key={s} value={s}>
+                                {s}
+                              </option>
                             ))}
                           </select>
                         </div>
@@ -621,7 +710,9 @@ export default function AffiliateWelcomePage() {
                           <input
                             type="text"
                             value={profileForm.zipCode}
-                            onChange={(e) => setProfileForm((p) => ({ ...p, zipCode: e.target.value }))}
+                            onChange={(e) =>
+                              setProfileForm((p) => ({ ...p, zipCode: e.target.value }))
+                            }
                             placeholder="ZIP code"
                             className="w-full rounded-xl border border-gray-200 bg-white px-3 py-3 text-sm text-gray-900 placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2"
                             style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
@@ -688,13 +779,18 @@ export default function AffiliateWelcomePage() {
                 >
                   {/* New password */}
                   <div>
-                    <label className="mb-1.5 block text-sm font-medium text-gray-700">Password</label>
+                    <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                      Password
+                    </label>
                     <div className="relative">
                       <input
                         ref={passwordRef}
                         type={showPassword ? 'text' : 'password'}
                         value={password}
-                        onChange={(e) => { setPassword(e.target.value); setError(null); }}
+                        onChange={(e) => {
+                          setPassword(e.target.value);
+                          setError(null);
+                        }}
                         className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-4 pr-12 text-gray-900 placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2"
                         style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                         placeholder="Create a strong password"
@@ -705,7 +801,11 @@ export default function AffiliateWelcomePage() {
                         onClick={() => setShowPassword(!showPassword)}
                         className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                       >
-                        {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                        {showPassword ? (
+                          <EyeOff className="h-5 w-5" />
+                        ) : (
+                          <Eye className="h-5 w-5" />
+                        )}
                       </button>
                     </div>
                     {password.length > 0 && (
@@ -727,12 +827,17 @@ export default function AffiliateWelcomePage() {
 
                   {/* Confirm password */}
                   <div>
-                    <label className="mb-1.5 block text-sm font-medium text-gray-700">Confirm password</label>
+                    <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                      Confirm password
+                    </label>
                     <div className="relative">
                       <input
                         type={showConfirm ? 'text' : 'password'}
                         value={confirmPassword}
-                        onChange={(e) => { setConfirmPassword(e.target.value); setError(null); }}
+                        onChange={(e) => {
+                          setConfirmPassword(e.target.value);
+                          setError(null);
+                        }}
                         className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-4 pr-12 text-gray-900 placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2"
                         style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                         placeholder="Re-enter your password"
@@ -753,7 +858,9 @@ export default function AffiliateWelcomePage() {
 
                   {/* Requirements */}
                   <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
-                    <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">Requirements</p>
+                    <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">
+                      Requirements
+                    </p>
                     <div className="space-y-1.5">
                       {PASSWORD_CHECKS.map((check) => {
                         const passed = check.test(password);
@@ -766,7 +873,9 @@ export default function AffiliateWelcomePage() {
                             ) : (
                               <XCircle className="h-4 w-4 text-gray-300" />
                             )}
-                            <span className={`text-xs ${password.length === 0 ? 'text-gray-500' : passed ? 'text-green-700' : 'text-gray-400'}`}>
+                            <span
+                              className={`text-xs ${password.length === 0 ? 'text-gray-500' : passed ? 'text-green-700' : 'text-gray-400'}`}
+                            >
                               {check.label}
                             </span>
                           </div>
@@ -777,7 +886,11 @@ export default function AffiliateWelcomePage() {
 
                   {/* Error */}
                   {error && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-2xl border border-red-200 bg-red-50 p-4">
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="rounded-2xl border border-red-200 bg-red-50 p-4"
+                    >
                       <p className="text-center text-sm text-red-600">{error}</p>
                     </motion.div>
                   )}

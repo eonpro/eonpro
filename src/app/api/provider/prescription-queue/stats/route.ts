@@ -42,7 +42,7 @@ type StatsResponseBody = {
 function jsonStatsPayload(body: StatsResponseBody): Response {
   return NextResponse.json(
     { ...body, timezone: 'America/New_York' },
-    { headers: NO_STORE_HEADERS },
+    { headers: NO_STORE_HEADERS }
   );
 }
 
@@ -95,10 +95,8 @@ function aggregateGlp1Split(orders: { primaryMedName: string | null }[]): {
     else if (c === 'tirz') tirz += 1;
   }
   const totalClassified = sema + tirz;
-  const semaPercent =
-    totalClassified > 0 ? Math.round((sema / totalClassified) * 1000) / 10 : null;
-  const tirzPercent =
-    totalClassified > 0 ? Math.round((tirz / totalClassified) * 1000) / 10 : null;
+  const semaPercent = totalClassified > 0 ? Math.round((sema / totalClassified) * 1000) / 10 : null;
+  const tirzPercent = totalClassified > 0 ? Math.round((tirz / totalClassified) * 1000) / 10 : null;
   return { sema, tirz, semaPercent, tirzPercent, totalClassified };
 }
 

@@ -31,11 +31,7 @@ import { withAdminAuth } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { decryptPHI } from '@/lib/security/phi-encryption';
-import {
-  parseAddressString,
-  normalizeState,
-  normalizeZip,
-} from '@/lib/address';
+import { parseAddressString, normalizeState, normalizeZip } from '@/lib/address';
 
 const WELLMEDR_CLINIC_ID = 7;
 const WELLMEDR_AIRTABLE_BASE_ID = 'app3usm1VtzcWOvZW';
@@ -83,7 +79,7 @@ function formatAddress(a1: string, a2: string, city: string, state: string, zip:
  */
 async function backfillFromInvoiceMetadata(
   patientsWithoutAddresses: Array<{ id: number; email: string }>,
-  dryRun: boolean,
+  dryRun: boolean
 ): Promise<SyncResult[]> {
   const results: SyncResult[] = [];
 
@@ -153,7 +149,13 @@ async function backfillFromInvoiceMetadata(
         email: patient.email,
         source: 'metadata',
         addressBefore: '(empty)',
-        addressAfter: formatAddress(finalAddr1, finalAddr2, finalCity, normalizedState, normalizedZip),
+        addressAfter: formatAddress(
+          finalAddr1,
+          finalAddr2,
+          finalCity,
+          normalizedState,
+          normalizedZip
+        ),
         status: 'updated',
       });
 
@@ -180,23 +182,20 @@ async function backfillFromInvoiceMetadata(
 /**
  * Fetch all Orders records from Airtable that have a shipping_address and email.
  */
-async function fetchAirtableOrders(
-  apiKey: string,
-  limit: number,
-): Promise<AirtableRecord[]> {
+async function fetchAirtableOrders(apiKey: string, limit: number): Promise<AirtableRecord[]> {
   const allRecords: AirtableRecord[] = [];
   let offset: string | undefined;
 
   do {
     const url = new URL(
-      `https://api.airtable.com/v0/${WELLMEDR_AIRTABLE_BASE_ID}/${WELLMEDR_AIRTABLE_ORDERS_TABLE_ID}`,
+      `https://api.airtable.com/v0/${WELLMEDR_AIRTABLE_BASE_ID}/${WELLMEDR_AIRTABLE_ORDERS_TABLE_ID}`
     );
     url.searchParams.append('fields[]', 'customer_email');
     url.searchParams.append('fields[]', 'shipping_address');
     url.searchParams.append('fields[]', 'billing_address');
     url.searchParams.append(
       'filterByFormula',
-      'AND({customer_email} != "", OR({shipping_address} != "", {billing_address} != ""))',
+      'AND({customer_email} != "", OR({shipping_address} != "", {billing_address} != ""))'
     );
     url.searchParams.append('pageSize', String(AIRTABLE_PAGE_SIZE));
     if (offset) url.searchParams.append('offset', offset);
@@ -228,7 +227,7 @@ async function fetchAirtableOrders(
  */
 async function backfillFromAirtable(
   patientsWithoutAddresses: Array<{ id: number; email: string }>,
-  dryRun: boolean,
+  dryRun: boolean
 ): Promise<{ results: SyncResult[]; airtableError?: string }> {
   const apiKey = process.env.AIRTABLE_API_KEY;
 
@@ -256,13 +255,11 @@ async function backfillFromAirtable(
   // Build email→address map from Airtable (most recent record wins via last-write)
   const emailToAddress = new Map<string, string>();
   for (const record of airtableRecords) {
-    const email = String(
-      record.fields.customer_email || record.fields.email || '',
-    )
+    const email = String(record.fields.customer_email || record.fields.email || '')
       .toLowerCase()
       .trim();
     const address = String(
-      record.fields.shipping_address || record.fields.billing_address || '',
+      record.fields.shipping_address || record.fields.billing_address || ''
     ).trim();
     if (email && address) {
       emailToAddress.set(email, address);
@@ -342,7 +339,7 @@ async function backfillFromAirtable(
         parsed.address2,
         parsed.city,
         normalizedState,
-        normalizedZip,
+        normalizedZip
       ),
       status: 'updated',
     });
@@ -402,14 +399,12 @@ async function runSync(req: NextRequest): Promise<Response> {
         '',
         safeDecrypt(p.city),
         safeDecrypt(p.state),
-        safeDecrypt(p.zip),
+        safeDecrypt(p.zip)
       ),
     }));
 
     // Filter to only patients with genuinely empty addresses
-    const patientsWithoutAddresses = patients.filter(
-      (p) => p.currentAddress === '(empty)',
-    );
+    const patientsWithoutAddresses = patients.filter((p) => p.currentAddress === '(empty)');
 
     logger.info('[SYNC-ADDRESSES] Found patients without addresses', {
       total: patients.length,
@@ -421,20 +416,15 @@ async function runSync(req: NextRequest): Promise<Response> {
 
     // Phase 1: Invoice metadata
     if (source === 'metadata' || source === 'both') {
-      const metadataResults = await backfillFromInvoiceMetadata(
-        patientsWithoutAddresses,
-        dryRun,
-      );
+      const metadataResults = await backfillFromInvoiceMetadata(patientsWithoutAddresses, dryRun);
       allResults.push(...metadataResults);
     }
 
     // Determine which patients still need addresses after Phase 1
     const updatedByMetadata = new Set(
-      allResults.filter((r) => r.status === 'updated').map((r) => r.patientId),
+      allResults.filter((r) => r.status === 'updated').map((r) => r.patientId)
     );
-    const stillMissing = patientsWithoutAddresses.filter(
-      (p) => !updatedByMetadata.has(p.id),
-    );
+    const stillMissing = patientsWithoutAddresses.filter((p) => !updatedByMetadata.has(p.id));
 
     // Phase 2: Airtable
     if ((source === 'airtable' || source === 'both') && stillMissing.length > 0) {
@@ -469,9 +459,7 @@ async function runSync(req: NextRequest): Promise<Response> {
       success: true,
       summary,
       results: allResults.slice(0, 50),
-      ...(dryRun
-        ? { note: 'Dry run - no changes saved. Set ?dryRun=false to apply.' }
-        : {}),
+      ...(dryRun ? { note: 'Dry run - no changes saved. Set ?dryRun=false to apply.' } : {}),
     });
   } catch (error) {
     logger.error('[SYNC-ADDRESSES] Sync failed', {
@@ -482,7 +470,7 @@ async function runSync(req: NextRequest): Promise<Response> {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
       },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

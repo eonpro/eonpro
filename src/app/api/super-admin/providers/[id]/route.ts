@@ -157,7 +157,10 @@ export const GET = withSuperAdminAuth(
     } catch (error: unknown) {
       logger.error('[SUPER-ADMIN/PROVIDERS] Error fetching provider:', error);
       return NextResponse.json(
-        { error: 'Failed to fetch provider', details: error instanceof Error ? error.message : String(error) },
+        {
+          error: 'Failed to fetch provider',
+          details: error instanceof Error ? error.message : String(error),
+        },
         { status: 500 }
       );
     }
@@ -265,17 +268,29 @@ export const PUT = withSuperAdminAuth(
 
       if ((error as any).code === 'CONFLICT') {
         return NextResponse.json(
-          { error: error instanceof Error ? error.message : String(error) || 'NPI already registered' },
+          {
+            error:
+              error instanceof Error ? error.message : String(error) || 'NPI already registered',
+          },
           { status: 409 }
         );
       }
 
       if ((error as any).code === 'VALIDATION_ERROR') {
-        return NextResponse.json({ error: error instanceof Error ? error.message : String(error), details: (error as any).details }, { status: 400 });
+        return NextResponse.json(
+          {
+            error: error instanceof Error ? error.message : String(error),
+            details: (error as any).details,
+          },
+          { status: 400 }
+        );
       }
 
       return NextResponse.json(
-        { error: error instanceof Error ? error.message : String(error) || 'Failed to update provider' },
+        {
+          error:
+            error instanceof Error ? error.message : String(error) || 'Failed to update provider',
+        },
         { status: 500 }
       );
     }
@@ -372,7 +387,10 @@ export const DELETE = withSuperAdminAuth(
     } catch (error: unknown) {
       logger.error('[SUPER-ADMIN/PROVIDERS] Error deleting provider:', error);
       return NextResponse.json(
-        { error: error instanceof Error ? error.message : String(error) || 'Failed to delete provider' },
+        {
+          error:
+            error instanceof Error ? error.message : String(error) || 'Failed to delete provider',
+        },
         { status: 500 }
       );
     }

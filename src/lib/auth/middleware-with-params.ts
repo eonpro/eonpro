@@ -19,11 +19,7 @@ import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { logger } from '@/lib/logger';
 import { validateTokenClaims } from './middleware';
 import type { AuthUser, UserRole } from './middleware';
-import {
-  isAuthBlocked,
-  recordAuthFailure,
-  clearAuthFailures,
-} from '@/lib/auth/auth-rate-limiter';
+import { isAuthBlocked, recordAuthFailure, clearAuthFailures } from '@/lib/auth/auth-rate-limiter';
 import {
   resolveSubdomainClinicId,
   hasClinicAccess,
@@ -303,7 +299,7 @@ function errorResponse(
   error: string,
   code: string,
   status: number,
-  requestId: string,
+  requestId: string
 ): NextResponse {
   const res = NextResponse.json({ error, code, requestId }, { status });
   res.headers.set('X-Request-ID', requestId);
@@ -337,7 +333,7 @@ export function withAuthParams<T extends { params: any }>(
           'Too many authentication failures. Please try again later.',
           'AUTH_RATE_LIMITED',
           429,
-          requestId,
+          requestId
         );
       }
 
@@ -360,12 +356,7 @@ export function withAuthParams<T extends { params: any }>(
           metadata: { requestId },
         });
 
-        return errorResponse(
-          'Authentication required',
-          'AUTH_REQUIRED',
-          401,
-          requestId,
-        );
+        return errorResponse('Authentication required', 'AUTH_REQUIRED', 401, requestId);
       }
 
       // Verify token (now with HS256 restriction, claims validation, revocation check)
@@ -392,7 +383,7 @@ export function withAuthParams<T extends { params: any }>(
           tokenResult.error || 'Invalid or expired token',
           tokenResult.errorCode || 'AUTH_FAILED',
           401,
-          requestId,
+          requestId
         );
       }
 
@@ -443,7 +434,7 @@ export function withAuthParams<T extends { params: any }>(
             sessionValidation.reason || 'Session expired',
             'SESSION_EXPIRED',
             401,
-            requestId,
+            requestId
           );
         }
       }
@@ -466,12 +457,7 @@ export function withAuthParams<T extends { params: any }>(
             metadata: { requestId },
           });
 
-          return errorResponse(
-            'Insufficient permissions',
-            'FORBIDDEN',
-            403,
-            requestId,
-          );
+          return errorResponse('Insufficient permissions', 'FORBIDDEN', 403, requestId);
         }
       }
 
@@ -492,20 +478,26 @@ export function withAuthParams<T extends { params: any }>(
           if (!isNaN(parsed) && parsed > 0 && parsed !== effectiveClinicId) {
             const accessGranted = await hasClinicAccess(user.id, parsed, user.providerId);
             if (accessGranted) {
-              logger.info('[AuthParams] Overriding clinicId with x-clinic-id header (access verified)', {
-                userId: user.id,
-                jwtClinicId: user.clinicId ?? null,
-                headerClinicId: parsed,
-                requestId,
-              });
+              logger.info(
+                '[AuthParams] Overriding clinicId with x-clinic-id header (access verified)',
+                {
+                  userId: user.id,
+                  jwtClinicId: user.clinicId ?? null,
+                  headerClinicId: parsed,
+                  requestId,
+                }
+              );
               effectiveClinicId = parsed;
             } else {
-              logger.security('[AuthParams] BLOCKED: x-clinic-id header override denied — user lacks access', {
-                userId: user.id,
-                headerClinicId: parsed,
-                jwtClinicId: user.clinicId ?? null,
-                requestId,
-              });
+              logger.security(
+                '[AuthParams] BLOCKED: x-clinic-id header override denied — user lacks access',
+                {
+                  userId: user.id,
+                  headerClinicId: parsed,
+                  jwtClinicId: user.clinicId ?? null,
+                  requestId,
+                }
+              );
             }
           }
         }
@@ -549,11 +541,11 @@ export function withAuthParams<T extends { params: any }>(
             req.headers.get('x-forwarded-host')?.split(',')[0]?.trim() ??
             req.headers.get('host') ??
             '';
-          const hostname = host ? host.split(':')[0] ?? '' : '';
+          const hostname = host ? (host.split(':')[0] ?? '') : '';
           if (hostname.includes('.')) {
             const parts = hostname.split('.');
             const isLocalhostWithSub = hostname.includes('localhost') && parts.length >= 2;
-            const sub = parts.length >= 3 || isLocalhostWithSub ? parts[0] ?? null : null;
+            const sub = parts.length >= 3 || isLocalhostWithSub ? (parts[0] ?? null) : null;
             const reserved = ['www', 'app', 'api', 'admin', 'staging'];
             if (sub && !reserved.includes(sub.toLowerCase())) {
               subdomain = sub;
@@ -634,16 +626,11 @@ export function withAuthParams<T extends { params: any }>(
           'Service temporarily unavailable. Please try again.',
           'SERVICE_UNAVAILABLE',
           503,
-          requestId,
+          requestId
         );
       }
 
-      return errorResponse(
-        'Internal server error',
-        'INTERNAL_ERROR',
-        500,
-        requestId,
-      );
+      return errorResponse('Internal server error', 'INTERNAL_ERROR', 500, requestId);
     }
   };
 }

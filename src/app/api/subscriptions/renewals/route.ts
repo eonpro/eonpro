@@ -20,7 +20,9 @@ const querySchema = z.object({
   search: z.string().optional(),
   page: z.coerce.number().min(1).default(1),
   limit: z.coerce.number().min(1).max(100).default(50),
-  sortBy: z.enum(['nextBillingDate', 'amount', 'patientName', 'createdAt']).default('nextBillingDate'),
+  sortBy: z
+    .enum(['nextBillingDate', 'amount', 'patientName', 'createdAt'])
+    .default('nextBillingDate'),
   sortOrder: z.enum(['asc', 'desc']).default('asc'),
 });
 
@@ -38,7 +40,8 @@ function classifyInterval(interval: string | null, intervalCount: number): Inter
   let effectiveMonths = intervalCount;
   if (normalizedInterval === 'day') effectiveMonths = Math.round(intervalCount / 30);
   else if (normalizedInterval === 'week') effectiveMonths = Math.round(intervalCount / 4.33);
-  else if (normalizedInterval === 'year' || ANNUAL_INTERVALS.includes(normalizedInterval)) effectiveMonths = 12 * intervalCount;
+  else if (normalizedInterval === 'year' || ANNUAL_INTERVALS.includes(normalizedInterval))
+    effectiveMonths = 12 * intervalCount;
 
   if (ANNUAL_INTERVALS.includes(normalizedInterval) || effectiveMonths === 12) {
     return 'annual';
@@ -88,11 +91,7 @@ function buildIntervalWhere(interval: string) {
       // plus non-standard intervalCount values (2, 4, 5, 7, 8, 28, etc.)
       return {
         NOT: {
-          OR: [
-            ...quarterlyFilter.OR,
-            ...semiannualFilter.OR,
-            ...annualFilter.OR,
-          ],
+          OR: [...quarterlyFilter.OR, ...semiannualFilter.OR, ...annualFilter.OR],
         },
       };
     case 'quarterly':
@@ -248,7 +247,8 @@ async function handler(req: NextRequest, user: AuthUser) {
             const totalMonths =
               sub.interval === 'year' ? sub.intervalCount * 12 : sub.intervalCount;
             const monthsElapsed =
-              (now.getFullYear() - anchor.getFullYear()) * 12 + (now.getMonth() - anchor.getMonth());
+              (now.getFullYear() - anchor.getFullYear()) * 12 +
+              (now.getMonth() - anchor.getMonth());
             const periodsElapsed = Math.max(0, Math.floor(monthsElapsed / totalMonths));
             const candidate = new Date(anchor);
             candidate.setMonth(anchor.getMonth() + totalMonths * periodsElapsed);
@@ -265,8 +265,7 @@ async function handler(req: NextRequest, user: AuthUser) {
             (pm.expiryYear === now.getFullYear() && pm.expiryMonth < now.getMonth() + 1));
 
         let overdueReason: string | null = null;
-        const isOverdue =
-          effectiveNextBillingDate && new Date(effectiveNextBillingDate) < now;
+        const isOverdue = effectiveNextBillingDate && new Date(effectiveNextBillingDate) < now;
 
         if (isOverdue || sub.status === 'PAST_DUE' || sub.failedAttempts > 0) {
           if (lastFailedPayment?.failureReason) {
@@ -278,7 +277,8 @@ async function handler(req: NextRequest, user: AuthUser) {
           } else if (!pm || !pm.isActive) {
             overdueReason = 'No active payment method';
           } else if (lastAction?.actionType === 'CANCELLED') {
-            overdueReason = lastAction.cancellationReason || lastAction.reason || 'Subscription cancelled';
+            overdueReason =
+              lastAction.cancellationReason || lastAction.reason || 'Subscription cancelled';
           } else if (lastAction?.actionType === 'PAUSED') {
             overdueReason = lastAction.reason || 'Subscription paused';
           } else if (!lastPayment) {
@@ -291,9 +291,7 @@ async function handler(req: NextRequest, user: AuthUser) {
         return {
           id: sub.id,
           patientId: sub.patientId,
-          patientName: sub.patient
-            ? `${firstName} ${lastName}`.trim()
-            : 'Unknown',
+          patientName: sub.patient ? `${firstName} ${lastName}`.trim() : 'Unknown',
           patientEmail: email,
           planName: sub.planName || 'Unknown Plan',
           planDescription: sub.planDescription || '',
@@ -339,46 +337,53 @@ async function handler(req: NextRequest, user: AuthUser) {
       // Summary counts by interval — totalActive is an independent count so subscriptions
       // with non-standard intervalCount values aren't silently excluded from the total.
       const allActiveWhere = { clinicId, status: { in: ['ACTIVE' as const, 'PAST_DUE' as const] } };
-      const [totalActive, monthlyCount, quarterlyCount, semiannualCount, annualCount, pastDueCount, upcomingRenewals] =
-        await Promise.all([
-          prisma.subscription.count({ where: allActiveWhere }),
-          prisma.subscription.count({
-            where: { ...allActiveWhere, ...buildIntervalWhere('monthly') },
-          }),
-          prisma.subscription.count({
-            where: { ...allActiveWhere, ...buildIntervalWhere('quarterly') },
-          }),
-          prisma.subscription.count({
-            where: { ...allActiveWhere, ...buildIntervalWhere('semiannual') },
-          }),
-          prisma.subscription.count({
-            where: { ...allActiveWhere, ...buildIntervalWhere('annual') },
-          }),
-          prisma.subscription.count({
-            where: { clinicId, status: 'PAST_DUE' },
-          }),
-          prisma.subscription.count({
-            where: {
-              clinicId,
-              status: 'ACTIVE',
-              OR: [
-                {
-                  nextBillingDate: {
-                    gte: new Date(),
-                    lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-                  },
+      const [
+        totalActive,
+        monthlyCount,
+        quarterlyCount,
+        semiannualCount,
+        annualCount,
+        pastDueCount,
+        upcomingRenewals,
+      ] = await Promise.all([
+        prisma.subscription.count({ where: allActiveWhere }),
+        prisma.subscription.count({
+          where: { ...allActiveWhere, ...buildIntervalWhere('monthly') },
+        }),
+        prisma.subscription.count({
+          where: { ...allActiveWhere, ...buildIntervalWhere('quarterly') },
+        }),
+        prisma.subscription.count({
+          where: { ...allActiveWhere, ...buildIntervalWhere('semiannual') },
+        }),
+        prisma.subscription.count({
+          where: { ...allActiveWhere, ...buildIntervalWhere('annual') },
+        }),
+        prisma.subscription.count({
+          where: { clinicId, status: 'PAST_DUE' },
+        }),
+        prisma.subscription.count({
+          where: {
+            clinicId,
+            status: 'ACTIVE',
+            OR: [
+              {
+                nextBillingDate: {
+                  gte: new Date(),
+                  lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
                 },
-                {
-                  nextBillingDate: null,
-                  currentPeriodEnd: {
-                    gte: new Date(),
-                    lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-                  },
+              },
+              {
+                nextBillingDate: null,
+                currentPeriodEnd: {
+                  gte: new Date(),
+                  lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
                 },
-              ],
-            },
-          }),
-        ]);
+              },
+            ],
+          },
+        }),
+      ]);
 
       return NextResponse.json({
         renewals,

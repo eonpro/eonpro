@@ -53,9 +53,7 @@ async function acquireCronLock(): Promise<boolean> {
 
 async function releaseCronLock(): Promise<void> {
   try {
-    await prisma.$queryRaw(
-      Prisma.sql`SELECT pg_advisory_unlock(${AFFILIATE_PAYOUT_LOCK_KEY})`
-    );
+    await prisma.$queryRaw(Prisma.sql`SELECT pg_advisory_unlock(${AFFILIATE_PAYOUT_LOCK_KEY})`);
   } catch {
     // Best-effort release; lock auto-releases on session end
   }
@@ -283,10 +281,16 @@ export async function GET(request: NextRequest) {
       totalDurationMs,
       clinicsProcessed: results.length,
       commissionsApproved: results.reduce((sum, r) => sum + (r.data?.approvedCommissions ?? 0), 0),
-      totalAffiliatesProcessed: results.reduce((sum, r) => sum + (r.data?.affiliatesProcessed ?? 0), 0),
+      totalAffiliatesProcessed: results.reduce(
+        (sum, r) => sum + (r.data?.affiliatesProcessed ?? 0),
+        0
+      ),
       totalPayoutsCreated: results.reduce((sum, r) => sum + (r.data?.payoutsCreated ?? 0), 0),
       totalAmountCents: results.reduce((sum, r) => sum + (r.data?.totalAmountCents ?? 0), 0),
-      failedPayoutsCleanedUp: results.reduce((sum, r) => sum + (r.data?.failedPayoutsCleanedUp ?? 0), 0),
+      failedPayoutsCleanedUp: results.reduce(
+        (sum, r) => sum + (r.data?.failedPayoutsCleanedUp ?? 0),
+        0
+      ),
       errors: results.flatMap((r) => r.data?.errors ?? (r.error ? [r.error] : [])),
     };
 

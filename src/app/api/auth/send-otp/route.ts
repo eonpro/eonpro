@@ -42,10 +42,7 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
     const validated = sendOtpSchema.safeParse(body);
 
     if (!validated.success) {
-      return NextResponse.json(
-        { error: 'Invalid phone number' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid phone number' }, { status: 400 });
     }
 
     const { phone, clinicId } = validated.data;
@@ -120,7 +117,10 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
     if (!twilioConfigured && process.env.TWILIO_USE_MOCK !== 'true') {
       logger.error('Twilio not configured - cannot send OTP SMS');
       return NextResponse.json(
-        { error: 'SMS service is temporarily unavailable. Please use email login or try again later.' },
+        {
+          error:
+            'SMS service is temporarily unavailable. Please use email login or try again later.',
+        },
         { status: 503 }
       );
     }
@@ -159,7 +159,10 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
 
     let clinicName = 'EONPRO';
     if (clinicId) {
-      const clinic = await prisma.clinic.findUnique({ where: { id: clinicId }, select: { name: true } });
+      const clinic = await prisma.clinic.findUnique({
+        where: { id: clinicId },
+        select: { name: true },
+      });
       if (clinic) clinicName = clinic.name;
     }
 

@@ -291,7 +291,7 @@ export default function OtInvoicesPage() {
       | 'all_payments'
       | 'combined'
       | 'summary',
-    format: 'csv' | 'pdf',
+    format: 'csv' | 'pdf'
   ) => {
     const key = `${invoiceType}_${format}`;
     setExporting(key);
@@ -333,7 +333,9 @@ export default function OtInvoicesPage() {
     <div className="min-h-screen p-6 lg:p-8">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">OT (Overtime) Invoices</h1>
-        <p className="mt-1 text-sm text-gray-500">Reconciliation statement — cost and fee allocations for OT clinic payout.</p>
+        <p className="mt-1 text-sm text-gray-500">
+          Reconciliation statement — cost and fee allocations for OT clinic payout.
+        </p>
       </div>
 
       <div className="mb-6 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
@@ -384,7 +386,11 @@ export default function OtInvoicesPage() {
             disabled={loading}
             className="flex items-center gap-2 rounded-lg bg-[#4fa77e] px-5 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#3d8a65] disabled:opacity-50"
           >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <FileText className="h-4 w-4" />
+            )}
             Generate
           </button>
         </div>
@@ -444,7 +450,9 @@ export default function OtInvoicesPage() {
 
       {activeTab === 'pricing_catalog' && (
         <div className="mb-8 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm lg:p-6">
-          <h2 className="mb-1 text-lg font-semibold text-gray-900">OT.EONPRO.IO medication pricing</h2>
+          <h2 className="mb-1 text-lg font-semibold text-gray-900">
+            OT.EONPRO.IO medication pricing
+          </h2>
           <p className="mb-4 text-sm text-gray-500">
             Official 1-month and quarterly options — select rows to copy quotes for reps and admins.
           </p>
@@ -480,7 +488,8 @@ export default function OtInvoicesPage() {
               value={centsToDisplay(data.pharmacy.totalCents)}
               subvalue={
                 [
-                  data.pharmacy.missingPriceCount > 0 && `${data.pharmacy.missingPriceCount} unpriced qty`,
+                  data.pharmacy.missingPriceCount > 0 &&
+                    `${data.pharmacy.missingPriceCount} unpriced qty`,
                   data.pharmacy.estimatedPriceCount > 0 &&
                     `${data.pharmacy.estimatedPriceCount} est. (name match)`,
                 ]
@@ -542,7 +551,11 @@ export default function OtInvoicesPage() {
               icon={<DollarSign className="h-5 w-5 text-red-600" />}
               label="Total deductions"
               value={centsToDisplay(data.grandTotalCents)}
-              subvalue={data.feesUseCashCollectedBasis ? 'from cash collected (net)' : 'from matched invoice gross'}
+              subvalue={
+                data.feesUseCashCollectedBasis
+                  ? 'from cash collected (net)'
+                  : 'from matched invoice gross'
+              }
               bg="bg-red-50"
             />
             <SummaryCard
@@ -574,7 +587,11 @@ export default function OtInvoicesPage() {
               disabled={exporting !== null}
               className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-50"
             >
-              {exporting === `combined_csv` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              {exporting === `combined_csv` ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
               Combined CSV (includes per-sale)
             </button>
             <button
@@ -583,7 +600,11 @@ export default function OtInvoicesPage() {
               disabled={exporting !== null}
               className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-50"
             >
-              {exporting === `per_sale_csv` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              {exporting === `per_sale_csv` ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
               Per-sale CSV only
             </button>
             <button
@@ -592,43 +613,49 @@ export default function OtInvoicesPage() {
               disabled={exporting !== null}
               className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-50"
             >
-              {exporting === `summary_pdf` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              {exporting === `summary_pdf` ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
               Summary PDF
             </button>
           </div>
 
-            {activeTab === 'pharmacy' && (
-              <div className="flex flex-col gap-8">
-                <PharmacyTable
-                  invoice={data.pharmacy}
-                  doctorLineItems={data.doctorApprovals?.lineItems ?? []}
-                />
-                {(data.nonRxChargeLineItems?.length ?? 0) > 0 && (
-                  <NonRxChargesTable rows={data.nonRxChargeLineItems ?? []} />
-                )}
-                <div>
-                  <h3 className="mb-3 text-sm font-semibold text-gray-900">Cash collected — every payment</h3>
-                  <PaymentCollectionsTable
-                    rows={data.paymentCollections ?? []}
-                    matchedRxGrossCents={data.matchedPrescriptionInvoiceGrossCents ?? 0}
-                    feesUseCashCollectedBasis={data.feesUseCashCollectedBasis ?? false}
-                    patientAdminLinks
-                  />
-                </div>
-              </div>
-            )}
-            {activeTab === 'all_payments' && (
-              <PaymentCollectionsTable
-                rows={data.paymentCollections ?? []}
-                matchedRxGrossCents={data.matchedPrescriptionInvoiceGrossCents ?? 0}
-                feesUseCashCollectedBasis={data.feesUseCashCollectedBasis ?? false}
+          {activeTab === 'pharmacy' && (
+            <div className="flex flex-col gap-8">
+              <PharmacyTable
+                invoice={data.pharmacy}
+                doctorLineItems={data.doctorApprovals?.lineItems ?? []}
               />
-            )}
-            {activeTab === 'doctor_approvals' && <DoctorTable invoice={data.doctorApprovals} />}
-            {activeTab === 'fulfillment' && <FulfillmentTable invoice={data.fulfillment} />}
-            {activeTab === 'per_sale' && (
-              <PerSaleReconciliationTable rows={data.perSaleReconciliation ?? []} />
-            )}
+              {(data.nonRxChargeLineItems?.length ?? 0) > 0 && (
+                <NonRxChargesTable rows={data.nonRxChargeLineItems ?? []} />
+              )}
+              <div>
+                <h3 className="mb-3 text-sm font-semibold text-gray-900">
+                  Cash collected — every payment
+                </h3>
+                <PaymentCollectionsTable
+                  rows={data.paymentCollections ?? []}
+                  matchedRxGrossCents={data.matchedPrescriptionInvoiceGrossCents ?? 0}
+                  feesUseCashCollectedBasis={data.feesUseCashCollectedBasis ?? false}
+                  patientAdminLinks
+                />
+              </div>
+            </div>
+          )}
+          {activeTab === 'all_payments' && (
+            <PaymentCollectionsTable
+              rows={data.paymentCollections ?? []}
+              matchedRxGrossCents={data.matchedPrescriptionInvoiceGrossCents ?? 0}
+              feesUseCashCollectedBasis={data.feesUseCashCollectedBasis ?? false}
+            />
+          )}
+          {activeTab === 'doctor_approvals' && <DoctorTable invoice={data.doctorApprovals} />}
+          {activeTab === 'fulfillment' && <FulfillmentTable invoice={data.fulfillment} />}
+          {activeTab === 'per_sale' && (
+            <PerSaleReconciliationTable rows={data.perSaleReconciliation ?? []} />
+          )}
         </>
       )}
 
@@ -658,11 +685,17 @@ function SummaryCard({
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-5">
       <div className="flex items-start gap-3">
-        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${bg}`}>{icon}</div>
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${bg}`}>
+          {icon}
+        </div>
         <div className="min-w-0 flex-1 overflow-visible">
           <p className="text-xs font-medium text-gray-500">{label}</p>
-          <p className="break-words text-lg font-bold tabular-nums leading-snug text-gray-900">{value}</p>
-          {subvalue ? <p className="mt-0.5 text-xs leading-snug text-gray-500">{subvalue}</p> : null}
+          <p className="break-words text-lg font-bold tabular-nums leading-snug text-gray-900">
+            {value}
+          </p>
+          {subvalue ? (
+            <p className="mt-0.5 text-xs leading-snug text-gray-500">{subvalue}</p>
+          ) : null}
         </div>
       </div>
     </div>
@@ -734,7 +767,10 @@ function NonRxChargesTable({ rows }: { rows: OtNonRxChargeLineItem[] }) {
               </td>
               <td className="px-4 py-2 font-mono text-xs">{r.invoiceDbId}</td>
               <td className="px-4 py-2 font-medium">
-                <a href={`/admin/patients/${r.patientId}`} className="text-[#4fa77e] hover:underline">
+                <a
+                  href={`/admin/patients/${r.patientId}`}
+                  className="text-[#4fa77e] hover:underline"
+                >
                   {r.patientName}
                 </a>
               </td>
@@ -751,7 +787,7 @@ function NonRxChargesTable({ rows }: { rows: OtNonRxChargeLineItem[] }) {
                   {nonRxKindLabel(r.chargeKind)}
                 </span>
               </td>
-              <td className="max-w-md px-4 py-2 break-words text-gray-800">{r.description}</td>
+              <td className="max-w-md break-words px-4 py-2 text-gray-800">{r.description}</td>
               <td className="whitespace-nowrap px-4 py-2 text-right font-semibold text-gray-900">
                 {centsToDisplay(r.lineAmountCents)}
               </td>
@@ -805,7 +841,9 @@ function PaymentCollectionsTable({
                 <td className="whitespace-nowrap px-4 py-2 text-xs text-emerald-700">
                   {r.paidAt ? formatDateTime(r.paidAt) : '—'}
                 </td>
-                <td className="whitespace-nowrap px-4 py-2 text-xs text-gray-600">{formatDateTime(r.recordedAt)}</td>
+                <td className="whitespace-nowrap px-4 py-2 text-xs text-gray-600">
+                  {formatDateTime(r.recordedAt)}
+                </td>
                 <td className="px-4 py-2 font-mono text-xs">{r.paymentId}</td>
                 <td className="max-w-[160px] truncate px-4 py-2 font-medium" title={r.patientName}>
                   {patientAdminLinks ? (
@@ -819,13 +857,23 @@ function PaymentCollectionsTable({
                     r.patientName
                   )}
                 </td>
-                <td className="whitespace-nowrap px-4 py-2 text-right">{centsToDisplay(r.amountCents)}</td>
-                <td className="whitespace-nowrap px-4 py-2 text-right font-semibold">{centsToDisplay(r.netCollectedCents)}</td>
+                <td className="whitespace-nowrap px-4 py-2 text-right">
+                  {centsToDisplay(r.amountCents)}
+                </td>
+                <td className="whitespace-nowrap px-4 py-2 text-right font-semibold">
+                  {centsToDisplay(r.netCollectedCents)}
+                </td>
                 <td className="px-4 py-2 font-mono text-xs text-gray-500">{r.invoiceId ?? '—'}</td>
-                <td className="max-w-[140px] truncate px-4 py-2 font-mono text-xs text-violet-800" title={r.stripePaymentIntentId ?? ''}>
+                <td
+                  className="max-w-[140px] truncate px-4 py-2 font-mono text-xs text-violet-800"
+                  title={r.stripePaymentIntentId ?? ''}
+                >
                   {r.stripePaymentIntentId ?? '—'}
                 </td>
-                <td className="max-w-md truncate px-4 py-2 text-gray-700" title={r.description ?? ''}>
+                <td
+                  className="max-w-md truncate px-4 py-2 text-gray-700"
+                  title={r.description ?? ''}
+                >
                   {r.description ?? '—'}
                 </td>
               </tr>
@@ -929,7 +977,8 @@ function PharmacyTable({
         lifefileOrderId: doc.lifefileOrderId,
       };
     }
-    const ship = shippingByOrder.get(orderId) ?? trtByOrder.get(orderId) ?? prescFeeByOrder.get(orderId);
+    const ship =
+      shippingByOrder.get(orderId) ?? trtByOrder.get(orderId) ?? prescFeeByOrder.get(orderId);
     if (ship) {
       return {
         paidAt: ship.paidAt,
@@ -973,23 +1022,22 @@ function PharmacyTable({
       <td className="max-w-[min(280px,40vw)] px-4 py-2 text-xs text-sky-900">
         <span
           className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-            doc.approvalMode === 'async' ? 'bg-sky-200/80 text-sky-900' : 'bg-violet-200/80 text-violet-900'
+            doc.approvalMode === 'async'
+              ? 'bg-sky-200/80 text-sky-900'
+              : 'bg-violet-200/80 text-violet-900'
           }`}
         >
           {doc.approvalMode}
         </span>
         {showScheduleWaived ? (
-          <span className="mt-1 block break-words leading-snug text-[11px] text-sky-800/90">
+          <span className="mt-1 block break-words text-[11px] leading-snug text-sky-800/90">
             Schedule {centsToDisplay(nominal)} · waived
-            {doc.doctorFeeWaivedReason ? (
-              <>
-                {' '}
-                — {doc.doctorFeeWaivedReason}
-              </>
-            ) : null}
+            {doc.doctorFeeWaivedReason ? <> — {doc.doctorFeeWaivedReason}</> : null}
           </span>
         ) : doc.doctorFeeWaivedReason ? (
-          <span className="mt-1 block break-words leading-snug text-[11px] text-sky-800/90">{doc.doctorFeeWaivedReason}</span>
+          <span className="mt-1 block break-words text-[11px] leading-snug text-sky-800/90">
+            {doc.doctorFeeWaivedReason}
+          </span>
         ) : null}
       </td>
     );
@@ -1035,7 +1083,11 @@ function PharmacyTable({
                       aria-expanded={expanded}
                       title={expanded ? 'Collapse breakdown' : 'Expand breakdown'}
                     >
-                      {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                      {expanded ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" />
+                      )}
                     </button>
                   </td>
                   <td className="whitespace-nowrap px-4 py-2 text-xs font-medium text-emerald-700">
@@ -1044,22 +1096,31 @@ function PharmacyTable({
                   <td className="px-4 py-2 font-mono text-xs font-medium">{orderId}</td>
                   <td className="px-4 py-2 font-medium">
                     {ctx.patientId != null ? (
-                      <a href={`/admin/patients/${ctx.patientId}`} className="text-[#4fa77e] hover:underline">
+                      <a
+                        href={`/admin/patients/${ctx.patientId}`}
+                        className="text-[#4fa77e] hover:underline"
+                      >
                         {ctx.patientName}
                       </a>
                     ) : (
                       ctx.patientName
                     )}
                   </td>
-                  <td className="px-4 py-2 font-mono text-xs text-gray-500">{ctx.lifefileOrderId ?? '—'}</td>
+                  <td className="px-4 py-2 font-mono text-xs text-gray-500">
+                    {ctx.lifefileOrderId ?? '—'}
+                  </td>
                   <td className="px-4 py-2 text-gray-800">
                     <span className="font-medium">Order total</span>
-                    <span className="mt-0.5 block text-xs font-normal text-gray-500">{summaryBreakdownLabel(orderId)}</span>
+                    <span className="mt-0.5 block text-xs font-normal text-gray-500">
+                      {summaryBreakdownLabel(orderId)}
+                    </span>
                   </td>
                   <td className="px-4 py-2 text-gray-400">—</td>
                   <td className="px-4 py-2 text-right text-gray-400">—</td>
                   <td className="px-4 py-2 text-right text-gray-400">—</td>
-                  <td className="px-4 py-2 text-right font-semibold text-gray-900">{centsToDisplay(bundleTotal)}</td>
+                  <td className="px-4 py-2 text-right font-semibold text-gray-900">
+                    {centsToDisplay(bundleTotal)}
+                  </td>
                   <td className="px-4 py-2 text-gray-400">—</td>
                 </tr>
                 {expanded ? (
@@ -1072,19 +1133,32 @@ function PharmacyTable({
                         </td>
                         <td className="px-4 py-2 font-mono text-xs text-gray-400">{li.orderId}</td>
                         <td className="px-4 py-2 font-medium">
-                          <a href={`/admin/patients/${li.patientId}`} className="text-[#4fa77e] hover:underline">
+                          <a
+                            href={`/admin/patients/${li.patientId}`}
+                            className="text-[#4fa77e] hover:underline"
+                          >
                             {li.patientName}
                           </a>
                         </td>
-                        <td className="px-4 py-2 font-mono text-xs text-gray-400">{li.lifefileOrderId ?? '—'}</td>
-                        <td className="border-l-2 border-[#4fa77e]/25 pl-3 pr-4 py-2">{li.medicationName}</td>
+                        <td className="px-4 py-2 font-mono text-xs text-gray-400">
+                          {li.lifefileOrderId ?? '—'}
+                        </td>
+                        <td className="border-l-2 border-[#4fa77e]/25 py-2 pl-3 pr-4">
+                          {li.medicationName}
+                        </td>
                         <td className="px-4 py-2 text-gray-600">{li.strength}</td>
                         <td className="px-4 py-2 text-right">{li.quantity}</td>
-                        <td className="px-4 py-2 text-right">{centsToDisplay(li.unitPriceCents)}</td>
-                        <td className="px-4 py-2 text-right font-semibold">{centsToDisplay(li.lineTotalCents)}</td>
+                        <td className="px-4 py-2 text-right">
+                          {centsToDisplay(li.unitPriceCents)}
+                        </td>
+                        <td className="px-4 py-2 text-right font-semibold">
+                          {centsToDisplay(li.lineTotalCents)}
+                        </td>
                         <td className="px-4 py-2">
                           {li.pricingStatus === 'missing' ? (
-                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">missing</span>
+                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">
+                              missing
+                            </span>
                           ) : li.pricingStatus === 'estimated' ? (
                             <span
                               className="rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-900"
@@ -1093,7 +1167,9 @@ function PharmacyTable({
                               est.
                             </span>
                           ) : (
-                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-800">priced</span>
+                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-800">
+                              priced
+                            </span>
                           )}
                         </td>
                       </tr>
@@ -1107,13 +1183,19 @@ function PharmacyTable({
                         <td className="px-4 py-2 font-mono text-xs text-gray-400">{orderId}</td>
                         <td className="px-4 py-2 text-gray-500">—</td>
                         <td className="px-4 py-2 font-mono text-xs text-gray-300">—</td>
-                        <td className="border-l-2 border-amber-300/80 pl-3 pr-4 py-2 text-amber-950">{ship.description}</td>
+                        <td className="border-l-2 border-amber-300/80 py-2 pl-3 pr-4 text-amber-950">
+                          {ship.description}
+                        </td>
                         <td className="px-4 py-2 text-gray-400">—</td>
                         <td className="px-4 py-2 text-right text-gray-400">—</td>
                         <td className="px-4 py-2 text-right text-gray-400">—</td>
-                        <td className="px-4 py-2 text-right font-semibold text-amber-950">{centsToDisplay(ship.feeCents)}</td>
+                        <td className="px-4 py-2 text-right font-semibold text-amber-950">
+                          {centsToDisplay(ship.feeCents)}
+                        </td>
                         <td className="px-4 py-2">
-                          <span className="rounded-full bg-amber-200/80 px-2 py-0.5 text-xs text-amber-950">shipping</span>
+                          <span className="rounded-full bg-amber-200/80 px-2 py-0.5 text-xs text-amber-950">
+                            shipping
+                          </span>
                         </td>
                       </tr>
                     ) : null}
@@ -1126,13 +1208,19 @@ function PharmacyTable({
                         <td className="px-4 py-2 font-mono text-xs text-gray-400">{orderId}</td>
                         <td className="px-4 py-2 text-gray-500">—</td>
                         <td className="px-4 py-2 font-mono text-xs text-gray-300">—</td>
-                        <td className="border-l-2 border-slate-300 pl-3 pr-4 py-2 text-slate-800">{presc.description}</td>
+                        <td className="border-l-2 border-slate-300 py-2 pl-3 pr-4 text-slate-800">
+                          {presc.description}
+                        </td>
                         <td className="px-4 py-2 text-gray-400">—</td>
                         <td className="px-4 py-2 text-right text-gray-400">—</td>
                         <td className="px-4 py-2 text-right text-gray-400">—</td>
-                        <td className="px-4 py-2 text-right font-semibold text-slate-900">{centsToDisplay(presc.feeCents)}</td>
+                        <td className="px-4 py-2 text-right font-semibold text-slate-900">
+                          {centsToDisplay(presc.feeCents)}
+                        </td>
                         <td className="px-4 py-2">
-                          <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs text-slate-800">rx fee</span>
+                          <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs text-slate-800">
+                            rx fee
+                          </span>
                         </td>
                       </tr>
                     ) : null}
@@ -1145,13 +1233,15 @@ function PharmacyTable({
                         <td className="px-4 py-2 font-mono text-xs text-gray-400">{orderId}</td>
                         <td className="px-4 py-2 text-gray-500">—</td>
                         <td className="px-4 py-2 font-mono text-xs text-gray-300">—</td>
-                        <td className="max-w-xs border-l-2 border-sky-300/70 pl-3 pr-4 py-2 text-sky-950">
+                        <td className="max-w-xs border-l-2 border-sky-300/70 py-2 pl-3 pr-4 text-sky-950">
                           Doctor / Rx fee ({doc.approvalMode}) — {doc.medications}
                         </td>
                         <td className="px-4 py-2 text-gray-400">—</td>
                         <td className="px-4 py-2 text-right text-gray-400">—</td>
                         <td className="px-4 py-2 text-right text-gray-400">—</td>
-                        <td className="px-4 py-2 text-right font-semibold text-sky-950">{centsToDisplay(doc.feeCents)}</td>
+                        <td className="px-4 py-2 text-right font-semibold text-sky-950">
+                          {centsToDisplay(doc.feeCents)}
+                        </td>
                         {renderDoctorPricedCell(doc)}
                       </tr>
                     ) : null}
@@ -1164,13 +1254,19 @@ function PharmacyTable({
                         <td className="px-4 py-2 font-mono text-xs text-gray-400">{orderId}</td>
                         <td className="px-4 py-2 text-gray-500">—</td>
                         <td className="px-4 py-2 font-mono text-xs text-gray-300">—</td>
-                        <td className="border-l-2 border-violet-300/70 pl-3 pr-4 py-2 text-violet-950">{trt.description}</td>
+                        <td className="border-l-2 border-violet-300/70 py-2 pl-3 pr-4 text-violet-950">
+                          {trt.description}
+                        </td>
                         <td className="px-4 py-2 text-gray-400">—</td>
                         <td className="px-4 py-2 text-right text-gray-400">—</td>
                         <td className="px-4 py-2 text-right text-gray-400">—</td>
-                        <td className="px-4 py-2 text-right font-semibold text-violet-950">{centsToDisplay(trt.feeCents)}</td>
+                        <td className="px-4 py-2 text-right font-semibold text-violet-950">
+                          {centsToDisplay(trt.feeCents)}
+                        </td>
                         <td className="px-4 py-2">
-                          <span className="rounded-full bg-violet-200/80 px-2 py-0.5 text-xs text-violet-950">TRT visit</span>
+                          <span className="rounded-full bg-violet-200/80 px-2 py-0.5 text-xs text-violet-950">
+                            TRT visit
+                          </span>
                         </td>
                       </tr>
                     ) : null}
@@ -1218,7 +1314,9 @@ function DoctorTable({ invoice }: { invoice: OtDoctorApprovalsInvoice }) {
               <td className="px-4 py-2">
                 <span
                   className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                    li.approvalMode === 'async' ? 'bg-sky-100 text-sky-800' : 'bg-violet-100 text-violet-800'
+                    li.approvalMode === 'async'
+                      ? 'bg-sky-100 text-sky-800'
+                      : 'bg-violet-100 text-violet-800'
                   }`}
                 >
                   {li.approvalMode}
@@ -1232,7 +1330,7 @@ function DoctorTable({ invoice }: { invoice: OtDoctorApprovalsInvoice }) {
                   </span>
                 ) : null}
               </td>
-              <td className="max-w-[min(320px,45vw)] px-4 py-2 text-xs leading-snug text-gray-600 break-words">
+              <td className="max-w-[min(320px,45vw)] break-words px-4 py-2 text-xs leading-snug text-gray-600">
                 {li.doctorFeeWaivedReason ?? '—'}
               </td>
             </tr>
@@ -1279,8 +1377,12 @@ function FulfillmentTable({ invoice }: { invoice: OtFulfillmentInvoice }) {
                 <td className="px-4 py-2 font-mono text-xs">{li.invoiceDbId}</td>
                 <td className="px-4 py-2 font-medium">{li.patientName}</td>
                 <td className="max-w-md px-4 py-2 text-gray-700">{li.description}</td>
-                <td className="px-4 py-2 text-right">{centsToDisplay(li.patientLineAmountCents)}</td>
-                <td className="px-4 py-2 text-right font-semibold">{centsToDisplay(li.feeCents)}</td>
+                <td className="px-4 py-2 text-right">
+                  {centsToDisplay(li.patientLineAmountCents)}
+                </td>
+                <td className="px-4 py-2 text-right font-semibold">
+                  {centsToDisplay(li.feeCents)}
+                </td>
               </tr>
             ))
           )}
@@ -1352,14 +1454,24 @@ function PerSaleReconciliationTable({ rows }: { rows: OtPerSaleReconciliationLin
               <td className="max-w-[140px] truncate px-3 py-2 font-medium" title={r.patientName}>
                 {r.patientName}
               </td>
-              <td className="whitespace-nowrap px-3 py-2 text-right">{centsToDisplay(r.patientGrossCents)}</td>
+              <td className="whitespace-nowrap px-3 py-2 text-right">
+                {centsToDisplay(r.patientGrossCents)}
+              </td>
               <td className="whitespace-nowrap px-3 py-2 text-right text-gray-700">
                 {centsToDisplay(r.medicationsCostCents)}
               </td>
-              <td className="whitespace-nowrap px-3 py-2 text-right">{centsToDisplay(r.shippingCents)}</td>
-              <td className="whitespace-nowrap px-3 py-2 text-right">{centsToDisplay(r.trtTelehealthCents)}</td>
-              <td className="whitespace-nowrap px-3 py-2 text-right font-medium">{centsToDisplay(r.pharmacyTotalCents)}</td>
-              <td className="whitespace-nowrap px-3 py-2 text-right">{centsToDisplay(r.doctorApprovalCents)}</td>
+              <td className="whitespace-nowrap px-3 py-2 text-right">
+                {centsToDisplay(r.shippingCents)}
+              </td>
+              <td className="whitespace-nowrap px-3 py-2 text-right">
+                {centsToDisplay(r.trtTelehealthCents)}
+              </td>
+              <td className="whitespace-nowrap px-3 py-2 text-right font-medium">
+                {centsToDisplay(r.pharmacyTotalCents)}
+              </td>
+              <td className="whitespace-nowrap px-3 py-2 text-right">
+                {centsToDisplay(r.doctorApprovalCents)}
+              </td>
               <td className="whitespace-nowrap px-3 py-2 text-right text-gray-600">
                 {centsToDisplay(r.doctorRxFeeNominalCents ?? r.doctorApprovalCents)}
               </td>
@@ -1369,22 +1481,37 @@ function PerSaleReconciliationTable({ rows }: { rows: OtPerSaleReconciliationLin
               <td className="whitespace-nowrap px-3 py-2 text-right text-gray-600">
                 {r.doctorRxFeeDaysSincePrior != null ? r.doctorRxFeeDaysSincePrior : '—'}
               </td>
-              <td className="max-w-[200px] truncate px-3 py-2 text-xs text-gray-600" title={r.doctorRxFeeNote ?? ''}>
+              <td
+                className="max-w-[200px] truncate px-3 py-2 text-xs text-gray-600"
+                title={r.doctorRxFeeNote ?? ''}
+              >
                 {r.doctorRxFeeNote ?? '—'}
               </td>
-              <td className="whitespace-nowrap px-3 py-2 text-right">{centsToDisplay(r.fulfillmentFeesCents)}</td>
+              <td className="whitespace-nowrap px-3 py-2 text-right">
+                {centsToDisplay(r.fulfillmentFeesCents)}
+              </td>
               <td className="whitespace-nowrap px-3 py-2 text-right text-slate-600">
                 {centsToDisplay(r.merchantProcessingCents)}
               </td>
               <td className="whitespace-nowrap px-3 py-2 text-right text-rose-700">
                 {centsToDisplay(r.platformCompensationCents)}
               </td>
-              <td className="max-w-[120px] truncate px-3 py-2 text-xs text-gray-700" title={r.salesRepName ?? ''}>
+              <td
+                className="max-w-[120px] truncate px-3 py-2 text-xs text-gray-700"
+                title={r.salesRepName ?? ''}
+              >
                 {r.salesRepName ?? '—'}
               </td>
-              <td className="whitespace-nowrap px-3 py-2 text-right text-cyan-800">{centsToDisplay(repCents(r))}</td>
-              <td className="whitespace-nowrap px-3 py-2 text-right text-orange-800">{centsToDisplay(mgrCents(r))}</td>
-              <td className="max-w-[180px] truncate px-3 py-2 text-xs text-gray-600" title={r.managerOverrideSummary ?? ''}>
+              <td className="whitespace-nowrap px-3 py-2 text-right text-cyan-800">
+                {centsToDisplay(repCents(r))}
+              </td>
+              <td className="whitespace-nowrap px-3 py-2 text-right text-orange-800">
+                {centsToDisplay(mgrCents(r))}
+              </td>
+              <td
+                className="max-w-[180px] truncate px-3 py-2 text-xs text-gray-600"
+                title={r.managerOverrideSummary ?? ''}
+              >
                 {r.managerOverrideSummary ?? '—'}
               </td>
               <td className="whitespace-nowrap px-3 py-2 text-right text-gray-800">
@@ -1395,11 +1522,17 @@ function PerSaleReconciliationTable({ rows }: { rows: OtPerSaleReconciliationLin
               </td>
               <td className="px-2 py-2 text-center text-xs">
                 {r.patientGrossSource === 'stripe_payments' ? (
-                  <span className="rounded-full bg-violet-100 px-2 py-0.5 font-medium text-violet-900" title="Gross from Payment rows">
+                  <span
+                    className="rounded-full bg-violet-100 px-2 py-0.5 font-medium text-violet-900"
+                    title="Gross from Payment rows"
+                  >
                     txn
                   </span>
                 ) : r.patientGrossSource === 'invoice_sync' ? (
-                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-gray-700" title="Gross from Invoice (Stripe sync)">
+                  <span
+                    className="rounded-full bg-gray-100 px-2 py-0.5 text-gray-700"
+                    title="Gross from Invoice (Stripe sync)"
+                  >
                     inv
                   </span>
                 ) : (
@@ -1412,7 +1545,10 @@ function PerSaleReconciliationTable({ rows }: { rows: OtPerSaleReconciliationLin
                     ✓
                   </span>
                 ) : r.stripeBillingNameMatch === 'mismatch' ? (
-                  <span className="font-medium text-amber-800" title="Stripe billing name differs from profile">
+                  <span
+                    className="font-medium text-amber-800"
+                    title="Stripe billing name differs from profile"
+                  >
                     ⚠
                   </span>
                 ) : (
@@ -1423,11 +1559,17 @@ function PerSaleReconciliationTable({ rows }: { rows: OtPerSaleReconciliationLin
               </td>
               <td className="px-2 py-2 text-center text-xs">
                 {r.invoicePatientMatchesOrder === false ? (
-                  <span className="font-medium text-red-700" title="Invoice patient ≠ order patient">
+                  <span
+                    className="font-medium text-red-700"
+                    title="Invoice patient ≠ order patient"
+                  >
                     ✗
                   </span>
                 ) : (
-                  <span className="text-emerald-700" title="Invoice patient matches order (or not checked)">
+                  <span
+                    className="text-emerald-700"
+                    title="Invoice patient matches order (or not checked)"
+                  >
                     ✓
                   </span>
                 )}
@@ -1440,30 +1582,52 @@ function PerSaleReconciliationTable({ rows }: { rows: OtPerSaleReconciliationLin
             <td className="px-3 py-3" colSpan={4}>
               Column totals ({rows.length} sales)
             </td>
-            <td className="whitespace-nowrap px-3 py-3 text-right">{centsToDisplay(sum((x) => x.patientGrossCents))}</td>
-            <td className="whitespace-nowrap px-3 py-3 text-right">{centsToDisplay(sum((x) => x.medicationsCostCents))}</td>
-            <td className="whitespace-nowrap px-3 py-3 text-right">{centsToDisplay(sum((x) => x.shippingCents))}</td>
-            <td className="whitespace-nowrap px-3 py-3 text-right">{centsToDisplay(sum((x) => x.trtTelehealthCents))}</td>
-            <td className="whitespace-nowrap px-3 py-3 text-right">{centsToDisplay(sum((x) => x.pharmacyTotalCents))}</td>
-            <td className="whitespace-nowrap px-3 py-3 text-right">{centsToDisplay(sum((x) => x.doctorApprovalCents))}</td>
+            <td className="whitespace-nowrap px-3 py-3 text-right">
+              {centsToDisplay(sum((x) => x.patientGrossCents))}
+            </td>
+            <td className="whitespace-nowrap px-3 py-3 text-right">
+              {centsToDisplay(sum((x) => x.medicationsCostCents))}
+            </td>
+            <td className="whitespace-nowrap px-3 py-3 text-right">
+              {centsToDisplay(sum((x) => x.shippingCents))}
+            </td>
+            <td className="whitespace-nowrap px-3 py-3 text-right">
+              {centsToDisplay(sum((x) => x.trtTelehealthCents))}
+            </td>
+            <td className="whitespace-nowrap px-3 py-3 text-right">
+              {centsToDisplay(sum((x) => x.pharmacyTotalCents))}
+            </td>
+            <td className="whitespace-nowrap px-3 py-3 text-right">
+              {centsToDisplay(sum((x) => x.doctorApprovalCents))}
+            </td>
             <td className="whitespace-nowrap px-3 py-3 text-right text-gray-600">
-              {centsToDisplay(
-                sum((x) => x.doctorRxFeeNominalCents ?? x.doctorApprovalCents),
-              )}
+              {centsToDisplay(sum((x) => x.doctorRxFeeNominalCents ?? x.doctorApprovalCents))}
             </td>
             <td className="whitespace-nowrap px-3 py-3 text-right text-amber-800">
               {centsToDisplay(sum((x) => x.doctorRxFeeWaivedCents ?? 0))}
             </td>
             <td className="px-3 py-3 text-gray-400">—</td>
             <td className="px-3 py-3 text-gray-400">—</td>
-            <td className="whitespace-nowrap px-3 py-3 text-right">{centsToDisplay(sum((x) => x.fulfillmentFeesCents))}</td>
-            <td className="whitespace-nowrap px-3 py-3 text-right">{centsToDisplay(sum((x) => x.merchantProcessingCents))}</td>
-            <td className="whitespace-nowrap px-3 py-3 text-right">{centsToDisplay(sum((x) => x.platformCompensationCents))}</td>
+            <td className="whitespace-nowrap px-3 py-3 text-right">
+              {centsToDisplay(sum((x) => x.fulfillmentFeesCents))}
+            </td>
+            <td className="whitespace-nowrap px-3 py-3 text-right">
+              {centsToDisplay(sum((x) => x.merchantProcessingCents))}
+            </td>
+            <td className="whitespace-nowrap px-3 py-3 text-right">
+              {centsToDisplay(sum((x) => x.platformCompensationCents))}
+            </td>
             <td className="px-3 py-3 text-gray-400">—</td>
-            <td className="whitespace-nowrap px-3 py-3 text-right">{centsToDisplay(sum(repCents))}</td>
-            <td className="whitespace-nowrap px-3 py-3 text-right">{centsToDisplay(sum(mgrCents))}</td>
+            <td className="whitespace-nowrap px-3 py-3 text-right">
+              {centsToDisplay(sum(repCents))}
+            </td>
+            <td className="whitespace-nowrap px-3 py-3 text-right">
+              {centsToDisplay(sum(mgrCents))}
+            </td>
             <td className="px-3 py-3 text-gray-400">—</td>
-            <td className="whitespace-nowrap px-3 py-3 text-right">{centsToDisplay(sum((x) => x.totalDeductionsCents))}</td>
+            <td className="whitespace-nowrap px-3 py-3 text-right">
+              {centsToDisplay(sum((x) => x.totalDeductionsCents))}
+            </td>
             <td className="whitespace-nowrap px-3 py-3 text-right text-[#2d6b4f]">
               {centsToDisplay(sum((x) => x.clinicNetPayoutCents))}
             </td>

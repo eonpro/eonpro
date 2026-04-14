@@ -33,7 +33,9 @@ export async function POST(request: NextRequest) {
     const { results, totalDurationMs } = await runCronPerTenant<PerClinicResult>({
       jobName: 'competition-scores',
       perClinic: async (clinicId) => {
-        return runWithClinicContext(clinicId, () => updateActiveCompetitionScoresForClinic(clinicId));
+        return runWithClinicContext(clinicId, () =>
+          updateActiveCompetitionScoresForClinic(clinicId)
+        );
       },
     });
 

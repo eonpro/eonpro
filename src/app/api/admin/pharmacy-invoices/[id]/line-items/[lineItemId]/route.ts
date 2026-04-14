@@ -18,7 +18,9 @@ const updateSchema = z.object({
   adminNotes: z.string().nullable().optional(),
   disputed: z.boolean().optional(),
   adjustedAmountCents: z.number().int().nullable().optional(),
-  matchStatus: z.enum(['MATCHED', 'UNMATCHED', 'DISCREPANCY', 'MANUALLY_MATCHED', 'DISPUTED']).optional(),
+  matchStatus: z
+    .enum(['MATCHED', 'UNMATCHED', 'DISCREPANCY', 'MANUALLY_MATCHED', 'DISPUTED'])
+    .optional(),
 });
 
 type RouteContext = { params: Promise<{ id: string; lineItemId: string }> };
@@ -48,7 +50,10 @@ export const PATCH = withAuth(
       const body = await req.json();
       const parsed = updateSchema.safeParse(body);
       if (!parsed.success) {
-        return NextResponse.json({ error: 'Invalid data', details: parsed.error.flatten() }, { status: 400 });
+        return NextResponse.json(
+          { error: 'Invalid data', details: parsed.error.flatten() },
+          { status: 400 }
+        );
       }
 
       const updated = await updateLineItem(itemId, uploadId, parsed.data);

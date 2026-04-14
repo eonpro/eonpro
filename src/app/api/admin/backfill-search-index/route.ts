@@ -48,7 +48,10 @@ function safeDecrypt(value: unknown, fieldName: string, patientId: number): stri
 export const POST = withAdminAuth(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const rawBatch = parseInt(searchParams.get('batchSize') || String(DEFAULT_BATCH_SIZE), 10);
-  const batchSize = Math.min(Math.max(1, isNaN(rawBatch) ? DEFAULT_BATCH_SIZE : rawBatch), MAX_BATCH_SIZE);
+  const batchSize = Math.min(
+    Math.max(1, isNaN(rawBatch) ? DEFAULT_BATCH_SIZE : rawBatch),
+    MAX_BATCH_SIZE
+  );
   const clinicIdParam = searchParams.get('clinicId');
   const clinicId = clinicIdParam ? parseInt(clinicIdParam, 10) : undefined;
   const dryRun = searchParams.get('dryRun') === 'true';

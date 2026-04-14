@@ -31,7 +31,7 @@ export default function SelectField({
   return (
     <div className="w-full">
       {label && (
-        <label htmlFor={id} className="block text-sm text-gray-600 mb-2">
+        <label htmlFor={id} className="mb-2 block text-sm text-gray-600">
           {label}
         </label>
       )}
@@ -43,7 +43,7 @@ export default function SelectField({
           disabled={disabled}
           aria-invalid={!!error}
           aria-describedby={error ? `${id}-error` : undefined}
-          className={`select-field w-full ${error ? 'border-red-500 focus:border-red-500' : ''} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+          className={`select-field w-full ${error ? 'border-red-500 focus:border-red-500' : ''} ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
         >
           <option value="" disabled>
             {placeholder}

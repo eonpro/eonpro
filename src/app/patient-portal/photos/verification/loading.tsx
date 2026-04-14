@@ -24,7 +24,10 @@ export default function VerificationLoading() {
       {/* Document items */}
       <div className="space-y-3">
         {['ID Front', 'ID Back', 'Selfie'].map((label) => (
-          <div key={label} className="flex items-center justify-between rounded-2xl bg-white p-4 shadow-sm">
+          <div
+            key={label}
+            className="flex items-center justify-between rounded-2xl bg-white p-4 shadow-sm"
+          >
             <div className="flex items-center gap-3">
               <div className="h-12 w-12 rounded-xl bg-gray-200" />
               <div>

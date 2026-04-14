@@ -262,7 +262,9 @@ export async function completeScribeSession(
 /**
  * Get active scribe session for an appointment
  */
-export async function getActiveScribeSession(appointmentId: number): Promise<TelehealthSession | null> {
+export async function getActiveScribeSession(
+  appointmentId: number
+): Promise<TelehealthSession | null> {
   return getSession(appointmentId);
 }
 

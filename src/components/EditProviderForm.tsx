@@ -108,7 +108,6 @@ export default function EditProviderForm({ provider }: Props) {
       }
       setMessage('Provider updated.');
     } catch (err: unknown) {
-      
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       setMessage(errorMessage ?? 'Failed to update provider');
     } finally {

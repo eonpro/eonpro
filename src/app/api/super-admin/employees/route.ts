@@ -48,25 +48,27 @@ async function handleGet(req: NextRequest): Promise<Response> {
 
       const clinicIdFilter = clinicIdParam ? parseInt(clinicIdParam, 10) : null;
 
-      const employees = users.map((u) => {
-        const planClinic = u.salesRepPlanAssignments?.[0]?.clinic;
-        const effectiveClinicId = u.clinicId || planClinic?.id || null;
-        const effectiveClinicName = u.clinic?.name || planClinic?.name || 'Unassigned';
+      const employees = users
+        .map((u) => {
+          const planClinic = u.salesRepPlanAssignments?.[0]?.clinic;
+          const effectiveClinicId = u.clinicId || planClinic?.id || null;
+          const effectiveClinicName = u.clinic?.name || planClinic?.name || 'Unassigned';
 
-        return {
-          id: u.id,
-          firstName: u.firstName,
-          lastName: u.lastName,
-          email: u.email,
-          role: u.role,
-          status: u.status,
-          clinicId: effectiveClinicId,
-          clinicName: effectiveClinicName,
-        };
-      }).filter((u) => {
-        if (clinicIdFilter && u.clinicId !== clinicIdFilter) return false;
-        return true;
-      });
+          return {
+            id: u.id,
+            firstName: u.firstName,
+            lastName: u.lastName,
+            email: u.email,
+            role: u.role,
+            status: u.status,
+            clinicId: effectiveClinicId,
+            clinicName: effectiveClinicName,
+          };
+        })
+        .filter((u) => {
+          if (clinicIdFilter && u.clinicId !== clinicIdFilter) return false;
+          return true;
+        });
 
       return NextResponse.json({ employees });
     });

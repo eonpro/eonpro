@@ -17,14 +17,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import {
-  GripVertical,
-  Copy,
-  Trash2,
-  Plus,
-  ChevronDown,
-  Flag,
-} from 'lucide-react';
+import { GripVertical, Copy, Trash2, Plus, ChevronDown, Flag } from 'lucide-react';
 import type { FormStep, StepType } from '../state/builderTypes';
 
 // ---------------------------------------------------------------------------
@@ -88,14 +81,9 @@ function SortableStepCard({
   onDelete,
   onSetStartStep,
 }: SortableStepCardProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: step.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: step.id,
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -110,18 +98,15 @@ function SortableStepCard({
     <div
       ref={setNodeRef}
       style={style}
-      className={`
-        group relative flex items-start gap-2 rounded-lg border px-3 py-2.5
-        transition-all duration-150
-        ${isDragging ? 'z-50 opacity-90 shadow-lg' : ''}
-        ${isSelected
+      className={`group relative flex items-start gap-2 rounded-lg border px-3 py-2.5 transition-all duration-150 ${isDragging ? 'z-50 opacity-90 shadow-lg' : ''} ${
+        isSelected
           ? 'border-indigo-300 bg-indigo-50/80 dark:border-indigo-600 dark:bg-indigo-950/50'
-          : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50/80 dark:border-gray-700 dark:bg-gray-800/80 dark:hover:border-gray-600 dark:hover:bg-gray-800'}
-      `}
+          : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50/80 dark:border-gray-700 dark:bg-gray-800/80 dark:hover:border-gray-600 dark:hover:bg-gray-800'
+      } `}
     >
       {/* Left accent for selected */}
       {isSelected && (
-        <div className="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-indigo-500" />
+        <div className="absolute bottom-1.5 left-0 top-1.5 w-1 rounded-r-full bg-indigo-500" />
       )}
 
       <button
@@ -134,15 +119,9 @@ function SortableStepCard({
         <GripVertical className="h-4 w-4" />
       </button>
 
-      <button
-        type="button"
-        onClick={onSelect}
-        className="min-w-0 flex-1 text-left"
-      >
+      <button type="button" onClick={onSelect} className="min-w-0 flex-1 text-left">
         <div className="flex items-center gap-2">
-          {isStartStep && (
-            <Flag className="h-3.5 w-3.5 shrink-0 text-amber-500" aria-hidden />
-          )}
+          {isStartStep && <Flag className="h-3.5 w-3.5 shrink-0 text-amber-500" aria-hidden />}
           <span className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
             {title || 'Untitled'}
           </span>

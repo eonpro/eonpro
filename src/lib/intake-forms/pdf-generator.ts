@@ -86,7 +86,10 @@ export async function generateIntakeFormPDF(options: PDFGenerationOptions): Prom
           args: ['--no-sandbox', '--disable-setuid-sandbox'],
         }),
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Puppeteer launch timed out after 30s')), PDF_TIMEOUT_MS)
+          setTimeout(
+            () => reject(new Error('Puppeteer launch timed out after 30s')),
+            PDF_TIMEOUT_MS
+          )
         ),
       ]);
 
@@ -139,10 +142,10 @@ export async function generateIntakeFormPDF(options: PDFGenerationOptions): Prom
     });
 
     // Dual-write: S3 + DB `data` column (Phase 3.3)
-    const { s3DataKey, dataBuffer: intakeDataBuffer } = await storeIntakeData(
-      intakeDataToStore,
-      { patientId: submission.patientId, clinicId: null }
-    );
+    const { s3DataKey, dataBuffer: intakeDataBuffer } = await storeIntakeData(intakeDataToStore, {
+      patientId: submission.patientId,
+      clinicId: null,
+    });
 
     // Create patient document record with intake data and S3 location
     // Store the S3 key in externalUrl (signed URLs expire; regenerate from key on access)
@@ -164,7 +167,6 @@ export async function generateIntakeFormPDF(options: PDFGenerationOptions): Prom
 
     return pdfBuffer as Buffer;
   } catch (error: unknown) {
-    
     logger.error('Failed to generate PDF', { error, submissionId });
     return null;
   }
@@ -316,7 +318,16 @@ function generateHTML(
             <strong>Phone:</strong> ${patient.phoneNumber || 'Not provided'}
           </div>
           <div class="info-item">
-            <strong>Date of Birth:</strong> ${patient.dateOfBirth ? (() => { const d = patient.dateOfBirth!.trim(); if (d.includes('/')) return d; const p = d.split('-'); return p.length === 3 ? `${p[1]}/${p[2]}/${p[0]}` : d; })() : 'Not provided'}
+            <strong>Date of Birth:</strong> ${
+              patient.dateOfBirth
+                ? (() => {
+                    const d = patient.dateOfBirth!.trim();
+                    if (d.includes('/')) return d;
+                    const p = d.split('-');
+                    return p.length === 3 ? `${p[1]}/${p[2]}/${p[0]}` : d;
+                  })()
+                : 'Not provided'
+            }
           </div>
         </div>
       </div>
@@ -399,7 +410,6 @@ export async function generatePDFOnSubmission(submissionId: number): Promise<voi
     await generateIntakeFormPDF({ submissionId });
     logger.info('PDF generated automatically for submission', { submissionId });
   } catch (error: unknown) {
-    
     logger.error('Failed to auto-generate PDF', { error, submissionId });
   }
 }

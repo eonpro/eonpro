@@ -359,83 +359,87 @@ export async function processPayout(request: PayoutRequest): Promise<PayoutResul
 
     // STEP 1: Atomically claim commissions + create payout in a Serializable transaction
     // This prevents TOCTOU race conditions where two concurrent payouts claim the same commissions
-    const { payout, assignedEventIds, netAmountCents } = await prisma.$transaction(async (tx) => {
-      // Get approved commissions to include in this payout (locked by Serializable isolation)
-      const commissionEvents = await tx.affiliateCommissionEvent.findMany({
-        where: {
-          affiliateId,
-          clinicId,
-          status: 'APPROVED',
-          payoutId: null,
-        },
-        select: {
-          id: true,
-          commissionAmountCents: true,
-        },
-      });
+    const { payout, assignedEventIds, netAmountCents } = await prisma.$transaction(
+      async (tx) => {
+        // Get approved commissions to include in this payout (locked by Serializable isolation)
+        const commissionEvents = await tx.affiliateCommissionEvent.findMany({
+          where: {
+            affiliateId,
+            clinicId,
+            status: 'APPROVED',
+            payoutId: null,
+          },
+          select: {
+            id: true,
+            commissionAmountCents: true,
+          },
+        });
 
-      const totalAvailable = commissionEvents.reduce(
-        (sum: number, e: (typeof commissionEvents)[number]) => sum + e.commissionAmountCents,
-        0
-      );
-
-      if (totalAvailable < amountCents) {
-        throw new Error(
-          `Requested amount ($${amountCents / 100}) exceeds available balance ($${totalAvailable / 100})`
+        const totalAvailable = commissionEvents.reduce(
+          (sum: number, e: (typeof commissionEvents)[number]) => sum + e.commissionAmountCents,
+          0
         );
-      }
 
-      // Calculate processing fee (if any)
-      const fee = methodType === 'BANK_WIRE' ? 2500 : 0; // $25 wire fee
-      const net = amountCents - fee;
+        if (totalAvailable < amountCents) {
+          throw new Error(
+            `Requested amount ($${amountCents / 100}) exceeds available balance ($${totalAvailable / 100})`
+          );
+        }
 
-      // Determine period start
-      const periodStartEvent = commissionEvents.length > 0
-        ? await tx.affiliateCommissionEvent.findFirst({
-            where: {
-              id: { in: commissionEvents.map((e: (typeof commissionEvents)[number]) => e.id) },
-            },
-            orderBy: { occurredAt: 'asc' },
-            select: { occurredAt: true },
-          })
-        : null;
+        // Calculate processing fee (if any)
+        const fee = methodType === 'BANK_WIRE' ? 2500 : 0; // $25 wire fee
+        const net = amountCents - fee;
 
-      // Create payout record with PENDING status (external call happens AFTER commit)
-      const payoutRecord = await tx.affiliatePayout.create({
-        data: {
-          clinicId,
-          affiliateId,
-          amountCents,
-          feeCents: fee,
-          netAmountCents: net,
-          currency: 'USD',
-          methodType,
-          status: 'PROCESSING',
-          processedAt: new Date(),
-          processedBy,
-          notes,
-          periodStart: periodStartEvent?.occurredAt,
-          periodEnd: new Date(),
-        },
-      });
+        // Determine period start
+        const periodStartEvent =
+          commissionEvents.length > 0
+            ? await tx.affiliateCommissionEvent.findFirst({
+                where: {
+                  id: { in: commissionEvents.map((e: (typeof commissionEvents)[number]) => e.id) },
+                },
+                orderBy: { occurredAt: 'asc' },
+                select: { occurredAt: true },
+              })
+            : null;
 
-      // Assign commission events to this payout
-      let remainingAmount = amountCents;
-      const claimed: number[] = [];
+        // Create payout record with PENDING status (external call happens AFTER commit)
+        const payoutRecord = await tx.affiliatePayout.create({
+          data: {
+            clinicId,
+            affiliateId,
+            amountCents,
+            feeCents: fee,
+            netAmountCents: net,
+            currency: 'USD',
+            methodType,
+            status: 'PROCESSING',
+            processedAt: new Date(),
+            processedBy,
+            notes,
+            periodStart: periodStartEvent?.occurredAt,
+            periodEnd: new Date(),
+          },
+        });
 
-      for (const event of commissionEvents) {
-        if (remainingAmount <= 0) break;
-        claimed.push(event.id);
-        remainingAmount -= event.commissionAmountCents;
-      }
+        // Assign commission events to this payout
+        let remainingAmount = amountCents;
+        const claimed: number[] = [];
 
-      await tx.affiliateCommissionEvent.updateMany({
-        where: { id: { in: claimed } },
-        data: { payoutId: payoutRecord.id },
-      });
+        for (const event of commissionEvents) {
+          if (remainingAmount <= 0) break;
+          claimed.push(event.id);
+          remainingAmount -= event.commissionAmountCents;
+        }
 
-      return { payout: payoutRecord, assignedEventIds: claimed, netAmountCents: net };
-    }, { isolationLevel: 'Serializable', timeout: 15000, maxWait: 5000 });
+        await tx.affiliateCommissionEvent.updateMany({
+          where: { id: { in: claimed } },
+          data: { payoutId: payoutRecord.id },
+        });
+
+        return { payout: payoutRecord, assignedEventIds: claimed, netAmountCents: net };
+      },
+      { isolationLevel: 'Serializable', timeout: 15000, maxWait: 5000 }
+    );
 
     // STEP 2: External API call AFTER transaction commit (per data-integrity rules)
     // If this fails, the payout stays in PROCESSING and can be retried/cancelled

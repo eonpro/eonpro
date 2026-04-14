@@ -135,26 +135,78 @@ export default function WmMetabolicChartStep({
         >
           <svg viewBox="0 0 600 320" className="w-full" preserveAspectRatio="xMidYMid meet">
             {/* Y axis arrow */}
-            <line x1="70" y1="260" x2="70" y2="30" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
+            <line
+              x1="70"
+              y1="260"
+              x2="70"
+              y2="30"
+              stroke="rgba(255,255,255,0.4)"
+              strokeWidth="1.5"
+            />
             <polygon points="70,25 65,35 75,35" fill="rgba(255,255,255,0.4)" />
 
             {/* X axis */}
-            <line x1="70" y1="260" x2="560" y2="260" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
+            <line
+              x1="70"
+              y1="260"
+              x2="560"
+              y2="260"
+              stroke="rgba(255,255,255,0.4)"
+              strokeWidth="1.5"
+            />
 
             {/* Horizontal dashed grid lines */}
-            <line x1="70" y1="80" x2="560" y2="80" stroke="rgba(255,255,255,0.15)" strokeWidth="1" strokeDasharray="6,4" />
-            <line x1="70" y1="170" x2="560" y2="170" stroke="rgba(255,255,255,0.15)" strokeWidth="1" strokeDasharray="6,4" />
+            <line
+              x1="70"
+              y1="80"
+              x2="560"
+              y2="80"
+              stroke="rgba(255,255,255,0.15)"
+              strokeWidth="1"
+              strokeDasharray="6,4"
+            />
+            <line
+              x1="70"
+              y1="170"
+              x2="560"
+              y2="170"
+              stroke="rgba(255,255,255,0.15)"
+              strokeWidth="1"
+              strokeDasharray="6,4"
+            />
 
             {/* Y axis label */}
-            <text x="45" y="100" fill="white" fontSize="14" fontWeight="600" textAnchor="middle" transform="rotate(-90 45 150)">
+            <text
+              x="45"
+              y="100"
+              fill="white"
+              fontSize="14"
+              fontWeight="600"
+              textAnchor="middle"
+              transform="rotate(-90 45 150)"
+            >
               Metabolic rate
             </text>
 
             {/* Ease of weight loss label */}
-            <text x="480" y="150" fill="rgba(255,255,255,0.6)" fontSize="14" fontWeight="500" textAnchor="middle">
+            <text
+              x="480"
+              y="150"
+              fill="rgba(255,255,255,0.6)"
+              fontSize="14"
+              fontWeight="500"
+              textAnchor="middle"
+            >
               Ease of
             </text>
-            <text x="480" y="168" fill="rgba(255,255,255,0.6)" fontSize="14" fontWeight="500" textAnchor="middle">
+            <text
+              x="480"
+              y="168"
+              fill="rgba(255,255,255,0.6)"
+              fontSize="14"
+              fontWeight="500"
+              textAnchor="middle"
+            >
               weight loss
             </text>
 

@@ -72,11 +72,21 @@ export const POST = withSuperAdminAuth(
         logger.error('[SUPER-ADMIN/PROVIDERS/VERIFY-NPI] NPI lookup failed', {
           providerId,
           npi: provider.npi,
-          error: error instanceof Error ? (error instanceof Error ? error.message : String(error)) : 'Unknown error',
+          error:
+            error instanceof Error
+              ? error instanceof Error
+                ? error.message
+                : String(error)
+              : 'Unknown error',
         });
         return NextResponse.json(
           {
-            error: error instanceof Error ? (error instanceof Error ? error.message : String(error)) : 'NPI lookup failed',
+            error:
+              error instanceof Error
+                ? error instanceof Error
+                  ? error.message
+                  : String(error)
+                : 'NPI lookup failed',
             valid: false,
           },
           { status: 400 }
@@ -84,40 +94,43 @@ export const POST = withSuperAdminAuth(
       }
 
       // Save verification to provider profile
-      const updatedProvider = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-        const updated = await tx.provider.update({
-          where: { id: providerId },
-          data: {
-            npiVerifiedAt: new Date(),
-            npiRawResponse: npiResult as any,
-          },
-          select: {
-            id: true,
-            npi: true,
-            firstName: true,
-            lastName: true,
-            npiVerifiedAt: true,
-            npiRawResponse: true,
-          },
-        });
-
-        // Create audit log
-        await tx.providerAudit.create({
-          data: {
-            providerId,
-            actorEmail: user.email,
-            action: 'NPI_VERIFIED',
-            diff: {
-              npi: provider.npi,
-              registryName: `${npiResult.basic?.firstName || npiResult.basic?.first_name} ${npiResult.basic?.lastName || npiResult.basic?.last_name}`,
-              verifiedBy: user.email,
-              verifiedAt: new Date().toISOString(),
+      const updatedProvider = await prisma.$transaction(
+        async (tx: Prisma.TransactionClient) => {
+          const updated = await tx.provider.update({
+            where: { id: providerId },
+            data: {
+              npiVerifiedAt: new Date(),
+              npiRawResponse: npiResult as any,
             },
-          },
-        });
+            select: {
+              id: true,
+              npi: true,
+              firstName: true,
+              lastName: true,
+              npiVerifiedAt: true,
+              npiRawResponse: true,
+            },
+          });
 
-        return updated;
-      }, { timeout: 15000 });
+          // Create audit log
+          await tx.providerAudit.create({
+            data: {
+              providerId,
+              actorEmail: user.email,
+              action: 'NPI_VERIFIED',
+              diff: {
+                npi: provider.npi,
+                registryName: `${npiResult.basic?.firstName || npiResult.basic?.first_name} ${npiResult.basic?.lastName || npiResult.basic?.last_name}`,
+                verifiedBy: user.email,
+                verifiedAt: new Date().toISOString(),
+              },
+            },
+          });
+
+          return updated;
+        },
+        { timeout: 15000 }
+      );
 
       logger.info('[SUPER-ADMIN/PROVIDERS/VERIFY-NPI] NPI verified and saved', {
         providerId,
@@ -141,7 +154,12 @@ export const POST = withSuperAdminAuth(
       });
     } catch (error: unknown) {
       logger.error('[SUPER-ADMIN/PROVIDERS/VERIFY-NPI] Error:', error);
-      return NextResponse.json({ error: (error instanceof Error ? error.message : String(error)) || 'Failed to verify NPI' }, { status: 500 });
+      return NextResponse.json(
+        {
+          error: (error instanceof Error ? error.message : String(error)) || 'Failed to verify NPI',
+        },
+        { status: 500 }
+      );
     }
   }
 );

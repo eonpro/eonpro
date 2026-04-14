@@ -144,7 +144,10 @@ export const POST = withAdminAuth(async (req: NextRequest, user: AuthUser) => {
       if (!tokenResponse.ok) {
         const error = await tokenResponse.text();
         logger.error('Zoom credential verification failed', { error });
-        return { error: 'Invalid Zoom credentials. Please check your Account ID, Client ID, and Client Secret.' };
+        return {
+          error:
+            'Invalid Zoom credentials. Please check your Account ID, Client ID, and Client Secret.',
+        };
       }
 
       const tokenData = await tokenResponse.json();
@@ -163,10 +166,7 @@ export const POST = withAdminAuth(async (req: NextRequest, user: AuthUser) => {
     });
 
     if ('error' in verificationResult) {
-      return NextResponse.json(
-        { error: verificationResult.error },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: verificationResult.error }, { status: 400 });
     }
 
     const { tokenData, userData } = verificationResult;

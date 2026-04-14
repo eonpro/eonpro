@@ -120,12 +120,8 @@ describe('buildPatientSearchWhere', () => {
   it('includes exact searchIndex and patientId in OR conditions', () => {
     const result = buildPatientSearchWhere('chad');
     const orConditions = (result.AND as any[])[0].OR;
-    const searchIndexContains = orConditions.filter(
-      (c: any) => c.searchIndex?.contains === 'chad'
-    );
-    const patientIdContains = orConditions.filter(
-      (c: any) => c.patientId?.contains === 'chad'
-    );
+    const searchIndexContains = orConditions.filter((c: any) => c.searchIndex?.contains === 'chad');
+    const patientIdContains = orConditions.filter((c: any) => c.patientId?.contains === 'chad');
     expect(searchIndexContains.length).toBe(1);
     expect(patientIdContains.length).toBe(1);
   });
@@ -133,9 +129,7 @@ describe('buildPatientSearchWhere', () => {
   it('includes transposition variants in OR conditions', () => {
     const result = buildPatientSearchWhere('jhon');
     const orConditions = (result.AND as any[])[0].OR;
-    const hasJohnVariant = orConditions.some(
-      (c: any) => c.searchIndex?.contains === 'john'
-    );
+    const hasJohnVariant = orConditions.some((c: any) => c.searchIndex?.contains === 'john');
     expect(hasJohnVariant).toBe(true);
   });
 
@@ -152,10 +146,7 @@ describe('buildPatientSearchWhere', () => {
 describe('AND composition (admin patients route pattern)', () => {
   it('preserves base OR when composing with single-term search', () => {
     const whereClause: Record<string, any> = {
-      OR: [
-        { invoices: { some: {} } },
-        { orders: { some: {} } },
-      ],
+      OR: [{ invoices: { some: {} } }, { orders: { some: {} } }],
       clinicId: 1,
     };
 
@@ -164,15 +155,16 @@ describe('AND composition (admin patients route pattern)', () => {
 
     // This is the fix pattern: use AND array composition
     whereClause.AND = [
-      ...(Array.isArray(whereClause.AND) ? whereClause.AND : whereClause.AND ? [whereClause.AND] : []),
+      ...(Array.isArray(whereClause.AND)
+        ? whereClause.AND
+        : whereClause.AND
+          ? [whereClause.AND]
+          : []),
       searchFilter,
     ];
 
     // Base OR must be preserved
-    expect(whereClause.OR).toEqual([
-      { invoices: { some: {} } },
-      { orders: { some: {} } },
-    ]);
+    expect(whereClause.OR).toEqual([{ invoices: { some: {} } }, { orders: { some: {} } }]);
     expect(whereClause.clinicId).toBe(1);
     expect(whereClause.AND).toHaveLength(1);
     expect(whereClause.AND[0]).toHaveProperty('AND');
@@ -180,22 +172,20 @@ describe('AND composition (admin patients route pattern)', () => {
 
   it('preserves base OR when composing with phone search', () => {
     const whereClause: Record<string, any> = {
-      OR: [
-        { invoices: { some: {} } },
-        { orders: { some: {} } },
-      ],
+      OR: [{ invoices: { some: {} } }, { orders: { some: {} } }],
     };
 
     const searchFilter = buildPatientSearchWhere('5551234567');
     whereClause.AND = [
-      ...(Array.isArray(whereClause.AND) ? whereClause.AND : whereClause.AND ? [whereClause.AND] : []),
+      ...(Array.isArray(whereClause.AND)
+        ? whereClause.AND
+        : whereClause.AND
+          ? [whereClause.AND]
+          : []),
       searchFilter,
     ];
 
-    expect(whereClause.OR).toEqual([
-      { invoices: { some: {} } },
-      { orders: { some: {} } },
-    ]);
+    expect(whereClause.OR).toEqual([{ invoices: { some: {} } }, { orders: { some: {} } }]);
     expect(whereClause.AND).toHaveLength(1);
     expect(whereClause.AND[0]).toHaveProperty('searchIndex');
   });
@@ -208,7 +198,11 @@ describe('AND composition (admin patients route pattern)', () => {
 
     const searchFilter = buildPatientSearchWhere('john');
     whereClause.AND = [
-      ...(Array.isArray(whereClause.AND) ? whereClause.AND : whereClause.AND ? [whereClause.AND] : []),
+      ...(Array.isArray(whereClause.AND)
+        ? whereClause.AND
+        : whereClause.AND
+          ? [whereClause.AND]
+          : []),
       searchFilter,
     ];
 
@@ -255,7 +249,9 @@ describe('isSearchIndexIncomplete', () => {
   it('returns false for two or more tokens', () => {
     expect(isSearchIndexIncomplete('alexis adkins')).toBe(false);
     expect(isSearchIndexIncomplete('john doe')).toBe(false);
-    expect(isSearchIndexIncomplete('alexis adkins alexisaadkins117@gmail.com 9417265935 eon-7914')).toBe(false);
+    expect(
+      isSearchIndexIncomplete('alexis adkins alexisaadkins117@gmail.com 9417265935 eon-7914')
+    ).toBe(false);
     expect(isSearchIndexIncomplete('a b')).toBe(false);
   });
 
@@ -345,7 +341,7 @@ describe('sortBySearchRelevance', () => {
     { name: 'Bob Johnston', email: 'bob@test.com' },
     { name: 'Jonathan Lee', email: 'jonathan@test.com' },
   ];
-  const getFields = (item: typeof items[number]) => [item.name, item.email];
+  const getFields = (item: (typeof items)[number]) => [item.name, item.email];
 
   it('returns items unchanged when no search', () => {
     expect(sortBySearchRelevance(items, '', getFields)).toBe(items);

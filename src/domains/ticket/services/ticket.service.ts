@@ -144,42 +144,45 @@ export const ticketService = {
     }
 
     // Create ticket in transaction
-    const ticket = await prisma.$transaction(async (tx) => {
-      // Create the ticket
-      const newTicket = await ticketRepository.create(data, userContext, tx);
+    const ticket = await prisma.$transaction(
+      async (tx) => {
+        // Create the ticket
+        const newTicket = await ticketRepository.create(data, userContext, tx);
 
-      // Log activity
-      await ticketRepository.logActivity(
-        {
-          ticketId: newTicket.id,
-          activityType: 'CREATED',
-          details: {
-            title: data.title,
-            category: data.category,
-            priority: data.priority,
-            assignedToId: data.assignedToId,
-            teamId: data.teamId,
+        // Log activity
+        await ticketRepository.logActivity(
+          {
+            ticketId: newTicket.id,
+            activityType: 'CREATED',
+            details: {
+              title: data.title,
+              category: data.category,
+              priority: data.priority,
+              assignedToId: data.assignedToId,
+              teamId: data.teamId,
+            },
           },
-        },
-        userContext,
-        tx
-      );
+          userContext,
+          tx
+        );
 
-      // Auto-add creator as watcher
-      await ticketRepository.addWatcher(
-        newTicket.id,
-        userContext.id,
-        {
-          notifyOnComment: true,
-          notifyOnStatus: true,
-          notifyOnResolve: true,
-        },
-        userContext.id,
-        tx
-      );
+        // Auto-add creator as watcher
+        await ticketRepository.addWatcher(
+          newTicket.id,
+          userContext.id,
+          {
+            notifyOnComment: true,
+            notifyOnStatus: true,
+            notifyOnResolve: true,
+          },
+          userContext.id,
+          tx
+        );
 
-      return newTicket;
-    }, { timeout: 15000 });
+        return newTicket;
+      },
+      { timeout: 15000 }
+    );
 
     logger.info('[TicketService] Ticket created', {
       ticketId: ticket.id,
@@ -189,32 +192,40 @@ export const ticketService = {
 
     const fullTicket = await this.getById(ticket.id, userContext);
 
-    ticketAutomationService.evaluate('ON_CREATE', {
-      id: ticket.id,
-      clinicId: data.clinicId,
-      status: 'NEW',
-      priority: data.priority || 'P3_MEDIUM',
-      category: data.category || 'GENERAL',
-      source: data.source || 'INTERNAL',
-      assignedToId: data.assignedToId || null,
-      teamId: data.teamId || null,
-      tags: data.tags || [],
-      createdById: userContext.id,
-      patientId: data.patientId || null,
-      title: data.title,
-      description: data.description,
-    }, userContext.id).catch(() => {});
+    ticketAutomationService
+      .evaluate(
+        'ON_CREATE',
+        {
+          id: ticket.id,
+          clinicId: data.clinicId,
+          status: 'NEW',
+          priority: data.priority || 'P3_MEDIUM',
+          category: data.category || 'GENERAL',
+          source: data.source || 'INTERNAL',
+          assignedToId: data.assignedToId || null,
+          teamId: data.teamId || null,
+          tags: data.tags || [],
+          createdById: userContext.id,
+          patientId: data.patientId || null,
+          title: data.title,
+          description: data.description,
+        },
+        userContext.id
+      )
+      .catch(() => {});
 
     if (data.assignedToId) {
-      ticketNotificationService.notify('assigned', {
-        ticketId: ticket.id,
-        ticketNumber: ticket.ticketNumber,
-        ticketTitle: data.title,
-        clinicId: data.clinicId,
-        actorId: userContext.id,
-        actorName: `${userContext.email}`,
-        assigneeId: data.assignedToId,
-      }).catch(() => {});
+      ticketNotificationService
+        .notify('assigned', {
+          ticketId: ticket.id,
+          ticketNumber: ticket.ticketNumber,
+          ticketTitle: data.title,
+          clinicId: data.clinicId,
+          actorId: userContext.id,
+          actorName: `${userContext.email}`,
+          assigneeId: data.assignedToId,
+        })
+        .catch(() => {});
     }
 
     return fullTicket;
@@ -301,38 +312,41 @@ export const ticketService = {
       changes.push({ field: 'assignedToId', old: existing.assignedToId, new: data.assignedToId });
     }
 
-    await prisma.$transaction(async (tx) => {
-      // Update ticket
-      await ticketRepository.update(id, data, userContext, tx);
+    await prisma.$transaction(
+      async (tx) => {
+        // Update ticket
+        await ticketRepository.update(id, data, userContext, tx);
 
-      // Log activities for each change
-      for (const change of changes) {
-        const activityType =
-          change.field === 'status'
-            ? 'STATUS_CHANGED'
-            : change.field === 'priority'
-              ? 'PRIORITY_CHANGED'
-              : change.field === 'category'
-                ? 'CATEGORY_CHANGED'
-                : change.field === 'assignedToId'
-                  ? change.old
-                    ? 'REASSIGNED'
-                    : 'ASSIGNED'
-                  : 'UPDATED';
+        // Log activities for each change
+        for (const change of changes) {
+          const activityType =
+            change.field === 'status'
+              ? 'STATUS_CHANGED'
+              : change.field === 'priority'
+                ? 'PRIORITY_CHANGED'
+                : change.field === 'category'
+                  ? 'CATEGORY_CHANGED'
+                  : change.field === 'assignedToId'
+                    ? change.old
+                      ? 'REASSIGNED'
+                      : 'ASSIGNED'
+                    : 'UPDATED';
 
-        await ticketRepository.logActivity(
-          {
-            ticketId: id,
-            activityType,
-            fieldChanged: change.field,
-            oldValue: String(change.old ?? ''),
-            newValue: String(change.new ?? ''),
-          },
-          userContext,
-          tx
-        );
-      }
-    }, { timeout: 15000 });
+          await ticketRepository.logActivity(
+            {
+              ticketId: id,
+              activityType,
+              fieldChanged: change.field,
+              oldValue: String(change.old ?? ''),
+              newValue: String(change.new ?? ''),
+            },
+            userContext,
+            tx
+          );
+        }
+      },
+      { timeout: 15000 }
+    );
 
     logger.info('[TicketService] Ticket updated', {
       ticketId: id,
@@ -364,35 +378,38 @@ export const ticketService = {
       );
     }
 
-    await prisma.$transaction(async (tx) => {
-      // Update status
-      await ticketRepository.updateStatus(id, newStatus, userContext, tx);
+    await prisma.$transaction(
+      async (tx) => {
+        // Update status
+        await ticketRepository.updateStatus(id, newStatus, userContext, tx);
 
-      // Log activity
-      await ticketRepository.logActivity(
-        {
-          ticketId: id,
-          activityType: 'STATUS_CHANGED',
-          fieldChanged: 'status',
-          oldValue: existing.status,
-          newValue: newStatus,
-          details: reason ? { reason } : undefined,
-        },
-        userContext,
-        tx
-      );
+        // Log activity
+        await ticketRepository.logActivity(
+          {
+            ticketId: id,
+            activityType: 'STATUS_CHANGED',
+            fieldChanged: 'status',
+            oldValue: existing.status,
+            newValue: newStatus,
+            details: reason ? { reason } : undefined,
+          },
+          userContext,
+          tx
+        );
 
-      // Log status history
-      await tx.ticketStatusHistory.create({
-        data: {
-          ticketId: id,
-          fromStatus: existing.status,
-          toStatus: newStatus,
-          changedById: userContext.id,
-          reason,
-        },
-      });
-    }, { timeout: 15000 });
+        // Log status history
+        await tx.ticketStatusHistory.create({
+          data: {
+            ticketId: id,
+            fromStatus: existing.status,
+            toStatus: newStatus,
+            changedById: userContext.id,
+            reason,
+          },
+        });
+      },
+      { timeout: 15000 }
+    );
 
     logger.info('[TicketService] Ticket status changed', {
       ticketId: id,
@@ -401,18 +418,20 @@ export const ticketService = {
       changedById: userContext.id,
     });
 
-    ticketNotificationService.notify('status_changed', {
-      ticketId: id,
-      ticketNumber: existing.ticketNumber,
-      ticketTitle: existing.title,
-      clinicId: existing.clinicId,
-      actorId: userContext.id,
-      actorName: userContext.email,
-      assigneeId: existing.assignedToId,
-      creatorId: existing.createdById,
-      newStatus,
-      oldStatus: existing.status,
-    }).catch(() => {});
+    ticketNotificationService
+      .notify('status_changed', {
+        ticketId: id,
+        ticketNumber: existing.ticketNumber,
+        ticketTitle: existing.title,
+        clinicId: existing.clinicId,
+        actorId: userContext.id,
+        actorName: userContext.email,
+        assigneeId: existing.assignedToId,
+        creatorId: existing.createdById,
+        newStatus,
+        oldStatus: existing.status,
+      })
+      .catch(() => {});
 
     return this.getById(id, userContext);
   },
@@ -436,65 +455,68 @@ export const ticketService = {
 
     const previousAssigneeId = existing.assignedToId;
 
-    await prisma.$transaction(async (tx) => {
-      // Update assignment
-      await ticketRepository.update(
-        id,
-        {
-          assignedToId: data.assignedToId,
-          teamId: data.teamId,
-        },
-        userContext,
-        tx
-      );
-
-      // Log assignment only when assigning to a user (TicketAssignment.assignedToId is required FK to User)
-      if (data.assignedToId != null) {
-        await tx.ticketAssignment.create({
-          data: {
-            ticketId: id,
-            assignedById: userContext.id,
-            assignedToId: data.assignedToId,
-            notes: data.reason,
-          },
-        });
-      }
-
-      // Log activity
-      const activityType = data.isEscalation
-        ? 'ESCALATED'
-        : previousAssigneeId
-          ? 'REASSIGNED'
-          : 'ASSIGNED';
-
-      await ticketRepository.logActivity(
-        {
-          ticketId: id,
-          activityType,
-          fieldChanged: 'assignedToId',
-          oldValue: String(previousAssigneeId ?? ''),
-          newValue: String(data.assignedToId ?? ''),
-          details: { reason: data.reason, isEscalation: data.isEscalation },
-        },
-        userContext,
-        tx
-      );
-
-      // Auto-add assignee as watcher
-      if (data.assignedToId) {
-        await ticketRepository.addWatcher(
+    await prisma.$transaction(
+      async (tx) => {
+        // Update assignment
+        await ticketRepository.update(
           id,
-          data.assignedToId,
           {
-            notifyOnComment: true,
-            notifyOnStatus: true,
-            notifyOnResolve: true,
+            assignedToId: data.assignedToId,
+            teamId: data.teamId,
           },
-          userContext.id,
+          userContext,
           tx
         );
-      }
-    }, { timeout: 15000 });
+
+        // Log assignment only when assigning to a user (TicketAssignment.assignedToId is required FK to User)
+        if (data.assignedToId != null) {
+          await tx.ticketAssignment.create({
+            data: {
+              ticketId: id,
+              assignedById: userContext.id,
+              assignedToId: data.assignedToId,
+              notes: data.reason,
+            },
+          });
+        }
+
+        // Log activity
+        const activityType = data.isEscalation
+          ? 'ESCALATED'
+          : previousAssigneeId
+            ? 'REASSIGNED'
+            : 'ASSIGNED';
+
+        await ticketRepository.logActivity(
+          {
+            ticketId: id,
+            activityType,
+            fieldChanged: 'assignedToId',
+            oldValue: String(previousAssigneeId ?? ''),
+            newValue: String(data.assignedToId ?? ''),
+            details: { reason: data.reason, isEscalation: data.isEscalation },
+          },
+          userContext,
+          tx
+        );
+
+        // Auto-add assignee as watcher
+        if (data.assignedToId) {
+          await ticketRepository.addWatcher(
+            id,
+            data.assignedToId,
+            {
+              notifyOnComment: true,
+              notifyOnStatus: true,
+              notifyOnResolve: true,
+            },
+            userContext.id,
+            tx
+          );
+        }
+      },
+      { timeout: 15000 }
+    );
 
     logger.info('[TicketService] Ticket assigned', {
       ticketId: id,
@@ -504,16 +526,18 @@ export const ticketService = {
     });
 
     const eventType = previousAssigneeId ? 'reassigned' : 'assigned';
-    ticketNotificationService.notify(data.isEscalation ? 'escalated' : eventType, {
-      ticketId: id,
-      ticketNumber: existing.ticketNumber,
-      ticketTitle: existing.title,
-      clinicId: existing.clinicId,
-      actorId: userContext.id,
-      actorName: userContext.email,
-      assigneeId: data.assignedToId,
-      previousAssigneeId,
-    }).catch(() => {});
+    ticketNotificationService
+      .notify(data.isEscalation ? 'escalated' : eventType, {
+        ticketId: id,
+        ticketNumber: existing.ticketNumber,
+        ticketTitle: existing.title,
+        clinicId: existing.clinicId,
+        actorId: userContext.id,
+        actorName: userContext.email,
+        assigneeId: data.assignedToId,
+        previousAssigneeId,
+      })
+      .catch(() => {});
 
     return this.getById(id, userContext);
   },
@@ -544,47 +568,50 @@ export const ticketService = {
       throw new ValidationError('Resolution notes are required');
     }
 
-    await prisma.$transaction(async (tx) => {
-      // Update ticket
-      await tx.ticket.update({
-        where: { id },
-        data: {
-          status: 'RESOLVED',
-          disposition: data.disposition,
-          resolutionNotes: data.resolutionNotes,
-          rootCause: data.rootCause,
-          resolvedAt: new Date(),
-          resolvedById: userContext.id,
-          lastActivityAt: new Date(),
-        },
-      });
-
-      // Log activity
-      await ticketRepository.logActivity(
-        {
-          ticketId: id,
-          activityType: 'RESOLVED',
-          details: {
+    await prisma.$transaction(
+      async (tx) => {
+        // Update ticket
+        await tx.ticket.update({
+          where: { id },
+          data: {
+            status: 'RESOLVED',
             disposition: data.disposition,
             resolutionNotes: data.resolutionNotes,
             rootCause: data.rootCause,
+            resolvedAt: new Date(),
+            resolvedById: userContext.id,
+            lastActivityAt: new Date(),
           },
-        },
-        userContext,
-        tx
-      );
+        });
 
-      // Log status history
-      await tx.ticketStatusHistory.create({
-        data: {
-          ticketId: id,
-          fromStatus: existing.status,
-          toStatus: 'RESOLVED',
-          changedById: userContext.id,
-          reason: `Resolved: ${data.disposition}`,
-        },
-      });
-    }, { timeout: 15000 });
+        // Log activity
+        await ticketRepository.logActivity(
+          {
+            ticketId: id,
+            activityType: 'RESOLVED',
+            details: {
+              disposition: data.disposition,
+              resolutionNotes: data.resolutionNotes,
+              rootCause: data.rootCause,
+            },
+          },
+          userContext,
+          tx
+        );
+
+        // Log status history
+        await tx.ticketStatusHistory.create({
+          data: {
+            ticketId: id,
+            fromStatus: existing.status,
+            toStatus: 'RESOLVED',
+            changedById: userContext.id,
+            reason: `Resolved: ${data.disposition}`,
+          },
+        });
+      },
+      { timeout: 15000 }
+    );
 
     logger.info('[TicketService] Ticket resolved', {
       ticketId: id,
@@ -592,16 +619,18 @@ export const ticketService = {
       resolvedById: userContext.id,
     });
 
-    ticketNotificationService.notify('resolved', {
-      ticketId: id,
-      ticketNumber: existing.ticketNumber,
-      ticketTitle: existing.title,
-      clinicId: existing.clinicId,
-      actorId: userContext.id,
-      actorName: userContext.email,
-      assigneeId: existing.assignedToId,
-      creatorId: existing.createdById,
-    }).catch(() => {});
+    ticketNotificationService
+      .notify('resolved', {
+        ticketId: id,
+        ticketNumber: existing.ticketNumber,
+        ticketTitle: existing.title,
+        clinicId: existing.clinicId,
+        actorId: userContext.id,
+        actorName: userContext.email,
+        assigneeId: existing.assignedToId,
+        creatorId: existing.createdById,
+      })
+      .catch(() => {});
 
     ticketCsatService.sendSurvey(id).catch(() => {});
 
@@ -626,35 +655,38 @@ export const ticketService = {
       throw new ValidationError('Reason for reopening is required');
     }
 
-    await prisma.$transaction(async (tx) => {
-      // Update ticket
-      await ticketRepository.updateStatus(id, 'REOPENED', userContext, tx);
+    await prisma.$transaction(
+      async (tx) => {
+        // Update ticket
+        await ticketRepository.updateStatus(id, 'REOPENED', userContext, tx);
 
-      // Log activity
-      await ticketRepository.logActivity(
-        {
-          ticketId: id,
-          activityType: 'REOPENED',
-          fieldChanged: 'status',
-          oldValue: existing.status,
-          newValue: 'REOPENED',
-          details: { reason },
-        },
-        userContext,
-        tx
-      );
+        // Log activity
+        await ticketRepository.logActivity(
+          {
+            ticketId: id,
+            activityType: 'REOPENED',
+            fieldChanged: 'status',
+            oldValue: existing.status,
+            newValue: 'REOPENED',
+            details: { reason },
+          },
+          userContext,
+          tx
+        );
 
-      // Log status history
-      await tx.ticketStatusHistory.create({
-        data: {
-          ticketId: id,
-          fromStatus: existing.status,
-          toStatus: 'REOPENED',
-          changedById: userContext.id,
-          reason,
-        },
-      });
-    }, { timeout: 15000 });
+        // Log status history
+        await tx.ticketStatusHistory.create({
+          data: {
+            ticketId: id,
+            fromStatus: existing.status,
+            toStatus: 'REOPENED',
+            changedById: userContext.id,
+            reason,
+          },
+        });
+      },
+      { timeout: 15000 }
+    );
 
     logger.info('[TicketService] Ticket reopened', {
       ticketId: id,
@@ -663,16 +695,18 @@ export const ticketService = {
       reopenedById: userContext.id,
     });
 
-    ticketNotificationService.notify('reopened', {
-      ticketId: id,
-      ticketNumber: existing.ticketNumber,
-      ticketTitle: existing.title,
-      clinicId: existing.clinicId,
-      actorId: userContext.id,
-      actorName: userContext.email,
-      assigneeId: existing.assignedToId,
-      creatorId: existing.createdById,
-    }).catch(() => {});
+    ticketNotificationService
+      .notify('reopened', {
+        ticketId: id,
+        ticketNumber: existing.ticketNumber,
+        ticketTitle: existing.title,
+        clinicId: existing.clinicId,
+        actorId: userContext.id,
+        actorName: userContext.email,
+        assigneeId: existing.assignedToId,
+        creatorId: existing.createdById,
+      })
+      .catch(() => {});
 
     return this.getById(id, userContext);
   },
@@ -716,36 +750,39 @@ export const ticketService = {
       throw new ValidationError('Comment content is required');
     }
 
-    const comment = await prisma.$transaction(async (tx) => {
-      // Add comment
-      const newComment = await ticketRepository.addComment(
-        data.ticketId,
-        {
-          content: data.content,
-          isInternal: data.isInternal,
-          mentions: data.mentions,
-        },
-        userContext,
-        tx
-      );
-
-      // Log activity
-      await ticketRepository.logActivity(
-        {
-          ticketId: data.ticketId,
-          activityType: data.isInternal ? 'INTERNAL_NOTE_ADDED' : 'COMMENT_ADDED',
-          details: {
-            commentId: newComment.id,
+    const comment = await prisma.$transaction(
+      async (tx) => {
+        // Add comment
+        const newComment = await ticketRepository.addComment(
+          data.ticketId,
+          {
+            content: data.content,
             isInternal: data.isInternal,
             mentions: data.mentions,
           },
-        },
-        userContext,
-        tx
-      );
+          userContext,
+          tx
+        );
 
-      return newComment;
-    }, { timeout: 15000 });
+        // Log activity
+        await ticketRepository.logActivity(
+          {
+            ticketId: data.ticketId,
+            activityType: data.isInternal ? 'INTERNAL_NOTE_ADDED' : 'COMMENT_ADDED',
+            details: {
+              commentId: newComment.id,
+              isInternal: data.isInternal,
+              mentions: data.mentions,
+            },
+          },
+          userContext,
+          tx
+        );
+
+        return newComment;
+      },
+      { timeout: 15000 }
+    );
 
     logger.info('[TicketService] Comment added', {
       ticketId: data.ticketId,
@@ -754,17 +791,19 @@ export const ticketService = {
       authorId: userContext.id,
     });
 
-    ticketNotificationService.notify('comment_added', {
-      ticketId: data.ticketId,
-      ticketNumber: ticket.ticketNumber,
-      ticketTitle: ticket.title,
-      clinicId: ticket.clinicId,
-      actorId: userContext.id,
-      actorName: userContext.email,
-      assigneeId: ticket.assignedToId,
-      creatorId: ticket.createdById,
-      isInternal: data.isInternal,
-    }).catch(() => {});
+    ticketNotificationService
+      .notify('comment_added', {
+        ticketId: data.ticketId,
+        ticketNumber: ticket.ticketNumber,
+        ticketTitle: ticket.title,
+        clinicId: ticket.clinicId,
+        actorId: userContext.id,
+        actorName: userContext.email,
+        assigneeId: ticket.assignedToId,
+        creatorId: ticket.createdById,
+        isInternal: data.isInternal,
+      })
+      .catch(() => {});
 
     return comment as TicketCommentWithAuthor;
   },
@@ -804,36 +843,39 @@ export const ticketService = {
       throw new ValidationError('Work log description is required');
     }
 
-    const workLog = await prisma.$transaction(async (tx) => {
-      const newWorkLog = await ticketRepository.createWorkLog(
-        {
-          ticketId: data.ticketId,
-          userId: userContext.id,
-          action: data.action,
-          duration: data.duration,
-          description: data.description,
-          isInternal: data.isInternal,
-          metadata: data.metadata,
-        },
-        tx
-      );
-
-      await ticketRepository.logActivity(
-        {
-          ticketId: data.ticketId,
-          activityType: 'TIME_LOGGED',
-          details: {
-            workLogId: newWorkLog.id,
+    const workLog = await prisma.$transaction(
+      async (tx) => {
+        const newWorkLog = await ticketRepository.createWorkLog(
+          {
+            ticketId: data.ticketId,
+            userId: userContext.id,
             action: data.action,
             duration: data.duration,
+            description: data.description,
+            isInternal: data.isInternal,
+            metadata: data.metadata,
           },
-        },
-        userContext,
-        tx
-      );
+          tx
+        );
 
-      return newWorkLog;
-    }, { timeout: 15000 });
+        await ticketRepository.logActivity(
+          {
+            ticketId: data.ticketId,
+            activityType: 'TIME_LOGGED',
+            details: {
+              workLogId: newWorkLog.id,
+              action: data.action,
+              duration: data.duration,
+            },
+          },
+          userContext,
+          tx
+        );
+
+        return newWorkLog;
+      },
+      { timeout: 15000 }
+    );
 
     logger.info('[TicketService] Work log added', {
       ticketId: data.ticketId,
@@ -880,30 +922,33 @@ export const ticketService = {
     // Verify access
     await this.getById(ticketId, userContext);
 
-    await prisma.$transaction(async (tx) => {
-      await ticketRepository.addWatcher(
-        ticketId,
-        data.userId,
-        {
-          notifyOnComment: data.notifyOnComment,
-          notifyOnStatus: data.notifyOnStatus,
-          notifyOnAssign: data.notifyOnAssign,
-          notifyOnResolve: data.notifyOnResolve,
-        },
-        userContext.id,
-        tx
-      );
-
-      await ticketRepository.logActivity(
-        {
+    await prisma.$transaction(
+      async (tx) => {
+        await ticketRepository.addWatcher(
           ticketId,
-          activityType: 'WATCHER_ADDED',
-          details: { watcherId: data.userId },
-        },
-        userContext,
-        tx
-      );
-    }, { timeout: 15000 });
+          data.userId,
+          {
+            notifyOnComment: data.notifyOnComment,
+            notifyOnStatus: data.notifyOnStatus,
+            notifyOnAssign: data.notifyOnAssign,
+            notifyOnResolve: data.notifyOnResolve,
+          },
+          userContext.id,
+          tx
+        );
+
+        await ticketRepository.logActivity(
+          {
+            ticketId,
+            activityType: 'WATCHER_ADDED',
+            details: { watcherId: data.userId },
+          },
+          userContext,
+          tx
+        );
+      },
+      { timeout: 15000 }
+    );
 
     logger.info('[TicketService] Watcher added', {
       ticketId,
@@ -919,19 +964,22 @@ export const ticketService = {
     // Verify access
     await this.getById(ticketId, userContext);
 
-    await prisma.$transaction(async (tx) => {
-      await ticketRepository.removeWatcher(ticketId, userId, tx);
+    await prisma.$transaction(
+      async (tx) => {
+        await ticketRepository.removeWatcher(ticketId, userId, tx);
 
-      await ticketRepository.logActivity(
-        {
-          ticketId,
-          activityType: 'WATCHER_REMOVED',
-          details: { watcherId: userId },
-        },
-        userContext,
-        tx
-      );
-    }, { timeout: 15000 });
+        await ticketRepository.logActivity(
+          {
+            ticketId,
+            activityType: 'WATCHER_REMOVED',
+            details: { watcherId: userId },
+          },
+          userContext,
+          tx
+        );
+      },
+      { timeout: 15000 }
+    );
 
     logger.info('[TicketService] Watcher removed', {
       ticketId,
@@ -961,83 +1009,86 @@ export const ticketService = {
       throw new ValidationError('Cannot merge a closed or cancelled ticket');
     }
 
-    await prisma.$transaction(async (tx) => {
-      let commentsTransferred = 0;
-      let attachmentsTransferred = 0;
+    await prisma.$transaction(
+      async (tx) => {
+        let commentsTransferred = 0;
+        let attachmentsTransferred = 0;
 
-      // Transfer comments if requested
-      if (data.transferComments) {
-        const result = await tx.ticketComment.updateMany({
-          where: { ticketId: data.sourceTicketId },
-          data: { ticketId: data.targetTicketId },
-        });
-        commentsTransferred = result.count;
-      }
+        // Transfer comments if requested
+        if (data.transferComments) {
+          const result = await tx.ticketComment.updateMany({
+            where: { ticketId: data.sourceTicketId },
+            data: { ticketId: data.targetTicketId },
+          });
+          commentsTransferred = result.count;
+        }
 
-      // Transfer attachments if requested
-      if (data.transferAttachments) {
-        const result = await tx.ticketAttachment.updateMany({
-          where: { ticketId: data.sourceTicketId },
-          data: { ticketId: data.targetTicketId },
-        });
-        attachmentsTransferred = result.count;
-      }
+        // Transfer attachments if requested
+        if (data.transferAttachments) {
+          const result = await tx.ticketAttachment.updateMany({
+            where: { ticketId: data.sourceTicketId },
+            data: { ticketId: data.targetTicketId },
+          });
+          attachmentsTransferred = result.count;
+        }
 
-      // Create merge record
-      await tx.ticketMerge.create({
-        data: {
-          sourceTicketId: data.sourceTicketId,
-          targetTicketId: data.targetTicketId,
-          mergedById: userContext.id,
-          reason: data.reason,
-          commentsTransferred,
-          attachmentsTransferred,
-        },
-      });
-
-      // Close source ticket
-      await tx.ticket.update({
-        where: { id: data.sourceTicketId },
-        data: {
-          status: 'CLOSED',
-          disposition: 'DUPLICATE',
-          closedAt: new Date(),
-          closedById: userContext.id,
-          resolutionNotes: `Merged into ticket ${targetTicket.ticketNumber}`,
-        },
-      });
-
-      // Log activity on both tickets
-      await ticketRepository.logActivity(
-        {
-          ticketId: data.sourceTicketId,
-          activityType: 'MERGED',
-          details: {
-            mergedInto: data.targetTicketId,
-            targetTicketNumber: targetTicket.ticketNumber,
-            reason: data.reason,
-          },
-        },
-        userContext,
-        tx
-      );
-
-      await ticketRepository.logActivity(
-        {
-          ticketId: data.targetTicketId,
-          activityType: 'MERGED',
-          details: {
-            mergedFrom: data.sourceTicketId,
-            sourceTicketNumber: sourceTicket.ticketNumber,
+        // Create merge record
+        await tx.ticketMerge.create({
+          data: {
+            sourceTicketId: data.sourceTicketId,
+            targetTicketId: data.targetTicketId,
+            mergedById: userContext.id,
             reason: data.reason,
             commentsTransferred,
             attachmentsTransferred,
           },
-        },
-        userContext,
-        tx
-      );
-    }, { timeout: 15000 });
+        });
+
+        // Close source ticket
+        await tx.ticket.update({
+          where: { id: data.sourceTicketId },
+          data: {
+            status: 'CLOSED',
+            disposition: 'DUPLICATE',
+            closedAt: new Date(),
+            closedById: userContext.id,
+            resolutionNotes: `Merged into ticket ${targetTicket.ticketNumber}`,
+          },
+        });
+
+        // Log activity on both tickets
+        await ticketRepository.logActivity(
+          {
+            ticketId: data.sourceTicketId,
+            activityType: 'MERGED',
+            details: {
+              mergedInto: data.targetTicketId,
+              targetTicketNumber: targetTicket.ticketNumber,
+              reason: data.reason,
+            },
+          },
+          userContext,
+          tx
+        );
+
+        await ticketRepository.logActivity(
+          {
+            ticketId: data.targetTicketId,
+            activityType: 'MERGED',
+            details: {
+              mergedFrom: data.sourceTicketId,
+              sourceTicketNumber: sourceTicket.ticketNumber,
+              reason: data.reason,
+              commentsTransferred,
+              attachmentsTransferred,
+            },
+          },
+          userContext,
+          tx
+        );
+      },
+      { timeout: 15000 }
+    );
 
     logger.info('[TicketService] Tickets merged', {
       sourceTicketId: data.sourceTicketId,

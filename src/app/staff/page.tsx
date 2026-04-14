@@ -5,13 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
 import { normalizedIncludes } from '@/lib/utils/search';
-import {
-  Clock,
-  UserPlus,
-  Users,
-  Pill,
-  TrendingUp,
-} from 'lucide-react';
+import { Clock, UserPlus, Users, Pill, TrendingUp } from 'lucide-react';
 import { apiFetch, redirectToLogin } from '@/lib/api/fetch';
 import { safeParseJsonString } from '@/lib/utils/safe-json';
 
@@ -62,7 +56,10 @@ function StaffDashboardSkeleton() {
       <div className="mb-6 h-9 w-64 animate-pulse rounded bg-gray-200" />
       <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         {[UserPlus, Users, Pill, TrendingUp].map((Icon, i) => (
-          <div key={i} className="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-5">
+          <div
+            key={i}
+            className="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-5"
+          >
             <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-gray-100">
               <Icon className="h-6 w-6 text-gray-300" />
             </div>
@@ -125,7 +122,10 @@ export default function StaffDashboard() {
     if (user) {
       try {
         const parsed = safeParseJsonString<Record<string, unknown>>(user);
-        if (!parsed) { router.push('/login'); return; }
+        if (!parsed) {
+          router.push('/login');
+          return;
+        }
         if (typeof parsed.role === 'string' && parsed.role.toLowerCase() !== 'staff') {
           router.push('/login');
           return;
@@ -163,7 +163,9 @@ export default function StaffDashboard() {
         setStats(defaultStats());
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const formatDate = (dateString: string | null | undefined) => {
@@ -196,9 +198,7 @@ export default function StaffDashboard() {
     .slice(0, 8);
 
   const displayName =
-    (userData?.firstName as string) ||
-    (userData?.email as string)?.split('@')[0] ||
-    'there';
+    (userData?.firstName as string) || (userData?.email as string)?.split('@')[0] || 'there';
 
   if (!stats) {
     return <StaffDashboardSkeleton />;
@@ -379,7 +379,9 @@ export default function StaffDashboard() {
                     </td>
                     <td className="px-6 py-4">
                       <p className="text-sm text-gray-600">
-                        {isEncryptedData(patient.dateOfBirth) ? '-' : formatDate(patient.dateOfBirth)}
+                        {isEncryptedData(patient.dateOfBirth)
+                          ? '-'
+                          : formatDate(patient.dateOfBirth)}
                       </p>
                       <p className="text-xs text-gray-400">({formatGender(patient.gender)})</p>
                     </td>

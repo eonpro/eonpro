@@ -100,74 +100,74 @@ export const GET = withAuthParams(
         });
         return NextResponse.json(
           { error: 'Unable to resolve clinic context for this patient' },
-          { status: 403 },
+          { status: 403 }
         );
       }
 
       const result = await runWithClinicContext(effectiveClinicId, async () => {
-        const [shippingUpdates, orders, lastOrder, matchedShippingUpdateOrders] = await Promise.all([
-          prisma.patientShippingUpdate.findMany({
-            where: { patientId },
-            orderBy: { createdAt: 'desc' },
-            take: 100,
-            include: {
-              order: {
-                select: {
-                  id: true,
-                  lifefileOrderId: true,
-                  createdAt: true,
-                  primaryMedName: true,
-                  primaryMedStrength: true,
+        const [shippingUpdates, orders, lastOrder, matchedShippingUpdateOrders] = await Promise.all(
+          [
+            prisma.patientShippingUpdate.findMany({
+              where: { patientId },
+              orderBy: { createdAt: 'desc' },
+              take: 100,
+              include: {
+                order: {
+                  select: {
+                    id: true,
+                    lifefileOrderId: true,
+                    createdAt: true,
+                    primaryMedName: true,
+                    primaryMedStrength: true,
+                  },
                 },
               },
-            },
-          }),
-          prisma.order.findMany({
-            where: {
-              patientId,
-              trackingNumber: { not: null },
-            },
-            orderBy: { createdAt: 'desc' },
-            take: 100,
-            select: {
-              id: true,
-              createdAt: true,
-              lifefileOrderId: true,
-              trackingNumber: true,
-              trackingUrl: true,
-              shippingStatus: true,
-              primaryMedName: true,
-              primaryMedStrength: true,
-              status: true,
-            },
-          }),
-          prisma.order.findFirst({
-            where: { patientId },
-            orderBy: { createdAt: 'desc' },
-            select: {
-              createdAt: true,
-              primaryMedName: true,
-              rxs: {
-                select: {
-                  medName: true,
-                  strength: true,
-                  form: true,
-                  quantity: true,
+            }),
+            prisma.order.findMany({
+              where: {
+                patientId,
+                trackingNumber: { not: null },
+              },
+              orderBy: { createdAt: 'desc' },
+              take: 100,
+              select: {
+                id: true,
+                createdAt: true,
+                lifefileOrderId: true,
+                trackingNumber: true,
+                trackingUrl: true,
+                shippingStatus: true,
+                primaryMedName: true,
+                primaryMedStrength: true,
+                status: true,
+              },
+            }),
+            prisma.order.findFirst({
+              where: { patientId },
+              orderBy: { createdAt: 'desc' },
+              select: {
+                createdAt: true,
+                primaryMedName: true,
+                rxs: {
+                  select: {
+                    medName: true,
+                    strength: true,
+                    form: true,
+                    quantity: true,
+                  },
                 },
               },
-            },
-          }),
-          prisma.patientShippingUpdate.findMany({
-            where: { patientId, orderId: { not: null } },
-            select: { orderId: true },
-          }),
-        ]);
+            }),
+            prisma.patientShippingUpdate.findMany({
+              where: { patientId, orderId: { not: null } },
+              select: { orderId: true },
+            }),
+          ]
+        );
 
         // Orders already matched to tracking (via shipping updates or legacy order-level tracking)
         const matchedOrderIds = new Set(
-          matchedShippingUpdateOrders
-            .map((s) => s.orderId)
-            .filter((id): id is number => id != null)
+          matchedShippingUpdateOrders.map((s) => s.orderId).filter((id): id is number => id != null)
         );
         orders.forEach((o) => matchedOrderIds.add(o.id));
 
@@ -216,8 +216,7 @@ export const GET = withAuthParams(
               strength: order.primaryMedStrength || '',
               form: '',
               quantity: '',
-              displayName:
-                `${order.primaryMedName || 'Unknown'}${order.primaryMedStrength ? ` ${order.primaryMedStrength}` : ''}`,
+              displayName: `${order.primaryMedName || 'Unknown'}${order.primaryMedStrength ? ` ${order.primaryMedStrength}` : ''}`,
             },
           ];
         });
@@ -371,9 +370,17 @@ export const POST = withAuthParams(
 
       const patientForPost = await basePrisma.patient.findUnique({
         where: { id: patientId },
-        select: { id: true, clinicId: true, firstName: true, lastName: true, phone: true, email: true },
+        select: {
+          id: true,
+          clinicId: true,
+          firstName: true,
+          lastName: true,
+          phone: true,
+          email: true,
+        },
       });
-      if (ensureTenantResource(patientForPost, clinicId ?? undefined)) return tenantNotFoundResponse();
+      if (ensureTenantResource(patientForPost, clinicId ?? undefined))
+        return tenantNotFoundResponse();
       if (!patientForPost) return tenantNotFoundResponse();
 
       // Prisma requires clinic context for PatientShippingUpdate (clinic-isolated model).
@@ -620,7 +627,10 @@ export const PUT = withAuthParams(
 
       const isValid = await verifyUserPassword(user.id, password);
       if (!isValid) {
-        logger.warn('[TRACKING] Invalid password attempt for edit', { userId: user.id, trackingEntryId });
+        logger.warn('[TRACKING] Invalid password attempt for edit', {
+          userId: user.id,
+          trackingEntryId,
+        });
         return NextResponse.json({ error: 'Invalid password' }, { status: 401 });
       }
 
@@ -628,7 +638,7 @@ export const PUT = withAuthParams(
         prisma.patientShippingUpdate.findUnique({
           where: { id: trackingEntryId },
           select: { id: true, patientId: true, clinicId: true, source: true, trackingNumber: true },
-        }),
+        })
       );
 
       if (!existing || existing.patientId !== patientId) {
@@ -664,12 +674,18 @@ export const PUT = withAuthParams(
             ...(updateFields.carrier && { carrier: updateFields.carrier }),
             ...(newTrackingUrl !== undefined && { trackingUrl: newTrackingUrl }),
             ...(updateFields.status && { status: updateFields.status as ShippingStatus }),
-            ...(updateFields.medicationName !== undefined && { medicationName: updateFields.medicationName }),
-            ...(updateFields.medicationStrength !== undefined && { medicationStrength: updateFields.medicationStrength }),
-            ...(updateFields.medicationQuantity !== undefined && { medicationQuantity: updateFields.medicationQuantity }),
+            ...(updateFields.medicationName !== undefined && {
+              medicationName: updateFields.medicationName,
+            }),
+            ...(updateFields.medicationStrength !== undefined && {
+              medicationStrength: updateFields.medicationStrength,
+            }),
+            ...(updateFields.medicationQuantity !== undefined && {
+              medicationQuantity: updateFields.medicationQuantity,
+            }),
             ...(updateFields.notes !== undefined && { statusNote: updateFields.notes }),
           },
-        }),
+        })
       );
 
       logger.info('[TRACKING] Manual entry edited', {
@@ -727,7 +743,10 @@ export const DELETE = withAuthParams(
 
       const isValid = await verifyUserPassword(user.id, password);
       if (!isValid) {
-        logger.warn('[TRACKING] Invalid password attempt for delete', { userId: user.id, trackingEntryId });
+        logger.warn('[TRACKING] Invalid password attempt for delete', {
+          userId: user.id,
+          trackingEntryId,
+        });
         return NextResponse.json({ error: 'Invalid password' }, { status: 401 });
       }
 
@@ -735,7 +754,7 @@ export const DELETE = withAuthParams(
         prisma.patientShippingUpdate.findUnique({
           where: { id: trackingEntryId },
           select: { id: true, patientId: true, clinicId: true, source: true, trackingNumber: true },
-        }),
+        })
       );
 
       if (!existing || existing.patientId !== patientId) {
@@ -755,7 +774,7 @@ export const DELETE = withAuthParams(
       }
 
       await runWithClinicContext(existing.clinicId, () =>
-        prisma.patientShippingUpdate.delete({ where: { id: trackingEntryId } }),
+        prisma.patientShippingUpdate.delete({ where: { id: trackingEntryId } })
       );
 
       logger.info('[TRACKING] Manual entry deleted', {

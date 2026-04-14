@@ -42,57 +42,63 @@ export const POST = withAuth<RouteParams>(async (request, user, { params } = {} 
       clinicId: user.clinicId ?? null,
     };
 
-    await prisma.$transaction(async (tx) => {
-      const updateData: Record<string, unknown> = { lastActivityAt: new Date() };
-      if (macro.setStatus) updateData.status = macro.setStatus;
-      if (macro.setPriority) updateData.priority = macro.setPriority;
-      if (macro.setCategory) updateData.category = macro.setCategory;
+    await prisma.$transaction(
+      async (tx) => {
+        const updateData: Record<string, unknown> = { lastActivityAt: new Date() };
+        if (macro.setStatus) updateData.status = macro.setStatus;
+        if (macro.setPriority) updateData.priority = macro.setPriority;
+        if (macro.setCategory) updateData.category = macro.setCategory;
 
-      if (Object.keys(updateData).length > 1) {
-        await tx.ticket.update({ where: { id: ticketId }, data: updateData });
-      }
-
-      if (macro.addTags.length > 0 || macro.removeTags.length > 0) {
-        const ticket = await tx.ticket.findUnique({ where: { id: ticketId }, select: { tags: true } });
-        if (ticket) {
-          let tags = [...ticket.tags];
-          if (macro.removeTags.length > 0) {
-            tags = tags.filter((t) => !macro.removeTags.includes(t));
-          }
-          if (macro.addTags.length > 0) {
-            for (const tag of macro.addTags) {
-              if (!tags.includes(tag)) tags.push(tag);
-            }
-          }
-          await tx.ticket.update({ where: { id: ticketId }, data: { tags } });
+        if (Object.keys(updateData).length > 1) {
+          await tx.ticket.update({ where: { id: ticketId }, data: updateData });
         }
-      }
 
-      if (macro.responseContent) {
-        await tx.ticketComment.create({
+        if (macro.addTags.length > 0 || macro.removeTags.length > 0) {
+          const ticket = await tx.ticket.findUnique({
+            where: { id: ticketId },
+            select: { tags: true },
+          });
+          if (ticket) {
+            let tags = [...ticket.tags];
+            if (macro.removeTags.length > 0) {
+              tags = tags.filter((t) => !macro.removeTags.includes(t));
+            }
+            if (macro.addTags.length > 0) {
+              for (const tag of macro.addTags) {
+                if (!tags.includes(tag)) tags.push(tag);
+              }
+            }
+            await tx.ticket.update({ where: { id: ticketId }, data: { tags } });
+          }
+        }
+
+        if (macro.responseContent) {
+          await tx.ticketComment.create({
+            data: {
+              ticketId,
+              authorId: user.id,
+              comment: macro.responseContent,
+              isInternal: false,
+            },
+          });
+        }
+
+        await tx.ticketMacro.update({
+          where: { id: macroId },
+          data: { usageCount: { increment: 1 }, lastUsedAt: new Date() },
+        });
+
+        await tx.ticketActivity.create({
           data: {
             ticketId,
-            authorId: user.id,
-            comment: macro.responseContent,
-            isInternal: false,
+            userId: user.id,
+            activityType: 'AUTOMATION_TRIGGERED',
+            details: { macroId, macroName: macro.name },
           },
         });
-      }
-
-      await tx.ticketMacro.update({
-        where: { id: macroId },
-        data: { usageCount: { increment: 1 }, lastUsedAt: new Date() },
-      });
-
-      await tx.ticketActivity.create({
-        data: {
-          ticketId,
-          userId: user.id,
-          activityType: 'AUTOMATION_TRIGGERED',
-          details: { macroId, macroName: macro.name },
-        },
-      });
-    }, { timeout: 15000 });
+      },
+      { timeout: 15000 }
+    );
 
     logger.info('[API] Macro applied', { macroId, ticketId, userId: user.id });
 

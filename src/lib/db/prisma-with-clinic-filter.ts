@@ -75,7 +75,11 @@ export class PrismaWithClinicFilter {
       return where;
     }
 
-    if (where.clinicId !== undefined && where.clinicId !== null && typeof where.clinicId === 'object') {
+    if (
+      where.clinicId !== undefined &&
+      where.clinicId !== null &&
+      typeof where.clinicId === 'object'
+    ) {
       if (where.clinicId.in && Array.isArray(where.clinicId.in)) {
         if (!where.clinicId.in.includes(clinicId)) {
           logger.security('Multi-clinic query does not include current context clinic', {
@@ -289,150 +293,424 @@ export class PrismaWithClinicFilter {
   // CLINIC-ISOLATED MODELS
   // ============================================================================
 
-  get patient() { return this.createModelProxy('patient'); }
-  get provider() { return this.createModelProxy('provider'); }
-  get order() { return this.createModelProxy('order'); }
-  get prescription() { return this.createModelProxy('prescription'); }
-  get sOAPNote() { return this.createModelProxy('sOAPNote'); }
-  get appointment() { return this.createModelProxy('appointment'); }
-  get carePlan() { return this.createModelProxy('carePlan'); }
-  get invoice() { return this.createModelProxy('invoice'); }
-  get payment() { return this.createModelProxy('payment'); }
-  get subscription() { return this.createModelProxy('subscription'); }
-  get superbill() { return this.createModelProxy('superbill'); }
-  get patientDocument() { return this.createModelProxy('patientDocument'); }
-  get intakeFormTemplate() { return this.createModelProxy('intakeFormTemplate'); }
-  get internalMessage() { return this.createModelProxy('internalMessage'); }
-  get patientChatMessage() { return this.createModelProxy('patientChatMessage'); }
-  get ticket() { return this.createModelProxy('ticket'); }
-  get ticketComment() { return this.createModelProxy('ticketComment'); }
-  get ticketWorkLog() { return this.createModelProxy('ticketWorkLog'); }
-  get ticketAssignment() { return this.createModelProxy('ticketAssignment'); }
-  get patientShippingUpdate() { return this.createModelProxy('patientShippingUpdate'); }
-  get patientPhoto() { return this.createModelProxy('patientPhoto'); }
-  get influencer() { return this.createModelProxy('influencer'); }
-  get product() { return this.createModelProxy('product'); }
-  get refillQueue() { return this.createModelProxy('refillQueue'); }
-  get patientSalesRepAssignment() { return this.createModelProxy('patientSalesRepAssignment'); }
-  get salesRepRefCode() { return this.createModelProxy('salesRepRefCode'); }
-  get salesRepTouch() { return this.createModelProxy('salesRepTouch'); }
-  get salesRepCommissionPlan() { return this.createModelProxy('salesRepCommissionPlan'); }
-  get salesRepPlanAssignment() { return this.createModelProxy('salesRepPlanAssignment'); }
-  get salesRepCommissionEvent() { return this.createModelProxy('salesRepCommissionEvent'); }
-  get rxOrderSet() { return this.createModelProxy('rxOrderSet'); }
+  get patient() {
+    return this.createModelProxy('patient');
+  }
+  get provider() {
+    return this.createModelProxy('provider');
+  }
+  get order() {
+    return this.createModelProxy('order');
+  }
+  get prescription() {
+    return this.createModelProxy('prescription');
+  }
+  get sOAPNote() {
+    return this.createModelProxy('sOAPNote');
+  }
+  get appointment() {
+    return this.createModelProxy('appointment');
+  }
+  get carePlan() {
+    return this.createModelProxy('carePlan');
+  }
+  get invoice() {
+    return this.createModelProxy('invoice');
+  }
+  get payment() {
+    return this.createModelProxy('payment');
+  }
+  get subscription() {
+    return this.createModelProxy('subscription');
+  }
+  get superbill() {
+    return this.createModelProxy('superbill');
+  }
+  get patientDocument() {
+    return this.createModelProxy('patientDocument');
+  }
+  get intakeFormTemplate() {
+    return this.createModelProxy('intakeFormTemplate');
+  }
+  get internalMessage() {
+    return this.createModelProxy('internalMessage');
+  }
+  get patientChatMessage() {
+    return this.createModelProxy('patientChatMessage');
+  }
+  get ticket() {
+    return this.createModelProxy('ticket');
+  }
+  get ticketComment() {
+    return this.createModelProxy('ticketComment');
+  }
+  get ticketWorkLog() {
+    return this.createModelProxy('ticketWorkLog');
+  }
+  get ticketAssignment() {
+    return this.createModelProxy('ticketAssignment');
+  }
+  get patientShippingUpdate() {
+    return this.createModelProxy('patientShippingUpdate');
+  }
+  get patientPhoto() {
+    return this.createModelProxy('patientPhoto');
+  }
+  get influencer() {
+    return this.createModelProxy('influencer');
+  }
+  get product() {
+    return this.createModelProxy('product');
+  }
+  get refillQueue() {
+    return this.createModelProxy('refillQueue');
+  }
+  get patientSalesRepAssignment() {
+    return this.createModelProxy('patientSalesRepAssignment');
+  }
+  get salesRepRefCode() {
+    return this.createModelProxy('salesRepRefCode');
+  }
+  get salesRepTouch() {
+    return this.createModelProxy('salesRepTouch');
+  }
+  get salesRepCommissionPlan() {
+    return this.createModelProxy('salesRepCommissionPlan');
+  }
+  get salesRepPlanAssignment() {
+    return this.createModelProxy('salesRepPlanAssignment');
+  }
+  get salesRepCommissionEvent() {
+    return this.createModelProxy('salesRepCommissionEvent');
+  }
+  get rxOrderSet() {
+    return this.createModelProxy('rxOrderSet');
+  }
 
   // Patient health tracking — isolated via Patient relationship, not clinicId
-  get patientWaterLog() { return this.client.patientWaterLog; }
-  get patientExerciseLog() { return this.client.patientExerciseLog; }
-  get patientSleepLog() { return this.client.patientSleepLog; }
-  get patientNutritionLog() { return this.client.patientNutritionLog; }
-  get patientWeightLog() { return this.client.patientWeightLog; }
-  get patientMedicationReminder() { return this.client.patientMedicationReminder; }
+  get patientWaterLog() {
+    return this.client.patientWaterLog;
+  }
+  get patientExerciseLog() {
+    return this.client.patientExerciseLog;
+  }
+  get patientSleepLog() {
+    return this.client.patientSleepLog;
+  }
+  get patientNutritionLog() {
+    return this.client.patientNutritionLog;
+  }
+  get patientWeightLog() {
+    return this.client.patientWeightLog;
+  }
+  get patientMedicationReminder() {
+    return this.client.patientMedicationReminder;
+  }
 
   // ============================================================================
   // NON-ISOLATED MODELS
   // ============================================================================
 
-  get user() { return this.client.user; }
-  get clinic() { return this.client.clinic; }
-  get systemSettings() { return this.client.systemSettings; }
-  get integration() { return this.client.integration; }
-  get apiKey() { return this.client.apiKey; }
-  get passwordResetToken() { return this.client.passwordResetToken; }
-  get emailVerificationToken() { return this.client.emailVerificationToken; }
-  get emailVerificationCode() { return this.client.emailVerificationCode; }
-  get clinicInviteCode() { return this.client.clinicInviteCode; }
-  get phoneOtp() { return this.client.phoneOtp; }
-  get patientPortalInvite() { return this.client.patientPortalInvite; }
-  get paymentReconciliation() { return this.client.paymentReconciliation; }
-  get webhookConfig() { return this.client.webhookConfig; }
-  get webhookDelivery() { return this.client.webhookDelivery; }
-  get webhookLog() { return this.client.webhookLog; }
-  get idempotencyRecord() { return this.client.idempotencyRecord; }
-  get clinicAuditLog() { return this.client.clinicAuditLog; }
-  get userSession() { return this.client.userSession; }
-  get userAuditLog() { return this.client.userAuditLog; }
-  get patientAudit() { return this.client.patientAudit; }
-  get providerAudit() { return this.client.providerAudit; }
-  get orderEvent() { return this.client.orderEvent; }
-  get auditLog() { return this.client.auditLog; }
-  get hIPAAAuditEntry() { return this.client.hIPAAAuditEntry; }
-  get userClinic() { return this.client.userClinic; }
-  get providerClinic() { return this.client.providerClinic; }
-  get patientCounter() { return this.client.patientCounter; }
-  get aIConversation() { return this.client.aIConversation; }
-  get aIMessage() { return this.client.aIMessage; }
-  get rx() { return this.client.rx; }
-  get rxOrderSetItem() { return this.client.rxOrderSetItem; }
-  get sOAPNoteRevision() { return this.client.sOAPNoteRevision; }
-  get paymentMethod() { return this.client.paymentMethod; }
-  get referralTracking() { return this.client.referralTracking; }
-  get influencerBankAccount() { return this.client.influencerBankAccount; }
-  get commission() { return this.client.commission; }
-  get commissionPayout() { return this.client.commissionPayout; }
-  get affiliateReferral() { return this.client.affiliateReferral; }
-  get affiliateCommission() { return this.client.affiliateCommission; }
-  get affiliateProgram() { return this.client.affiliateProgram; }
-  get affiliateTier() { return this.client.affiliateTier; }
-  get affiliate() { return this.client.affiliate; }
-  get affiliateApplication() { return this.client.affiliateApplication; }
-  get affiliateRefCode() { return this.client.affiliateRefCode; }
-  get affiliateOtpCode() { return this.client.affiliateOtpCode; }
-  get affiliateCommissionPlan() { return this.client.affiliateCommissionPlan; }
-  get affiliatePlanAssignment() { return this.client.affiliatePlanAssignment; }
-  get affiliateCommissionEvent() { return this.client.affiliateCommissionEvent; }
-  get affiliateTouch() { return this.client.affiliateTouch; }
-  get affiliateAttributionConfig() { return this.client.affiliateAttributionConfig; }
-  get affiliateCommissionTier() { return this.client.affiliateCommissionTier; }
-  get affiliateProductRate() { return this.client.affiliateProductRate; }
-  get affiliatePromotion() { return this.client.affiliatePromotion; }
-  get affiliatePayoutMethod() { return this.client.affiliatePayoutMethod; }
-  get affiliatePayout() { return this.client.affiliatePayout; }
-  get affiliateTaxDocument() { return this.client.affiliateTaxDocument; }
-  get affiliateFraudAlert() { return this.client.affiliateFraudAlert; }
-  get affiliateIpIntel() { return this.client.affiliateIpIntel; }
-  get affiliateFraudConfig() { return this.client.affiliateFraudConfig; }
-  get intakeFormSubmission() { return this.client.intakeFormSubmission; }
-  get intakeFormQuestion() { return this.client.intakeFormQuestion; }
-  get intakeFormResponse() { return this.client.intakeFormResponse; }
-  get intakeFormLink() { return this.client.intakeFormLink; }
-  get ticketStatusHistory() { return this.client.ticketStatusHistory; }
-  get ticketEscalation() { return this.client.ticketEscalation; }
-  get ticketSLA() { return this.client.ticketSLA; }
-  get apiUsageLog() { return this.client.apiUsageLog; }
-  get integrationLog() { return this.client.integrationLog; }
-  get developerTool() { return this.client.developerTool; }
-  get smsLog() { return this.client.smsLog; }
-  get smsOptOut() { return this.client.smsOptOut; }
-  get smsQuietHours() { return this.client.smsQuietHours; }
-  get smsRateLimit() { return this.client.smsRateLimit; }
-  get notification() { return this.client.notification; }
-  get policy() { return this.client.policy; }
-  get policyApproval() { return this.client.policyApproval; }
-  get policyAcknowledgment() { return this.client.policyAcknowledgment; }
-  get discountCode() { return this.client.discountCode; }
-  get discountUsage() { return this.client.discountUsage; }
-  get promotion() { return this.client.promotion; }
-  get productBundle() { return this.client.productBundle; }
-  get productBundleItem() { return this.client.productBundleItem; }
-  get pricingRule() { return this.client.pricingRule; }
-  get invoiceItem() { return this.client.invoiceItem; }
-  get appointmentTypeConfig() { return this.client.appointmentTypeConfig; }
-  get providerAvailability() { return this.client.providerAvailability; }
-  get providerTimeOff() { return this.client.providerTimeOff; }
-  get providerCalendarIntegration() { return this.client.providerCalendarIntegration; }
-  get appointmentReminder() { return this.client.appointmentReminder; }
-  get carePlanTemplate() { return this.client.carePlanTemplate; }
-  get carePlanGoal() { return this.client.carePlanGoal; }
-  get carePlanActivity() { return this.client.carePlanActivity; }
-  get carePlanProgress() { return this.client.carePlanProgress; }
-  get billingCode() { return this.client.billingCode; }
-  get superbillItem() { return this.client.superbillItem; }
-  get subscriptionAction() { return this.client.subscriptionAction; }
-  get retentionOffer() { return this.client.retentionOffer; }
-  get financialMetrics() { return (this.client as any).financialMetrics; }
-  get savedReport() { return (this.client as any).savedReport; }
-  get reportExport() { return (this.client as any).reportExport; }
+  get user() {
+    return this.client.user;
+  }
+  get clinic() {
+    return this.client.clinic;
+  }
+  get systemSettings() {
+    return this.client.systemSettings;
+  }
+  get integration() {
+    return this.client.integration;
+  }
+  get apiKey() {
+    return this.client.apiKey;
+  }
+  get passwordResetToken() {
+    return this.client.passwordResetToken;
+  }
+  get emailVerificationToken() {
+    return this.client.emailVerificationToken;
+  }
+  get emailVerificationCode() {
+    return this.client.emailVerificationCode;
+  }
+  get clinicInviteCode() {
+    return this.client.clinicInviteCode;
+  }
+  get phoneOtp() {
+    return this.client.phoneOtp;
+  }
+  get patientPortalInvite() {
+    return this.client.patientPortalInvite;
+  }
+  get paymentReconciliation() {
+    return this.client.paymentReconciliation;
+  }
+  get webhookConfig() {
+    return this.client.webhookConfig;
+  }
+  get webhookDelivery() {
+    return this.client.webhookDelivery;
+  }
+  get webhookLog() {
+    return this.client.webhookLog;
+  }
+  get idempotencyRecord() {
+    return this.client.idempotencyRecord;
+  }
+  get clinicAuditLog() {
+    return this.client.clinicAuditLog;
+  }
+  get userSession() {
+    return this.client.userSession;
+  }
+  get userAuditLog() {
+    return this.client.userAuditLog;
+  }
+  get patientAudit() {
+    return this.client.patientAudit;
+  }
+  get providerAudit() {
+    return this.client.providerAudit;
+  }
+  get orderEvent() {
+    return this.client.orderEvent;
+  }
+  get auditLog() {
+    return this.client.auditLog;
+  }
+  get hIPAAAuditEntry() {
+    return this.client.hIPAAAuditEntry;
+  }
+  get userClinic() {
+    return this.client.userClinic;
+  }
+  get providerClinic() {
+    return this.client.providerClinic;
+  }
+  get patientCounter() {
+    return this.client.patientCounter;
+  }
+  get aIConversation() {
+    return this.client.aIConversation;
+  }
+  get aIMessage() {
+    return this.client.aIMessage;
+  }
+  get rx() {
+    return this.client.rx;
+  }
+  get rxOrderSetItem() {
+    return this.client.rxOrderSetItem;
+  }
+  get sOAPNoteRevision() {
+    return this.client.sOAPNoteRevision;
+  }
+  get paymentMethod() {
+    return this.client.paymentMethod;
+  }
+  get referralTracking() {
+    return this.client.referralTracking;
+  }
+  get influencerBankAccount() {
+    return this.client.influencerBankAccount;
+  }
+  get commission() {
+    return this.client.commission;
+  }
+  get commissionPayout() {
+    return this.client.commissionPayout;
+  }
+  get affiliateReferral() {
+    return this.client.affiliateReferral;
+  }
+  get affiliateCommission() {
+    return this.client.affiliateCommission;
+  }
+  get affiliateProgram() {
+    return this.client.affiliateProgram;
+  }
+  get affiliateTier() {
+    return this.client.affiliateTier;
+  }
+  get affiliate() {
+    return this.client.affiliate;
+  }
+  get affiliateApplication() {
+    return this.client.affiliateApplication;
+  }
+  get affiliateRefCode() {
+    return this.client.affiliateRefCode;
+  }
+  get affiliateOtpCode() {
+    return this.client.affiliateOtpCode;
+  }
+  get affiliateCommissionPlan() {
+    return this.client.affiliateCommissionPlan;
+  }
+  get affiliatePlanAssignment() {
+    return this.client.affiliatePlanAssignment;
+  }
+  get affiliateCommissionEvent() {
+    return this.client.affiliateCommissionEvent;
+  }
+  get affiliateTouch() {
+    return this.client.affiliateTouch;
+  }
+  get affiliateAttributionConfig() {
+    return this.client.affiliateAttributionConfig;
+  }
+  get affiliateCommissionTier() {
+    return this.client.affiliateCommissionTier;
+  }
+  get affiliateProductRate() {
+    return this.client.affiliateProductRate;
+  }
+  get affiliatePromotion() {
+    return this.client.affiliatePromotion;
+  }
+  get affiliatePayoutMethod() {
+    return this.client.affiliatePayoutMethod;
+  }
+  get affiliatePayout() {
+    return this.client.affiliatePayout;
+  }
+  get affiliateTaxDocument() {
+    return this.client.affiliateTaxDocument;
+  }
+  get affiliateFraudAlert() {
+    return this.client.affiliateFraudAlert;
+  }
+  get affiliateIpIntel() {
+    return this.client.affiliateIpIntel;
+  }
+  get affiliateFraudConfig() {
+    return this.client.affiliateFraudConfig;
+  }
+  get intakeFormSubmission() {
+    return this.client.intakeFormSubmission;
+  }
+  get intakeFormQuestion() {
+    return this.client.intakeFormQuestion;
+  }
+  get intakeFormResponse() {
+    return this.client.intakeFormResponse;
+  }
+  get intakeFormLink() {
+    return this.client.intakeFormLink;
+  }
+  get ticketStatusHistory() {
+    return this.client.ticketStatusHistory;
+  }
+  get ticketEscalation() {
+    return this.client.ticketEscalation;
+  }
+  get ticketSLA() {
+    return this.client.ticketSLA;
+  }
+  get apiUsageLog() {
+    return this.client.apiUsageLog;
+  }
+  get integrationLog() {
+    return this.client.integrationLog;
+  }
+  get developerTool() {
+    return this.client.developerTool;
+  }
+  get smsLog() {
+    return this.client.smsLog;
+  }
+  get smsOptOut() {
+    return this.client.smsOptOut;
+  }
+  get smsQuietHours() {
+    return this.client.smsQuietHours;
+  }
+  get smsRateLimit() {
+    return this.client.smsRateLimit;
+  }
+  get notification() {
+    return this.client.notification;
+  }
+  get policy() {
+    return this.client.policy;
+  }
+  get policyApproval() {
+    return this.client.policyApproval;
+  }
+  get policyAcknowledgment() {
+    return this.client.policyAcknowledgment;
+  }
+  get discountCode() {
+    return this.client.discountCode;
+  }
+  get discountUsage() {
+    return this.client.discountUsage;
+  }
+  get promotion() {
+    return this.client.promotion;
+  }
+  get productBundle() {
+    return this.client.productBundle;
+  }
+  get productBundleItem() {
+    return this.client.productBundleItem;
+  }
+  get pricingRule() {
+    return this.client.pricingRule;
+  }
+  get invoiceItem() {
+    return this.client.invoiceItem;
+  }
+  get appointmentTypeConfig() {
+    return this.client.appointmentTypeConfig;
+  }
+  get providerAvailability() {
+    return this.client.providerAvailability;
+  }
+  get providerTimeOff() {
+    return this.client.providerTimeOff;
+  }
+  get providerCalendarIntegration() {
+    return this.client.providerCalendarIntegration;
+  }
+  get appointmentReminder() {
+    return this.client.appointmentReminder;
+  }
+  get carePlanTemplate() {
+    return this.client.carePlanTemplate;
+  }
+  get carePlanGoal() {
+    return this.client.carePlanGoal;
+  }
+  get carePlanActivity() {
+    return this.client.carePlanActivity;
+  }
+  get carePlanProgress() {
+    return this.client.carePlanProgress;
+  }
+  get billingCode() {
+    return this.client.billingCode;
+  }
+  get superbillItem() {
+    return this.client.superbillItem;
+  }
+  get subscriptionAction() {
+    return this.client.subscriptionAction;
+  }
+  get retentionOffer() {
+    return this.client.retentionOffer;
+  }
+  get financialMetrics() {
+    return (this.client as any).financialMetrics;
+  }
+  get savedReport() {
+    return (this.client as any).savedReport;
+  }
+  get reportExport() {
+    return (this.client as any).reportExport;
+  }
 
   // ============================================================================
   // PRISMA CLIENT METHODS
@@ -467,8 +745,12 @@ export class PrismaWithClinicFilter {
     }, options);
   }
 
-  $connect() { return this.client.$connect(); }
-  $disconnect() { return this.client.$disconnect(); }
+  $connect() {
+    return this.client.$connect();
+  }
+  $disconnect() {
+    return this.client.$disconnect();
+  }
   $executeRaw(query: TemplateStringsArray, ...values: unknown[]) {
     return this.client.$executeRaw(Prisma.sql(query, ...values));
   }
@@ -509,7 +791,7 @@ export type ClinicFilteredTransactionFn = {
  */
 export function createGuardedBasePrisma(
   client: PrismaClient,
-  allowlist: readonly string[],
+  allowlist: readonly string[]
 ): PrismaClient {
   if (process.env.NODE_ENV !== 'production') return client;
   return new Proxy(client, {

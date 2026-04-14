@@ -99,7 +99,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tab
       },
     });
   } catch (error) {
-    logger.error('[OvertimeSync] Table sync failed', { tableId, error: error instanceof Error ? error.message : String(error) });
+    logger.error('[OvertimeSync] Table sync failed', {
+      tableId,
+      error: error instanceof Error ? error.message : String(error),
+    });
 
     return NextResponse.json(
       {
@@ -169,7 +172,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ tabl
       })),
     });
   } catch (error) {
-    logger.error('[OvertimeSync] Table info failed', { tableId, error: error instanceof Error ? error.message : String(error) });
+    logger.error('[OvertimeSync] Table info failed', {
+      tableId,
+      error: error instanceof Error ? error.message : String(error),
+    });
 
     return NextResponse.json(
       {

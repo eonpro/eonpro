@@ -47,7 +47,7 @@ export class CircuitOpenError extends Error {
   constructor(
     message: string,
     public readonly tier: DbTier,
-    public readonly state: BreakerState,
+    public readonly state: BreakerState
   ) {
     super(message);
     this.name = 'CircuitOpenError';

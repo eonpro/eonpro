@@ -1,7 +1,12 @@
 'use client';
 
 import { create } from 'zustand';
-import { clearAuthTokens, redirectToLogin, isPublicRoute, SESSION_EXPIRED_EVENT } from '@/lib/api/fetch';
+import {
+  clearAuthTokens,
+  redirectToLogin,
+  isPublicRoute,
+  SESSION_EXPIRED_EVENT,
+} from '@/lib/api/fetch';
 import { safeParseJsonString } from '@/lib/utils/safe-json';
 
 export interface AuthUser {

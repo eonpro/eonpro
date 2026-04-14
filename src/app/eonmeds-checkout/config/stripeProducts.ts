@@ -4,29 +4,43 @@
 export const STRIPE_PRODUCTS = {
   // Semaglutide Products
   semaglutide: {
-    monthly: process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_SEMAGLUTIDE_MONTHLY || 'price_semaglutide_monthly',
-    threeMonth: process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_SEMAGLUTIDE_3MONTH || 'price_semaglutide_3month',
-    sixMonth: process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_SEMAGLUTIDE_6MONTH || 'price_semaglutide_6month',
-    oneTime: process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_SEMAGLUTIDE_ONETIME || 'price_semaglutide_onetime',
+    monthly:
+      process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_SEMAGLUTIDE_MONTHLY ||
+      'price_semaglutide_monthly',
+    threeMonth:
+      process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_SEMAGLUTIDE_3MONTH || 'price_semaglutide_3month',
+    sixMonth:
+      process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_SEMAGLUTIDE_6MONTH || 'price_semaglutide_6month',
+    oneTime:
+      process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_SEMAGLUTIDE_ONETIME ||
+      'price_semaglutide_onetime',
   },
-  
+
   // Tirzepatide Products
   tirzepatide: {
-    monthly: process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_TIRZEPATIDE_MONTHLY || 'price_tirzepatide_monthly',
-    threeMonth: process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_TIRZEPATIDE_3MONTH || 'price_tirzepatide_3month',
-    sixMonth: process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_TIRZEPATIDE_6MONTH || 'price_tirzepatide_6month',
-    oneTime: process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_TIRZEPATIDE_ONETIME || 'price_tirzepatide_onetime',
+    monthly:
+      process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_TIRZEPATIDE_MONTHLY ||
+      'price_tirzepatide_monthly',
+    threeMonth:
+      process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_TIRZEPATIDE_3MONTH || 'price_tirzepatide_3month',
+    sixMonth:
+      process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_TIRZEPATIDE_6MONTH || 'price_tirzepatide_6month',
+    oneTime:
+      process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_TIRZEPATIDE_ONETIME ||
+      'price_tirzepatide_onetime',
   },
-  
+
   // Add-on Products
   addons: {
-    nauseaRelief: process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_NAUSEA_RELIEF || 'price_nausea_relief',
+    nauseaRelief:
+      process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_NAUSEA_RELIEF || 'price_nausea_relief',
     fatBurner: process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_FAT_BURNER || 'price_fat_burner',
   },
-  
+
   // Shipping
   shipping: {
-    expedited: process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_EXPEDITED_SHIPPING || 'price_expedited_shipping',
+    expedited:
+      process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_EXPEDITED_SHIPPING || 'price_expedited_shipping',
   },
 };
 
@@ -56,6 +70,6 @@ export function getAddonPriceId(addonId: string): string | null {
     'nausea-relief': STRIPE_PRODUCTS.addons.nauseaRelief,
     'fat-burner': STRIPE_PRODUCTS.addons.fatBurner,
   };
-  
+
   return addonMap[addonId] || null;
 }

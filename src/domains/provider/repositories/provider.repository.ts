@@ -328,48 +328,51 @@ export const providerRepository = {
   ): Promise<ProviderWithClinic> {
     // Use basePrisma: providers are multi-clinic entities (same rationale as reads).
     // Super-admins create providers without tenant context; clinicId is set explicitly in data.
-    return await basePrisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      const provider = await tx.provider.create({
-        data: {
-          firstName: input.firstName,
-          lastName: input.lastName,
-          titleLine: input.titleLine ?? null,
-          npi: input.npi,
-          licenseState: input.licenseState ?? null,
-          licenseNumber: input.licenseNumber ?? null,
-          dea: input.dea ?? null,
-          email: input.email?.toLowerCase() ?? null,
-          phone: input.phone ?? null,
-          signatureDataUrl: input.signatureDataUrl ?? null,
-          clinicId: input.clinicId ?? null,
-          npiVerifiedAt: input.npiVerifiedAt ?? null,
-          npiRawResponse: (input.npiRawResponse ?? null) as Prisma.InputJsonValue,
-        },
-        select: PROVIDER_WITH_CLINIC_SELECT,
-      });
+    return await basePrisma.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        const provider = await tx.provider.create({
+          data: {
+            firstName: input.firstName,
+            lastName: input.lastName,
+            titleLine: input.titleLine ?? null,
+            npi: input.npi,
+            licenseState: input.licenseState ?? null,
+            licenseNumber: input.licenseNumber ?? null,
+            dea: input.dea ?? null,
+            email: input.email?.toLowerCase() ?? null,
+            phone: input.phone ?? null,
+            signatureDataUrl: input.signatureDataUrl ?? null,
+            clinicId: input.clinicId ?? null,
+            npiVerifiedAt: input.npiVerifiedAt ?? null,
+            npiRawResponse: (input.npiRawResponse ?? null) as Prisma.InputJsonValue,
+          },
+          select: PROVIDER_WITH_CLINIC_SELECT,
+        });
 
-      // Create audit log
-      await tx.providerAudit.create({
-        data: {
+        // Create audit log
+        await tx.providerAudit.create({
+          data: {
+            providerId: provider.id,
+            actorEmail,
+            action: 'CREATE',
+            diff: {
+              created: JSON.stringify(input),
+              by: actorEmail,
+            } as Prisma.InputJsonValue,
+          },
+        });
+
+        logger.info('[ProviderRepository] created provider', {
           providerId: provider.id,
-          actorEmail,
-          action: 'CREATE',
-          diff: {
-            created: JSON.stringify(input),
-            by: actorEmail,
-          } as Prisma.InputJsonValue,
-        },
-      });
+          npi: provider.npi,
+          clinicId: provider.clinicId,
+          actor: actorEmail,
+        });
 
-      logger.info('[ProviderRepository] created provider', {
-        providerId: provider.id,
-        npi: provider.npi,
-        clinicId: provider.clinicId,
-        actor: actorEmail,
-      });
-
-      return provider as ProviderWithClinic;
-    }, { timeout: 15000 });
+        return provider as ProviderWithClinic;
+      },
+      { timeout: 15000 }
+    );
   },
 
   /**
@@ -380,66 +383,69 @@ export const providerRepository = {
     input: UpdateProviderInput,
     actorEmail: string
   ): Promise<ProviderWithClinic> {
-    return await basePrisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      // Get existing for diff
-      const existing = await tx.provider.findUnique({
-        where: { id },
-      });
+    return await basePrisma.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        // Get existing for diff
+        const existing = await tx.provider.findUnique({
+          where: { id },
+        });
 
-      if (!existing) {
-        throw new Error('Provider not found');
-      }
+        if (!existing) {
+          throw new Error('Provider not found');
+        }
 
-      // Prepare update data - only include defined fields
-      const updateData: Record<string, unknown> = {};
-      if (input.firstName !== undefined) updateData.firstName = input.firstName;
-      if (input.lastName !== undefined) updateData.lastName = input.lastName;
-      if (input.dateOfBirth !== undefined) {
-        updateData.dateOfBirth = input.dateOfBirth ? new Date(input.dateOfBirth) : null;
-      }
-      if (input.titleLine !== undefined) updateData.titleLine = input.titleLine;
-      if (input.npi !== undefined) updateData.npi = input.npi;
-      if (input.licenseState !== undefined) updateData.licenseState = input.licenseState;
-      if (input.licenseNumber !== undefined) updateData.licenseNumber = input.licenseNumber;
-      if (input.dea !== undefined) updateData.dea = input.dea;
-      if (input.email !== undefined) updateData.email = input.email?.toLowerCase() ?? null;
-      if (input.phone !== undefined) updateData.phone = input.phone;
-      if (input.fax !== undefined) updateData.fax = input.fax;
-      if (input.signatureDataUrl !== undefined)
-        updateData.signatureDataUrl = input.signatureDataUrl;
-      if (input.clinicId !== undefined) updateData.clinicId = input.clinicId;
+        // Prepare update data - only include defined fields
+        const updateData: Record<string, unknown> = {};
+        if (input.firstName !== undefined) updateData.firstName = input.firstName;
+        if (input.lastName !== undefined) updateData.lastName = input.lastName;
+        if (input.dateOfBirth !== undefined) {
+          updateData.dateOfBirth = input.dateOfBirth ? new Date(input.dateOfBirth) : null;
+        }
+        if (input.titleLine !== undefined) updateData.titleLine = input.titleLine;
+        if (input.npi !== undefined) updateData.npi = input.npi;
+        if (input.licenseState !== undefined) updateData.licenseState = input.licenseState;
+        if (input.licenseNumber !== undefined) updateData.licenseNumber = input.licenseNumber;
+        if (input.dea !== undefined) updateData.dea = input.dea;
+        if (input.email !== undefined) updateData.email = input.email?.toLowerCase() ?? null;
+        if (input.phone !== undefined) updateData.phone = input.phone;
+        if (input.fax !== undefined) updateData.fax = input.fax;
+        if (input.signatureDataUrl !== undefined)
+          updateData.signatureDataUrl = input.signatureDataUrl;
+        if (input.clinicId !== undefined) updateData.clinicId = input.clinicId;
 
-      const provider = await tx.provider.update({
-        where: { id },
-        data: updateData,
-        select: PROVIDER_WITH_CLINIC_SELECT,
-      });
+        const provider = await tx.provider.update({
+          where: { id },
+          data: updateData,
+          select: PROVIDER_WITH_CLINIC_SELECT,
+        });
 
-      // Calculate and log diff
-      const changeSet = diffProviders(
-        existing as Record<string, unknown>,
-        provider as Record<string, unknown>
-      );
+        // Calculate and log diff
+        const changeSet = diffProviders(
+          existing as Record<string, unknown>,
+          provider as Record<string, unknown>
+        );
 
-      if (Object.keys(changeSet).length > 0) {
-        await tx.providerAudit.create({
-          data: {
+        if (Object.keys(changeSet).length > 0) {
+          await tx.providerAudit.create({
+            data: {
+              providerId: id,
+              actorEmail,
+              action: 'UPDATE',
+              diff: changeSet as Prisma.InputJsonValue,
+            },
+          });
+
+          logger.info('[ProviderRepository] updated provider', {
             providerId: id,
-            actorEmail,
-            action: 'UPDATE',
-            diff: changeSet as Prisma.InputJsonValue,
-          },
-        });
+            changes: Object.keys(changeSet),
+            actor: actorEmail,
+          });
+        }
 
-        logger.info('[ProviderRepository] updated provider', {
-          providerId: id,
-          changes: Object.keys(changeSet),
-          actor: actorEmail,
-        });
-      }
-
-      return provider as ProviderWithClinic;
-    }, { timeout: 15000 });
+        return provider as ProviderWithClinic;
+      },
+      { timeout: 15000 }
+    );
   },
 
   /**
@@ -453,165 +459,171 @@ export const providerRepository = {
    * WARNING: This permanently deletes data. Use archiveProvider for soft delete.
    */
   async delete(id: number, actorEmail: string): Promise<void> {
-    await basePrisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      const existing = await tx.provider.findUnique({
-        where: { id },
-        include: {
-          orders: { select: { id: true } },
-          appointments: { select: { id: true } },
-        },
-      });
-
-      if (!existing) {
-        throw new Error('Provider not found');
-      }
-
-      // Log what we're about to delete for audit purposes
-      logger.info('[ProviderRepository] deleting provider with cascade', {
-        providerId: id,
-        npi: existing.npi,
-        firstName: existing.firstName,
-        lastName: existing.lastName,
-        relatedOrdersCount: existing.orders.length,
-        relatedAppointmentsCount: existing.appointments.length,
-        actor: actorEmail,
-      });
-
-      // 1. Delete ProviderAudit entries (these are specific to this provider)
-      await tx.providerAudit.deleteMany({
-        where: { providerId: id },
-      });
-
-      // 2. Delete ProviderClinic entries (junction table - has onDelete: Cascade but be explicit)
-      await tx.providerClinic.deleteMany({
-        where: { providerId: id },
-      });
-
-      // 3. Delete ProviderAvailability entries
-      await tx.providerAvailability.deleteMany({
-        where: { providerId: id },
-      });
-
-      // 4. Delete ProviderTimeOff entries
-      await tx.providerTimeOff.deleteMany({
-        where: { providerId: id },
-      });
-
-      // 5. Delete ProviderCalendarIntegration entries
-      await tx.providerCalendarIntegration.deleteMany({
-        where: { providerId: id },
-      });
-
-      // 6. Delete Appointments (these are demo appointments tied to demo provider)
-      // First delete related appointment reminders and notes
-      const appointmentIds = existing.appointments.map((a) => a.id);
-      if (appointmentIds.length > 0) {
-        await tx.appointmentReminder.deleteMany({
-          where: { appointmentId: { in: appointmentIds } },
+    await basePrisma.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        const existing = await tx.provider.findUnique({
+          where: { id },
+          include: {
+            orders: { select: { id: true } },
+            appointments: { select: { id: true } },
+          },
         });
-        await tx.appointment.deleteMany({
+
+        if (!existing) {
+          throw new Error('Provider not found');
+        }
+
+        // Log what we're about to delete for audit purposes
+        logger.info('[ProviderRepository] deleting provider with cascade', {
+          providerId: id,
+          npi: existing.npi,
+          firstName: existing.firstName,
+          lastName: existing.lastName,
+          relatedOrdersCount: existing.orders.length,
+          relatedAppointmentsCount: existing.appointments.length,
+          actor: actorEmail,
+        });
+
+        // 1. Delete ProviderAudit entries (these are specific to this provider)
+        await tx.providerAudit.deleteMany({
           where: { providerId: id },
         });
-      }
 
-      // 7. Delete related Superbills
-      await tx.superbill.deleteMany({
-        where: { providerId: id },
-      });
-
-      // 8. Nullify CarePlan.providerId (care plans may need to be preserved for patient records)
-      await tx.carePlan.updateMany({
-        where: { providerId: id },
-        data: { providerId: null },
-      });
-
-      // 9. Nullify SOAPNote.approvedBy references
-      await tx.sOAPNote.updateMany({
-        where: { approvedBy: id },
-        data: { approvedBy: null },
-      });
-
-      // 10. Nullify IntakeFormTemplate.providerId references
-      await tx.intakeFormTemplate.updateMany({
-        where: { providerId: id },
-        data: { providerId: null },
-      });
-
-      // 11. Unlink User.providerId (user accounts should persist, just unlink from provider)
-      await tx.user.updateMany({
-        where: { providerId: id },
-        data: { providerId: null },
-      });
-
-      // 12. Handle Orders - this is the tricky one
-      // For demo data cleanup, we need to delete orders and their related records
-      const orderIds = existing.orders.map((o) => o.id);
-      if (orderIds.length > 0) {
-        // Delete Rx records first (they reference Order)
-        await tx.rx.deleteMany({
-          where: { orderId: { in: orderIds } },
-        });
-
-        // Delete OrderEvent records
-        await tx.orderEvent.deleteMany({
-          where: { orderId: { in: orderIds } },
-        });
-
-        // Unlink RefillQueue from orders
-        await tx.refillQueue.updateMany({
-          where: { orderId: { in: orderIds } },
-          data: { orderId: null },
-        });
-
-        // Delete Orders
-        await tx.order.deleteMany({
+        // 2. Delete ProviderClinic entries (junction table - has onDelete: Cascade but be explicit)
+        await tx.providerClinic.deleteMany({
           where: { providerId: id },
         });
-      }
 
-      // Finally, delete the provider
-      await tx.provider.delete({
-        where: { id },
-      });
+        // 3. Delete ProviderAvailability entries
+        await tx.providerAvailability.deleteMany({
+          where: { providerId: id },
+        });
 
-      logger.info('[ProviderRepository] deleted provider and related records', {
-        providerId: id,
-        npi: existing.npi,
-        ordersDeleted: orderIds.length,
-        appointmentsDeleted: appointmentIds.length,
-        actor: actorEmail,
-      });
-    }, { timeout: 15000 });
+        // 4. Delete ProviderTimeOff entries
+        await tx.providerTimeOff.deleteMany({
+          where: { providerId: id },
+        });
+
+        // 5. Delete ProviderCalendarIntegration entries
+        await tx.providerCalendarIntegration.deleteMany({
+          where: { providerId: id },
+        });
+
+        // 6. Delete Appointments (these are demo appointments tied to demo provider)
+        // First delete related appointment reminders and notes
+        const appointmentIds = existing.appointments.map((a) => a.id);
+        if (appointmentIds.length > 0) {
+          await tx.appointmentReminder.deleteMany({
+            where: { appointmentId: { in: appointmentIds } },
+          });
+          await tx.appointment.deleteMany({
+            where: { providerId: id },
+          });
+        }
+
+        // 7. Delete related Superbills
+        await tx.superbill.deleteMany({
+          where: { providerId: id },
+        });
+
+        // 8. Nullify CarePlan.providerId (care plans may need to be preserved for patient records)
+        await tx.carePlan.updateMany({
+          where: { providerId: id },
+          data: { providerId: null },
+        });
+
+        // 9. Nullify SOAPNote.approvedBy references
+        await tx.sOAPNote.updateMany({
+          where: { approvedBy: id },
+          data: { approvedBy: null },
+        });
+
+        // 10. Nullify IntakeFormTemplate.providerId references
+        await tx.intakeFormTemplate.updateMany({
+          where: { providerId: id },
+          data: { providerId: null },
+        });
+
+        // 11. Unlink User.providerId (user accounts should persist, just unlink from provider)
+        await tx.user.updateMany({
+          where: { providerId: id },
+          data: { providerId: null },
+        });
+
+        // 12. Handle Orders - this is the tricky one
+        // For demo data cleanup, we need to delete orders and their related records
+        const orderIds = existing.orders.map((o) => o.id);
+        if (orderIds.length > 0) {
+          // Delete Rx records first (they reference Order)
+          await tx.rx.deleteMany({
+            where: { orderId: { in: orderIds } },
+          });
+
+          // Delete OrderEvent records
+          await tx.orderEvent.deleteMany({
+            where: { orderId: { in: orderIds } },
+          });
+
+          // Unlink RefillQueue from orders
+          await tx.refillQueue.updateMany({
+            where: { orderId: { in: orderIds } },
+            data: { orderId: null },
+          });
+
+          // Delete Orders
+          await tx.order.deleteMany({
+            where: { providerId: id },
+          });
+        }
+
+        // Finally, delete the provider
+        await tx.provider.delete({
+          where: { id },
+        });
+
+        logger.info('[ProviderRepository] deleted provider and related records', {
+          providerId: id,
+          npi: existing.npi,
+          ordersDeleted: orderIds.length,
+          appointmentsDeleted: appointmentIds.length,
+          actor: actorEmail,
+        });
+      },
+      { timeout: 15000 }
+    );
   },
 
   /**
    * Set or update provider password
    */
   async setPassword(id: number, passwordHash: string, actorEmail: string): Promise<void> {
-    await basePrisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      await tx.provider.update({
-        where: { id },
-        data: {
-          passwordHash,
-          passwordResetToken: null,
-          passwordResetExpires: null,
-        },
-      });
+    await basePrisma.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        await tx.provider.update({
+          where: { id },
+          data: {
+            passwordHash,
+            passwordResetToken: null,
+            passwordResetExpires: null,
+          },
+        });
 
-      await tx.providerAudit.create({
-        data: {
+        await tx.providerAudit.create({
+          data: {
+            providerId: id,
+            actorEmail,
+            action: 'PASSWORD_SET',
+            diff: { passwordUpdated: true },
+          },
+        });
+
+        logger.info('[ProviderRepository] password set', {
           providerId: id,
-          actorEmail,
-          action: 'PASSWORD_SET',
-          diff: { passwordUpdated: true },
-        },
-      });
-
-      logger.info('[ProviderRepository] password set', {
-        providerId: id,
-        actor: actorEmail,
-      });
-    }, { timeout: 15000 });
+          actor: actorEmail,
+        });
+      },
+      { timeout: 15000 }
+    );
   },
 
   /**
@@ -803,39 +815,42 @@ export const providerRepository = {
    * Set a clinic as the provider's primary clinic
    */
   async setPrimaryClinic(providerId: number, clinicId: number, actorEmail?: string): Promise<void> {
-    await basePrisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      // Remove primary flag from all other assignments
-      await tx.providerClinic.updateMany({
-        where: { providerId, isPrimary: true },
-        data: { isPrimary: false },
-      });
-
-      // Set the new primary
-      await tx.providerClinic.update({
-        where: {
-          providerId_clinicId: { providerId, clinicId },
-        },
-        data: { isPrimary: true },
-      });
-
-      // Update provider's primaryClinicId
-      await tx.provider.update({
-        where: { id: providerId },
-        data: { primaryClinicId: clinicId },
-      });
-
-      // Create audit entry
-      if (actorEmail) {
-        await tx.providerAudit.create({
-          data: {
-            providerId,
-            actorEmail,
-            action: 'PRIMARY_CLINIC_CHANGE',
-            diff: { clinicId, action: 'set_primary' },
-          },
+    await basePrisma.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        // Remove primary flag from all other assignments
+        await tx.providerClinic.updateMany({
+          where: { providerId, isPrimary: true },
+          data: { isPrimary: false },
         });
-      }
-    }, { timeout: 15000 });
+
+        // Set the new primary
+        await tx.providerClinic.update({
+          where: {
+            providerId_clinicId: { providerId, clinicId },
+          },
+          data: { isPrimary: true },
+        });
+
+        // Update provider's primaryClinicId
+        await tx.provider.update({
+          where: { id: providerId },
+          data: { primaryClinicId: clinicId },
+        });
+
+        // Create audit entry
+        if (actorEmail) {
+          await tx.providerAudit.create({
+            data: {
+              providerId,
+              actorEmail,
+              action: 'PRIMARY_CLINIC_CHANGE',
+              diff: { clinicId, action: 'set_primary' },
+            },
+          });
+        }
+      },
+      { timeout: 15000 }
+    );
 
     logger.info('[ProviderRepository] set primary clinic', {
       providerId,

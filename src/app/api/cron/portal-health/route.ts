@@ -44,11 +44,21 @@ async function probeDatabase(): Promise<ProbeResult> {
     const result = await withTimeout(checkDatabaseHealth(prisma), PROBE_TIMEOUT_MS, 'DB');
     const latencyMs = Date.now() - start;
     if (!result.healthy) {
-      return { name: 'Database', status: 'unhealthy', latencyMs, message: result.error || 'Connection failed' };
+      return {
+        name: 'Database',
+        status: 'unhealthy',
+        latencyMs,
+        message: result.error || 'Connection failed',
+      };
     }
     return { name: 'Database', status: latencyMs > 500 ? 'degraded' : 'healthy', latencyMs };
   } catch (err) {
-    return { name: 'Database', status: 'unhealthy', latencyMs: Date.now() - start, message: err instanceof Error ? err.message : 'Unknown' };
+    return {
+      name: 'Database',
+      status: 'unhealthy',
+      latencyMs: Date.now() - start,
+      message: err instanceof Error ? err.message : 'Unknown',
+    };
   }
 }
 
@@ -62,7 +72,12 @@ async function probePatientTable(): Promise<ProbeResult> {
     );
     return { name: 'PatientTable', status: 'healthy', latencyMs: Date.now() - start };
   } catch (err) {
-    return { name: 'PatientTable', status: 'unhealthy', latencyMs: Date.now() - start, message: err instanceof Error ? err.message : 'Failed' };
+    return {
+      name: 'PatientTable',
+      status: 'unhealthy',
+      latencyMs: Date.now() - start,
+      message: err instanceof Error ? err.message : 'Failed',
+    };
   }
 }
 
@@ -77,7 +92,12 @@ async function probeAuth(): Promise<ProbeResult> {
     await jwtVerify(token, JWT_SECRET);
     return { name: 'Auth', status: 'healthy', latencyMs: Date.now() - start };
   } catch (err) {
-    return { name: 'Auth', status: 'unhealthy', latencyMs: Date.now() - start, message: err instanceof Error ? err.message : 'Failed' };
+    return {
+      name: 'Auth',
+      status: 'unhealthy',
+      latencyMs: Date.now() - start,
+      message: err instanceof Error ? err.message : 'Failed',
+    };
   }
 }
 
@@ -85,25 +105,48 @@ async function probeSessionStore(): Promise<ProbeResult> {
   const start = Date.now();
   try {
     if (!cache.isReady()) {
-      return { name: 'SessionStore', status: 'degraded', latencyMs: Date.now() - start, message: 'Redis unavailable (in-memory fallback)' };
+      return {
+        name: 'SessionStore',
+        status: 'degraded',
+        latencyMs: Date.now() - start,
+        message: 'Redis unavailable (in-memory fallback)',
+      };
     }
     const key = `portal-cron-${Date.now()}`;
     await cache.set(key, 'ok', { ttl: 10 });
     const val = await cache.get(key);
     await cache.delete(key);
-    return { name: 'SessionStore', status: val === 'ok' ? 'healthy' : 'degraded', latencyMs: Date.now() - start };
+    return {
+      name: 'SessionStore',
+      status: val === 'ok' ? 'healthy' : 'degraded',
+      latencyMs: Date.now() - start,
+    };
   } catch (err) {
-    return { name: 'SessionStore', status: 'degraded', latencyMs: Date.now() - start, message: err instanceof Error ? err.message : 'Failed' };
+    return {
+      name: 'SessionStore',
+      status: 'degraded',
+      latencyMs: Date.now() - start,
+      message: err instanceof Error ? err.message : 'Failed',
+    };
   }
 }
 
 async function probeBranding(): Promise<ProbeResult> {
   const start = Date.now();
   try {
-    await withTimeout(prisma.clinic.findFirst({ select: { id: true }, take: 1 }), PROBE_TIMEOUT_MS, 'Branding');
+    await withTimeout(
+      prisma.clinic.findFirst({ select: { id: true }, take: 1 }),
+      PROBE_TIMEOUT_MS,
+      'Branding'
+    );
     return { name: 'Branding', status: 'healthy', latencyMs: Date.now() - start };
   } catch (err) {
-    return { name: 'Branding', status: 'degraded', latencyMs: Date.now() - start, message: err instanceof Error ? err.message : 'Failed' };
+    return {
+      name: 'Branding',
+      status: 'degraded',
+      latencyMs: Date.now() - start,
+      message: err instanceof Error ? err.message : 'Failed',
+    };
   }
 }
 
@@ -171,11 +214,21 @@ export async function GET(_request: NextRequest) {
       { status: status === 'unhealthy' ? 503 : 200, headers: { 'Cache-Control': 'no-store' } }
     );
   } catch (err) {
-    logger.error('[PortalHealthCron] Cron failed', err instanceof Error ? err : new Error(String(err)));
+    logger.error(
+      '[PortalHealthCron] Cron failed',
+      err instanceof Error ? err : new Error(String(err))
+    );
 
     await sendPortalAlert({
       status: 'unhealthy',
-      probes: [{ name: 'CronExecution', status: 'unhealthy', latencyMs: Date.now() - start, message: err instanceof Error ? err.message : 'Unknown' }],
+      probes: [
+        {
+          name: 'CronExecution',
+          status: 'unhealthy',
+          latencyMs: Date.now() - start,
+          message: err instanceof Error ? err.message : 'Unknown',
+        },
+      ],
       durationMs: Date.now() - start,
     });
 

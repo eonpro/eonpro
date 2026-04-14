@@ -132,23 +132,29 @@ const getPatientsHandler = withClinicalAuth(async (req: NextRequest, user) => {
     // When searching, sort by relevance so the best match appears first
     const patients = options.search
       ? sortBySearchRelevance(patientsRaw, options.search, (p) => [
-          p.firstName ?? '', p.lastName ?? '', p.patientId ?? '', p.email ?? '',
+          p.firstName ?? '',
+          p.lastName ?? '',
+          p.patientId ?? '',
+          p.email ?? '',
         ])
       : patientsRaw;
 
-    return Response.json({
-      patients,
-      meta: {
-        count: patients.length,
-        total: result.total,
-        totalInSystem: totalInSystem ?? result.total,
-        hasMore: result.hasMore,
-        accessedBy: user.email,
-        role: user.role,
-        filters: { limit, offset, recent: options.recent, search: options.search },
-        includeContact,
+    return Response.json(
+      {
+        patients,
+        meta: {
+          count: patients.length,
+          total: result.total,
+          totalInSystem: totalInSystem ?? result.total,
+          hasMore: result.hasMore,
+          accessedBy: user.email,
+          role: user.role,
+          filters: { limit, offset, recent: options.recent, search: options.search },
+          includeContact,
+        },
       },
-    }, { headers: timing.headers() });
+      { headers: timing.headers() }
+    );
   } catch (error) {
     return handleApiError(error, {
       context: { route: 'GET /api/patients' },
@@ -170,41 +176,44 @@ export const GET = relaxedRateLimit(getPatientsHandler);
  * - Audit logging
  * - Duplicate email detection
  */
-const createPatientHandler = withAuth(async (req: NextRequest, user) => {
-  try {
-    const body = await req.json();
+const createPatientHandler = withAuth(
+  async (req: NextRequest, user) => {
+    try {
+      const body = await req.json();
 
-    // Validate request body with Zod schema
-    const validationResult = createPatientSchema.safeParse(body);
-    if (!validationResult.success) {
-      return NextResponse.json(
-        { error: 'Invalid patient data', details: validationResult.error.flatten() },
-        { status: 400 }
-      );
+      // Validate request body with Zod schema
+      const validationResult = createPatientSchema.safeParse(body);
+      if (!validationResult.success) {
+        return NextResponse.json(
+          { error: 'Invalid patient data', details: validationResult.error.flatten() },
+          { status: 400 }
+        );
+      }
+
+      // Convert auth user to service UserContext
+      const userContext: UserContext = {
+        id: user.id,
+        email: user.email,
+        role: user.role as UserContext['role'],
+        clinicId: user.clinicId,
+        patientId: user.patientId,
+      };
+
+      // Use patient service - handles validation, clinic assignment, PHI, audit
+      const patient = await patientService.createPatient(validationResult.data, userContext);
+
+      return Response.json({
+        patient,
+        message: 'Patient created successfully',
+      });
+    } catch (error) {
+      return handleApiError(error, {
+        context: { route: 'POST /api/patients' },
+      });
     }
-
-    // Convert auth user to service UserContext
-    const userContext: UserContext = {
-      id: user.id,
-      email: user.email,
-      role: user.role as UserContext['role'],
-      clinicId: user.clinicId,
-      patientId: user.patientId,
-    };
-
-    // Use patient service - handles validation, clinic assignment, PHI, audit
-    const patient = await patientService.createPatient(validationResult.data, userContext);
-
-    return Response.json({
-      patient,
-      message: 'Patient created successfully',
-    });
-  } catch (error) {
-    return handleApiError(error, {
-      context: { route: 'POST /api/patients' },
-    });
-  }
-}, { roles: ['super_admin', 'admin', 'provider', 'staff', 'sales_rep'] });
+  },
+  { roles: ['super_admin', 'admin', 'provider', 'staff', 'sales_rep'] }
+);
 
 // Apply rate limiting to POST endpoint
 export const POST = standardRateLimit(createPatientHandler);

@@ -78,10 +78,16 @@ export async function searchDrugsRxNorm(query: string): Promise<DrugResult[]> {
       }
     }
 
-    searchCache.set(cacheKey, { data: results.slice(0, 20), expires: Date.now() + SEARCH_CACHE_TTL });
+    searchCache.set(cacheKey, {
+      data: results.slice(0, 20),
+      expires: Date.now() + SEARCH_CACHE_TTL,
+    });
     return results.slice(0, 20);
   } catch (err) {
-    logger.warn('[rxnorm] Drug search failed', { query, error: err instanceof Error ? err.message : String(err) });
+    logger.warn('[rxnorm] Drug search failed', {
+      query,
+      error: err instanceof Error ? err.message : String(err),
+    });
     return [];
   }
 }
@@ -129,7 +135,10 @@ export async function searchDrugsOpenFDA(query: string): Promise<DrugResult[]> {
     searchCache.set(cacheKey, { data: results, expires: Date.now() + SEARCH_CACHE_TTL });
     return results;
   } catch (err) {
-    logger.warn('[openfda] Drug search failed', { query, error: err instanceof Error ? err.message : String(err) });
+    logger.warn('[openfda] Drug search failed', {
+      query,
+      error: err instanceof Error ? err.message : String(err),
+    });
     return [];
   }
 }
@@ -141,35 +150,75 @@ const COMMON_MEDICATIONS: DrugResult[] = [
   { name: 'Enclomiphene', genericName: 'enclomiphene citrate', drugClass: 'SERM' },
   { name: 'Clomiphene (Clomid)', genericName: 'clomiphene citrate', drugClass: 'SERM' },
   { name: 'Anastrozole (Arimidex)', genericName: 'anastrozole', drugClass: 'Aromatase Inhibitor' },
-  { name: 'HCG (Human Chorionic Gonadotropin)', genericName: 'chorionic gonadotropin', drugClass: 'Hormone' },
+  {
+    name: 'HCG (Human Chorionic Gonadotropin)',
+    genericName: 'chorionic gonadotropin',
+    drugClass: 'Hormone',
+  },
   { name: 'Gonadorelin', genericName: 'gonadorelin acetate', drugClass: 'GnRH Agonist' },
   { name: 'DHEA', genericName: 'dehydroepiandrosterone', drugClass: 'Hormone Precursor' },
   { name: 'Sermorelin', genericName: 'sermorelin acetate', drugClass: 'GHRH Analog' },
   { name: 'BPC-157', genericName: 'body protection compound-157', drugClass: 'Peptide' },
   { name: 'Ipamorelin', genericName: 'ipamorelin', drugClass: 'Growth Hormone Secretagogue' },
-  { name: 'PT-141 (Bremelanotide)', genericName: 'bremelanotide', drugClass: 'Melanocortin Agonist' },
+  {
+    name: 'PT-141 (Bremelanotide)',
+    genericName: 'bremelanotide',
+    drugClass: 'Melanocortin Agonist',
+  },
   { name: 'Sildenafil (Viagra)', genericName: 'sildenafil citrate', drugClass: 'PDE5 Inhibitor' },
   { name: 'Tadalafil (Cialis)', genericName: 'tadalafil', drugClass: 'PDE5 Inhibitor' },
-  { name: 'Finasteride (Propecia)', genericName: 'finasteride', drugClass: '5-alpha Reductase Inhibitor' },
-  { name: 'Dutasteride (Avodart)', genericName: 'dutasteride', drugClass: '5-alpha Reductase Inhibitor' },
+  {
+    name: 'Finasteride (Propecia)',
+    genericName: 'finasteride',
+    drugClass: '5-alpha Reductase Inhibitor',
+  },
+  {
+    name: 'Dutasteride (Avodart)',
+    genericName: 'dutasteride',
+    drugClass: '5-alpha Reductase Inhibitor',
+  },
   { name: 'Minoxidil', genericName: 'minoxidil', drugClass: 'Vasodilator' },
   { name: 'Metformin', genericName: 'metformin hydrochloride', drugClass: 'Biguanide' },
   { name: 'Semaglutide (Ozempic/Wegovy)', genericName: 'semaglutide', drugClass: 'GLP-1 Agonist' },
-  { name: 'Tirzepatide (Mounjaro/Zepbound)', genericName: 'tirzepatide', drugClass: 'GLP-1/GIP Agonist' },
+  {
+    name: 'Tirzepatide (Mounjaro/Zepbound)',
+    genericName: 'tirzepatide',
+    drugClass: 'GLP-1/GIP Agonist',
+  },
   { name: 'Liraglutide (Saxenda)', genericName: 'liraglutide', drugClass: 'GLP-1 Agonist' },
-  { name: 'Levothyroxine (Synthroid)', genericName: 'levothyroxine sodium', drugClass: 'Thyroid Hormone' },
-  { name: 'Liothyronine (Cytomel)', genericName: 'liothyronine sodium', drugClass: 'Thyroid Hormone' },
+  {
+    name: 'Levothyroxine (Synthroid)',
+    genericName: 'levothyroxine sodium',
+    drugClass: 'Thyroid Hormone',
+  },
+  {
+    name: 'Liothyronine (Cytomel)',
+    genericName: 'liothyronine sodium',
+    drugClass: 'Thyroid Hormone',
+  },
   { name: 'Lisinopril', genericName: 'lisinopril', drugClass: 'ACE Inhibitor' },
   { name: 'Losartan', genericName: 'losartan potassium', drugClass: 'ARB' },
   { name: 'Amlodipine', genericName: 'amlodipine besylate', drugClass: 'Calcium Channel Blocker' },
   { name: 'Atorvastatin (Lipitor)', genericName: 'atorvastatin calcium', drugClass: 'Statin' },
   { name: 'Rosuvastatin (Crestor)', genericName: 'rosuvastatin calcium', drugClass: 'Statin' },
   { name: 'Omeprazole (Prilosec)', genericName: 'omeprazole', drugClass: 'Proton Pump Inhibitor' },
-  { name: 'Pantoprazole (Protonix)', genericName: 'pantoprazole sodium', drugClass: 'Proton Pump Inhibitor' },
+  {
+    name: 'Pantoprazole (Protonix)',
+    genericName: 'pantoprazole sodium',
+    drugClass: 'Proton Pump Inhibitor',
+  },
   { name: 'Gabapentin (Neurontin)', genericName: 'gabapentin', drugClass: 'Anticonvulsant' },
   { name: 'Pregabalin (Lyrica)', genericName: 'pregabalin', drugClass: 'Anticonvulsant' },
-  { name: 'Adderall (Amphetamine)', genericName: 'amphetamine/dextroamphetamine', drugClass: 'Stimulant' },
-  { name: 'Wellbutrin (Bupropion)', genericName: 'bupropion hydrochloride', drugClass: 'Antidepressant' },
+  {
+    name: 'Adderall (Amphetamine)',
+    genericName: 'amphetamine/dextroamphetamine',
+    drugClass: 'Stimulant',
+  },
+  {
+    name: 'Wellbutrin (Bupropion)',
+    genericName: 'bupropion hydrochloride',
+    drugClass: 'Antidepressant',
+  },
   { name: 'Lexapro (Escitalopram)', genericName: 'escitalopram oxalate', drugClass: 'SSRI' },
   { name: 'Zoloft (Sertraline)', genericName: 'sertraline hydrochloride', drugClass: 'SSRI' },
   { name: 'Xanax (Alprazolam)', genericName: 'alprazolam', drugClass: 'Benzodiazepine' },
@@ -186,10 +235,11 @@ const COMMON_MEDICATIONS: DrugResult[] = [
 
 function searchLocalMedications(query: string): DrugResult[] {
   const q = query.toLowerCase();
-  return COMMON_MEDICATIONS.filter((med) =>
-    med.name.toLowerCase().includes(q) ||
-    (med.genericName && med.genericName.toLowerCase().includes(q)) ||
-    (med.drugClass && med.drugClass.toLowerCase().includes(q))
+  return COMMON_MEDICATIONS.filter(
+    (med) =>
+      med.name.toLowerCase().includes(q) ||
+      (med.genericName && med.genericName.toLowerCase().includes(q)) ||
+      (med.drugClass && med.drugClass.toLowerCase().includes(q))
   );
 }
 
@@ -277,15 +327,23 @@ export async function checkInteractions(rxcuis: string[]): Promise<InteractionRe
 
     return results;
   } catch (err) {
-    logger.warn('[rxnorm] Interaction check failed', { error: err instanceof Error ? err.message : String(err) });
+    logger.warn('[rxnorm] Interaction check failed', {
+      error: err instanceof Error ? err.message : String(err),
+    });
     return [];
   }
 }
 
 function inferSeverity(text: string): 'low' | 'moderate' | 'high' {
   const lower = text.toLowerCase();
-  if (lower.includes('high') || lower.includes('severe') || lower.includes('major') ||
-      lower.includes('contraindicated') || lower.includes('serious')) return 'high';
+  if (
+    lower.includes('high') ||
+    lower.includes('severe') ||
+    lower.includes('major') ||
+    lower.includes('contraindicated') ||
+    lower.includes('serious')
+  )
+    return 'high';
   if (lower.includes('moderate') || lower.includes('significant')) return 'moderate';
   return 'low';
 }

@@ -22,9 +22,10 @@ export const GET = withAuth(
     try {
       requirePermission(toPermissionContext(user), 'invoice:view');
 
-      const clinicId = user.role === 'super_admin'
-        ? parseInt(new URL(req.url).searchParams.get('clinicId') ?? '0') || user.clinicId
-        : user.clinicId;
+      const clinicId =
+        user.role === 'super_admin'
+          ? parseInt(new URL(req.url).searchParams.get('clinicId') ?? '0') || user.clinicId
+          : user.clinicId;
 
       if (!clinicId) {
         return NextResponse.json({ error: 'Clinic context required' }, { status: 400 });
@@ -34,19 +35,31 @@ export const GET = withAuth(
 
       const invoiceIdsParam = searchParams.get('invoiceIds');
       if (!invoiceIdsParam) {
-        return NextResponse.json({ error: 'invoiceIds parameter required (comma-separated)' }, { status: 400 });
+        return NextResponse.json(
+          { error: 'invoiceIds parameter required (comma-separated)' },
+          { status: 400 }
+        );
       }
 
-      const invoiceUploadIds = invoiceIdsParam.split(',').map((id) => parseInt(id.trim(), 10)).filter((id) => !isNaN(id));
+      const invoiceUploadIds = invoiceIdsParam
+        .split(',')
+        .map((id) => parseInt(id.trim(), 10))
+        .filter((id) => !isNaN(id));
       if (invoiceUploadIds.length === 0) {
-        return NextResponse.json({ error: 'At least one valid invoiceId required' }, { status: 400 });
+        return NextResponse.json(
+          { error: 'At least one valid invoiceId required' },
+          { status: 400 }
+        );
       }
 
       const startDateStr = searchParams.get('startDate');
       const endDateStr = searchParams.get('endDate');
 
       if (!startDateStr || !endDateStr) {
-        return NextResponse.json({ error: 'startDate and endDate parameters required' }, { status: 400 });
+        return NextResponse.json(
+          { error: 'startDate and endDate parameters required' },
+          { status: 400 }
+        );
       }
 
       const startDate = new Date(startDateStr);

@@ -17,7 +17,7 @@ export const GET = withAuth(async (_req: NextRequest, user: AuthUser) => {
     if (!user.patientId) {
       return NextResponse.json(
         { error: 'Patient ID required', code: 'PATIENT_ID_REQUIRED' },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -36,10 +36,7 @@ export const GET = withAuth(async (_req: NextRequest, user: AuthUser) => {
     });
 
     if (!patient) {
-      return NextResponse.json(
-        { error: 'Patient not found', code: 'NOT_FOUND' },
-        { status: 404 },
-      );
+      return NextResponse.json({ error: 'Patient not found', code: 'NOT_FOUND' }, { status: 404 });
     }
 
     const missingFields: string[] = [];
@@ -49,7 +46,8 @@ export const GET = withAuth(async (_req: NextRequest, user: AuthUser) => {
     return NextResponse.json({
       profileStatus: patient.profileStatus,
       hasCompletedIntake: patient._count.intakeSubmissions > 0,
-      needsProfileCompletion: patient.profileStatus === 'PENDING_COMPLETION' || missingFields.length > 0,
+      needsProfileCompletion:
+        patient.profileStatus === 'PENDING_COMPLETION' || missingFields.length > 0,
       missingFields,
     });
   } catch (error) {

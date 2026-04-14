@@ -37,7 +37,6 @@ export default function PrescriptionsPage() {
         setPrescriptions(data.prescriptions || []);
       }
     } catch (error: unknown) {
-      
       logger.error('Failed to fetch prescriptions', error);
     } finally {
       setLoading(false);

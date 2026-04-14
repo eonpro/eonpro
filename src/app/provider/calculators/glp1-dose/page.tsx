@@ -142,7 +142,9 @@ ${notes ? `\nNotes: ${notes}` : ''}`;
               >
                 <p className="font-semibold text-gray-900">Semaglutide</p>
                 <p className="text-sm text-gray-500">Wegovy, Ozempic</p>
-                {medication === 'semaglutide' && <Check className="mt-2 h-5 w-5 text-emerald-500" />}
+                {medication === 'semaglutide' && (
+                  <Check className="mt-2 h-5 w-5 text-emerald-500" />
+                )}
               </button>
               <button
                 onClick={() => setMedication('tirzepatide')}

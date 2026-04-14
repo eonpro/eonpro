@@ -31,19 +31,22 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       ];
     }
 
-    const fetch = async () => prisma.reportTemplate.findMany({
-      where,
-      orderBy: [{ isSystemTemplate: 'desc' }, { updatedAt: 'desc' }],
-      include: {
-        createdBy: { select: { id: true, firstName: true, lastName: true, email: true } },
-        schedules: { where: { isActive: true }, select: { id: true, frequency: true, nextRunAt: true } },
-      },
-      take: 200,
-    });
+    const fetch = async () =>
+      prisma.reportTemplate.findMany({
+        where,
+        orderBy: [{ isSystemTemplate: 'desc' }, { updatedAt: 'desc' }],
+        include: {
+          createdBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+          schedules: {
+            where: { isActive: true },
+            select: { id: true, frequency: true, nextRunAt: true },
+          },
+        },
+        take: 200,
+      });
 
-    const templates = user.role === 'super_admin'
-      ? await withoutClinicFilter(fetch)
-      : await fetch();
+    const templates =
+      user.role === 'super_admin' ? await withoutClinicFilter(fetch) : await fetch();
 
     return NextResponse.json({ templates });
   } catch (error) {
@@ -56,7 +59,10 @@ async function handlePost(req: NextRequest, user: AuthUser) {
     const body = await req.json();
     const parsed = createSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Validation failed', details: parsed.error.flatten() }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Validation failed', details: parsed.error.flatten() },
+        { status: 400 }
+      );
     }
 
     const template = await prisma.reportTemplate.create({

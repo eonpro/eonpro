@@ -150,7 +150,6 @@ export default function WebhookMonitorPage() {
         headers: Object.fromEntries(res.headers.entries()),
       });
     } catch (error: unknown) {
-      
       setTestResult({
         error: String(error),
         message: 'Failed to send test webhook',

@@ -4,7 +4,12 @@ import { logger } from '@/lib/logger';
 import { retrieveFile } from '@/lib/storage/secure-storage';
 import { withAuthParams } from '@/lib/auth/middleware-with-params';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
-import { handleApiError, BadRequestError, NotFoundError, ForbiddenError } from '@/domains/shared/errors';
+import {
+  handleApiError,
+  BadRequestError,
+  NotFoundError,
+  ForbiddenError,
+} from '@/domains/shared/errors';
 import { isS3Enabled, STORAGE_CONFIG } from '@/lib/integrations/aws/s3Config';
 import { downloadFromS3 } from '@/lib/integrations/aws/s3Service';
 import { readPdfData } from '@/lib/storage/document-data-store';
@@ -106,7 +111,9 @@ const downloadDocumentHandler = withAuthParams(
         try {
           const s3Buffer = await readPdfData(document);
           if (s3Buffer && s3Buffer.length > 0 && isPdfBuffer(s3Buffer)) {
-            logger.debug(`Serving download from S3 for document ${documentId}, size: ${s3Buffer.length}`);
+            logger.debug(
+              `Serving download from S3 for document ${documentId}, size: ${s3Buffer.length}`
+            );
             return new NextResponse(new Uint8Array(s3Buffer), {
               headers: {
                 'Content-Type': 'application/pdf',
@@ -145,7 +152,9 @@ const downloadDocumentHandler = withAuthParams(
           // If data looks like JSON, this is a legacy document — auto-regenerate the PDF
           const firstChar = buffer.toString('utf8', 0, 1);
           if (firstChar === '{' || firstChar === '[') {
-            logger.info(`Download: document ${documentId} has legacy JSON data, attempting auto-regeneration`);
+            logger.info(
+              `Download: document ${documentId} has legacy JSON data, attempting auto-regeneration`
+            );
 
             const pdfBuffer = await tryAutoRegeneratePdf(buffer, {
               id: document.id,
@@ -217,7 +226,9 @@ const downloadDocumentHandler = withAuthParams(
             documentId,
           });
           return NextResponse.json(
-            { error: `Failed to retrieve document from storage: ${error instanceof Error ? error.message : 'Unknown error'}` },
+            {
+              error: `Failed to retrieve document from storage: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            },
             { status: 500 }
           );
         }
@@ -229,7 +240,9 @@ const downloadDocumentHandler = withAuthParams(
         if (rawBuf && rawBuf.length > 0) {
           const ch = rawBuf.toString('utf8', 0, 1);
           if (ch === '{' || ch === '[') {
-            logger.info(`Download fallback: attempting auto-regeneration for document ${documentId}`);
+            logger.info(
+              `Download fallback: attempting auto-regeneration for document ${documentId}`
+            );
 
             const pdfBuffer = await tryAutoRegeneratePdf(rawBuf, {
               id: document.id,
@@ -263,7 +276,9 @@ const downloadDocumentHandler = withAuthParams(
         { status: 404 }
       );
     } catch (error: unknown) {
-      return handleApiError(error, { route: 'GET /api/patients/[id]/documents/[documentId]/download' });
+      return handleApiError(error, {
+        route: 'GET /api/patients/[id]/documents/[documentId]/download',
+      });
     }
   }
 );

@@ -38,19 +38,17 @@ function isValidDate(d: unknown): boolean {
  */
 function validateRow(row: unknown, index: number): QuestParsedRow {
   if (row == null || typeof row !== 'object' || !('testName' in row) || !('value' in row)) {
-    throw new BadRequestError(
-      'Lab report validation failed: invalid result structure.',
-      { cause: 'BLOODWORK_VALIDATION' }
-    );
+    throw new BadRequestError('Lab report validation failed: invalid result structure.', {
+      cause: 'BLOODWORK_VALIDATION',
+    });
   }
   const r = row as Record<string, unknown>;
   const testName = trimToMax(String(r.testName ?? ''), MAX_TEST_NAME);
   const value = trimToMax(String(r.value ?? ''), MAX_VALUE);
   if (!testName || testName.length < 1) {
-    throw new BadRequestError(
-      'Lab report validation failed: missing or empty biomarker name.',
-      { cause: 'BLOODWORK_VALIDATION' }
-    );
+    throw new BadRequestError('Lab report validation failed: missing or empty biomarker name.', {
+      cause: 'BLOODWORK_VALIDATION',
+    });
   }
   if (!value || value.length < 1) {
     throw new BadRequestError(
@@ -100,18 +98,16 @@ function validateRow(row: unknown, index: number): QuestParsedRow {
  */
 export function validateQuestParsedResult(parsed: unknown): QuestParsedResult {
   if (parsed == null || typeof parsed !== 'object' || !('results' in parsed)) {
-    throw new BadRequestError(
-      'Lab report validation failed: invalid report structure.',
-      { cause: 'BLOODWORK_VALIDATION' }
-    );
+    throw new BadRequestError('Lab report validation failed: invalid report structure.', {
+      cause: 'BLOODWORK_VALIDATION',
+    });
   }
   const p = parsed as Record<string, unknown>;
   const resultsRaw = p.results;
   if (!Array.isArray(resultsRaw)) {
-    throw new BadRequestError(
-      'Lab report validation failed: results must be an array.',
-      { cause: 'BLOODWORK_VALIDATION' }
-    );
+    throw new BadRequestError('Lab report validation failed: results must be an array.', {
+      cause: 'BLOODWORK_VALIDATION',
+    });
   }
   if (resultsRaw.length === 0) {
     throw new BadRequestError(
@@ -130,31 +126,38 @@ export function validateQuestParsedResult(parsed: unknown): QuestParsedResult {
   let collectedAt: Date | undefined;
   if (p.collectedAt != null) {
     if (!isValidDate(p.collectedAt)) {
-      throw new BadRequestError(
-        'Lab report validation failed: invalid collected date.',
-        { cause: 'BLOODWORK_VALIDATION' }
-      );
+      throw new BadRequestError('Lab report validation failed: invalid collected date.', {
+        cause: 'BLOODWORK_VALIDATION',
+      });
     }
     collectedAt = p.collectedAt as Date;
   }
   let reportedAt: Date | undefined;
   if (p.reportedAt != null) {
     if (!isValidDate(p.reportedAt)) {
-      throw new BadRequestError(
-        'Lab report validation failed: invalid reported date.',
-        { cause: 'BLOODWORK_VALIDATION' }
-      );
+      throw new BadRequestError('Lab report validation failed: invalid reported date.', {
+        cause: 'BLOODWORK_VALIDATION',
+      });
     }
     reportedAt = p.reportedAt as Date;
   }
   let fasting: boolean | undefined;
   if (typeof p.fasting === 'boolean') fasting = p.fasting;
   let parsedPatientName: QuestParsedResult['parsedPatientName'];
-  if (p.parsedPatientName != null && typeof p.parsedPatientName === 'object' && 'lastName' in p.parsedPatientName && 'firstName' in p.parsedPatientName) {
+  if (
+    p.parsedPatientName != null &&
+    typeof p.parsedPatientName === 'object' &&
+    'lastName' in p.parsedPatientName &&
+    'firstName' in p.parsedPatientName
+  ) {
     const n = p.parsedPatientName as { lastName: unknown; firstName: unknown };
     parsedPatientName = {
-      lastName: String(n.lastName ?? '').trim().slice(0, 80),
-      firstName: String(n.firstName ?? '').trim().slice(0, 80),
+      lastName: String(n.lastName ?? '')
+        .trim()
+        .slice(0, 80),
+      firstName: String(n.firstName ?? '')
+        .trim()
+        .slice(0, 80),
     };
   }
   return {

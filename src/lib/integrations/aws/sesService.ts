@@ -231,7 +231,6 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailResponse>
       sentAt: new Date(),
     };
   } catch (error: unknown) {
-    
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[SES] Send email failed:', error);
 
@@ -921,7 +920,6 @@ export async function verifyEmailAddress(email: string): Promise<boolean> {
     await client.send(new VerifyEmailIdentityCommand({ EmailAddress: email }));
     return true;
   } catch (error: unknown) {
-    
     logger.error('[SES] Failed to verify email:', error);
     return false;
   }
@@ -951,7 +949,6 @@ export async function getSendQuota(): Promise<{
       sentLast24Hours: response.SentLast24Hours || 0,
     };
   } catch (error: unknown) {
-    
     logger.error('[SES] Failed to get quota:', error);
     return {
       max24HourSend: 0,

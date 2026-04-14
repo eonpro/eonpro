@@ -18,7 +18,13 @@ import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 
 const TERMINAL_STATUSES = [
-  'COMPLETED', 'completed', 'CANCELLED', 'cancelled', 'DELIVERED', 'ERROR', 'error',
+  'COMPLETED',
+  'completed',
+  'CANCELLED',
+  'cancelled',
+  'DELIVERED',
+  'ERROR',
+  'error',
 ];
 
 async function handler(req: NextRequest, user: AuthUser) {
@@ -42,7 +48,12 @@ async function handler(req: NextRequest, user: AuthUser) {
 
     // For each, check if the patient has any PatientShippingUpdate
     const toComplete: number[] = [];
-    const details: Array<{ orderId: number; status: string | null; patientId: number; shippingUpdates: number }> = [];
+    const details: Array<{
+      orderId: number;
+      status: string | null;
+      patientId: number;
+      shippingUpdates: number;
+    }> = [];
 
     for (const order of awaitingOrders) {
       const shippingCount = await prisma.patientShippingUpdate.count({
@@ -89,7 +100,10 @@ async function handler(req: NextRequest, user: AuthUser) {
     });
   } catch (error: unknown) {
     logger.error('[BULK COMPLETE] Error:', error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : String(error) },
+      { status: 500 }
+    );
   }
 }
 

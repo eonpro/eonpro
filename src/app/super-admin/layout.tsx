@@ -26,14 +26,11 @@ import { useAuthStore } from '@/lib/stores/authStore';
 import { isBrowser, safeLocalStorage } from '@/lib/utils/ssr-safe';
 import InternalChat from '@/components/InternalChat';
 import dynamic from 'next/dynamic';
-import {
-  NotificationProvider,
-  NotificationToastContainer,
-} from '@/components/notifications';
-const NotificationCenter = dynamic(
-  () => import('@/components/notifications/NotificationCenter'),
-  { ssr: false, loading: () => <div className="h-8 w-8 animate-pulse rounded-full bg-gray-200" /> },
-);
+import { NotificationProvider, NotificationToastContainer } from '@/components/notifications';
+const NotificationCenter = dynamic(() => import('@/components/notifications/NotificationCenter'), {
+  ssr: false,
+  loading: () => <div className="h-8 w-8 animate-pulse rounded-full bg-gray-200" />,
+});
 import { ClinicBrandingProvider } from '@/lib/contexts/ClinicBrandingContext';
 import { EONPRO_ICON, EONPRO_LOGO } from '@/lib/constants/brand-assets';
 import { safeParseJsonString } from '@/lib/utils/safe-json';
@@ -174,7 +171,9 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
                       >
                         <Icon className="h-5 w-5 flex-shrink-0" />
                         {sidebarExpanded && (
-                          <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
+                          <span className="whitespace-nowrap text-sm font-medium">
+                            {item.label}
+                          </span>
                         )}
                       </a>
                     );
@@ -201,7 +200,11 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
               </>
             ) : (
               <div className="flex flex-1 items-center justify-center">
-                <img src={EONPRO_ICON} alt="Loading" className="h-8 w-8 animate-pulse object-contain" />
+                <img
+                  src={EONPRO_ICON}
+                  alt="Loading"
+                  className="h-8 w-8 animate-pulse object-contain"
+                />
               </div>
             )}
           </aside>

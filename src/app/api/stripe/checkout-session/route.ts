@@ -17,14 +17,17 @@ const checkoutSessionSchema = z.object({
 
 function resolveOptionalRedirectUrl(
   url: string | undefined,
-  label: 'successUrl' | 'cancelUrl',
+  label: 'successUrl' | 'cancelUrl'
 ): string | undefined {
   if (!url?.trim()) return undefined;
   const base = process.env.NEXT_PUBLIC_APP_URL;
   if (!base) {
-    logger.warn('[STRIPE_CHECKOUT_SESSION] NEXT_PUBLIC_APP_URL not set; skipping redirect validation', {
-      label,
-    });
+    logger.warn(
+      '[STRIPE_CHECKOUT_SESSION] NEXT_PUBLIC_APP_URL not set; skipping redirect validation',
+      {
+        label,
+      }
+    );
     return url.trim();
   }
   try {
@@ -35,9 +38,7 @@ function resolveOptionalRedirectUrl(
     }
     return resolved.href;
   } catch (e) {
-    throw new Error(
-      e instanceof Error ? e.message : `Invalid ${label}`,
-    );
+    throw new Error(e instanceof Error ? e.message : `Invalid ${label}`);
   }
 }
 
@@ -47,7 +48,7 @@ function resolveOptionalRedirectUrl(
  */
 async function resolveClinicAndPatient(
   user: AuthUser,
-  patientIdFromBody?: number,
+  patientIdFromBody?: number
 ): Promise<{ clinicId: number; effectivePatientId: number } | NextResponse> {
   if (patientIdFromBody !== undefined) {
     const patient = await prisma.patient.findUnique({
@@ -89,7 +90,7 @@ async function resolveClinicAndPatient(
   if (user.role === 'super_admin') {
     return NextResponse.json(
       { error: 'patientId is required to determine which Stripe account to use' },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -99,7 +100,7 @@ async function resolveClinicAndPatient(
 
   return NextResponse.json(
     { error: 'patientId is required to create a subscription checkout for this account' },
-    { status: 400 },
+    { status: 400 }
   );
 }
 
@@ -114,24 +115,28 @@ async function postCheckoutSession(req: NextRequest, user: AuthUser) {
     if (!parseResult.success) {
       return NextResponse.json(
         { error: 'Invalid request', details: parseResult.error.flatten() },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
-    const { priceId, patientId: patientIdFromBody, successUrl: rawSuccess, cancelUrl: rawCancel } =
-      parseResult.data;
+    const {
+      priceId,
+      patientId: patientIdFromBody,
+      successUrl: rawSuccess,
+      cancelUrl: rawCancel,
+    } = parseResult.data;
 
     const appBase = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '');
     if (!rawSuccess?.trim() && !appBase) {
       return NextResponse.json(
         { error: 'NEXT_PUBLIC_APP_URL is required when successUrl is omitted' },
-        { status: 503 },
+        { status: 503 }
       );
     }
     if (!rawCancel?.trim() && !appBase) {
       return NextResponse.json(
         { error: 'NEXT_PUBLIC_APP_URL is required when cancelUrl is omitted' },
-        { status: 503 },
+        { status: 503 }
       );
     }
 
@@ -141,8 +146,7 @@ async function postCheckoutSession(req: NextRequest, user: AuthUser) {
       successUrl =
         resolveOptionalRedirectUrl(rawSuccess, 'successUrl') ||
         `${appBase}/billing?session_id={CHECKOUT_SESSION_ID}`;
-      cancelUrl =
-        resolveOptionalRedirectUrl(rawCancel, 'cancelUrl') || `${appBase}/billing`;
+      cancelUrl = resolveOptionalRedirectUrl(rawCancel, 'cancelUrl') || `${appBase}/billing`;
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Invalid redirect URL';
       return NextResponse.json({ error: message }, { status: 400 });
@@ -162,7 +166,7 @@ async function postCheckoutSession(req: NextRequest, user: AuthUser) {
     const customer = await StripeCustomerService.getOrCreateCustomerForContext(
       effectivePatientId,
       stripe,
-      connectOpts,
+      connectOpts
     );
     const stripeCustomerId = customer.id;
 
@@ -178,7 +182,7 @@ async function postCheckoutSession(req: NextRequest, user: AuthUser) {
           clinicId: clinicId.toString(),
         },
       },
-      connectOpts,
+      connectOpts
     );
 
     if (!session.url) {
@@ -186,10 +190,7 @@ async function postCheckoutSession(req: NextRequest, user: AuthUser) {
         sessionId: session.id,
         clinicId,
       });
-      return NextResponse.json(
-        { error: 'Checkout session did not return a URL' },
-        { status: 502 },
-      );
+      return NextResponse.json({ error: 'Checkout session did not return a URL' }, { status: 502 });
     }
 
     logger.info('[STRIPE_CHECKOUT_SESSION] Created subscription checkout session', {

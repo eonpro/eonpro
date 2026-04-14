@@ -2,13 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-import {
-  FileText,
-  Save,
-  CheckCircle,
-  Loader2,
-  Sparkles,
-} from 'lucide-react';
+import { FileText, Save, CheckCircle, Loader2, Sparkles } from 'lucide-react';
 
 import { apiFetch } from '@/lib/api/fetch';
 
@@ -32,10 +26,26 @@ interface SOAPNoteEditorProps {
 }
 
 const SECTIONS = [
-  { key: 'subjective' as const, label: 'Subjective', placeholder: 'Patient\'s reported symptoms, history of present illness, review of systems...' },
-  { key: 'objective' as const, label: 'Objective', placeholder: 'Physical exam findings, vital signs, test results...' },
-  { key: 'assessment' as const, label: 'Assessment', placeholder: 'Diagnosis, differential diagnosis, clinical impressions...' },
-  { key: 'plan' as const, label: 'Plan', placeholder: 'Treatment plan, medications, follow-up, referrals...' },
+  {
+    key: 'subjective' as const,
+    label: 'Subjective',
+    placeholder: "Patient's reported symptoms, history of present illness, review of systems...",
+  },
+  {
+    key: 'objective' as const,
+    label: 'Objective',
+    placeholder: 'Physical exam findings, vital signs, test results...',
+  },
+  {
+    key: 'assessment' as const,
+    label: 'Assessment',
+    placeholder: 'Diagnosis, differential diagnosis, clinical impressions...',
+  },
+  {
+    key: 'plan' as const,
+    label: 'Plan',
+    placeholder: 'Treatment plan, medications, follow-up, referrals...',
+  },
 ] as const;
 
 export default function SOAPNoteEditor({
@@ -62,7 +72,8 @@ export default function SOAPNoteEditor({
   useEffect(() => {
     if (!pendingAutoSave.current || saving || signing || isGenerating) return;
     if (soapNote.status === 'APPROVED' || soapNote.status === 'LOCKED') return;
-    if (!soapNote.subjective && !soapNote.objective && !soapNote.assessment && !soapNote.plan) return;
+    if (!soapNote.subjective && !soapNote.objective && !soapNote.assessment && !soapNote.plan)
+      return;
 
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     autoSaveTimer.current = setTimeout(() => {
@@ -80,17 +91,26 @@ export default function SOAPNoteEditor({
           plan: current.plan,
           medicalNecessity: current.medicalNecessity,
         }),
-      }).then(() => {
-        setLastSaved(new Date());
-      }).catch(() => {}).finally(() => {
-        setSaving(false);
-      });
+      })
+        .then(() => {
+          setLastSaved(new Date());
+        })
+        .catch(() => {})
+        .finally(() => {
+          setSaving(false);
+        });
     }, 5000);
 
     return () => {
       if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     };
-  }, [soapNote.subjective, soapNote.objective, soapNote.assessment, soapNote.plan, soapNote.medicalNecessity]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [
+    soapNote.subjective,
+    soapNote.objective,
+    soapNote.assessment,
+    soapNote.plan,
+    soapNote.medicalNecessity,
+  ]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSave = async (): Promise<number | undefined> => {
     setSaving(true);
@@ -203,7 +223,11 @@ export default function SOAPNoteEditor({
             disabled={saving || isSigned}
             className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
           >
-            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+            {saving ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Save className="h-3.5 w-3.5" />
+            )}
             Save Draft
           </button>
 

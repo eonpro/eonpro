@@ -64,7 +64,6 @@ export default function ProviderPasswordSetup({
         if (onPasswordSet) onPasswordSet();
       }, 2000);
     } catch (err: unknown) {
-      
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       setError(errorMessage);
     } finally {

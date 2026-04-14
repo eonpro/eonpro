@@ -196,9 +196,17 @@ async function processWeeklyAdminFees(req: NextRequest) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('[Platform Fees] Job failed', { error: message, duration: Date.now() - startTime });
+    logger.error('[Platform Fees] Job failed', {
+      error: message,
+      duration: Date.now() - startTime,
+    });
     return NextResponse.json(
-      { success: false, timestamp: new Date().toISOString(), duration: Date.now() - startTime, error: message },
+      {
+        success: false,
+        timestamp: new Date().toISOString(),
+        duration: Date.now() - startTime,
+        error: message,
+      },
       { status: 500 }
     );
   }

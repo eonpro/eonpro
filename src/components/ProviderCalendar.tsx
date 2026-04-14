@@ -27,7 +27,9 @@ export default function ProviderCalendar({
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
   const [view, setView] = useState<'month' | 'week' | 'day'>('month');
 
-  useEffect(() => { setCurrentDate(new Date()); }, []);
+  useEffect(() => {
+    setCurrentDate(new Date());
+  }, []);
 
   const monthNames = [
     'January',
@@ -225,7 +227,9 @@ export default function ProviderCalendar({
   };
 
   if (!currentDate) {
-    return <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm h-96 animate-pulse" />;
+    return (
+      <div className="h-96 animate-pulse rounded-xl border border-gray-200 bg-white p-4 shadow-sm" />
+    );
   }
 
   return (

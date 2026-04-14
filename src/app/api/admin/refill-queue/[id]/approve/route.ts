@@ -9,7 +9,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuthParams, AuthUser } from '@/lib/auth/middleware-with-params';
 import { logger } from '@/lib/logger';
-import { handleApiError, BadRequestError, NotFoundError, ForbiddenError } from '@/domains/shared/errors';
+import {
+  handleApiError,
+  BadRequestError,
+  NotFoundError,
+  ForbiddenError,
+} from '@/domains/shared/errors';
 import { getRefillById, approveRefill } from '@/services/refill';
 import { prisma } from '@/lib/db';
 
@@ -60,7 +65,9 @@ export const POST = withAuthParams(
 
       // Check status
       if (refill.status !== 'PENDING_ADMIN') {
-        throw new BadRequestError(`Cannot approve refill in status: ${refill.status}. Must be PENDING_ADMIN.`);
+        throw new BadRequestError(
+          `Cannot approve refill in status: ${refill.status}. Must be PENDING_ADMIN.`
+        );
       }
 
       // Check payment verification

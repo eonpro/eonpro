@@ -124,7 +124,12 @@ function HomePageInner() {
   const router = useRouter();
   const { branding, isLoading: brandingLoading } = useClinicBranding();
   const [loading, setLoading] = useState(true);
-  const [userData, setUserData] = useState<{ role?: string; firstName?: string; email?: string; [key: string]: unknown } | null>(null);
+  const [userData, setUserData] = useState<{
+    role?: string;
+    firstName?: string;
+    email?: string;
+    [key: string]: unknown;
+  } | null>(null);
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const [systemStatus] = useState<'healthy' | 'warning' | 'error'>('healthy');
@@ -142,7 +147,13 @@ function HomePageInner() {
     overrideCommissionsEarnedCents: 0,
   });
   const [geoData, setGeoData] = useState<{
-    stateData: Record<string, { total: number; clinics: Array<{ clinicId: number; clinicName: string; color: string; count: number }> }>;
+    stateData: Record<
+      string,
+      {
+        total: number;
+        clinics: Array<{ clinicId: number; clinicName: string; color: string; count: number }>;
+      }
+    >;
     clinics: Array<{ id: number; name: string; color: string; totalPatients: number }>;
   } | null>(null);
   const [geoLoading, setGeoLoading] = useState(true);
@@ -209,28 +220,36 @@ function HomePageInner() {
             // Detection heuristics:
             // 1. Server tells us the token came from 'affiliate_session' fallback cookie
             // 2. localStorage contains a non-affiliate role from a previous admin/provider session
-            const isStaleAffiliateSession = tokenSource === 'affiliate_session' || tokenSource === 'affiliate-token';
+            const isStaleAffiliateSession =
+              tokenSource === 'affiliate_session' || tokenSource === 'affiliate-token';
 
             let previousRole: string | null = null;
             try {
               const storedUser = localStorage.getItem('user');
               if (storedUser) {
-                previousRole = String(safeParseJsonString<{role?: string}>(storedUser)?.role ?? '').toLowerCase() || null;
+                previousRole =
+                  String(
+                    safeParseJsonString<{ role?: string }>(storedUser)?.role ?? ''
+                  ).toLowerCase() || null;
               }
             } catch {}
 
-            const hadDifferentRole = previousRole && previousRole !== 'affiliate' &&
+            const hadDifferentRole =
+              previousRole &&
+              previousRole !== 'affiliate' &&
               ['admin', 'super_admin', 'provider', 'staff', 'support'].includes(previousRole);
 
             if (isStaleAffiliateSession || hadDifferentRole) {
               console.warn(
                 `[Auth] Stale affiliate session redirect blocked on root page. ` +
-                `Server role="${serverRole}", tokenSource="${tokenSource || 'unknown'}", ` +
-                `localStorage role="${previousRole || 'none'}". ` +
-                `Likely cause: admin session expired while 30-day affiliate cookie remained.`
+                  `Server role="${serverRole}", tokenSource="${tokenSource || 'unknown'}", ` +
+                  `localStorage role="${previousRole || 'none'}". ` +
+                  `Likely cause: admin session expired while 30-day affiliate cookie remained.`
               );
               // Clear the stale affiliate session cookie via logout
-              fetch('/api/affiliate/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
+              fetch('/api/affiliate/auth/logout', { method: 'POST', credentials: 'include' }).catch(
+                () => {}
+              );
               localStorage.removeItem('user');
               localStorage.removeItem('auth-token');
               localStorage.removeItem('admin-token');
@@ -341,7 +360,9 @@ function HomePageInner() {
         // Respect Retry-After header or default to exponential backoff
         const retryAfter = parseInt(response.headers.get('Retry-After') || '0', 10);
         const delay = retryAfter > 0 ? retryAfter * 1000 : 1000 * Math.pow(2, attempt);
-        console.warn(`[Dashboard] ${url} returned 503, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+        console.warn(
+          `[Dashboard] ${url} returned 503, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`
+        );
         await new Promise((r) => setTimeout(r, delay));
         continue;
       }
@@ -359,7 +380,7 @@ function HomePageInner() {
       try {
         const user = localStorage.getItem('user');
         if (user) {
-          const parsed = safeParseJsonString<{role?: string}>(user);
+          const parsed = safeParseJsonString<{ role?: string }>(user);
           isSalesRep = String(parsed?.role ?? '').toLowerCase() === 'sales_rep';
         }
       } catch {
@@ -564,7 +585,9 @@ function HomePageInner() {
 
   const copyQuickLink = async () => {
     if (!quickLinkUrl) return;
-    try { await navigator.clipboard.writeText(quickLinkUrl); } catch {
+    try {
+      await navigator.clipboard.writeText(quickLinkUrl);
+    } catch {
       const el = document.createElement('textarea');
       el.value = quickLinkUrl;
       document.body.appendChild(el);
@@ -622,13 +645,8 @@ function HomePageInner() {
           </Link>
           {/* Powered by EONPRO - shown for white-labeled clinics */}
           {isWhiteLabeled && sidebarExpanded && (
-            <span className="mt-1 flex items-center justify-center gap-1 text-[10px] text-gray-400 whitespace-nowrap">
-              Powered by{' '}
-              <img
-                src={EONPRO_LOGO}
-                alt="EONPRO"
-                className="h-[21px] w-auto"
-              />
+            <span className="mt-1 flex items-center justify-center gap-1 whitespace-nowrap text-[10px] text-gray-400">
+              Powered by <img src={EONPRO_LOGO} alt="EONPRO" className="h-[21px] w-auto" />
             </span>
           )}
         </div>
@@ -716,7 +734,11 @@ function HomePageInner() {
               </p>
               <p className="text-sm text-gray-600" suppressHydrationWarning>
                 {currentTime
-                  ?.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+                  ?.toLocaleTimeString('en-US', {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true,
+                  })
                   .toLowerCase() ?? '\u00A0'}
               </p>
             </div>
@@ -858,7 +880,9 @@ function HomePageInner() {
                     <FileText className="h-6 w-6 text-rose-500" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-3xl font-bold text-gray-900">{stats.newPrescriptions.toLocaleString()}</p>
+                    <p className="text-3xl font-bold text-gray-900">
+                      {stats.newPrescriptions.toLocaleString()}
+                    </p>
                     <p className="text-sm text-gray-500">Scripts (24h)</p>
                   </div>
                   <ChevronDown
@@ -872,7 +896,7 @@ function HomePageInner() {
           {/* Sales Rep: Quick Actions — Create Intake Link */}
           {userData?.role?.toLowerCase() === 'sales_rep' && (
             <div className="mb-8 rounded-2xl border border-gray-200 bg-white p-6">
-              <div className="flex items-center gap-3 mb-4">
+              <div className="mb-4 flex items-center gap-3">
                 <div
                   className="flex h-10 w-10 items-center justify-center rounded-xl"
                   style={{ backgroundColor: `${primaryColor}15` }}
@@ -881,12 +905,14 @@ function HomePageInner() {
                 </div>
                 <div>
                   <h2 className="text-base font-semibold text-gray-900">Create Intake Link</h2>
-                  <p className="text-xs text-gray-500">Generate a shareable link — completed intakes auto-count toward your sales</p>
+                  <p className="text-xs text-gray-500">
+                    Generate a shareable link — completed intakes auto-count toward your sales
+                  </p>
                 </div>
               </div>
 
               <div className="flex flex-wrap items-end gap-3">
-                <div className="flex-1 min-w-[140px]">
+                <div className="min-w-[140px] flex-1">
                   <label className="mb-1 block text-xs font-medium text-gray-500">Clinic</label>
                   <input
                     type="text"
@@ -918,13 +944,11 @@ function HomePageInner() {
                 </button>
               </div>
 
-              {quickLinkError && (
-                <p className="mt-2 text-sm text-red-600">{quickLinkError}</p>
-              )}
+              {quickLinkError && <p className="mt-2 text-sm text-red-600">{quickLinkError}</p>}
 
               {quickLinkUrl && (
                 <div className="mt-3 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-3">
-                  <code className="flex-1 truncate text-xs font-mono text-gray-700">
+                  <code className="flex-1 truncate font-mono text-xs text-gray-700">
                     {quickLinkUrl}
                   </code>
                   <button
@@ -932,7 +956,11 @@ function HomePageInner() {
                     onClick={copyQuickLink}
                     className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-green-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-800"
                   >
-                    {quickLinkCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                    {quickLinkCopied ? (
+                      <Check className="h-3.5 w-3.5" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5" />
+                    )}
                     {quickLinkCopied ? 'Copied!' : 'Copy'}
                   </button>
                 </div>
@@ -1052,17 +1080,19 @@ function HomePageInner() {
                               <td className="px-6 py-3">
                                 {medEntries.length > 0 ? (
                                   <div className="flex flex-wrap gap-1">
-                                    {medEntries.slice(0, isExpanded ? undefined : 3).map(([med, count]) => (
-                                      <span
-                                        key={med}
-                                        className="inline-flex items-center rounded bg-gray-50 px-2 py-0.5 text-xs text-gray-600"
-                                      >
-                                        {med}{' '}
-                                        <span className="ml-1 font-semibold text-gray-900">
-                                          {count}
+                                    {medEntries
+                                      .slice(0, isExpanded ? undefined : 3)
+                                      .map(([med, count]) => (
+                                        <span
+                                          key={med}
+                                          className="inline-flex items-center rounded bg-gray-50 px-2 py-0.5 text-xs text-gray-600"
+                                        >
+                                          {med}{' '}
+                                          <span className="ml-1 font-semibold text-gray-900">
+                                            {count}
+                                          </span>
                                         </span>
-                                      </span>
-                                    ))}
+                                      ))}
                                     {!isExpanded && medEntries.length > 3 && (
                                       <span className="text-xs text-gray-400">
                                         +{medEntries.length - 3} more
@@ -1076,9 +1106,7 @@ function HomePageInner() {
                               <td className="px-3 py-3">
                                 {medEntries.length > 3 && (
                                   <button
-                                    onClick={() =>
-                                      setExpandedDay(isExpanded ? null : day.date)
-                                    }
+                                    onClick={() => setExpandedDay(isExpanded ? null : day.date)}
                                     className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
                                   >
                                     <ChevronDown
@@ -1104,7 +1132,13 @@ function HomePageInner() {
 
           {/* US Map - Client Distribution (hidden for sales rep; they see assigned-only stats) */}
           {userData?.role?.toLowerCase() !== 'sales_rep' && (
-            <ErrorBoundary fallback={<div className="mb-8 rounded-2xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-400">Map temporarily unavailable</div>}>
+            <ErrorBoundary
+              fallback={
+                <div className="mb-8 rounded-2xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-400">
+                  Map temporarily unavailable
+                </div>
+              }
+            >
               <div className="mb-8">
                 <USMapChart
                   stateData={geoData?.stateData ?? {}}
@@ -1116,147 +1150,160 @@ function HomePageInner() {
           )}
 
           {/* Patient Intakes Card */}
-          <ErrorBoundary fallback={<div className="rounded-2xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-400">Patient data temporarily unavailable</div>}>
-          <div className="rounded-2xl border border-gray-200 bg-white">
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-5">
-              <h2 className="text-lg font-semibold text-gray-900">
-                {userData?.role?.toLowerCase() === 'sales_rep'
-                  ? 'My assigned patients'
-                  : 'Patient Intakes (Last 24 Hours)'}
-              </h2>
-              <Link
-                href="/admin/patients"
-                className="text-sm font-medium text-gray-500 hover:opacity-80"
-                style={{ color: primaryColor }}
-              >
-                Load More
-              </Link>
-            </div>
+          <ErrorBoundary
+            fallback={
+              <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-400">
+                Patient data temporarily unavailable
+              </div>
+            }
+          >
+            <div className="rounded-2xl border border-gray-200 bg-white">
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-5">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  {userData?.role?.toLowerCase() === 'sales_rep'
+                    ? 'My assigned patients'
+                    : 'Patient Intakes (Last 24 Hours)'}
+                </h2>
+                <Link
+                  href="/admin/patients"
+                  className="text-sm font-medium text-gray-500 hover:opacity-80"
+                  style={{ color: primaryColor }}
+                >
+                  Load More
+                </Link>
+              </div>
 
-            {/* Search */}
-            <div className="px-6 pb-4">
-              <input
-                type="text"
-                placeholder="Search patients by name, email, phone, ID..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:outline-none focus:ring-2"
-                style={{ '--tw-ring-color': `${primaryColor}33` } as React.CSSProperties}
-              />
-            </div>
+              {/* Search */}
+              <div className="px-6 pb-4">
+                <input
+                  type="text"
+                  placeholder="Search patients by name, email, phone, ID..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:outline-none focus:ring-2"
+                  style={{ '--tw-ring-color': `${primaryColor}33` } as React.CSSProperties}
+                />
+              </div>
 
-            {/* Table */}
-            <div className="overflow-x-auto">
-              {intakesLoading ? (
-                <div className="flex items-center justify-center py-16">
-                  <img src={EONPRO_ICON} alt="Loading" className="h-8 w-8 animate-pulse object-contain" />
-                </div>
-              ) : (
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-t border-gray-100">
-                      <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                        Name
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                        DOB
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                        Contact
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {filteredIntakes.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} className="px-6 py-16 text-center">
-                          <Clock className="mx-auto mb-3 h-10 w-10 text-gray-300" />
-                          <p className="font-medium text-gray-500">
-                            No patient intakes in the last 24 hours
-                          </p>
-                          <p className="mt-1 text-sm text-gray-400">
-                            New intakes will appear here automatically
-                          </p>
-                        </td>
+              {/* Table */}
+              <div className="overflow-x-auto">
+                {intakesLoading ? (
+                  <div className="flex items-center justify-center py-16">
+                    <img
+                      src={EONPRO_ICON}
+                      alt="Loading"
+                      className="h-8 w-8 animate-pulse object-contain"
+                    />
+                  </div>
+                ) : (
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-t border-gray-100">
+                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                          Name
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                          DOB
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                          Contact
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                          Actions
+                        </th>
                       </tr>
-                    ) : (
-                      filteredIntakes.map((patient) => (
-                        <tr
-                          key={patient.id}
-                          className="cursor-pointer transition-colors hover:bg-gray-50/50 focus:bg-gray-50/50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-500"
-                          tabIndex={0}
-                          role="link"
-                          onClick={() => {
-                            window.location.href = `/patients/${patient.id}`;
-                          }}
-                          onKeyDown={(e) => { if (e.key === 'Enter') window.location.href = `/patients/${patient.id}`; }}
-                        >
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-3">
-                              <div
-                                className="h-2 w-2 flex-shrink-0 rounded-full"
-                                style={{
-                                  backgroundColor:
-                                    new Date(patient.createdAt).getTime() > Date.now() - 3600000
-                                      ? primaryColor
-                                      : '#fbbf24',
-                                }}
-                              />
-                              <div>
-                                <Link
-                                  href={`/patients/${patient.id}`}
-                                  className="font-medium text-gray-900 hover:opacity-80"
-                                  style={{ '--hover-color': primaryColor } as React.CSSProperties}
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  {patient.firstName} {patient.lastName}
-                                </Link>
-                                <p className="text-xs text-gray-400">
-                                  #{formatPatientDisplayId(patient.patientId, patient.id)}
-                                </p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <p className="text-sm text-gray-600">
-                              {formatDate(patient.dateOfBirth)}
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {filteredIntakes.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="px-6 py-16 text-center">
+                            <Clock className="mx-auto mb-3 h-10 w-10 text-gray-300" />
+                            <p className="font-medium text-gray-500">
+                              No patient intakes in the last 24 hours
                             </p>
-                            <p className="text-xs text-gray-400">
-                              ({formatGender(patient.gender)})
+                            <p className="mt-1 text-sm text-gray-400">
+                              New intakes will appear here automatically
                             </p>
-                          </td>
-                          <td className="px-6 py-4">
-                            <p className="text-sm text-gray-600">
-                              {patient.phone && patient.phone.replace(/\D/g, '') !== '0000000000'
-                                ? patient.phone
-                                : '—'}
-                            </p>
-                            <p className="max-w-[180px] truncate text-xs text-gray-400">
-                              {patient.email || 'N/A'}
-                            </p>
-                          </td>
-                          <td className="px-6 py-4">
-                            <Link
-                              href={`/patients/${patient.id}`}
-                              className="text-sm font-medium hover:opacity-80"
-                              style={{ color: primaryColor }}
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              View profile
-                            </Link>
                           </td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              )}
+                      ) : (
+                        filteredIntakes.map((patient) => (
+                          <tr
+                            key={patient.id}
+                            className="cursor-pointer transition-colors hover:bg-gray-50/50 focus:bg-gray-50/50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-500"
+                            tabIndex={0}
+                            role="link"
+                            onClick={() => {
+                              window.location.href = `/patients/${patient.id}`;
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter')
+                                window.location.href = `/patients/${patient.id}`;
+                            }}
+                          >
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-3">
+                                <div
+                                  className="h-2 w-2 flex-shrink-0 rounded-full"
+                                  style={{
+                                    backgroundColor:
+                                      new Date(patient.createdAt).getTime() > Date.now() - 3600000
+                                        ? primaryColor
+                                        : '#fbbf24',
+                                  }}
+                                />
+                                <div>
+                                  <Link
+                                    href={`/patients/${patient.id}`}
+                                    className="font-medium text-gray-900 hover:opacity-80"
+                                    style={{ '--hover-color': primaryColor } as React.CSSProperties}
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    {patient.firstName} {patient.lastName}
+                                  </Link>
+                                  <p className="text-xs text-gray-400">
+                                    #{formatPatientDisplayId(patient.patientId, patient.id)}
+                                  </p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <p className="text-sm text-gray-600">
+                                {formatDate(patient.dateOfBirth)}
+                              </p>
+                              <p className="text-xs text-gray-400">
+                                ({formatGender(patient.gender)})
+                              </p>
+                            </td>
+                            <td className="px-6 py-4">
+                              <p className="text-sm text-gray-600">
+                                {patient.phone && patient.phone.replace(/\D/g, '') !== '0000000000'
+                                  ? patient.phone
+                                  : '—'}
+                              </p>
+                              <p className="max-w-[180px] truncate text-xs text-gray-400">
+                                {patient.email || 'N/A'}
+                              </p>
+                            </td>
+                            <td className="px-6 py-4">
+                              <Link
+                                href={`/patients/${patient.id}`}
+                                className="text-sm font-medium hover:opacity-80"
+                                style={{ color: primaryColor }}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                View profile
+                              </Link>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                )}
+              </div>
             </div>
-          </div>
           </ErrorBoundary>
         </div>
       </main>

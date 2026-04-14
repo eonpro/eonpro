@@ -40,7 +40,7 @@ export const GET = withAuthParams(
         where: { id: patientId },
         select: { id: true, clinicId: true },
       });
-      const clinicId = user.role === 'super_admin' ? undefined : user.clinicId ?? undefined;
+      const clinicId = user.role === 'super_admin' ? undefined : (user.clinicId ?? undefined);
       const tenant404 = ensureTenantResource(patient, clinicId);
       if (tenant404) return tenant404;
       if (!patient) return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
@@ -126,7 +126,9 @@ export const GET = withAuthParams(
         try {
           const s3Buffer = await readPdfData(document);
           if (s3Buffer && s3Buffer.length > 0 && isPdfBuffer(s3Buffer)) {
-            logger.debug(`Serving document ${documentId} from S3 via readPdfData, size: ${s3Buffer.length}`);
+            logger.debug(
+              `Serving document ${documentId} from S3 via readPdfData, size: ${s3Buffer.length}`
+            );
             return new NextResponse(new Uint8Array(s3Buffer), {
               headers: {
                 'Content-Type': 'application/pdf',
@@ -138,7 +140,12 @@ export const GET = withAuthParams(
           }
         } catch (err) {
           logger.warn(`S3 readPdfData failed for document ${documentId}, falling through`, {
-            error: err instanceof Error ? (err instanceof Error ? err.message : String(err)) : String(err),
+            error:
+              err instanceof Error
+                ? err instanceof Error
+                  ? err.message
+                  : String(err)
+                : String(err),
           });
         }
       }
@@ -185,7 +192,9 @@ export const GET = withAuthParams(
           // If data looks like JSON, this is a legacy document — auto-regenerate the PDF
           const firstChar = buffer.toString('utf8', 0, 1);
           if (firstChar === '{' || firstChar === '[') {
-            logger.info(`Document ${documentId} has legacy JSON data, attempting auto-regeneration`);
+            logger.info(
+              `Document ${documentId} has legacy JSON data, attempting auto-regeneration`
+            );
 
             const pdfBuffer = await tryAutoRegeneratePdf(buffer, {
               id: document.id,
@@ -201,7 +210,10 @@ export const GET = withAuthParams(
               return new NextResponse(new Uint8Array(pdfBuffer), {
                 headers: {
                   'Content-Type': 'application/pdf',
-                  'Content-Disposition': getSafeContentDisposition(document.filename, 'document.pdf'),
+                  'Content-Disposition': getSafeContentDisposition(
+                    document.filename,
+                    'document.pdf'
+                  ),
                   'Content-Length': pdfBuffer.length.toString(),
                   'X-Content-Type-Options': 'nosniff',
                   'Cache-Control': 'private, max-age=3600',
@@ -286,7 +298,9 @@ export const GET = withAuthParams(
         if (rawBuf.length > 0) {
           const ch = rawBuf.toString('utf8', 0, 1);
           if (ch === '{' || ch === '[') {
-            logger.info(`Document ${documentId} fallback: attempting auto-regeneration from legacy JSON`);
+            logger.info(
+              `Document ${documentId} fallback: attempting auto-regeneration from legacy JSON`
+            );
 
             const pdfBuffer = await tryAutoRegeneratePdf(rawBuf, {
               id: document.id,
@@ -302,7 +316,10 @@ export const GET = withAuthParams(
               return new NextResponse(new Uint8Array(pdfBuffer), {
                 headers: {
                   'Content-Type': 'application/pdf',
-                  'Content-Disposition': getSafeContentDisposition(document.filename, 'document.pdf'),
+                  'Content-Disposition': getSafeContentDisposition(
+                    document.filename,
+                    'document.pdf'
+                  ),
                   'Content-Length': pdfBuffer.length.toString(),
                   'X-Content-Type-Options': 'nosniff',
                   'Cache-Control': 'private, max-age=3600',
@@ -360,7 +377,7 @@ export const DELETE = withAuthParams(
         where: { id: patientId },
         select: { id: true, clinicId: true },
       });
-      const clinicIdDel = user.role === 'super_admin' ? undefined : user.clinicId ?? undefined;
+      const clinicIdDel = user.role === 'super_admin' ? undefined : (user.clinicId ?? undefined);
       if (ensureTenantResource(patient, clinicIdDel)) return tenantNotFoundResponse();
 
       // Log deletion for audit

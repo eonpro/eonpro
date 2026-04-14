@@ -57,7 +57,10 @@ const inputFields: ElementDefinition[] = [
       placeholder: createLocalizedString('your@email.com', 'tu@email.com'),
       storageKey: 'email',
       validation: [
-        { type: 'email', message: createLocalizedString('Please enter a valid email', 'Ingresa un correo válido') },
+        {
+          type: 'email',
+          message: createLocalizedString('Please enter a valid email', 'Ingresa un correo válido'),
+        },
       ],
     },
   },
@@ -74,7 +77,13 @@ const inputFields: ElementDefinition[] = [
       placeholder: createLocalizedString('(555) 555-5555'),
       storageKey: 'phone',
       validation: [
-        { type: 'phone', message: createLocalizedString('Please enter a valid phone number', 'Ingresa un número válido') },
+        {
+          type: 'phone',
+          message: createLocalizedString(
+            'Please enter a valid phone number',
+            'Ingresa un número válido'
+          ),
+        },
       ],
     },
   },
@@ -240,7 +249,10 @@ const specialFields: ElementDefinition[] = [
       label: createLocalizedString('Signature', 'Firma'),
       storageKey: 'signature',
       validation: [
-        { type: 'required', message: createLocalizedString('Signature is required', 'La firma es requerida') },
+        {
+          type: 'required',
+          message: createLocalizedString('Signature is required', 'La firma es requerida'),
+        },
       ],
     },
   },
@@ -280,10 +292,19 @@ const specialFields: ElementDefinition[] = [
     fieldType: 'checkbox',
     defaultField: {
       type: 'checkbox',
-      label: createLocalizedString('I agree to the terms and conditions', 'Acepto los términos y condiciones'),
+      label: createLocalizedString(
+        'I agree to the terms and conditions',
+        'Acepto los términos y condiciones'
+      ),
       storageKey: 'consent_accepted',
       validation: [
-        { type: 'required', message: createLocalizedString('You must accept to continue', 'Debes aceptar para continuar') },
+        {
+          type: 'required',
+          message: createLocalizedString(
+            'You must accept to continue',
+            'Debes aceptar para continuar'
+          ),
+        },
       ],
     },
   },

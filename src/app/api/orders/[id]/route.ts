@@ -55,4 +55,6 @@ async function handler(req: NextRequest, user: AuthUser) {
   }
 }
 
-export const GET = withAuth(handler, { roles: ['admin', 'super_admin', 'provider', 'staff', 'sales_rep'] });
+export const GET = withAuth(handler, {
+  roles: ['admin', 'super_admin', 'provider', 'staff', 'sales_rep'],
+});

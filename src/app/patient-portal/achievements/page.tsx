@@ -20,7 +20,11 @@ import {
 } from 'lucide-react';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import Link from 'next/link';
-import { portalFetch, getPortalResponseError, SESSION_EXPIRED_MESSAGE } from '@/lib/api/patient-portal-client';
+import {
+  portalFetch,
+  getPortalResponseError,
+  SESSION_EXPIRED_MESSAGE,
+} from '@/lib/api/patient-portal-client';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import { safeParseJson } from '@/lib/utils/safe-json';
 import { logger } from '@/lib/logger';
@@ -219,10 +223,14 @@ export default function AchievementsPage() {
       <div className="flex min-h-[60vh] items-center justify-center p-4">
         <div
           className={`max-w-md rounded-lg border p-4 text-center ${
-            isSessionExpired ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-red-200 bg-red-50 text-red-700'
+            isSessionExpired
+              ? 'border-amber-200 bg-amber-50 text-amber-900'
+              : 'border-red-200 bg-red-50 text-red-700'
           }`}
         >
-          <Trophy className={`mx-auto mb-3 h-12 w-12 ${isSessionExpired ? 'text-amber-300' : 'text-red-300'}`} />
+          <Trophy
+            className={`mx-auto mb-3 h-12 w-12 ${isSessionExpired ? 'text-amber-300' : 'text-red-300'}`}
+          />
           <p className="mb-2 font-medium">
             {isSessionExpired ? 'Session Expired' : 'Error Loading Achievements'}
           </p>

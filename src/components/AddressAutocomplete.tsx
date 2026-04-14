@@ -82,10 +82,7 @@ const AUTOCOMPLETE_OPTIONS = {
 };
 
 function isGoogleReady(): boolean {
-  return (
-    typeof window !== 'undefined' &&
-    !!(window as any).google?.maps?.places?.Autocomplete
-  );
+  return typeof window !== 'undefined' && !!(window as any).google?.maps?.places?.Autocomplete;
 }
 
 export function useGooglePlacesReady() {
@@ -104,12 +101,15 @@ export function useGooglePlacesReady() {
       const g = (window as any).google;
       if (g?.maps?.importLibrary && !g.maps.places?.Autocomplete && !importAttempted.current) {
         importAttempted.current = true;
-        g.maps.importLibrary('places').then(() => {
-          if (isGoogleReady()) {
-            setReady(true);
-            clearInterval(interval);
-          }
-        }).catch(() => {});
+        g.maps
+          .importLibrary('places')
+          .then(() => {
+            if (isGoogleReady()) {
+              setReady(true);
+              clearInterval(interval);
+            }
+          })
+          .catch(() => {});
       }
     }, 500);
     const timeout = setTimeout(() => clearInterval(interval), 15_000);
@@ -130,7 +130,7 @@ function extractZipFromFormatted(formatted: string): string {
 function parseAddressComponents(
   components: any[],
   preserveAddress2?: string,
-  formattedAddress?: string,
+  formattedAddress?: string
 ): AddressData {
   let streetNumber = '';
   let streetName = '';
@@ -170,13 +170,13 @@ function parseAddressComponents(
  */
 export function attachAutocomplete(
   input: HTMLInputElement,
-  onPlaceChanged: (parsed: AddressData, formatted: string) => void,
+  onPlaceChanged: (parsed: AddressData, formatted: string) => void
 ): () => void {
   if (!isGoogleReady()) return () => {};
 
   const autocomplete = new (window as any).google.maps.places.Autocomplete(
     input,
-    AUTOCOMPLETE_OPTIONS,
+    AUTOCOMPLETE_OPTIONS
   );
 
   const listener = autocomplete.addListener('place_changed', () => {
@@ -306,8 +306,7 @@ export default function AddressAutocomplete({
 
       <div>
         <label className="mb-1 block text-sm font-medium text-gray-700">
-          Street Address{' '}
-          {required && <span className="text-red-500">*</span>}
+          Street Address {required && <span className="text-red-500">*</span>}
         </label>
         <div className="relative">
           <MapPin
@@ -390,10 +389,7 @@ export default function AddressAutocomplete({
             disabled={disabled}
             value={value.zip}
             onChange={(e) =>
-              handleFieldChange(
-                'zip',
-                e.target.value.replace(/\D/g, '').slice(0, 5),
-              )
+              handleFieldChange('zip', e.target.value.replace(/\D/g, '').slice(0, 5))
             }
             placeholder="12345"
             maxLength={5}
@@ -434,12 +430,9 @@ export function AddressInput({
   useEffect(() => {
     if (!googleReady || !inputRef.current) return;
     cleanupRef.current?.();
-    cleanupRef.current = attachAutocomplete(
-      inputRef.current,
-      (parsed, formatted) => {
-        onChangeRef.current(formatted || parsed.address1, parsed);
-      },
-    );
+    cleanupRef.current = attachAutocomplete(inputRef.current, (parsed, formatted) => {
+      onChangeRef.current(formatted || parsed.address1, parsed);
+    });
     return () => {
       cleanupRef.current?.();
       cleanupRef.current = null;
@@ -450,7 +443,7 @@ export function AddressInput({
     (newValue: string) => {
       onChange(newValue);
     },
-    [onChange],
+    [onChange]
   );
 
   return (

@@ -139,7 +139,8 @@ export default function UserClinicsPage() {
         }
       }
     } catch (error) {
-      process.env.NODE_ENV === 'development' && console.error('Error fetching user clinics:', error);
+      process.env.NODE_ENV === 'development' &&
+        console.error('Error fetching user clinics:', error);
     } finally {
       setLoading(false);
     }
@@ -232,7 +233,8 @@ export default function UserClinicsPage() {
         fetchUserClinics();
       }
     } catch (error) {
-      process.env.NODE_ENV === 'development' && console.error('Error setting primary clinic:', error);
+      process.env.NODE_ENV === 'development' &&
+        console.error('Error setting primary clinic:', error);
     }
   };
 

@@ -243,9 +243,7 @@ export async function generateSignedUrl(
       errorCode: err?.Code || err?.code,
       errorMessage: err?.message,
     });
-    throw new Error(
-      `Failed to generate file access URL: ${err?.message || 'Unknown S3 error'}`
-    );
+    throw new Error(`Failed to generate file access URL: ${err?.message || 'Unknown S3 error'}`);
   }
 }
 
@@ -267,7 +265,6 @@ export async function deleteFromS3(key: string): Promise<boolean> {
     await client.send(command);
     return true;
   } catch (error: unknown) {
-    
     logger.error('[S3] Delete failed:', error);
     throw new Error(S3_ERRORS.DELETE_FAILED);
   }
@@ -330,7 +327,6 @@ export async function listS3Files(
 
     return files;
   } catch (error: unknown) {
-    
     logger.error('[S3] List failed:', error);
     return [];
   }
@@ -405,7 +401,6 @@ export async function archiveFile(key: string): Promise<string> {
 
     return archiveKey;
   } catch (error: unknown) {
-    
     logger.error('[S3] Archive failed:', error);
     throw new Error('Failed to archive file');
   }

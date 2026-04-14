@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useTransition, useCallback } from 'react';
 import Link from 'next/link';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
@@ -24,6 +24,14 @@ export default function MacroCalculatorPage() {
   const [goal, setGoal] = useState<MacroGoal>('weight_loss');
   const [isOnGLP1, setIsOnGLP1] = useState(false);
   const [showMealBreakdown, setShowMealBreakdown] = useState(false);
+  const [, startTransition] = useTransition();
+
+  const handleNumericChange = useCallback(
+    (setter: (v: string) => void) => (e: React.ChangeEvent<HTMLInputElement>) => {
+      startTransition(() => setter(e.target.value));
+    },
+    [startTransition]
+  );
 
   const result = useMemo(() => {
     const cals = parseInt(calories);
@@ -74,7 +82,7 @@ export default function MacroCalculatorPage() {
               <input
                 type="number"
                 value={calories}
-                onChange={(e) => setCalories(e.target.value)}
+                onChange={handleNumericChange(setCalories)}
                 placeholder="1800"
                 min="800"
                 max="5000"
@@ -107,7 +115,7 @@ export default function MacroCalculatorPage() {
               <input
                 type="number"
                 value={weight}
-                onChange={(e) => setWeight(e.target.value)}
+                onChange={handleNumericChange(setWeight)}
                 placeholder="180"
                 min="80"
                 max="500"

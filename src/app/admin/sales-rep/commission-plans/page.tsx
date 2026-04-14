@@ -110,10 +110,34 @@ function formatPercent(bps: number): string {
 /** OT-style weekly initial-sale revenue brackets (amounts in cents); rate = total % on initial sales */
 const DEFAULT_WEEKLY_REVENUE_TIERS: PlanFormData['volumeTiers'] = [
   { minSales: 1, maxSales: null, amountCents: 0, minRevenueCents: 0, totalInitialPercentBps: 800 },
-  { minSales: 2, maxSales: null, amountCents: 0, minRevenueCents: 1_730_000, totalInitialPercentBps: 900 },
-  { minSales: 3, maxSales: null, amountCents: 0, minRevenueCents: 2_300_000, totalInitialPercentBps: 1000 },
-  { minSales: 4, maxSales: null, amountCents: 0, minRevenueCents: 2_900_000, totalInitialPercentBps: 1100 },
-  { minSales: 5, maxSales: null, amountCents: 0, minRevenueCents: 3_500_000, totalInitialPercentBps: 1200 },
+  {
+    minSales: 2,
+    maxSales: null,
+    amountCents: 0,
+    minRevenueCents: 1_730_000,
+    totalInitialPercentBps: 900,
+  },
+  {
+    minSales: 3,
+    maxSales: null,
+    amountCents: 0,
+    minRevenueCents: 2_300_000,
+    totalInitialPercentBps: 1000,
+  },
+  {
+    minSales: 4,
+    maxSales: null,
+    amountCents: 0,
+    minRevenueCents: 2_900_000,
+    totalInitialPercentBps: 1100,
+  },
+  {
+    minSales: 5,
+    maxSales: null,
+    amountCents: 0,
+    minRevenueCents: 3_500_000,
+    totalInitialPercentBps: 1200,
+  },
 ];
 
 const defaultFormData: PlanFormData = {
@@ -143,8 +167,20 @@ const defaultFormData: PlanFormData = {
   volumeTierRetroactive: true,
   volumeTiers: [
     { minSales: 1, maxSales: 8, amountCents: 500, minRevenueCents: 0, totalInitialPercentBps: 800 },
-    { minSales: 9, maxSales: 20, amountCents: 1000, minRevenueCents: 0, totalInitialPercentBps: 800 },
-    { minSales: 21, maxSales: null, amountCents: 1500, minRevenueCents: 0, totalInitialPercentBps: 800 },
+    {
+      minSales: 9,
+      maxSales: 20,
+      amountCents: 1000,
+      minRevenueCents: 0,
+      totalInitialPercentBps: 800,
+    },
+    {
+      minSales: 21,
+      maxSales: null,
+      amountCents: 1500,
+      minRevenueCents: 0,
+      totalInitialPercentBps: 800,
+    },
   ],
 };
 
@@ -207,11 +243,15 @@ export default function SalesRepCommissionPlansPage() {
       ]);
       if (pRes.ok) {
         const d = await pRes.json();
-        setProducts(d.products?.map((p: { id: number; name: string }) => ({ id: p.id, name: p.name })) ?? []);
+        setProducts(
+          d.products?.map((p: { id: number; name: string }) => ({ id: p.id, name: p.name })) ?? []
+        );
       }
       if (bRes.ok) {
         const d = await bRes.json();
-        setBundles(d.bundles?.map((b: { id: number; name: string }) => ({ id: b.id, name: b.name })) ?? []);
+        setBundles(
+          d.bundles?.map((b: { id: number; name: string }) => ({ id: b.id, name: b.name })) ?? []
+        );
       }
     } catch {
       // ignore
@@ -222,7 +262,13 @@ export default function SalesRepCommissionPlansPage() {
     setEditingPlan(null);
     setFormData(defaultFormData);
     setProductRuleLines([
-      { productId: '', productBundleId: '', bonusType: 'PERCENT', percentBps: 500, flatAmountCents: 0 },
+      {
+        productId: '',
+        productBundleId: '',
+        bonusType: 'PERCENT',
+        percentBps: 500,
+        flatAmountCents: 0,
+      },
     ]);
     setError(null);
     await fetchProductsAndBundles();
@@ -255,7 +301,9 @@ export default function SalesRepCommissionPlansPage() {
       recurringEnabled: plan.recurringEnabled,
       recurringMonths: plan.recurringMonths,
       multiItemBonusEnabled: multiItemEnabled,
-      multiItemBonusType: (plan.multiItemBonusType === 'FLAT' ? 'FLAT' : 'PERCENT') as 'PERCENT' | 'FLAT',
+      multiItemBonusType: (plan.multiItemBonusType === 'FLAT' ? 'FLAT' : 'PERCENT') as
+        | 'PERCENT'
+        | 'FLAT',
       multiItemBonusPercentBps: plan.multiItemBonusPercentBps ?? 500,
       multiItemBonusFlatCents: plan.multiItemBonusFlatCents ?? 0,
       multiItemMinQuantity: plan.multiItemMinQuantity ?? 2,
@@ -276,8 +324,7 @@ export default function SalesRepCommissionPlansPage() {
                 maxSales: tier.maxSales,
                 amountCents: tier.amountCents,
                 minRevenueCents: tier.minRevenueCents ?? 0,
-                totalInitialPercentBps:
-                  baseBps + (tier.additionalPercentBps ?? 0),
+                totalInitialPercentBps: baseBps + (tier.additionalPercentBps ?? 0),
               }));
           }
           return [...plan.volumeTiers]
@@ -317,12 +364,24 @@ export default function SalesRepCommissionPlansPage() {
         );
       } else {
         setProductRuleLines([
-          { productId: '', productBundleId: '', bonusType: 'PERCENT', percentBps: 500, flatAmountCents: 0 },
+          {
+            productId: '',
+            productBundleId: '',
+            bonusType: 'PERCENT',
+            percentBps: 500,
+            flatAmountCents: 0,
+          },
         ]);
       }
     } catch {
       setProductRuleLines([
-        { productId: '', productBundleId: '', bonusType: 'PERCENT', percentBps: 500, flatAmountCents: 0 },
+        {
+          productId: '',
+          productBundleId: '',
+          bonusType: 'PERCENT',
+          percentBps: 500,
+          flatAmountCents: 0,
+        },
       ]);
     }
     setShowModal(true);
@@ -381,7 +440,9 @@ export default function SalesRepCommissionPlansPage() {
       body.multiItemBonusPercentBps = null;
       body.multiItemBonusFlatCents = null;
     }
-    const initialRateBps = formData.useSeperateRates ? formData.initialPercentBps : formData.percentBps;
+    const initialRateBps = formData.useSeperateRates
+      ? formData.initialPercentBps
+      : formData.percentBps;
 
     body.volumeTierEnabled = formData.volumeTierEnabled;
     body.volumeTierBasis =
@@ -406,7 +467,9 @@ export default function SalesRepCommissionPlansPage() {
       (l) =>
         (l.productId !== '' || l.productBundleId !== '') &&
         (l.productId === '' || l.productBundleId === '') &&
-        (l.bonusType === 'PERCENT' ? l.percentBps >= 0 && l.percentBps <= 10000 : l.flatAmountCents >= 0)
+        (l.bonusType === 'PERCENT'
+          ? l.percentBps >= 0 && l.percentBps <= 10000
+          : l.flatAmountCents >= 0)
     );
     body.productRules = validRules.map((l) => ({
       productId: l.productId === '' ? null : l.productId,
@@ -479,9 +542,7 @@ export default function SalesRepCommissionPlansPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Sales Rep Commission Plans</h1>
-            <p className="text-gray-500">
-              Create and manage rep-specific commission structures
-            </p>
+            <p className="text-gray-500">Create and manage rep-specific commission structures</p>
           </div>
           <button
             onClick={handleOpenCreateModal}
@@ -512,17 +573,15 @@ export default function SalesRepCommissionPlansPage() {
             <div className="text-sm text-amber-800">
               <p className="font-medium">Multiple items in a sale</p>
               <p className="mt-1">
-                Optionally add an extra percentage or flat amount when a sale has multiple items (e.g.
-                2+ products). The bonus is applied on top of the base commission.
+                Optionally add an extra percentage or flat amount when a sale has multiple items
+                (e.g. 2+ products). The bonus is applied on top of the base commission.
               </p>
             </div>
           </div>
         </div>
       </div>
 
-      {error && (
-        <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>
-      )}
+      {error && <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {plans.map((plan) => (
@@ -608,7 +667,8 @@ export default function SalesRepCommissionPlansPage() {
               )}
               {plan.multiItemBonusEnabled && (
                 <span className="rounded-full bg-amber-100 px-2 py-1 text-amber-700">
-                  Multi-item: {plan.multiItemBonusType === 'FLAT' && plan.multiItemBonusFlatCents != null
+                  Multi-item:{' '}
+                  {plan.multiItemBonusType === 'FLAT' && plan.multiItemBonusFlatCents != null
                     ? formatCurrency(plan.multiItemBonusFlatCents)
                     : plan.multiItemBonusPercentBps != null
                       ? formatPercent(plan.multiItemBonusPercentBps)
@@ -623,8 +683,10 @@ export default function SalesRepCommissionPlansPage() {
               )}
               {plan.volumeTierEnabled && (
                 <span className="rounded-full bg-emerald-100 px-2 py-1 text-emerald-700">
-                  {plan.volumeTierBasis === 'WEEKLY_REVENUE_CENTS' ? 'Weekly $ tiers' : 'Sale-count tiers'} (
-                  {plan.volumeTierWindow === 'REPORT_PERIOD' ? 'Report window' : 'Mon-Sun'})
+                  {plan.volumeTierBasis === 'WEEKLY_REVENUE_CENTS'
+                    ? 'Weekly $ tiers'
+                    : 'Sale-count tiers'}{' '}
+                  ({plan.volumeTierWindow === 'REPORT_PERIOD' ? 'Report window' : 'Mon-Sun'})
                 </span>
               )}
               {plan.holdDays > 0 && (
@@ -638,16 +700,16 @@ export default function SalesRepCommissionPlansPage() {
               <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-2 text-xs text-emerald-800">
                 {plan.volumeTierBasis === 'WEEKLY_REVENUE_CENTS'
                   ? [...plan.volumeTiers]
-                      .sort(
-                        (a, b) =>
-                          (a.minRevenueCents ?? 0) - (b.minRevenueCents ?? 0)
-                      )
+                      .sort((a, b) => (a.minRevenueCents ?? 0) - (b.minRevenueCents ?? 0))
                       .slice(0, 5)
                       .map((tier, idx) => {
                         const baseBps = plan.initialPercentBps ?? plan.percentBps ?? 0;
                         const totalBps = baseBps + (tier.additionalPercentBps ?? 0);
                         return (
-                          <div key={`${plan.id}-rtier-${idx}`} className="flex items-center justify-between">
+                          <div
+                            key={`${plan.id}-rtier-${idx}`}
+                            className="flex items-center justify-between"
+                          >
                             <span>
                               {formatCurrency(tier.minRevenueCents ?? 0)}+ weekly initial sales
                             </span>
@@ -659,17 +721,24 @@ export default function SalesRepCommissionPlansPage() {
                       .sort((a, b) => a.minSales - b.minSales)
                       .slice(0, 3)
                       .map((tier, idx) => (
-                        <div key={`${plan.id}-tier-${idx}`} className="flex items-center justify-between">
+                        <div
+                          key={`${plan.id}-tier-${idx}`}
+                          className="flex items-center justify-between"
+                        >
                           <span>
                             {tier.maxSales == null
                               ? `${tier.minSales}+ sales`
                               : `${tier.minSales}-${tier.maxSales} sales`}
                           </span>
-                          <span className="font-semibold">{formatCurrency(tier.amountCents)}/sale</span>
+                          <span className="font-semibold">
+                            {formatCurrency(tier.amountCents)}/sale
+                          </span>
                         </div>
                       ))}
                 {plan.volumeTierRetroactive && (
-                  <p className="mt-1 text-[11px] text-emerald-700">Retroactive to first sale in period</p>
+                  <p className="mt-1 text-[11px] text-emerald-700">
+                    Retroactive to first sale in period
+                  </p>
                 )}
               </div>
             )}
@@ -756,7 +825,12 @@ export default function SalesRepCommissionPlansPage() {
                     const planType = e.target.value as 'FLAT' | 'PERCENT';
                     setFormData((f) =>
                       planType === 'FLAT' && f.volumeTierBasis === 'WEEKLY_REVENUE_CENTS'
-                        ? { ...f, planType, volumeTierBasis: 'SALE_COUNT', volumeTiers: [...defaultFormData.volumeTiers] }
+                        ? {
+                            ...f,
+                            planType,
+                            volumeTierBasis: 'SALE_COUNT',
+                            volumeTiers: [...defaultFormData.volumeTiers],
+                          }
                         : { ...f, planType }
                     );
                   }}
@@ -790,11 +864,15 @@ export default function SalesRepCommissionPlansPage() {
                           }
                           className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-8 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
                         />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">%</span>
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                          %
+                        </span>
                       </>
                     ) : (
                       <>
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                          $
+                        </span>
                         <input
                           type="number"
                           required
@@ -965,7 +1043,8 @@ export default function SalesRepCommissionPlansPage() {
                   Custom commission per product or package
                 </h3>
                 <p className="mt-1 text-xs text-emerald-700">
-                  Add lines below to pay an extra % or $ when specific products or packages are sold on this plan.
+                  Add lines below to pay an extra % or $ when specific products or packages are sold
+                  on this plan.
                 </p>
                 <div className="mt-3 overflow-x-auto">
                   <table className="w-full text-sm">
@@ -982,23 +1061,49 @@ export default function SalesRepCommissionPlansPage() {
                         <tr key={idx} className="border-b border-emerald-100">
                           <td className="py-2">
                             <select
-                              value={line.productId !== '' ? `p-${line.productId}` : line.productBundleId !== '' ? `b-${line.productBundleId}` : ''}
+                              value={
+                                line.productId !== ''
+                                  ? `p-${line.productId}`
+                                  : line.productBundleId !== ''
+                                    ? `b-${line.productBundleId}`
+                                    : ''
+                              }
                               onChange={(e) => {
                                 const v = e.target.value;
                                 if (v === '') {
                                   setProductRuleLines((prev) =>
-                                    prev.map((l, i) => (i === idx ? { ...l, productId: '' as const, productBundleId: '' as const } : l))
+                                    prev.map((l, i) =>
+                                      i === idx
+                                        ? {
+                                            ...l,
+                                            productId: '' as const,
+                                            productBundleId: '' as const,
+                                          }
+                                        : l
+                                    )
                                   );
                                 } else if (v.startsWith('p-')) {
                                   setProductRuleLines((prev) =>
                                     prev.map((l, i) =>
-                                      i === idx ? { ...l, productId: Number(v.slice(2)), productBundleId: '' as const } : l
+                                      i === idx
+                                        ? {
+                                            ...l,
+                                            productId: Number(v.slice(2)),
+                                            productBundleId: '' as const,
+                                          }
+                                        : l
                                     )
                                   );
                                 } else {
                                   setProductRuleLines((prev) =>
                                     prev.map((l, i) =>
-                                      i === idx ? { ...l, productId: '' as const, productBundleId: Number(v.slice(2)) } : l
+                                      i === idx
+                                        ? {
+                                            ...l,
+                                            productId: '' as const,
+                                            productBundleId: Number(v.slice(2)),
+                                          }
+                                        : l
                                     )
                                   );
                                 }
@@ -1028,7 +1133,9 @@ export default function SalesRepCommissionPlansPage() {
                               onChange={(e) =>
                                 setProductRuleLines((prev) =>
                                   prev.map((l, i) =>
-                                    i === idx ? { ...l, bonusType: e.target.value as 'PERCENT' | 'FLAT' } : l
+                                    i === idx
+                                      ? { ...l, bonusType: e.target.value as 'PERCENT' | 'FLAT' }
+                                      : l
                                   )
                                 )
                               }
@@ -1051,7 +1158,12 @@ export default function SalesRepCommissionPlansPage() {
                                     setProductRuleLines((prev) =>
                                       prev.map((l, i) =>
                                         i === idx
-                                          ? { ...l, percentBps: Math.round(parseFloat(e.target.value || '0') * 100) }
+                                          ? {
+                                              ...l,
+                                              percentBps: Math.round(
+                                                parseFloat(e.target.value || '0') * 100
+                                              ),
+                                            }
                                           : l
                                       )
                                     )
@@ -1072,7 +1184,12 @@ export default function SalesRepCommissionPlansPage() {
                                     setProductRuleLines((prev) =>
                                       prev.map((l, i) =>
                                         i === idx
-                                          ? { ...l, flatAmountCents: Math.round(parseFloat(e.target.value || '0') * 100) }
+                                          ? {
+                                              ...l,
+                                              flatAmountCents: Math.round(
+                                                parseFloat(e.target.value || '0') * 100
+                                              ),
+                                            }
                                           : l
                                       )
                                     )
@@ -1133,14 +1250,14 @@ export default function SalesRepCommissionPlansPage() {
                     Weekly sales volume tiers
                   </span>
                 </label>
-                <p className="mt-1 ml-7 text-xs text-teal-700">
-                  <strong>Sale count:</strong> flat dollars per sale by number of commissioned sales in the
-                  week. <strong>Weekly revenue:</strong> cumulative initial-sale dollars Mon–Sun (clinic
-                  timezone); rate bumps apply to initial commissions only (matches % on top of your initial
-                  rate).
+                <p className="ml-7 mt-1 text-xs text-teal-700">
+                  <strong>Sale count:</strong> flat dollars per sale by number of commissioned sales
+                  in the week. <strong>Weekly revenue:</strong> cumulative initial-sale dollars
+                  Mon–Sun (clinic timezone); rate bumps apply to initial commissions only (matches %
+                  on top of your initial rate).
                 </p>
                 {formData.volumeTierEnabled && (
-                  <div className="mt-4 ml-7 space-y-3">
+                  <div className="ml-7 mt-4 space-y-3">
                     <div>
                       <label className="block text-sm font-medium text-teal-900">Tier mode</label>
                       <select
@@ -1151,27 +1268,37 @@ export default function SalesRepCommissionPlansPage() {
                             ...f,
                             volumeTierBasis: v,
                             volumeTiers:
-                              v === 'WEEKLY_REVENUE_CENTS' ? [...DEFAULT_WEEKLY_REVENUE_TIERS] : [...defaultFormData.volumeTiers],
+                              v === 'WEEKLY_REVENUE_CENTS'
+                                ? [...DEFAULT_WEEKLY_REVENUE_TIERS]
+                                : [...defaultFormData.volumeTiers],
                           }));
                         }}
                         disabled={formData.planType !== 'PERCENT'}
                         className="mt-1 w-full rounded-lg border border-teal-300 bg-white px-3 py-2 text-gray-900 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 disabled:bg-gray-100"
                       >
                         <option value="SALE_COUNT">By sale count (flat $ / sale)</option>
-                        <option value="WEEKLY_REVENUE_CENTS">By weekly initial-sale revenue (%)</option>
+                        <option value="WEEKLY_REVENUE_CENTS">
+                          By weekly initial-sale revenue (%)
+                        </option>
                       </select>
                       {formData.planType !== 'PERCENT' && (
-                        <p className="mt-1 text-xs text-amber-700">Percent plans only for weekly revenue tiers.</p>
+                        <p className="mt-1 text-xs text-amber-700">
+                          Percent plans only for weekly revenue tiers.
+                        </p>
                       )}
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-teal-900">Period basis</label>
+                      <label className="block text-sm font-medium text-teal-900">
+                        Period basis
+                      </label>
                       <select
                         value={formData.volumeTierWindow}
                         onChange={(e) =>
                           setFormData((f) => ({
                             ...f,
-                            volumeTierWindow: e.target.value as 'CALENDAR_WEEK_MON_SUN' | 'REPORT_PERIOD',
+                            volumeTierWindow: e.target.value as
+                              | 'CALENDAR_WEEK_MON_SUN'
+                              | 'REPORT_PERIOD',
                           }))
                         }
                         className="mt-1 w-full rounded-lg border border-teal-300 bg-white px-3 py-2 text-gray-900 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
@@ -1206,7 +1333,10 @@ export default function SalesRepCommissionPlansPage() {
                             </thead>
                             <tbody>
                               {formData.volumeTiers.map((tier, idx) => (
-                                <tr key={`volume-rtier-${idx}`} className="border-b border-teal-100">
+                                <tr
+                                  key={`volume-rtier-${idx}`}
+                                  className="border-b border-teal-100"
+                                >
                                   <td className="py-2">
                                     <div className="flex items-center gap-1">
                                       <span className="text-gray-500">$</span>
@@ -1224,7 +1354,9 @@ export default function SalesRepCommissionPlansPage() {
                                                     ...row,
                                                     minRevenueCents: Math.max(
                                                       0,
-                                                      Math.round(parseFloat(e.target.value || '0') * 100)
+                                                      Math.round(
+                                                        parseFloat(e.target.value || '0') * 100
+                                                      )
                                                     ),
                                                   }
                                                 : row
@@ -1252,7 +1384,9 @@ export default function SalesRepCommissionPlansPage() {
                                                     ...row,
                                                     totalInitialPercentBps: Math.min(
                                                       10000,
-                                                      Math.round(parseFloat(e.target.value || '0') * 100)
+                                                      Math.round(
+                                                        parseFloat(e.target.value || '0') * 100
+                                                      )
                                                     ),
                                                   }
                                                 : row
@@ -1270,7 +1404,9 @@ export default function SalesRepCommissionPlansPage() {
                                       onClick={() =>
                                         setFormData((f) => ({
                                           ...f,
-                                          volumeTiers: f.volumeTiers.filter((_, rowIndex) => rowIndex !== idx),
+                                          volumeTiers: f.volumeTiers.filter(
+                                            (_, rowIndex) => rowIndex !== idx
+                                          ),
                                         }))
                                       }
                                       className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"
@@ -1338,7 +1474,10 @@ export default function SalesRepCommissionPlansPage() {
                                             rowIndex === idx
                                               ? {
                                                   ...row,
-                                                  minSales: Math.max(1, parseInt(e.target.value, 10) || 1),
+                                                  minSales: Math.max(
+                                                    1,
+                                                    parseInt(e.target.value, 10) || 1
+                                                  ),
                                                 }
                                               : row
                                           ),
@@ -1365,7 +1504,8 @@ export default function SalesRepCommissionPlansPage() {
                                                       ? null
                                                       : Math.max(
                                                           row.minSales,
-                                                          parseInt(e.target.value, 10) || row.minSales
+                                                          parseInt(e.target.value, 10) ||
+                                                            row.minSales
                                                         ),
                                                 }
                                               : row
@@ -1408,7 +1548,9 @@ export default function SalesRepCommissionPlansPage() {
                                       onClick={() =>
                                         setFormData((f) => ({
                                           ...f,
-                                          volumeTiers: f.volumeTiers.filter((_, rowIndex) => rowIndex !== idx),
+                                          volumeTiers: f.volumeTiers.filter(
+                                            (_, rowIndex) => rowIndex !== idx
+                                          ),
                                         }))
                                       }
                                       className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"
@@ -1471,11 +1613,12 @@ export default function SalesRepCommissionPlansPage() {
                     Add bonus when sale has multiple items
                   </span>
                 </label>
-                <p className="mt-1 ml-7 text-xs text-amber-700">
-                  Extra commission (% or $) when the sale contains 2+ items (e.g. multi-product orders).
+                <p className="ml-7 mt-1 text-xs text-amber-700">
+                  Extra commission (% or $) when the sale contains 2+ items (e.g. multi-product
+                  orders).
                 </p>
                 {formData.multiItemBonusEnabled && (
-                  <div className="mt-4 ml-7 space-y-3">
+                  <div className="ml-7 mt-4 space-y-3">
                     <div>
                       <label className="block text-sm font-medium text-amber-800">Bonus type</label>
                       <select
@@ -1512,9 +1655,11 @@ export default function SalesRepCommissionPlansPage() {
                                 ),
                               }))
                             }
-                            className="w-full rounded-lg border border-amber-300 bg-white py-2 pr-8 pl-3 text-gray-900 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                            className="w-full rounded-lg border border-amber-300 bg-white py-2 pl-3 pr-8 text-gray-900 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
                           />
-                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">%</span>
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                            %
+                          </span>
                         </div>
                       </div>
                     ) : (
@@ -1523,7 +1668,9 @@ export default function SalesRepCommissionPlansPage() {
                           Extra amount ($)
                         </label>
                         <div className="relative mt-1">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
+                            $
+                          </span>
                           <input
                             type="number"
                             min={0}
@@ -1559,7 +1706,9 @@ export default function SalesRepCommissionPlansPage() {
                         }
                         className="mt-1 w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-gray-900 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
                       />
-                      <p className="mt-0.5 text-xs text-amber-600">Apply when sale has this many items or more (default 2).</p>
+                      <p className="mt-0.5 text-xs text-amber-600">
+                        Apply when sale has this many items or more (default 2).
+                      </p>
                     </div>
                   </div>
                 )}
@@ -1626,8 +1775,8 @@ export default function SalesRepCommissionPlansPage() {
           <div className="w-full max-w-sm rounded-2xl bg-white p-6">
             <h2 className="mb-2 text-xl font-bold text-gray-900">Delete plan?</h2>
             <p className="mb-4 text-sm text-gray-600">
-              This will remove or deactivate this commission plan. The sales rep currently assigned to
-              it will need to be reassigned to another plan.
+              This will remove or deactivate this commission plan. The sales rep currently assigned
+              to it will need to be reassigned to another plan.
             </p>
             <div className="flex gap-3">
               <button

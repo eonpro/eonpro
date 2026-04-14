@@ -223,7 +223,14 @@ const deleteHandler = withAuth(async (request: NextRequest, user) => {
       patientId: reminder.patientId,
     });
 
-    await logPHIDelete(request, user, 'PatientMedicationReminder', id, reminder.patientId, 'user_request');
+    await logPHIDelete(
+      request,
+      user,
+      'PatientMedicationReminder',
+      id,
+      reminder.patientId,
+      'user_request'
+    );
 
     return NextResponse.json({ success: true, deletedId: id });
   } catch (error) {

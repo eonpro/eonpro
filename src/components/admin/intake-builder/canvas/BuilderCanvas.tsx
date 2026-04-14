@@ -100,7 +100,7 @@ function InlineEditable({ value, placeholder, className = '', onSave }: InlineEd
         setDraft(value || '');
         setIsEditing(true);
       }}
-      className={`min-w-0 flex-1 text-left hover:bg-gray-100/50 rounded px-1 -mx-1 dark:hover:bg-gray-800/50 ${className}`}
+      className={`-mx-1 min-w-0 flex-1 rounded px-1 text-left hover:bg-gray-100/50 dark:hover:bg-gray-800/50 ${className}`}
     >
       {value || placeholder || 'Click to edit'}
     </button>

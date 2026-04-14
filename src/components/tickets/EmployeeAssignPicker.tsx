@@ -61,13 +61,16 @@ function UserRow({
     >
       <div className="flex items-center gap-2.5 overflow-hidden">
         <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-gray-200 text-xs font-medium text-gray-600">
-          {u.firstName[0]}{u.lastName[0]}
+          {u.firstName[0]}
+          {u.lastName[0]}
         </span>
         <div className="min-w-0">
           <div className="truncate font-medium text-gray-900">
             {u.firstName} {u.lastName}
           </div>
-          <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-medium ${ROLE_COLORS[u.role] || 'bg-gray-100 text-gray-600'}`}>
+          <span
+            className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-medium ${ROLE_COLORS[u.role] || 'bg-gray-100 text-gray-600'}`}
+          >
             {ROLE_LABELS[u.role] || u.role}
           </span>
         </div>
@@ -186,7 +189,11 @@ export default function EmployeeAssignPicker({
         ) : currentAssigneeId && currentAssigneeName ? (
           <span className="flex items-center gap-2">
             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-200 text-xs font-medium text-gray-600">
-              {currentAssigneeName.split(' ').map((n) => n[0]).join('').slice(0, 2)}
+              {currentAssigneeName
+                .split(' ')
+                .map((n) => n[0])
+                .join('')
+                .slice(0, 2)}
             </span>
             <span className="text-gray-900">{currentAssigneeName}</span>
           </span>

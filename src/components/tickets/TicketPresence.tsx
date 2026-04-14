@@ -79,7 +79,8 @@ export default function TicketPresence({
             className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-green-100 text-xs font-medium text-green-700"
             title={`${v.firstName} ${v.lastName} is viewing`}
           >
-            {v.firstName[0]}{v.lastName[0]}
+            {v.firstName[0]}
+            {v.lastName[0]}
           </div>
         ))}
       </div>

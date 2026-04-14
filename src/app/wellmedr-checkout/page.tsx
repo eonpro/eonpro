@@ -49,7 +49,7 @@ function CheckoutContent() {
       <Header />
       <CheckoutStepProvider>
         <DynamicCheckoutProgressHeader />
-        <main className="relative flex flex-col items-center justify-center w-full min-h-[60svh] sm:min-h-[50svh] px-6 sm:px-8">
+        <main className="relative flex min-h-[60svh] w-full flex-col items-center justify-center px-6 sm:min-h-[50svh] sm:px-8">
           <TimerProvider>
             <ProductsProvider>
               <CheckoutFormProvider patientData={patientData}>

@@ -1,14 +1,43 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Menu, X, ChevronDown, Smartphone, Stethoscope, LayoutDashboard, Package, LogIn } from 'lucide-react';
+import {
+  Menu,
+  X,
+  ChevronDown,
+  Smartphone,
+  Stethoscope,
+  LayoutDashboard,
+  Package,
+  LogIn,
+} from 'lucide-react';
 import { EONPRO_LOGO } from '@/lib/constants/brand-assets';
 
 const PLATFORM_ITEMS = [
-  { label: 'Patient Portal', href: '/platform/patient-portal', icon: Smartphone, description: 'Mobile-first PWA for patients' },
-  { label: 'Provider Dashboard', href: '/platform/provider-dashboard', icon: Stethoscope, description: 'AI-assisted clinical workspace' },
-  { label: 'Clinic Admin', href: '/platform/clinic-admin', icon: LayoutDashboard, description: 'Operations & analytics hub' },
-  { label: 'Pharmacy Integration', href: '/platform/pharmacy-integration', icon: Package, description: 'End-to-end Rx fulfillment' },
+  {
+    label: 'Patient Portal',
+    href: '/platform/patient-portal',
+    icon: Smartphone,
+    description: 'Mobile-first PWA for patients',
+  },
+  {
+    label: 'Provider Dashboard',
+    href: '/platform/provider-dashboard',
+    icon: Stethoscope,
+    description: 'AI-assisted clinical workspace',
+  },
+  {
+    label: 'Clinic Admin',
+    href: '/platform/clinic-admin',
+    icon: LayoutDashboard,
+    description: 'Operations & analytics hub',
+  },
+  {
+    label: 'Pharmacy Integration',
+    href: '/platform/pharmacy-integration',
+    icon: Package,
+    description: 'End-to-end Rx fulfillment',
+  },
 ];
 
 const NAV_LINKS = [
@@ -38,7 +67,9 @@ export default function MarketingNav() {
 
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? 'hidden' : '';
-    return () => { document.body.style.overflow = ''; };
+    return () => {
+      document.body.style.overflow = '';
+    };
   }, [mobileOpen]);
 
   useEffect(() => {
@@ -61,11 +92,7 @@ export default function MarketingNav() {
     >
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
         <a href="/" className="flex-shrink-0">
-          <img
-            src={EONPRO_LOGO}
-            alt="EonPro"
-            className="h-8 w-auto sm:h-9"
-          />
+          <img src={EONPRO_LOGO} alt="EonPro" className="h-8 w-auto sm:h-9" />
         </a>
 
         <nav className="hidden items-center gap-6 lg:flex">
@@ -76,11 +103,13 @@ export default function MarketingNav() {
               className="flex items-center gap-1 text-sm font-medium text-[#1f2933]/70 transition-colors hover:text-[#1f2933]"
             >
               Platform
-              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${platformOpen ? 'rotate-180' : ''}`} />
+              <ChevronDown
+                className={`h-3.5 w-3.5 transition-transform ${platformOpen ? 'rotate-180' : ''}`}
+              />
             </button>
 
             {platformOpen && (
-              <div className="absolute left-1/2 top-full z-50 mt-3 w-[420px] -translate-x-1/2 rounded-2xl border border-gray-100 bg-white p-3 shadow-xl shadow-black/8">
+              <div className="shadow-black/8 absolute left-1/2 top-full z-50 mt-3 w-[420px] -translate-x-1/2 rounded-2xl border border-gray-100 bg-white p-3 shadow-xl">
                 <div className="grid gap-1">
                   {PLATFORM_ITEMS.map((item) => {
                     const Icon = item.icon;
@@ -143,7 +172,10 @@ export default function MarketingNav() {
 
       {/* Mobile overlay */}
       {mobileOpen && (
-        <div className="fixed inset-0 z-50 bg-black/40 lg:hidden" onClick={() => setMobileOpen(false)} />
+        <div
+          className="fixed inset-0 z-50 bg-black/40 lg:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
       )}
 
       {/* Mobile drawer */}
@@ -170,7 +202,9 @@ export default function MarketingNav() {
             className="flex items-center justify-between rounded-lg px-4 py-3 text-base font-medium text-[#1f2933] transition hover:bg-gray-50"
           >
             Platform
-            <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${mobilePlatformOpen ? 'rotate-180' : ''}`} />
+            <ChevronDown
+              className={`h-4 w-4 text-gray-400 transition-transform ${mobilePlatformOpen ? 'rotate-180' : ''}`}
+            />
           </button>
 
           {mobilePlatformOpen && (

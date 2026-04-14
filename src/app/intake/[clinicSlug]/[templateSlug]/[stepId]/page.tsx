@@ -231,7 +231,9 @@ function IntakeStepContent() {
         inches: r.height_inches || r.heightInches || '',
         weight: r.current_weight || r.currentWeight || '',
         'goal-weight': r.ideal_weight || r.idealWeight || '',
-        'health-conditions': Array.isArray(r.health_conditions) ? r.health_conditions.join(', ') : (r.health_conditions || ''),
+        'health-conditions': Array.isArray(r.health_conditions)
+          ? r.health_conditions.join(', ')
+          : r.health_conditions || '',
         'glp1-last-30': r.glp1_history_recent || '',
         'glp1-last-30-medication-type': r.glp1_type || '',
         'current-meds': r.current_medications || '',
@@ -255,7 +257,10 @@ function IntakeStepContent() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             sessionId,
-            recordId: typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('wm_airtable_record_id') : null,
+            recordId:
+              typeof sessionStorage !== 'undefined'
+                ? sessionStorage.getItem('wm_airtable_record_id')
+                : null,
             responses: r,
           }),
         }).catch(() => {}),
@@ -265,10 +270,15 @@ function IntakeStepContent() {
 
       // Show spinner while submitting
       return (
-        <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: '#F7F7F9' }}>
+        <div
+          className="flex min-h-screen items-center justify-center"
+          style={{ backgroundColor: '#F7F7F9' }}
+        >
           <div className="flex flex-col items-center gap-4">
             <div className="h-12 w-12 animate-spin rounded-full border-4 border-[#c3b29e] border-t-transparent" />
-            <p className="text-sm" style={{ color: '#7B95A9' }}>Preparing your results...</p>
+            <p className="text-sm" style={{ color: '#7B95A9' }}>
+              Preparing your results...
+            </p>
           </div>
         </div>
       );

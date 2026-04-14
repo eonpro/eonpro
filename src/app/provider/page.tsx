@@ -2,16 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  Users,
-  Calendar,
-  Clock,
-  FileText,
-  Pill,
-  Loader2,
-  X,
-  Video,
-} from 'lucide-react';
+import { Users, Calendar, Clock, FileText, Pill, Loader2, X, Video } from 'lucide-react';
 import { ProviderDashboardSkeleton } from '@/components/dashboards/ProviderDashboardSkeleton';
 import ProviderCalendarStatusCard from '@/components/ProviderCalendarStatusCard';
 import { apiFetch } from '@/lib/api/fetch';
@@ -66,7 +57,10 @@ export default function ProviderDashboard() {
     }
     try {
       const data = safeParseJsonString<Record<string, unknown>>(user);
-      if (!data) { router.push('/login'); return; }
+      if (!data) {
+        router.push('/login');
+        return;
+      }
       if (String(data?.role ?? '').toLowerCase() !== 'provider') {
         router.push('/login');
         return;
@@ -127,49 +121,46 @@ export default function ProviderDashboard() {
     }
   };
 
-  const handleSearchChange = useCallback(
-    (value: string) => {
-      setSearchTerm(value);
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchTerm(value);
 
-      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
 
-      if (!value.trim()) {
-        setSearchResults([]);
-        setSearchTotal(undefined);
-        setIsSearching(false);
-        if (searchAbortRef.current) searchAbortRef.current.abort();
-        return;
-      }
+    if (!value.trim()) {
+      setSearchResults([]);
+      setSearchTotal(undefined);
+      setIsSearching(false);
+      if (searchAbortRef.current) searchAbortRef.current.abort();
+      return;
+    }
 
-      setIsSearching(true);
-      searchDebounceRef.current = window.setTimeout(async () => {
-        if (searchAbortRef.current) searchAbortRef.current.abort();
-        searchAbortRef.current = new AbortController();
+    setIsSearching(true);
+    searchDebounceRef.current = window.setTimeout(async () => {
+      if (searchAbortRef.current) searchAbortRef.current.abort();
+      searchAbortRef.current = new AbortController();
 
-        try {
-          const params = new URLSearchParams({
-            search: value.trim(),
-            limit: '8',
-            includeContact: 'true',
-          });
-          const response = await apiFetch(`/api/patients?${params.toString()}`, {
-            signal: searchAbortRef.current.signal,
-          });
+      try {
+        const params = new URLSearchParams({
+          search: value.trim(),
+          limit: '8',
+          includeContact: 'true',
+        });
+        const response = await apiFetch(`/api/patients?${params.toString()}`, {
+          signal: searchAbortRef.current.signal,
+        });
 
-          if (response.ok) {
-            const data = await response.json();
-            setSearchResults(data.patients || []);
-            setSearchTotal(data.meta?.total ?? data.patients?.length ?? 0);
-          }
-        } catch (err) {
-          if ((err as Error).name === 'AbortError') return;
-        } finally {
-          setIsSearching(false);
+        if (response.ok) {
+          const data = await response.json();
+          setSearchResults(data.patients || []);
+          setSearchTotal(data.meta?.total ?? data.patients?.length ?? 0);
         }
-      }, 200);
-    },
-    []
-  );
+      } catch (err) {
+        if ((err as Error).name === 'AbortError') return;
+      } finally {
+        setIsSearching(false);
+      }
+    }, 200);
+  }, []);
 
   const handleSearchClear = useCallback(() => {
     setSearchTerm('');
@@ -294,7 +285,7 @@ export default function ProviderDashboard() {
       <div className="mb-8 grid grid-cols-1 gap-5 md:grid-cols-4">
         <a
           href="/provider/patients"
-          className="block rounded-2xl border border-gray-100 bg-white p-5 text-left shadow-sm transition-colors hover:border-green-200 no-underline"
+          className="block rounded-2xl border border-gray-100 bg-white p-5 text-left no-underline shadow-sm transition-colors hover:border-green-200"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -309,7 +300,7 @@ export default function ProviderDashboard() {
 
         <a
           href="/provider/soap-notes"
-          className="block rounded-2xl border border-gray-100 bg-white p-5 text-left shadow-sm transition-colors hover:border-blue-200 no-underline"
+          className="block rounded-2xl border border-gray-100 bg-white p-5 text-left no-underline shadow-sm transition-colors hover:border-blue-200"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -324,7 +315,7 @@ export default function ProviderDashboard() {
 
         <a
           href="/provider/prescriptions"
-          className="block rounded-2xl border border-gray-100 bg-white p-5 text-left shadow-sm transition-colors hover:border-[var(--brand-primary-medium)] no-underline"
+          className="block rounded-2xl border border-gray-100 bg-white p-5 text-left no-underline shadow-sm transition-colors hover:border-[var(--brand-primary-medium)]"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -339,7 +330,7 @@ export default function ProviderDashboard() {
 
         <a
           href="/provider/calendar"
-          className="block rounded-2xl border border-gray-100 bg-white p-5 text-left shadow-sm transition-colors hover:border-cyan-200 no-underline"
+          className="block rounded-2xl border border-gray-100 bg-white p-5 text-left no-underline shadow-sm transition-colors hover:border-cyan-200"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -358,10 +349,7 @@ export default function ProviderDashboard() {
         <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
             <h2 className="text-lg font-semibold text-gray-900">Today's Schedule</h2>
-            <a
-              href="/provider/calendar"
-              className="text-sm text-[#4fa77e] hover:underline"
-            >
+            <a href="/provider/calendar" className="text-sm text-[#4fa77e] hover:underline">
               View all
             </a>
           </div>
@@ -409,10 +397,7 @@ export default function ProviderDashboard() {
         <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
             <h2 className="text-lg font-semibold text-gray-900">Recent Intakes</h2>
-            <a
-              href="/provider/patients"
-              className="text-sm text-[#4fa77e] hover:underline"
-            >
+            <a href="/provider/patients" className="text-sm text-[#4fa77e] hover:underline">
               View all
             </a>
           </div>
@@ -472,28 +457,28 @@ export default function ProviderDashboard() {
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             <a
               href="/provider/patients"
-              className="flex flex-col items-center rounded-xl bg-[#4fa77e]/10 p-4 text-[#4fa77e] transition-colors hover:bg-[#4fa77e]/20 no-underline"
+              className="flex flex-col items-center rounded-xl bg-[#4fa77e]/10 p-4 text-[#4fa77e] no-underline transition-colors hover:bg-[#4fa77e]/20"
             >
               <Users className="mb-2 h-6 w-6" />
               <span className="text-sm font-medium">View Intakes</span>
             </a>
             <a
               href="/provider/soap-notes"
-              className="flex flex-col items-center rounded-xl bg-blue-50 p-4 text-blue-700 transition-colors hover:bg-blue-100 no-underline"
+              className="flex flex-col items-center rounded-xl bg-blue-50 p-4 text-blue-700 no-underline transition-colors hover:bg-blue-100"
             >
               <FileText className="mb-2 h-6 w-6" />
               <span className="text-sm font-medium">SOAP Notes</span>
             </a>
             <a
               href="/provider/prescriptions"
-              className="flex flex-col items-center rounded-xl bg-[var(--brand-primary-light)] p-4 text-[var(--brand-primary)] transition-colors hover:bg-[var(--brand-primary-light)] no-underline"
+              className="flex flex-col items-center rounded-xl bg-[var(--brand-primary-light)] p-4 text-[var(--brand-primary)] no-underline transition-colors hover:bg-[var(--brand-primary-light)]"
             >
               <Pill className="mb-2 h-6 w-6" />
               <span className="text-sm font-medium">Prescriptions</span>
             </a>
             <a
               href="/provider/calendar"
-              className="flex flex-col items-center rounded-xl bg-cyan-50 p-4 text-cyan-700 transition-colors hover:bg-cyan-100 no-underline"
+              className="flex flex-col items-center rounded-xl bg-cyan-50 p-4 text-cyan-700 no-underline transition-colors hover:bg-cyan-100"
             >
               <Calendar className="mb-2 h-6 w-6" />
               <span className="text-sm font-medium">Calendar</span>

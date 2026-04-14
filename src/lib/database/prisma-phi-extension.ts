@@ -165,9 +165,7 @@ export function createPhiMiddleware() {
     if (action === 'create' || action === 'createMany' || action === 'createManyAndReturn') {
       if (args.data) {
         if (Array.isArray(args.data)) {
-          args.data = args.data.map((item: Record<string, unknown>) =>
-            encryptFields(item, fields)
-          );
+          args.data = args.data.map((item: Record<string, unknown>) => encryptFields(item, fields));
         } else {
           args.data = encryptFields(args.data as Record<string, unknown>, fields);
         }

@@ -330,9 +330,8 @@ async function handleGet(request: NextRequest, user: AuthUser) {
           clicks: monthlyClicks,
           taggedProfiles: taggedProfilesCount,
           intakes: intakesThisMonth,
-          clickToIntakeRate: monthlyClicks > 0
-            ? Math.round((intakesThisMonth / monthlyClicks) * 1000) / 10
-            : 0,
+          clickToIntakeRate:
+            monthlyClicks > 0 ? Math.round((intakesThisMonth / monthlyClicks) * 1000) / 10 : 0,
         },
         topCodesByClicks: topCodesFormatted,
         dailyTrend: dailyTrendFormatted,
@@ -340,7 +339,9 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       recentActivity,
     });
   } catch (error) {
-    logger.error('[Affiliate Dashboard] Error', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('[Affiliate Dashboard] Error', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json({ error: 'Failed to load dashboard' }, { status: 500 });
   }
 }

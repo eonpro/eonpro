@@ -62,7 +62,9 @@ export function SubdomainClinicBanner() {
         // Non-blocking
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [dismissed, brandingLoading, branding?.clinicId, branding?.clinicName]);
 
   const handleSwitch = async () => {

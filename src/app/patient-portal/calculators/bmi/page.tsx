@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useTransition, useCallback } from 'react';
 import Link from 'next/link';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
@@ -58,6 +58,14 @@ export default function BMICalculatorPage() {
 
   const [feet, setFeet] = useState('');
   const [inches, setInches] = useState('');
+  const [, startTransition] = useTransition();
+
+  const handleNumericChange = useCallback(
+    (setter: (v: string) => void) => (e: React.ChangeEvent<HTMLInputElement>) => {
+      startTransition(() => setter(e.target.value));
+    },
+    [startTransition]
+  );
   const [weight, setWeight] = useState('');
   const [isAnimating, setIsAnimating] = useState(false);
 
@@ -145,7 +153,7 @@ export default function BMICalculatorPage() {
                         inputMode="numeric"
                         pattern="[0-9]*"
                         value={feet}
-                        onChange={(e) => setFeet(e.target.value)}
+                        onChange={handleNumericChange(setFeet)}
                         placeholder="5"
                         min="0"
                         max="8"
@@ -164,7 +172,7 @@ export default function BMICalculatorPage() {
                         inputMode="numeric"
                         pattern="[0-9]*"
                         value={inches}
-                        onChange={(e) => setInches(e.target.value)}
+                        onChange={handleNumericChange(setInches)}
                         placeholder="10"
                         min="0"
                         max="11"
@@ -190,7 +198,7 @@ export default function BMICalculatorPage() {
                     inputMode="decimal"
                     pattern="[0-9]*"
                     value={weight}
-                    onChange={(e) => setWeight(e.target.value)}
+                    onChange={handleNumericChange(setWeight)}
                     placeholder="170"
                     min="0"
                     className="w-full rounded-2xl border-2 border-gray-100 bg-gray-50 px-4 py-4 text-xl font-semibold text-gray-900 outline-none transition-all placeholder:text-gray-300 focus:border-gray-900 focus:bg-white focus:shadow-lg sm:px-5 sm:text-2xl"
@@ -217,8 +225,7 @@ export default function BMICalculatorPage() {
                     }`}
                     style={{
                       backgroundColor: cat.bgColor,
-                      ...(category?.label === cat.label &&
-                        ringColorStyle(cat.color)),
+                      ...(category?.label === cat.label && ringColorStyle(cat.color)),
                     }}
                   >
                     <div className="flex items-center gap-3">

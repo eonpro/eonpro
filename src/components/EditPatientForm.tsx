@@ -149,7 +149,6 @@ export default function EditPatientForm({ patient, documents }: Props) {
       setDocs((prev: any) => [data.document, ...prev]);
       event.target.value = '';
     } catch (err: unknown) {
-      
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       setMessage(errorMessage ?? 'Failed to upload document');
     } finally {

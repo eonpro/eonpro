@@ -7,7 +7,9 @@ import { prisma } from '@/lib/db';
 import { withAuth } from '@/lib/auth/middleware';
 import { handleApiError } from '@/domains/shared/errors';
 
-interface RouteParams { params: Promise<{ id: string }>; }
+interface RouteParams {
+  params: Promise<{ id: string }>;
+}
 
 export const GET = withAuth<RouteParams>(async (request, user, { params } = {} as RouteParams) => {
   try {
@@ -25,7 +27,9 @@ export const GET = withAuth<RouteParams>(async (request, user, { params } = {} a
 
     return NextResponse.json({ comments });
   } catch (error) {
-    return handleApiError(error, { route: `GET /api/patient-portal/tickets/${(await params).id}/comments` });
+    return handleApiError(error, {
+      route: `GET /api/patient-portal/tickets/${(await params).id}/comments`,
+    });
   }
 });
 
@@ -50,7 +54,10 @@ export const POST = withAuth<RouteParams>(async (request, user, { params } = {} 
     if (user.role.toLowerCase() === 'patient') {
       let patientId = (user as any).patientId;
       if (!patientId) {
-        const userRecord = await prisma.user.findUnique({ where: { id: user.id }, select: { patientId: true } });
+        const userRecord = await prisma.user.findUnique({
+          where: { id: user.id },
+          select: { patientId: true },
+        });
         const patient = userRecord?.patientId ? { id: userRecord.patientId } : null;
         patientId = patient?.id;
       }
@@ -78,6 +85,8 @@ export const POST = withAuth<RouteParams>(async (request, user, { params } = {} 
 
     return NextResponse.json({ comment }, { status: 201 });
   } catch (error) {
-    return handleApiError(error, { route: `POST /api/patient-portal/tickets/${(await params).id}/comments` });
+    return handleApiError(error, {
+      route: `POST /api/patient-portal/tickets/${(await params).id}/comments`,
+    });
   }
 });

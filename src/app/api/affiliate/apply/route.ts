@@ -100,7 +100,9 @@ async function handlePost(request: NextRequest) {
     } catch (findError) {
       logger.error('[AffiliateApply] Error checking existing application', {
         error: findError instanceof Error ? findError.message : 'Unknown',
-        ...(process.env.NODE_ENV === 'development' && { stack: findError instanceof Error ? findError.stack : undefined }),
+        ...(process.env.NODE_ENV === 'development' && {
+          stack: findError instanceof Error ? findError.stack : undefined,
+        }),
       });
       return NextResponse.json({ error: 'Database error. Please try again.' }, { status: 500 });
     }
@@ -165,7 +167,9 @@ async function handlePost(request: NextRequest) {
     } catch (createError) {
       logger.error('[AffiliateApply] Error creating application', {
         error: createError instanceof Error ? createError.message : 'Unknown',
-        ...(process.env.NODE_ENV === 'development' && { stack: createError instanceof Error ? createError.stack : undefined }),
+        ...(process.env.NODE_ENV === 'development' && {
+          stack: createError instanceof Error ? createError.stack : undefined,
+        }),
         clinicId: clinic.id,
         email: data.email,
       });
@@ -192,7 +196,9 @@ async function handlePost(request: NextRequest) {
   } catch (error) {
     logger.error('[AffiliateApply] Error submitting application', {
       error: error instanceof Error ? error.message : 'Unknown error',
-      ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
+      ...(process.env.NODE_ENV === 'development' && {
+        stack: error instanceof Error ? error.stack : undefined,
+      }),
       name: error instanceof Error ? error.name : undefined,
     });
 

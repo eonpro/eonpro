@@ -52,7 +52,10 @@ export default function SalesRepDetailLoading() {
             {Array.from({ length: 10 }).map((_, i) => (
               <div key={i} className="flex items-center gap-3">
                 <div className="h-3 w-14 rounded bg-gray-100" />
-                <div className="h-4 flex-1 rounded bg-gray-200" style={{ width: `${70 - i * 5}%` }} />
+                <div
+                  className="h-4 flex-1 rounded bg-gray-200"
+                  style={{ width: `${70 - i * 5}%` }}
+                />
                 <div className="h-3 w-10 rounded bg-gray-100" />
               </div>
             ))}

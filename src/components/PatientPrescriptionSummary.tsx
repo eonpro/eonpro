@@ -88,9 +88,7 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
   const [lastPrescriptionDate, setLastPrescriptionDate] = useState<string | null>(null);
   const [lastMedications, setLastMedications] = useState<Medication[]>([]);
   const [trackingEntries, setTrackingEntries] = useState<TrackingEntry[]>([]);
-  const [unmatchedPrescriptions, setUnmatchedPrescriptions] = useState<UnmatchedPrescription[]>(
-    []
-  );
+  const [unmatchedPrescriptions, setUnmatchedPrescriptions] = useState<UnmatchedPrescription[]>([]);
 
   // Add tracking form state
   const [showAddForm, setShowAddForm] = useState(false);
@@ -482,8 +480,18 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
               />
               {carrierAutoDetected && formData.trackingNumber.trim().length > 5 && (
                 <p className="mt-1 flex items-center gap-1 text-xs text-emerald-600">
-                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  <svg
+                    className="h-3.5 w-3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 13l4 4L19 7"
+                    />
                   </svg>
                   Auto-detected as <span className="font-semibold">{formData.carrier}</span>
                 </p>
@@ -502,9 +510,7 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
                     setFormData({ ...formData, carrier: e.target.value });
                   }}
                   className={`w-full rounded-lg border px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-[#4fa77e] ${
-                    carrierAutoDetected
-                      ? 'border-emerald-300 bg-emerald-50'
-                      : 'border-gray-300'
+                    carrierAutoDetected ? 'border-emerald-300 bg-emerald-50' : 'border-gray-300'
                   }`}
                 >
                   {CARRIERS.map((c) => (
@@ -515,8 +521,18 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
                 </select>
                 {carrierAutoDetected && (
                   <span className="pointer-events-none absolute right-8 top-1/2 -translate-y-1/2">
-                    <svg className="h-4 w-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    <svg
+                      className="h-4 w-4 text-emerald-500"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
                     </svg>
                   </span>
                 )}
@@ -540,9 +556,7 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
                       <label
                         key={key}
                         className={`flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 transition-colors ${
-                          isChecked
-                            ? 'bg-emerald-50 ring-1 ring-emerald-200'
-                            : 'hover:bg-gray-50'
+                          isChecked ? 'bg-emerald-50 ring-1 ring-emerald-200' : 'hover:bg-gray-50'
                         }`}
                       >
                         <input
@@ -558,7 +572,9 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
                               const selectedRxs = unmatchedPrescriptions.filter((p) =>
                                 selected.includes(`${p.orderId}-${p.rxId}`)
                               );
-                              const uniqueOrderIds = [...new Set(selectedRxs.map((p) => p.orderId))];
+                              const uniqueOrderIds = [
+                                ...new Set(selectedRxs.map((p) => p.orderId)),
+                              ];
 
                               // Auto-fill medication info from the first selected prescription
                               const firstRx = selectedRxs[0];
@@ -567,23 +583,24 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
                                 ...prev,
                                 selectedPrescriptions: selected,
                                 orderIds: uniqueOrderIds,
-                                medicationName: selectedRxs.length === 1
-                                  ? (firstRx?.medName || '')
-                                  : selectedRxs.length > 1
-                                    ? selectedRxs.map((r) => r.medName).join(', ')
-                                    : prev.medicationName,
-                                medicationStrength: selectedRxs.length === 1
-                                  ? (firstRx?.strength || '')
-                                  : '',
-                                medicationQuantity: selectedRxs.length === 1
-                                  ? (firstRx?.quantity || '1')
-                                  : prev.medicationQuantity,
+                                medicationName:
+                                  selectedRxs.length === 1
+                                    ? firstRx?.medName || ''
+                                    : selectedRxs.length > 1
+                                      ? selectedRxs.map((r) => r.medName).join(', ')
+                                      : prev.medicationName,
+                                medicationStrength:
+                                  selectedRxs.length === 1 ? firstRx?.strength || '' : '',
+                                medicationQuantity:
+                                  selectedRxs.length === 1
+                                    ? firstRx?.quantity || '1'
+                                    : prev.medicationQuantity,
                               };
                             });
                           }}
                           className="h-4 w-4 rounded border-gray-300 text-[#4fa77e] focus:ring-[#4fa77e]"
                         />
-                        <div className="flex-1 min-w-0">
+                        <div className="min-w-0 flex-1">
                           <span className="text-sm text-gray-900">{rx.displayName}</span>
                           <span className="ml-2 text-xs text-gray-400">Order #{rx.orderId}</span>
                         </div>
@@ -594,10 +611,21 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
               )}
               {formData.selectedPrescriptions.length > 0 && (
                 <p className="mt-1 flex items-center gap-1 text-xs text-emerald-600">
-                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  <svg
+                    className="h-3.5 w-3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 13l4 4L19 7"
+                    />
                   </svg>
-                  {formData.selectedPrescriptions.length} prescription{formData.selectedPrescriptions.length > 1 ? 's' : ''} selected
+                  {formData.selectedPrescriptions.length} prescription
+                  {formData.selectedPrescriptions.length > 1 ? 's' : ''} selected
                   {formData.orderIds.length > 1 && ` across ${formData.orderIds.length} orders`}
                 </p>
               )}
@@ -869,8 +897,18 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
                           className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-blue-600"
                           title="Edit tracking entry"
                         >
-                          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          <svg
+                            className="h-3.5 w-3.5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                            />
                           </svg>
                         </button>
                         <button
@@ -879,8 +917,18 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
                           className="rounded p-1 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
                           title="Delete tracking entry"
                         >
-                          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          <svg
+                            className="h-3.5 w-3.5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            />
                           </svg>
                         </button>
                       </div>
@@ -901,8 +949,18 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
               <>
                 <div className="mb-4 flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
-                    <svg className="h-5 w-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    <svg
+                      className="h-5 w-5 text-red-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
                     </svg>
                   </div>
                   <div>
@@ -923,10 +981,22 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
 
                 <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
                   <div className="mb-2 flex items-center gap-2">
-                    <svg className="h-4 w-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    <svg
+                      className="h-4 w-4 text-amber-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                      />
                     </svg>
-                    <span className="text-sm font-medium text-amber-800">Admin Verification Required</span>
+                    <span className="text-sm font-medium text-amber-800">
+                      Admin Verification Required
+                    </span>
                   </div>
                   <input
                     type="password"
@@ -943,7 +1013,9 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
                 </div>
 
                 {actionError && (
-                  <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{actionError}</div>
+                  <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                    {actionError}
+                  </div>
                 )}
 
                 <div className="flex justify-end gap-2">
@@ -969,8 +1041,18 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
               <>
                 <div className="mb-4 flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
-                    <svg className="h-5 w-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    <svg
+                      className="h-5 w-5 text-blue-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                      />
                     </svg>
                   </div>
                   <h3 className="text-lg font-semibold text-gray-900">Edit Tracking Entry</h3>
@@ -992,7 +1074,9 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-gray-700">Carrier</label>
+                      <label className="mb-1 block text-xs font-medium text-gray-700">
+                        Carrier
+                      </label>
                       <select
                         value={editFormData.carrier}
                         onChange={(e) =>
@@ -1028,7 +1112,9 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-gray-700">Medication</label>
+                      <label className="mb-1 block text-xs font-medium text-gray-700">
+                        Medication
+                      </label>
                       <input
                         type="text"
                         value={editFormData.medicationName}
@@ -1040,12 +1126,17 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-gray-700">Strength</label>
+                      <label className="mb-1 block text-xs font-medium text-gray-700">
+                        Strength
+                      </label>
                       <input
                         type="text"
                         value={editFormData.medicationStrength}
                         onChange={(e) =>
-                          setEditFormData((prev) => ({ ...prev, medicationStrength: e.target.value }))
+                          setEditFormData((prev) => ({
+                            ...prev,
+                            medicationStrength: e.target.value,
+                          }))
                         }
                         placeholder="e.g. 0.5mg"
                         className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-[#4fa77e]"
@@ -1069,10 +1160,22 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
 
                 <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
                   <div className="mb-2 flex items-center gap-2">
-                    <svg className="h-4 w-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    <svg
+                      className="h-4 w-4 text-amber-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                      />
                     </svg>
-                    <span className="text-sm font-medium text-amber-800">Admin Verification Required</span>
+                    <span className="text-sm font-medium text-amber-800">
+                      Admin Verification Required
+                    </span>
                   </div>
                   <input
                     type="password"
@@ -1088,7 +1191,9 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
                 </div>
 
                 {actionError && (
-                  <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{actionError}</div>
+                  <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                    {actionError}
+                  </div>
                 )}
 
                 <div className="flex justify-end gap-2">
@@ -1103,7 +1208,9 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
                   <button
                     type="button"
                     onClick={handleEditTracking}
-                    disabled={actionLoading || !adminPassword.trim() || !editFormData.trackingNumber.trim()}
+                    disabled={
+                      actionLoading || !adminPassword.trim() || !editFormData.trackingNumber.trim()
+                    }
                     className="rounded-lg bg-[#4fa77e] px-4 py-2 text-sm font-medium text-white hover:bg-[#3f8660] disabled:opacity-50"
                   >
                     {actionLoading ? 'Saving...' : 'Save Changes'}

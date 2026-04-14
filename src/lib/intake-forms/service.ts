@@ -63,43 +63,46 @@ export async function createFormTemplate(
     }
 
     // Create template with questions in a transaction
-    const template = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      // Create the template
-      const newTemplate = await tx.intakeFormTemplate.create({
-        data: {
-          name: input.name.trim(),
-          description: input.description?.trim(),
-          treatmentType: input.treatmentType,
-          isActive: true,
-          metadata: (input.metadata || {}) as any,
-          providerId: providerId as number | undefined,
-          createdById: createdById || undefined,
-        },
-      });
+    const template = await prisma.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        // Create the template
+        const newTemplate = await tx.intakeFormTemplate.create({
+          data: {
+            name: input.name.trim(),
+            description: input.description?.trim(),
+            treatmentType: input.treatmentType,
+            isActive: true,
+            metadata: (input.metadata || {}) as any,
+            providerId: providerId as number | undefined,
+            createdById: createdById || undefined,
+          },
+        });
 
-      // Create questions
-      const questions = await Promise.all(
-        input.questions.map((q, index) =>
-          tx.intakeFormQuestion.create({
-            data: {
-              templateId: newTemplate.id,
-              questionText: q.questionText.trim(),
-              questionType: q.questionType,
-              options: q.options || undefined,
-              isRequired: q.isRequired || false,
-              validation: q.validation || undefined,
-              placeholder: q.placeholder?.trim() || null,
-              helpText: q.helpText?.trim() || null,
-              orderIndex: q.orderIndex ?? index,
-              section: q.section?.trim() || 'General',
-              conditionalLogic: q.conditionalLogic || undefined,
-            },
-          })
-        )
-      );
+        // Create questions
+        const questions = await Promise.all(
+          input.questions.map((q, index) =>
+            tx.intakeFormQuestion.create({
+              data: {
+                templateId: newTemplate.id,
+                questionText: q.questionText.trim(),
+                questionType: q.questionType,
+                options: q.options || undefined,
+                isRequired: q.isRequired || false,
+                validation: q.validation || undefined,
+                placeholder: q.placeholder?.trim() || null,
+                helpText: q.helpText?.trim() || null,
+                orderIndex: q.orderIndex ?? index,
+                section: q.section?.trim() || 'General',
+                conditionalLogic: q.conditionalLogic || undefined,
+              },
+            })
+          )
+        );
 
-      return { ...newTemplate, questions };
-    }, { timeout: 15000 });
+        return { ...newTemplate, questions };
+      },
+      { timeout: 15000 }
+    );
 
     // Clear cache
     templateCache.clear();
@@ -107,7 +110,6 @@ export async function createFormTemplate(
     logger.info(`Form template created: ${template.id} - ${template.name}`);
     return template;
   } catch (error: unknown) {
-    
     logger.error('Failed to create form template', error);
     throw error;
   }
@@ -151,7 +153,6 @@ export async function getFormTemplates(
 
     return templates;
   } catch (error: unknown) {
-    
     logger.error('Failed to get form templates', error);
     throw error;
   }
@@ -218,7 +219,6 @@ export async function getFormTemplate(templateId: number, includeStats = false):
 
     return template;
   } catch (error: unknown) {
-    
     logger.error('Failed to get form template', error);
     throw error;
   }
@@ -232,51 +232,54 @@ export async function updateFormTemplate(
   updates: Partial<CreateFormTemplateInput>
 ): Promise<any> {
   try {
-    const template = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      // Update template
-      const updated = await tx.intakeFormTemplate.update({
-        where: { id: templateId },
-        data: {
-          name: updates.name?.trim(),
-          description: updates.description?.trim(),
-          treatmentType: updates.treatmentType,
-          metadata: updates.metadata,
-        },
-      });
-
-      // Update questions if provided
-      if (updates.questions && updates.questions.length > 0) {
-        // Delete existing questions
-        await tx.intakeFormQuestion.deleteMany({
-          where: { templateId },
+    const template = await prisma.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        // Update template
+        const updated = await tx.intakeFormTemplate.update({
+          where: { id: templateId },
+          data: {
+            name: updates.name?.trim(),
+            description: updates.description?.trim(),
+            treatmentType: updates.treatmentType,
+            metadata: updates.metadata,
+          },
         });
 
-        // Create new questions
-        const questions = await Promise.all(
-          updates.questions.map((q, index) =>
-            tx.intakeFormQuestion.create({
-              data: {
-                templateId,
-                questionText: q.questionText.trim(),
-                questionType: q.questionType,
-                options: q.options || undefined,
-                isRequired: q.isRequired || false,
-                validation: q.validation || undefined,
-                placeholder: q.placeholder?.trim() || null,
-                helpText: q.helpText?.trim() || null,
-                orderIndex: q.orderIndex ?? index,
-                section: q.section?.trim() || 'General',
-                conditionalLogic: q.conditionalLogic || undefined,
-              },
-            })
-          )
-        );
+        // Update questions if provided
+        if (updates.questions && updates.questions.length > 0) {
+          // Delete existing questions
+          await tx.intakeFormQuestion.deleteMany({
+            where: { templateId },
+          });
 
-        return { ...updated, questions };
-      }
+          // Create new questions
+          const questions = await Promise.all(
+            updates.questions.map((q, index) =>
+              tx.intakeFormQuestion.create({
+                data: {
+                  templateId,
+                  questionText: q.questionText.trim(),
+                  questionType: q.questionType,
+                  options: q.options || undefined,
+                  isRequired: q.isRequired || false,
+                  validation: q.validation || undefined,
+                  placeholder: q.placeholder?.trim() || null,
+                  helpText: q.helpText?.trim() || null,
+                  orderIndex: q.orderIndex ?? index,
+                  section: q.section?.trim() || 'General',
+                  conditionalLogic: q.conditionalLogic || undefined,
+                },
+              })
+            )
+          );
 
-      return updated;
-    }, { timeout: 15000 });
+          return { ...updated, questions };
+        }
+
+        return updated;
+      },
+      { timeout: 15000 }
+    );
 
     // Clear cache
     templateCache.clear();
@@ -284,7 +287,6 @@ export async function updateFormTemplate(
     logger.info(`Form template updated: ${templateId}`);
     return template;
   } catch (error: unknown) {
-    
     logger.error('Failed to update form template', error);
     throw error;
   }
@@ -305,7 +307,6 @@ export async function deleteFormTemplate(templateId: number): Promise<void> {
 
     logger.info(`Form template deleted: ${templateId}`);
   } catch (error: unknown) {
-    
     logger.error('Failed to delete form template', error);
     throw error;
   }
@@ -359,7 +360,6 @@ export async function createFormLink(input: FormLinkInput): Promise<IntakeFormLi
     logger.info(`Form link created: ${linkId} for ${input.patientEmail}`);
     return link;
   } catch (error: unknown) {
-    
     logger.error('Failed to create form link', error);
     throw error;
   }
@@ -412,7 +412,6 @@ export async function getFormByLinkId(linkId: string): Promise<any> {
 
     return link;
   } catch (error: unknown) {
-    
     logger.error('Failed to get form by link ID', error);
     throw error;
   }
@@ -449,140 +448,143 @@ export async function submitFormResponses(
     let patientId = link.submission?.patientId || null;
     const templateClinicId = link.template.clinicId;
 
-    const submission = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      // Patient find/create/update inside the transaction for atomicity.
-      // Uses hash-based dedup on email + DOB within the clinic.
-      if (!patientId && patientInfo?.email) {
-        const email = patientInfo.email.toLowerCase().trim();
-        const dob = patientInfo.dob || '1900-01-01';
+    const submission = await prisma.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        // Patient find/create/update inside the transaction for atomicity.
+        // Uses hash-based dedup on email + DOB within the clinic.
+        if (!patientId && patientInfo?.email) {
+          const email = patientInfo.email.toLowerCase().trim();
+          const dob = patientInfo.dob || '1900-01-01';
 
-        const existing = templateClinicId
-          ? await patientDeduplicationService.findDuplicate(email, dob, templateClinicId, tx)
-          : null;
+          const existing = templateClinicId
+            ? await patientDeduplicationService.findDuplicate(email, dob, templateClinicId, tx)
+            : null;
 
-        if (existing) {
-          const newFirstName = patientInfo.firstName || existing.firstName;
-          const newLastName = patientInfo.lastName || existing.lastName;
-          const newPhone = patientInfo.phone || existing.phone;
-          const updateSearchIndex = buildPatientSearchIndex({
-            firstName: newFirstName,
-            lastName: newLastName,
-            email: existing.email,
-            phone: newPhone,
-            patientId: existing.patientId,
-          });
-          const emailH = computeEmailHash(email);
-          const dobH = computeDobHash(dob);
-          await tx.patient.update({
-            where: { id: existing.id },
-            data: {
-              firstName: encryptPHI(newFirstName) || newFirstName,
-              lastName: encryptPHI(newLastName) || newLastName,
-              phone: encryptPHI(newPhone) || newPhone,
-              searchIndex: updateSearchIndex,
-              ...(emailH && !existing.emailHash ? { emailHash: emailH } : {}),
-              ...(dobH && !existing.dobHash ? { dobHash: dobH } : {}),
-            },
-          });
-          patientId = existing.id;
-        } else {
-          if (!templateClinicId) {
-            logger.warn('Creating patient without clinicId from intake form', {
-              templateId: link.template.id,
+          if (existing) {
+            const newFirstName = patientInfo.firstName || existing.firstName;
+            const newLastName = patientInfo.lastName || existing.lastName;
+            const newPhone = patientInfo.phone || existing.phone;
+            const updateSearchIndex = buildPatientSearchIndex({
+              firstName: newFirstName,
+              lastName: newLastName,
+              email: existing.email,
+              phone: newPhone,
+              patientId: existing.patientId,
             });
+            const emailH = computeEmailHash(email);
+            const dobH = computeDobHash(dob);
+            await tx.patient.update({
+              where: { id: existing.id },
+              data: {
+                firstName: encryptPHI(newFirstName) || newFirstName,
+                lastName: encryptPHI(newLastName) || newLastName,
+                phone: encryptPHI(newPhone) || newPhone,
+                searchIndex: updateSearchIndex,
+                ...(emailH && !existing.emailHash ? { emailHash: emailH } : {}),
+                ...(dobH && !existing.dobHash ? { dobHash: dobH } : {}),
+              },
+            });
+            patientId = existing.id;
+          } else {
+            if (!templateClinicId) {
+              logger.warn('Creating patient without clinicId from intake form', {
+                templateId: link.template.id,
+              });
+            }
+
+            const searchIndex = buildPatientSearchIndex({
+              firstName: patientInfo.firstName || '',
+              lastName: patientInfo.lastName || '',
+              email,
+              phone: patientInfo.phone || undefined,
+            });
+            const patient = await tx.patient.create({
+              data: {
+                email: encryptPHI(email) || email,
+                firstName: encryptPHI(patientInfo.firstName || '') || '',
+                lastName: encryptPHI(patientInfo.lastName || '') || '',
+                phone: encryptPHI(patientInfo.phone || '') || '',
+                dob: encryptPHI(dob) || dob,
+                gender: 'OTHER',
+                address1: '',
+                city: '',
+                state: '',
+                zip: '',
+                clinicId: templateClinicId,
+                searchIndex,
+                source: 'intake-form',
+                emailHash: computeEmailHash(email),
+                dobHash: computeDobHash(dob),
+              },
+            });
+            patientId = patient.id;
           }
+        }
 
-          const searchIndex = buildPatientSearchIndex({
-            firstName: patientInfo.firstName || '',
-            lastName: patientInfo.lastName || '',
-            email,
-            phone: patientInfo.phone || undefined,
+        // Re-check for duplicate submission inside transaction (prevents race condition)
+        if (link.submission?.id) {
+          const existingSub = await tx.intakeFormSubmission.findUnique({
+            where: { id: link.submission.id },
+            select: { status: true },
           });
-          const patient = await tx.patient.create({
+          if (existingSub?.status === 'completed') {
+            throw new Error('This form has already been submitted');
+          }
+        }
+
+        let sub;
+        if (link.submission?.id) {
+          sub = await tx.intakeFormSubmission.update({
+            where: { id: link.submission.id },
             data: {
-              email: encryptPHI(email) || email,
-              firstName: encryptPHI(patientInfo.firstName || '') || '',
-              lastName: encryptPHI(patientInfo.lastName || '') || '',
-              phone: encryptPHI(patientInfo.phone || '') || '',
-              dob: encryptPHI(dob) || dob,
-              gender: 'OTHER',
-              address1: '',
-              city: '',
-              state: '',
-              zip: '',
-              clinicId: templateClinicId,
-              searchIndex,
-              source: 'intake-form',
-              emailHash: computeEmailHash(email),
-              dobHash: computeDobHash(dob),
+              status: 'completed',
+              completedAt: new Date(),
+              metadata: {
+                signature,
+                submittedFrom: 'web',
+              } as any,
             },
           });
-          patientId = patient.id;
-        }
-      }
-
-      // Re-check for duplicate submission inside transaction (prevents race condition)
-      if (link.submission?.id) {
-        const existingSub = await tx.intakeFormSubmission.findUnique({
-          where: { id: link.submission.id },
-          select: { status: true },
-        });
-        if (existingSub?.status === 'completed') {
-          throw new Error('This form has already been submitted');
-        }
-      }
-
-      let sub;
-      if (link.submission?.id) {
-        sub = await tx.intakeFormSubmission.update({
-          where: { id: link.submission.id },
-          data: {
-            status: 'completed',
-            completedAt: new Date(),
-            metadata: {
-              signature,
-              submittedFrom: 'web',
-            } as any,
-          },
-        });
-      } else {
-        if (!patientId) {
-          throw new Error('Unable to determine patient for this submission');
-        }
-        sub = await tx.intakeFormSubmission.create({
-          data: {
-            formLinkId: link.id,
-            templateId: link.templateId,
-            patientId,
-            status: 'completed',
-            completedAt: new Date(),
-            metadata: {
-              signature,
-              submittedFrom: 'web',
-            } as any,
-          },
-        });
-      }
-
-      await tx.intakeFormResponse.deleteMany({
-        where: { submissionId: sub.id },
-      });
-
-      const createdResponses = await Promise.all(
-        responses.map((r: any) =>
-          tx.intakeFormResponse.create({
+        } else {
+          if (!patientId) {
+            throw new Error('Unable to determine patient for this submission');
+          }
+          sub = await tx.intakeFormSubmission.create({
             data: {
-              submissionId: sub.id,
-              questionId: r.questionId,
-              answer: r.answer,
-              fileUrl: r.fileUrl || undefined,
+              formLinkId: link.id,
+              templateId: link.templateId,
+              patientId,
+              status: 'completed',
+              completedAt: new Date(),
+              metadata: {
+                signature,
+                submittedFrom: 'web',
+              } as any,
             },
-          })
-        )
-      );
+          });
+        }
 
-      return { ...sub, responses: createdResponses, resolvedPatientId: patientId };
-    }, { timeout: 15000, isolationLevel: 'Serializable' });
+        await tx.intakeFormResponse.deleteMany({
+          where: { submissionId: sub.id },
+        });
+
+        const createdResponses = await Promise.all(
+          responses.map((r: any) =>
+            tx.intakeFormResponse.create({
+              data: {
+                submissionId: sub.id,
+                questionId: r.questionId,
+                answer: r.answer,
+                fileUrl: r.fileUrl || undefined,
+              },
+            })
+          )
+        );
+
+        return { ...sub, responses: createdResponses, resolvedPatientId: patientId };
+      },
+      { timeout: 15000, isolationLevel: 'Serializable' }
+    );
 
     // Post-transaction: auto-attribute patient to sales rep if the link carries one
     const linkSalesRepId = link.salesRepId as number | null;
@@ -600,7 +602,6 @@ export async function submitFormResponses(
     logger.info(`Form submitted: ${linkId}`);
     return submission;
   } catch (error: unknown) {
-    
     logger.error('Failed to submit form responses', error);
     throw error;
   }
@@ -650,7 +651,6 @@ export async function getFormSubmissions(
 
     return submissions;
   } catch (error: unknown) {
-    
     logger.error('Failed to get form submissions', error);
     throw error;
   }
@@ -705,7 +705,6 @@ export async function exportFormSubmission(submissionId: number): Promise<any> {
 
     return structuredData;
   } catch (error: unknown) {
-    
     logger.error('Failed to export form submission', error);
     throw error;
   }

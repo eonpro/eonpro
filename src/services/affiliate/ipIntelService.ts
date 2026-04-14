@@ -123,13 +123,10 @@ async function queryIpQualityScore(ip: string): Promise<IpIntelResult | null> {
     });
 
     const response = await circuitBreakers.ipIntel.execute(async () => {
-      const res = await fetch(
-        `https://ipqualityscore.com/api/json/ip/${apiKey}/${ip}?${params}`,
-        {
-          method: 'GET',
-          headers: { Accept: 'application/json' },
-        }
-      );
+      const res = await fetch(`https://ipqualityscore.com/api/json/ip/${apiKey}/${ip}?${params}`, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+      });
 
       if (!res.ok) {
         throw new Error(`IPQualityScore API error: ${res.status}`);

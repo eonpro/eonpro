@@ -20,7 +20,10 @@ import { authRateLimiter } from '@/lib/security/enterprise-rate-limiter';
 import { hashRefreshToken } from '@/lib/auth/refresh-token-rotation';
 
 const verifyEmailOtpSchema = z.object({
-  email: z.string().email().transform((v) => v.toLowerCase().trim()),
+  email: z
+    .string()
+    .email()
+    .transform((v) => v.toLowerCase().trim()),
   code: z
     .string()
     .trim()
@@ -188,14 +191,16 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
     ];
     if (user) {
       clearPromises.push(
-        prisma.user.update({
-          where: { id: user.id },
-          data: { failedLoginAttempts: 0, lockedUntil: null },
-        }).catch((err: unknown) => {
-          logger.warn('[VERIFY-EMAIL-OTP] Lockout clear failed', {
-            error: err instanceof Error ? err.message : 'Unknown error',
-          });
-        })
+        prisma.user
+          .update({
+            where: { id: user.id },
+            data: { failedLoginAttempts: 0, lockedUntil: null },
+          })
+          .catch((err: unknown) => {
+            logger.warn('[VERIFY-EMAIL-OTP] Lockout clear failed', {
+              error: err instanceof Error ? err.message : 'Unknown error',
+            });
+          })
       );
     }
     await Promise.all(clearPromises);
@@ -226,22 +231,25 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
 
     // Create UserSession for refresh-token rotation (non-blocking)
     if (user) {
-      prisma.userSession.create({
-        data: {
-          userId: user.id,
-          token: token.substring(0, 64),
-          refreshToken: refreshToken.substring(0, 64),
-          refreshTokenHash: hashRefreshToken(refreshToken),
-          ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown',
-          userAgent: req.headers.get('user-agent') || 'unknown',
-          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-          lastActivity: new Date(),
-        },
-      }).catch((err: unknown) => {
-        logger.warn('[VERIFY-EMAIL-OTP] UserSession creation failed', {
-          error: err instanceof Error ? err.message : 'Unknown',
+      prisma.userSession
+        .create({
+          data: {
+            userId: user.id,
+            token: token.substring(0, 64),
+            refreshToken: refreshToken.substring(0, 64),
+            refreshTokenHash: hashRefreshToken(refreshToken),
+            ipAddress:
+              req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown',
+            userAgent: req.headers.get('user-agent') || 'unknown',
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+            lastActivity: new Date(),
+          },
+        })
+        .catch((err: unknown) => {
+          logger.warn('[VERIFY-EMAIL-OTP] UserSession creation failed', {
+            error: err instanceof Error ? err.message : 'Unknown',
+          });
         });
-      });
     }
 
     logger.info('Successful email OTP login', {
@@ -326,9 +334,6 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
       'Error in verify-email-otp endpoint',
       error instanceof Error ? error : new Error(String(error))
     );
-    return NextResponse.json(
-      { error: 'An error occurred. Please try again.' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'An error occurred. Please try again.' }, { status: 500 });
   }
 });

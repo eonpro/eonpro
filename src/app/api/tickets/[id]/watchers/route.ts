@@ -104,41 +104,43 @@ export const POST = withAuth<RouteParams>(async (request, user, { params } = {} 
  * DELETE /api/tickets/[id]/watchers
  * Remove a watcher from a ticket
  */
-export const DELETE = withAuth<RouteParams>(async (request, user, { params } = {} as RouteParams) => {
-  try {
-    const { id } = await params;
-    const ticketId = parseInt(id, 10);
+export const DELETE = withAuth<RouteParams>(
+  async (request, user, { params } = {} as RouteParams) => {
+    try {
+      const { id } = await params;
+      const ticketId = parseInt(id, 10);
 
-    if (isNaN(ticketId)) {
-      return NextResponse.json({ error: 'Invalid ticket ID' }, { status: 400 });
+      if (isNaN(ticketId)) {
+        return NextResponse.json({ error: 'Invalid ticket ID' }, { status: 400 });
+      }
+
+      const { searchParams } = new URL(request.url);
+      const userId = searchParams.get('userId');
+
+      if (!userId) {
+        return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+      }
+
+      const watcherUserId = parseInt(userId, 10);
+
+      const userContext = {
+        id: user.id,
+        email: user.email,
+        role: user.role.toLowerCase() as 'super_admin' | 'admin' | 'provider' | 'staff' | 'patient',
+        clinicId: user.clinicId,
+      };
+
+      await ticketService.removeWatcher(ticketId, watcherUserId, userContext);
+
+      logger.info('[API] Watcher removed from ticket', {
+        ticketId,
+        watcherId: watcherUserId,
+        removedById: user.id,
+      });
+
+      return NextResponse.json({ message: 'Watcher removed successfully' });
+    } catch (error) {
+      return handleApiError(error, { route: `DELETE /api/tickets/${(await params).id}/watchers` });
     }
-
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
-
-    if (!userId) {
-      return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
-    }
-
-    const watcherUserId = parseInt(userId, 10);
-
-    const userContext = {
-      id: user.id,
-      email: user.email,
-      role: user.role.toLowerCase() as 'super_admin' | 'admin' | 'provider' | 'staff' | 'patient',
-      clinicId: user.clinicId,
-    };
-
-    await ticketService.removeWatcher(ticketId, watcherUserId, userContext);
-
-    logger.info('[API] Watcher removed from ticket', {
-      ticketId,
-      watcherId: watcherUserId,
-      removedById: user.id,
-    });
-
-    return NextResponse.json({ message: 'Watcher removed successfully' });
-  } catch (error) {
-    return handleApiError(error, { route: `DELETE /api/tickets/${(await params).id}/watchers` });
   }
-});
+);

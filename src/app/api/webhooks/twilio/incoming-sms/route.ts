@@ -130,37 +130,40 @@ export async function POST(request: NextRequest) {
     }
 
     // Find or create a thread and create message within patient's clinic context
-    const { existingThread, chatMessage } = await runWithClinicContext(patient.clinicId, async () => {
-      const existing = await prisma.patientChatMessage.findFirst({
-        where: {
-          patientId: patient.id,
-          channel: 'SMS',
-        },
-        orderBy: { createdAt: 'desc' },
-        select: { threadId: true },
-      });
-      const threadId = existing?.threadId || `sms_${patient.id}_${Date.now()}`;
-      const decryptedFirstName = safeDecrypt(patient.firstName) || 'Patient';
-      const decryptedLastName = safeDecrypt(patient.lastName) || '';
-      const patientDisplayName = `${decryptedFirstName} ${decryptedLastName}`.trim();
-      const msg = await prisma.patientChatMessage.create({
-        data: {
-          patientId: patient.id,
-          clinicId: patient.clinicId,
-          message: messageBody.trim(),
-          direction: 'INBOUND',
-          channel: 'SMS',
-          senderType: 'PATIENT',
-          senderId: null,
-          senderName: patientDisplayName,
-          status: 'DELIVERED',
-          externalId: messageSid,
-          deliveredAt: new Date(),
-          threadId,
-        },
-      });
-      return { existingThread: existing, chatMessage: msg };
-    });
+    const { existingThread, chatMessage } = await runWithClinicContext(
+      patient.clinicId,
+      async () => {
+        const existing = await prisma.patientChatMessage.findFirst({
+          where: {
+            patientId: patient.id,
+            channel: 'SMS',
+          },
+          orderBy: { createdAt: 'desc' },
+          select: { threadId: true },
+        });
+        const threadId = existing?.threadId || `sms_${patient.id}_${Date.now()}`;
+        const decryptedFirstName = safeDecrypt(patient.firstName) || 'Patient';
+        const decryptedLastName = safeDecrypt(patient.lastName) || '';
+        const patientDisplayName = `${decryptedFirstName} ${decryptedLastName}`.trim();
+        const msg = await prisma.patientChatMessage.create({
+          data: {
+            patientId: patient.id,
+            clinicId: patient.clinicId,
+            message: messageBody.trim(),
+            direction: 'INBOUND',
+            channel: 'SMS',
+            senderType: 'PATIENT',
+            senderId: null,
+            senderName: patientDisplayName,
+            status: 'DELIVERED',
+            externalId: messageSid,
+            deliveredAt: new Date(),
+            threadId,
+          },
+        });
+        return { existingThread: existing, chatMessage: msg };
+      }
+    );
 
     logger.info('Created chat message from incoming SMS', {
       messageId: chatMessage.id,

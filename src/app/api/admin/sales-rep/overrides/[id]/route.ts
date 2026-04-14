@@ -111,7 +111,9 @@ async function handlePatch(
     }
     return await runWithClinicContext(user.clinicId!, runUpdate);
   } catch (error) {
-    return handleApiError(error, { context: { route: `PATCH /api/admin/sales-rep/overrides/${params.id}` } });
+    return handleApiError(error, {
+      context: { route: `PATCH /api/admin/sales-rep/overrides/${params.id}` },
+    });
   }
 }
 
@@ -160,7 +162,9 @@ async function handleDelete(
     }
     return await runWithClinicContext(user.clinicId!, runDelete);
   } catch (error) {
-    return handleApiError(error, { context: { route: `DELETE /api/admin/sales-rep/overrides/${params.id}` } });
+    return handleApiError(error, {
+      context: { route: `DELETE /api/admin/sales-rep/overrides/${params.id}` },
+    });
   }
 }
 

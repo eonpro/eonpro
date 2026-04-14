@@ -19,7 +19,9 @@ export default function PharmacyAnalyticsPage() {
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [origin, setOrigin] = useState('');
-  useEffect(() => { setOrigin(window.location.origin); }, []);
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
 
   useEffect(() => {
     fetchAnalytics();
@@ -34,7 +36,6 @@ export default function PharmacyAnalyticsPage() {
         setAnalytics(data);
       }
     } catch (error: unknown) {
-      
       logger.error('Failed to fetch analytics', error);
     } finally {
       setLoading(false);

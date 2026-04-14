@@ -76,7 +76,9 @@ export default function AdminDashboard({ userName }: AdminDashboardProps) {
         const user = localStorage.getItem('user');
         if (user) {
           const userData = safeParseJsonString<Record<string, unknown>>(user);
-          setDisplayName((userData as any).firstName || (userData as any).email?.split('@')[0] || 'there');
+          setDisplayName(
+            (userData as any).firstName || (userData as any).email?.split('@')[0] || 'there'
+          );
         }
       } catch {
         // Keep default name

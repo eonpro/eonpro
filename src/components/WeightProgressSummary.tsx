@@ -23,7 +23,10 @@ interface WeightEntry {
  * Displays: Starting weight, Current weight, Change, Check-ins count
  * This mirrors the summary shown on the patient portal progress page.
  */
-export default function WeightProgressSummary({ patientId, basePath = '/patients' }: WeightProgressSummaryProps) {
+export default function WeightProgressSummary({
+  patientId,
+  basePath = '/patients',
+}: WeightProgressSummaryProps) {
   const [weightData, setWeightData] = useState<WeightEntry[]>([]);
   const [loading, setLoading] = useState(true);
 

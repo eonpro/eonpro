@@ -260,9 +260,7 @@ export function clearFlagCache(): void {
  *   const guard = await featureFlagGuard(FeatureFlag.AFFILIATE_ANALYTICS);
  *   if (guard) return guard; // Returns 503 if disabled
  */
-export async function featureFlagGuard(
-  flag: FeatureFlag
-): Promise<Response | null> {
+export async function featureFlagGuard(flag: FeatureFlag): Promise<Response | null> {
   const enabled = await isFeatureEnabled(flag);
   if (!enabled) {
     return new Response(

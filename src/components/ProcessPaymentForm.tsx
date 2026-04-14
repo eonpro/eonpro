@@ -17,7 +17,7 @@ const stripeCache = new Map<string, Promise<Stripe | null>>();
 
 function getStripeInstance(
   publishableKey?: string,
-  connectedAccountId?: string | null,
+  connectedAccountId?: string | null
 ): Promise<Stripe | null> | null {
   const pk = publishableKey || process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
   if (!pk) return null;
@@ -49,7 +49,12 @@ interface ProcessPaymentFormProps {
   onSuccess: () => void;
 }
 
-export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, onSuccess }: ProcessPaymentFormProps) {
+export function ProcessPaymentForm({
+  patientId,
+  patientName,
+  clinicSubdomain,
+  onSuccess,
+}: ProcessPaymentFormProps) {
   const [stripePromise, setStripePromise] = useState<Promise<Stripe | null> | null>(null);
   const [amountInCents, setAmountInCents] = useState(50);
 
@@ -76,7 +81,9 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
       }
     };
     init();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [patientId]);
 
   const handleAmountUpdate = useCallback((cents: number) => {
@@ -138,9 +145,17 @@ interface CartItem {
 }
 
 let _cartIdCounter = 0;
-function nextCartId() { return `cart_${++_cartIdCounter}_${Date.now()}`; }
+function nextCartId() {
+  return `cart_${++_cartIdCounter}_${Date.now()}`;
+}
 
-function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, onSuccess, onAmountChange }: FormContentProps) {
+function ProcessPaymentFormContent({
+  patientId,
+  patientName,
+  clinicSubdomain,
+  onSuccess,
+  onAmountChange,
+}: FormContentProps) {
   const stripe = useStripe();
   const elements = useElements();
 
@@ -166,9 +181,10 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
   const stripeReady = !!stripe && !!elements;
 
   const subtotal = cartItems.reduce((sum, item) => sum + item.amount, 0);
-  const ccFeeAmount = surcharge.ccProcessingFeeRate && includeCcFee
-    ? Math.round(subtotal * surcharge.ccProcessingFeeRate * 100) / 100
-    : 0;
+  const ccFeeAmount =
+    surcharge.ccProcessingFeeRate && includeCcFee
+      ? Math.round(subtotal * surcharge.ccProcessingFeeRate * 100) / 100
+      : 0;
   const totalAmount = subtotal + ccFeeAmount;
 
   const recurringItems = cartItems.filter((i) => i.isRecurring);
@@ -232,7 +248,11 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
     setCartItems((prev) => prev.filter((i) => i.id !== id));
   };
 
-  const handleItemChange = (id: string, field: 'description' | 'amount', value: string | number) => {
+  const handleItemChange = (
+    id: string,
+    field: 'description' | 'amount',
+    value: string | number
+  ) => {
     setCartItems((prev) =>
       prev.map((item) => {
         if (item.id !== id) return item;
@@ -337,9 +357,10 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
           : []),
       ];
 
-      const primaryDescription = validItems.length === 1
-        ? validItems[0].description
-        : `${validItems[0]?.description || 'Payment'} (+${validItems.length - 1} more)`;
+      const primaryDescription =
+        validItems.length === 1
+          ? validItems[0].description
+          : `${validItems[0]?.description || 'Payment'} (+${validItems.length - 1} more)`;
 
       const subscriptions = recurringItems.map((item) => {
         const plan = item.planId ? getPlanById(item.planId, clinicSubdomain) : null;
@@ -354,10 +375,12 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
           intervalCount: months,
           amountCents: currentCents,
           ...(plan?.stripePriceId ? { stripePriceId: plan.stripePriceId } : {}),
-          ...(isDiscounted ? {
-            discountMode: item.discountMode || 'first_only',
-            catalogAmountCents: catalogCents,
-          } : {}),
+          ...(isDiscounted
+            ? {
+                discountMode: item.discountMode || 'first_only',
+                catalogAmountCents: catalogCents,
+              }
+            : {}),
         };
       });
 
@@ -428,7 +451,7 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
             throw new Error('Payment form not ready. Please refresh and try again.');
           }
 
-          const savedCard = savedCards.find(c => c.id === selectedCardId);
+          const savedCard = savedCards.find((c) => c.id === selectedCardId);
           const pmId = savedCard?.stripePaymentMethodId || String(selectedCardId);
 
           const { error: confirmError, paymentIntent } = await stripe.confirmCardPayment(
@@ -531,7 +554,9 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
               }}
               className="flex-1 rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e]"
             >
-              <option value="" disabled>-- Select a plan to add --</option>
+              <option value="" disabled>
+                -- Select a plan to add --
+              </option>
               {Object.entries(groupedPlans).map(([groupName, group]) => (
                 <optgroup key={groupName} label={group.label}>
                   {group.plans.map((plan: any) => (
@@ -574,12 +599,20 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
                         placeholder="Description"
                       />
                       <div className="relative w-28">
-                        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
+                        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">
+                          $
+                        </span>
                         <input
                           type="text"
                           inputMode="decimal"
                           value={item.amount || ''}
-                          onChange={(e) => handleItemChange(item.id, 'amount', e.target.value.replace(/[^0-9.]/g, ''))}
+                          onChange={(e) =>
+                            handleItemChange(
+                              item.id,
+                              'amount',
+                              e.target.value.replace(/[^0-9.]/g, '')
+                            )
+                          }
                           className="w-full rounded-lg border border-gray-300 py-2 pl-7 pr-3 text-sm focus:border-[#4fa77e] focus:ring-1 focus:ring-[#4fa77e]"
                           placeholder="0.00"
                         />
@@ -590,8 +623,18 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
                         className="rounded-lg px-2 text-red-500 hover:bg-red-50"
                         title="Remove"
                       >
-                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        <svg
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M6 18L18 6M6 6l12 12"
+                          />
                         </svg>
                       </button>
                     </div>
@@ -608,15 +651,27 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
                               ? `Discount of $${(catalogDollars - item.amount).toFixed(2)} from $${catalogDollars.toFixed(2)}`
                               : `+$${(item.amount - catalogDollars).toFixed(2)} from $${catalogDollars.toFixed(2)}`}
                           </p>
-                          <button type="button" onClick={() => handleItemChange(item.id, 'amount', catalogDollars)} className="text-[11px] font-medium text-[#4fa77e] hover:underline">Reset</button>
+                          <button
+                            type="button"
+                            onClick={() => handleItemChange(item.id, 'amount', catalogDollars)}
+                            className="text-[11px] font-medium text-[#4fa77e] hover:underline"
+                          >
+                            Reset
+                          </button>
                         </div>
                         <div className="flex gap-1 rounded bg-amber-100 p-0.5">
-                          <button type="button" onClick={() => handleItemDiscountMode(item.id, 'first_only')}
-                            className={`flex-1 rounded px-2 py-1 text-[11px] font-medium transition-colors ${(item.discountMode || 'first_only') === 'first_only' ? 'bg-white text-amber-900 shadow-sm' : 'text-amber-700'}`}>
+                          <button
+                            type="button"
+                            onClick={() => handleItemDiscountMode(item.id, 'first_only')}
+                            className={`flex-1 rounded px-2 py-1 text-[11px] font-medium transition-colors ${(item.discountMode || 'first_only') === 'first_only' ? 'bg-white text-amber-900 shadow-sm' : 'text-amber-700'}`}
+                          >
                             First payment only
                           </button>
-                          <button type="button" onClick={() => handleItemDiscountMode(item.id, 'all_recurring')}
-                            className={`flex-1 rounded px-2 py-1 text-[11px] font-medium transition-colors ${item.discountMode === 'all_recurring' ? 'bg-white text-amber-900 shadow-sm' : 'text-amber-700'}`}>
+                          <button
+                            type="button"
+                            onClick={() => handleItemDiscountMode(item.id, 'all_recurring')}
+                            className={`flex-1 rounded px-2 py-1 text-[11px] font-medium transition-colors ${item.discountMode === 'all_recurring' ? 'bg-white text-amber-900 shadow-sm' : 'text-amber-700'}`}
+                          >
                             All future charges
                           </button>
                         </div>
@@ -662,7 +717,8 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
         {/* Recurring subscription info */}
         {recurringItems.length > 1 && (
           <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
-            <strong>{recurringItems.length} recurring subscriptions</strong> will be created for this transaction.
+            <strong>{recurringItems.length} recurring subscriptions</strong> will be created for
+            this transaction.
           </div>
         )}
 
@@ -670,8 +726,8 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
           <div className="space-y-1">
             {recurringItems.map((item) => (
               <p key={item.id} className="text-sm text-amber-600">
-                A recurring subscription will be created for <strong>{item.description}</strong>
-                {' '}({item.months === 1 ? 'billed monthly' : `billed every ${item.months} months`})
+                A recurring subscription will be created for <strong>{item.description}</strong> (
+                {item.months === 1 ? 'billed monthly' : `billed every ${item.months} months`})
               </p>
             ))}
           </div>
@@ -690,12 +746,18 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
             <>
               {savedCards.length > 0 && (
                 <div className="mb-4 flex gap-2">
-                  <button type="button" onClick={() => setPaymentMode('saved')}
-                    className={`flex-1 rounded-lg border-2 px-4 py-2.5 text-sm font-medium transition-colors ${paymentMode === 'saved' ? 'border-[#4fa77e] bg-green-50 text-[#4fa77e]' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMode('saved')}
+                    className={`flex-1 rounded-lg border-2 px-4 py-2.5 text-sm font-medium transition-colors ${paymentMode === 'saved' ? 'border-[#4fa77e] bg-green-50 text-[#4fa77e]' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}
+                  >
                     Use Saved Card
                   </button>
-                  <button type="button" onClick={() => setPaymentMode('new')}
-                    className={`flex-1 rounded-lg border-2 px-4 py-2.5 text-sm font-medium transition-colors ${paymentMode === 'new' ? 'border-[#4fa77e] bg-green-50 text-[#4fa77e]' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMode('new')}
+                    className={`flex-1 rounded-lg border-2 px-4 py-2.5 text-sm font-medium transition-colors ${paymentMode === 'new' ? 'border-[#4fa77e] bg-green-50 text-[#4fa77e]' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}
+                  >
                     Enter New Card
                   </button>
                 </div>
@@ -710,16 +772,29 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
                     const expired = isCardExpired(card.expiryMonth, card.expiryYear);
                     const logo = getCardNetworkLogo(card.brand);
                     return (
-                      <label key={card.id}
-                        className={`flex cursor-pointer items-center gap-3 rounded-lg border-2 p-3 transition-colors ${selectedCardId === card.id ? 'border-[#4fa77e] bg-green-50' : expired ? 'border-gray-200 bg-gray-50 opacity-60' : 'border-gray-200 hover:border-gray-300'}`}>
-                        <input type="radio" name="savedCard" value={String(card.id)} checked={selectedCardId === card.id}
-                          onChange={() => setSelectedCardId(card.id)} disabled={expired}
-                          className="h-4 w-4 border-gray-300 text-[#4fa77e] focus:ring-[#4fa77e]" />
+                      <label
+                        key={card.id}
+                        className={`flex cursor-pointer items-center gap-3 rounded-lg border-2 p-3 transition-colors ${selectedCardId === card.id ? 'border-[#4fa77e] bg-green-50' : expired ? 'border-gray-200 bg-gray-50 opacity-60' : 'border-gray-200 hover:border-gray-300'}`}
+                      >
+                        <input
+                          type="radio"
+                          name="savedCard"
+                          value={String(card.id)}
+                          checked={selectedCardId === card.id}
+                          onChange={() => setSelectedCardId(card.id)}
+                          disabled={expired}
+                          className="h-4 w-4 border-gray-300 text-[#4fa77e] focus:ring-[#4fa77e]"
+                        />
                         <div className="flex h-8 w-12 items-center justify-center rounded bg-gray-100">
                           {logo ? (
                             <img src={logo} alt={card.brand} className="h-6 w-10 object-contain" />
                           ) : (
-                            <svg className="h-5 w-7 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg
+                              className="h-5 w-7 text-gray-500"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
                               <rect x="1" y="4" width="22" height="16" rx="2" strokeWidth="2" />
                               <line x1="1" y1="10" x2="23" y2="10" strokeWidth="2" />
                             </svg>
@@ -727,9 +802,19 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-gray-900">•••• {card.last4}</span>
-                            {card.isDefault && <span className="rounded bg-[#4fa77e] px-1.5 py-0.5 text-[10px] font-medium text-white">Default</span>}
-                            {expired && <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-700">Expired</span>}
+                            <span className="text-sm font-medium text-gray-900">
+                              •••• {card.last4}
+                            </span>
+                            {card.isDefault && (
+                              <span className="rounded bg-[#4fa77e] px-1.5 py-0.5 text-[10px] font-medium text-white">
+                                Default
+                              </span>
+                            )}
+                            {expired && (
+                              <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-700">
+                                Expired
+                              </span>
+                            )}
                           </div>
                           <span className="text-xs text-gray-500">
                             {card.cardholderName ? `${card.cardholderName} • ` : ''}
@@ -746,23 +831,43 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
                 <div className="space-y-4">
                   <div className="rounded-lg border border-gray-200 bg-gray-50 p-1">
                     <div className="flex items-center gap-2 px-3 pb-1 pt-2">
-                      <svg className="h-4 w-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      <svg
+                        className="h-4 w-4 text-green-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                        />
                       </svg>
-                      <span className="text-xs font-medium text-gray-500">Secure card entry powered by Stripe</span>
+                      <span className="text-xs font-medium text-gray-500">
+                        Secure card entry powered by Stripe
+                      </span>
                     </div>
                     <div className="rounded-md bg-white p-3">
                       <PaymentElement />
                     </div>
                   </div>
-                  {!stripeReady && <p className="text-sm text-gray-400">Loading secure payment form...</p>}
+                  {!stripeReady && (
+                    <p className="text-sm text-gray-400">Loading secure payment form...</p>
+                  )}
                   <label className="mt-2 flex items-center">
-                    <input type="checkbox" checked={saveCard}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSaveCard(e.target.checked)}
+                    <input
+                      type="checkbox"
+                      checked={saveCard}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        setSaveCard(e.target.checked)
+                      }
                       disabled={hasRecurring}
-                      className="mr-2 rounded border-gray-300 text-[#4fa77e] focus:ring-[#4fa77e]" />
+                      className="mr-2 rounded border-gray-300 text-[#4fa77e] focus:ring-[#4fa77e]"
+                    />
                     <span className="text-sm text-gray-700">
-                      Save card for future payments{hasRecurring && ' (required for recurring subscription)'}
+                      Save card for future payments
+                      {hasRecurring && ' (required for recurring subscription)'}
                     </span>
                   </label>
                 </div>
@@ -773,10 +878,17 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
 
         {/* Notes */}
         <div>
-          <label htmlFor="notes" className="mb-1 block text-sm font-medium text-gray-700">Notes (Optional)</label>
-          <textarea id="notes" value={notes} onChange={(e: any) => setNotes(e.target.value)} rows={2}
+          <label htmlFor="notes" className="mb-1 block text-sm font-medium text-gray-700">
+            Notes (Optional)
+          </label>
+          <textarea
+            id="notes"
+            value={notes}
+            onChange={(e: any) => setNotes(e.target.value)}
+            rows={2}
             className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e]"
-            placeholder="Additional notes about this payment..." />
+            placeholder="Additional notes about this payment..."
+          />
         </div>
 
         {/* Summary */}
@@ -788,7 +900,9 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
             </div>
             {cartItems.map((item) => (
               <div key={item.id} className="flex justify-between text-sm">
-                <span className="text-gray-500 truncate max-w-[60%]">{item.description || 'Item'}</span>
+                <span className="max-w-[60%] truncate text-gray-500">
+                  {item.description || 'Item'}
+                </span>
                 <span className="font-medium">${item.amount.toFixed(2)}</span>
               </div>
             ))}
@@ -806,7 +920,10 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Card:</span>
                 <span className="font-medium">
-                  {(() => { const card = savedCards.find((c) => c.id === selectedCardId); return card ? `•••• ${card.last4}` : 'Saved card'; })()}
+                  {(() => {
+                    const card = savedCards.find((c) => c.id === selectedCardId);
+                    return card ? `•••• ${card.last4}` : 'Saved card';
+                  })()}
                 </span>
               </div>
             )}
@@ -815,13 +932,23 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
 
         {/* Actions */}
         <div className="flex justify-end gap-3">
-          <button type="button" onClick={handleClear}
-            className="rounded-lg bg-gray-100 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-200">
+          <button
+            type="button"
+            onClick={handleClear}
+            className="rounded-lg bg-gray-100 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-200"
+          >
             Clear
           </button>
-          <button type="submit" disabled={submitting || cartItems.length === 0}
-            className="rounded-lg bg-[#4fa77e] px-6 py-2 text-white transition-colors hover:bg-[#3f8660] disabled:cursor-not-allowed disabled:opacity-50">
-            {submitting ? 'Processing...' : hasRecurring ? `Start Subscription${recurringItems.length > 1 ? 's' : ''}` : `Charge $${totalAmount.toFixed(2)}`}
+          <button
+            type="submit"
+            disabled={submitting || cartItems.length === 0}
+            className="rounded-lg bg-[#4fa77e] px-6 py-2 text-white transition-colors hover:bg-[#3f8660] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {submitting
+              ? 'Processing...'
+              : hasRecurring
+                ? `Start Subscription${recurringItems.length > 1 ? 's' : ''}`
+                : `Charge $${totalAmount.toFixed(2)}`}
           </button>
         </div>
       </form>

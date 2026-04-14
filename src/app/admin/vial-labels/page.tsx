@@ -32,24 +32,15 @@ type InjectableProduct = {
 };
 
 const EXCLUDED_PRODUCT_IDS = new Set([
-  203419418,
-  203449111,
-  203419417,
-  203449527,
-  203449013,
-  203194057,
-  203449362,
-  203418853,
-  202851334,
-  203666723,
-  203419046,
+  203419418, 203449111, 203419417, 203449527, 203449013, 203194057, 203449362, 203418853, 202851334,
+  203666723, 203419046,
 ]);
 
-const injectableProducts: InjectableProduct[] = LOGOS_PRODUCTS
-  .filter((product) =>
+const injectableProducts: InjectableProduct[] = LOGOS_PRODUCTS.filter(
+  (product) =>
     (/inj|injectable|vial/i.test(product.form) || /vial/i.test(product.name)) &&
     !EXCLUDED_PRODUCT_IDS.has(product.id)
-  )
+)
   .map((product) => ({
     id: product.id,
     label: `${product.name} ${product.strength ? `(${product.strength})` : ''}`.trim(),
@@ -68,12 +59,15 @@ export default function VialLabelsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleProductChange = useCallback((id: number) => {
-    setProductId(id);
-    if (!yearColorManual) {
-      setYearColor(DEFAULT_YEAR_COLORS[id] ?? '#137bc1');
-    }
-  }, [yearColorManual]);
+  const handleProductChange = useCallback(
+    (id: number) => {
+      setProductId(id);
+      if (!yearColorManual) {
+        setYearColor(DEFAULT_YEAR_COLORS[id] ?? '#137bc1');
+      }
+    },
+    [yearColorManual]
+  );
 
   const selectedProductName = useMemo(() => {
     return injectableProducts.find((item) => item.id === productId)?.label ?? 'Selected product';
@@ -135,7 +129,8 @@ export default function VialLabelsPage() {
       <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
         <h1 className="text-2xl font-semibold text-gray-900">Vial Label Generator</h1>
         <p className="mt-2 text-sm text-gray-600">
-          Build print-ready OL950LP label sheets (3 x 11). Output is vector PDF with Code 128 batch barcodes.
+          Build print-ready OL950LP label sheets (3 x 11). Output is vector PDF with Code 128 batch
+          barcodes.
         </p>
 
         <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -155,7 +150,9 @@ export default function VialLabelsPage() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">BUD (Beyond Use Date)</label>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+              BUD (Beyond Use Date)
+            </label>
             <input
               type="date"
               value={budIsoDate}
@@ -176,7 +173,9 @@ export default function VialLabelsPage() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Labels to Print</label>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+              Labels to Print
+            </label>
             <input
               type="number"
               min={1}
@@ -203,29 +202,36 @@ export default function VialLabelsPage() {
               <input
                 type="color"
                 value={yearColor}
-                onChange={(event) => { setYearColor(event.target.value); setYearColorManual(true); }}
+                onChange={(event) => {
+                  setYearColor(event.target.value);
+                  setYearColorManual(true);
+                }}
                 className="h-9 w-12 cursor-pointer rounded border border-gray-300"
               />
               <input
                 type="text"
                 value={yearColor}
-                onChange={(event) => { setYearColor(event.target.value); setYearColorManual(true); }}
+                onChange={(event) => {
+                  setYearColor(event.target.value);
+                  setYearColorManual(true);
+                }}
                 placeholder="#137bc1"
                 className="w-28 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
               />
               {yearColorManual && (
                 <button
                   type="button"
-                  onClick={() => { setYearColorManual(false); setYearColor(DEFAULT_YEAR_COLORS[productId] ?? '#137bc1'); }}
+                  onClick={() => {
+                    setYearColorManual(false);
+                    setYearColor(DEFAULT_YEAR_COLORS[productId] ?? '#137bc1');
+                  }}
                   className="text-xs text-blue-600 hover:underline"
                 >
                   Reset
                 </button>
               )}
             </div>
-            <p className="mt-1 text-xs text-gray-500">
-              Auto-set per product. Edit to override.
-            </p>
+            <p className="mt-1 text-xs text-gray-500">Auto-set per product. Edit to override.</p>
           </div>
 
           <div className="flex items-end">
@@ -246,7 +252,8 @@ export default function VialLabelsPage() {
             <span className="font-semibold">Selected:</span> {selectedProductName}
           </p>
           <p className="mt-1">
-            Use your printer&apos;s highest-quality setting (600 DPI or higher) and print at 100% scale.
+            Use your printer&apos;s highest-quality setting (600 DPI or higher) and print at 100%
+            scale.
           </p>
         </div>
 
@@ -262,7 +269,11 @@ export default function VialLabelsPage() {
           disabled={loading}
           className="mt-6 inline-flex items-center justify-center rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {loading ? 'Generating PDF...' : proofMode ? 'Generate Proof PDF' : 'Generate Label Sheet PDF'}
+          {loading
+            ? 'Generating PDF...'
+            : proofMode
+              ? 'Generate Proof PDF'
+              : 'Generate Label Sheet PDF'}
         </button>
       </div>
     </div>

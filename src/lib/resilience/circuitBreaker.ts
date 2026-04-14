@@ -176,7 +176,6 @@ export class CircuitBreaker<T = any> {
       this.onSuccess();
       return result;
     } catch (error: unknown) {
-      
       if (error instanceof Error && error.message.includes('Timeout')) {
         this.onTimeout();
       } else {

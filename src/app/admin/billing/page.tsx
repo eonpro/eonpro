@@ -63,7 +63,6 @@ export default function AdminBillingPage() {
       const data = await res.json();
       setStats(data);
     } catch (err: unknown) {
-      
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       logger.error('[Admin Billing] Error fetching stats:', err);
       setError(errorMessage || 'Failed to load billing data.');

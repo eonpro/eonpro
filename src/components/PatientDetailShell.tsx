@@ -11,7 +11,12 @@ interface ShellProps {
   children: ReactNode;
 }
 
-export default function PatientDetailShell({ initialTab, patientId, basePath, children }: ShellProps) {
+export default function PatientDetailShell({
+  initialTab,
+  patientId,
+  basePath,
+  children,
+}: ShellProps) {
   return (
     <PatientTabProvider initialTab={initialTab} patientId={patientId} basePath={basePath}>
       {children}

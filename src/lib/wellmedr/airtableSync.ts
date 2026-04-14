@@ -65,7 +65,10 @@ const INTAKE_FIELD_MAP: Record<string, string> = {
  */
 const NUMBER_FIELDS = new Set(['feet', 'inches', 'weight', 'bmi', 'goal-weight']);
 const MULTIPLE_SELECT_FIELDS = new Set([
-  'health-conditions', 'health-conditions-2', 'weight-related-symptoms', 'reproductive-status',
+  'health-conditions',
+  'health-conditions-2',
+  'weight-related-symptoms',
+  'reproductive-status',
 ]);
 const CHECKBOX_FIELDS = new Set(['hipaa-agreement']);
 
@@ -114,7 +117,7 @@ export function mapIntakeToAirtable(responses: Record<string, unknown>): Record<
  * Create a new record in Airtable.
  */
 export async function createAirtableRecord(
-  fields: Record<string, unknown>,
+  fields: Record<string, unknown>
 ): Promise<string | null> {
   const apiKey = getApiKey();
   if (!apiKey) {
@@ -123,7 +126,12 @@ export async function createAirtableRecord(
   }
 
   const payload = { fields };
-  console.log('[WellMedR-Airtable] Creating record with', Object.keys(fields).length, 'fields:', Object.keys(fields).join(', '));
+  console.log(
+    '[WellMedR-Airtable] Creating record with',
+    Object.keys(fields).length,
+    'fields:',
+    Object.keys(fields).join(', ')
+  );
 
   try {
     const res = await fetch(AIRTABLE_API_URL, {
@@ -156,7 +164,7 @@ export async function createAirtableRecord(
  */
 export async function updateAirtableRecord(
   recordId: string,
-  fields: Record<string, unknown>,
+  fields: Record<string, unknown>
 ): Promise<boolean> {
   const apiKey = getApiKey();
   if (!apiKey) return false;
@@ -208,19 +216,22 @@ export async function updateCheckoutFields(
     billingAddress?: string;
     paymentStatus?: string;
     orderStatus?: string;
-  },
+  }
 ): Promise<boolean> {
   const today = new Date().toISOString().split('T')[0];
   const fields: Record<string, unknown> = {
     'Checkout Completed': 'Yes',
     'submission-date': today,
-    'created_at': today,
+    created_at: today,
   };
 
   if (checkoutData.stripeCustomerId) fields['stripe_customer_id'] = checkoutData.stripeCustomerId;
-  if (checkoutData.stripeSubscriptionId) fields['stripe_subscription_id'] = checkoutData.stripeSubscriptionId;
-  if (checkoutData.subscriptionStatus) fields['subscription_status'] = checkoutData.subscriptionStatus;
-  if (checkoutData.paymentMethodType) fields['payment_method_type'] = checkoutData.paymentMethodType;
+  if (checkoutData.stripeSubscriptionId)
+    fields['stripe_subscription_id'] = checkoutData.stripeSubscriptionId;
+  if (checkoutData.subscriptionStatus)
+    fields['subscription_status'] = checkoutData.subscriptionStatus;
+  if (checkoutData.paymentMethodType)
+    fields['payment_method_type'] = checkoutData.paymentMethodType;
   if (checkoutData.paymentMethodId) fields['payment_method_id'] = checkoutData.paymentMethodId;
   if (checkoutData.cardLast4) fields['card_last4'] = checkoutData.cardLast4;
   if (checkoutData.couponCode) fields['coupon_code'] = checkoutData.couponCode;

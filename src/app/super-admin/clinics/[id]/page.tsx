@@ -531,7 +531,9 @@ export default function ClinicDetailPage() {
         setClinicUsers(data.users || []);
       } else {
         const errData = await response.json().catch(() => null);
-        setUsersError(`API returned ${response.status}: ${errData?.error || 'Unknown error'}${errData?.detail ? ' — ' + errData.detail : ''}`);
+        setUsersError(
+          `API returned ${response.status}: ${errData?.error || 'Unknown error'}${errData?.detail ? ' — ' + errData.detail : ''}`
+        );
       }
     } catch (error) {
       setUsersError(`Network error: ${error instanceof Error ? error.message : String(error)}`);
@@ -707,7 +709,8 @@ export default function ClinicDetailPage() {
       setCurrentSalesRepAssignment(activeAssignment || null);
       setSelectedSalesRepPlanId(activeAssignment?.planId ?? '');
     } catch (error) {
-      process.env.NODE_ENV === 'development' && console.error('Failed to load sales rep commission context:', error);
+      process.env.NODE_ENV === 'development' &&
+        console.error('Failed to load sales rep commission context:', error);
       setSalesRepCommissionPlans([]);
       setCurrentSalesRepAssignment(null);
       setSelectedSalesRepPlanId('');
@@ -793,7 +796,9 @@ export default function ClinicDetailPage() {
       const data = await response.json();
 
       if (response.ok) {
-        const isEligible = (COMMISSION_ELIGIBLE_ROLES as readonly string[]).includes(editUserData.role);
+        const isEligible = (COMMISSION_ELIGIBLE_ROLES as readonly string[]).includes(
+          editUserData.role
+        );
         if (isEligible) {
           await syncSalesRepCommissionPlanAssignment(editUserModal.user.id);
         } else if (currentSalesRepAssignment) {
@@ -803,9 +808,7 @@ export default function ClinicDetailPage() {
             { method: 'DELETE' }
           );
           if (!removeResponse.ok) {
-            const removeData = await removeResponse
-              .json()
-              .catch(() => ({}) as { error?: string });
+            const removeData = await removeResponse.json().catch(() => ({}) as { error?: string });
             throw new Error(removeData.error || 'Failed to clear commission assignment');
           }
         }
@@ -864,7 +867,9 @@ export default function ClinicDetailPage() {
   };
 
   const handleResendInvite = async (user: ClinicUser) => {
-    if (!confirm(`Resend setup invitation to ${user.firstName} ${user.lastName} (${user.email})?`)) {
+    if (
+      !confirm(`Resend setup invitation to ${user.firstName} ${user.lastName} (${user.email})?`)
+    ) {
       return;
     }
     setResendingInvite(user.id);
@@ -911,7 +916,8 @@ export default function ClinicDetailPage() {
         setInviteCodes(data.inviteCodes || []);
       }
     } catch (error) {
-      process.env.NODE_ENV === 'development' && console.error('Failed to fetch invite codes:', error);
+      process.env.NODE_ENV === 'development' &&
+        console.error('Failed to fetch invite codes:', error);
     } finally {
       setLoadingInviteCodes(false);
     }
@@ -956,13 +962,16 @@ export default function ClinicDetailPage() {
   const handleToggleInviteCode = async (codeId: number, isActive: boolean) => {
     try {
       const token = localStorage.getItem('auth-token');
-      const response = await apiFetch(`/api/super-admin/clinics/${clinicId}/invite-codes/${codeId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ isActive: !isActive }),
-      });
+      const response = await apiFetch(
+        `/api/super-admin/clinics/${clinicId}/invite-codes/${codeId}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ isActive: !isActive }),
+        }
+      );
 
       if (response.ok) {
         fetchInviteCodes();
@@ -982,9 +991,12 @@ export default function ClinicDetailPage() {
 
     try {
       const token = localStorage.getItem('auth-token');
-      const response = await apiFetch(`/api/super-admin/clinics/${clinicId}/invite-codes/${codeId}`, {
-        method: 'DELETE',
-      });
+      const response = await apiFetch(
+        `/api/super-admin/clinics/${clinicId}/invite-codes/${codeId}`,
+        {
+          method: 'DELETE',
+        }
+      );
 
       if (response.ok) {
         fetchInviteCodes();
@@ -1077,14 +1089,16 @@ export default function ClinicDetailPage() {
           setLifefileSettings(newState);
         }
       } else {
-        process.env.NODE_ENV === 'development' && console.error('Failed to fetch Lifefile settings:', response.status);
+        process.env.NODE_ENV === 'development' &&
+          console.error('Failed to fetch Lifefile settings:', response.status);
         setLifefileMessage({
           type: 'error',
           text: 'Failed to load settings. Please refresh the page.',
         });
       }
     } catch (error) {
-      process.env.NODE_ENV === 'development' && console.error('Error fetching Lifefile settings:', error);
+      process.env.NODE_ENV === 'development' &&
+        console.error('Error fetching Lifefile settings:', error);
       setLifefileMessage({
         type: 'error',
         text: 'Failed to load settings. Please refresh the page.',
@@ -1350,7 +1364,9 @@ export default function ClinicDetailPage() {
             <div className="flex items-center gap-4">
               <button
                 type="button"
-                onClick={() => { window.location.href = '/super-admin/clinics'; }}
+                onClick={() => {
+                  window.location.href = '/super-admin/clinics';
+                }}
                 className="rounded-lg p-2 transition-colors hover:bg-gray-100"
               >
                 <ArrowLeft className="h-5 w-5 text-gray-600" />
@@ -1907,7 +1923,8 @@ export default function ClinicDetailPage() {
                   {
                     key: 'BLOODWORK_LABS',
                     label: 'Labs tab (patient profile)',
-                    description: 'Show Labs / bloodwork tab on clinic patient profiles. Enabled for all clinics.',
+                    description:
+                      'Show Labs / bloodwork tab on clinic patient profiles. Enabled for all clinics.',
                   },
                   {
                     key: 'telehealth',
@@ -1948,7 +1965,7 @@ export default function ClinicDetailPage() {
                         type="checkbox"
                         checked={
                           feature.key === 'BLOODWORK_LABS'
-                            ? (formData.features.BLOODWORK_LABS !== false)
+                            ? formData.features.BLOODWORK_LABS !== false
                             : !!formData.features[feature.key as keyof typeof formData.features]
                         }
                         onChange={(e) =>
@@ -1982,7 +1999,11 @@ export default function ClinicDetailPage() {
                     );
                     const data = await res.json();
                     if (res.ok) {
-                      alert(data.updated ? `Synced: ${data.keysAdded?.join(', ') || 'defaults'}` : data.message);
+                      alert(
+                        data.updated
+                          ? `Synced: ${data.keysAdded?.join(', ') || 'defaults'}`
+                          : data.message
+                      );
                       fetchClinic();
                     } else alert(data.error || 'Failed to sync');
                   } catch (e) {
@@ -2746,12 +2767,10 @@ export default function ClinicDetailPage() {
             <div className="rounded-xl border border-gray-200 bg-white p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    DoseSpot E-Prescribing
-                  </h3>
+                  <h3 className="text-lg font-semibold text-gray-900">DoseSpot E-Prescribing</h3>
                   <p className="mt-1 text-sm text-gray-500">
-                    Configure DoseSpot for e-prescribing to external pharmacies outside the
-                    Lifefile network
+                    Configure DoseSpot for e-prescribing to external pharmacies outside the Lifefile
+                    network
                   </p>
                 </div>
                 <a
@@ -2798,7 +2817,12 @@ export default function ClinicDetailPage() {
                 <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4">
                   <p className="text-sm font-medium text-red-800">Failed to load users</p>
                   <p className="mt-1 text-xs text-red-600">{usersError}</p>
-                  <button onClick={fetchClinicUsers} className="mt-2 text-xs font-medium text-red-700 underline">Retry</button>
+                  <button
+                    onClick={fetchClinicUsers}
+                    className="mt-2 text-xs font-medium text-red-700 underline"
+                  >
+                    Retry
+                  </button>
                 </div>
               )}
 
@@ -3031,7 +3055,9 @@ export default function ClinicDetailPage() {
                                             className="text-sm font-medium text-emerald-600 hover:text-emerald-800 disabled:opacity-50"
                                             title="Resend setup invitation email"
                                           >
-                                            {resendingInvite === user.id ? 'Sending...' : 'Resend Invite'}
+                                            {resendingInvite === user.id
+                                              ? 'Sending...'
+                                              : 'Resend Invite'}
                                           </button>
                                         )}
                                         <button
@@ -3286,7 +3312,9 @@ export default function ClinicDetailPage() {
                   <option value="STAFF">Staff - Limited administrative access</option>
                   <option value="SUPPORT">Support - Customer service access</option>
                   <option value="SALES_REP">Sales Rep - Patient assignment & tracking</option>
-                  <option value="PHARMACY_REP">Pharmacy Rep - Patient read + shipping/tracking</option>
+                  <option value="PHARMACY_REP">
+                    Pharmacy Rep - Patient read + shipping/tracking
+                  </option>
                 </select>
               </div>
 
@@ -3501,11 +3529,11 @@ export default function ClinicDetailPage() {
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Phone Number
-                </label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Phone Number</label>
                 <div className="relative">
-                  <Phone className={`absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${newUser.phone ? 'opacity-0' : 'opacity-100'}`} />
+                  <Phone
+                    className={`absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${newUser.phone ? 'opacity-0' : 'opacity-100'}`}
+                  />
                   <input
                     type="tel"
                     value={newUser.phone}
@@ -3523,7 +3551,9 @@ export default function ClinicDetailPage() {
               </div>
 
               <div className="space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
-                <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Send Invitation</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-gray-600">
+                  Send Invitation
+                </p>
                 <div className="flex items-center gap-2">
                   <input
                     type="checkbox"
@@ -3546,24 +3576,31 @@ export default function ClinicDetailPage() {
                     disabled={!newUser.phone}
                     className="h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500 disabled:opacity-40"
                   />
-                  <MessageSquare className={`h-4 w-4 ${newUser.phone ? 'text-gray-400' : 'text-gray-300'}`} />
-                  <label htmlFor="sendInviteText" className={`text-sm ${newUser.phone ? 'text-gray-700' : 'text-gray-400'}`}>
+                  <MessageSquare
+                    className={`h-4 w-4 ${newUser.phone ? 'text-gray-400' : 'text-gray-300'}`}
+                  />
+                  <label
+                    htmlFor="sendInviteText"
+                    className={`text-sm ${newUser.phone ? 'text-gray-700' : 'text-gray-400'}`}
+                  >
                     Send invitation via text message
                   </label>
                 </div>
                 {!newUser.phone && newUser.sendInviteText === false && (
-                  <p className="text-xs text-gray-400 pl-6">Add a phone number above to enable text invitations</p>
+                  <p className="pl-6 text-xs text-gray-400">
+                    Add a phone number above to enable text invitations
+                  </p>
                 )}
                 {(newUser.sendInvite || newUser.sendInviteText) && (
-                  <p className="text-xs text-teal-600 mt-1 pl-1">The user will receive a secure link to set their own password.</p>
+                  <p className="mt-1 pl-1 text-xs text-teal-600">
+                    The user will receive a secure link to set their own password.
+                  </p>
                 )}
               </div>
 
               {!newUser.sendInvite && !newUser.sendInviteText && (
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Password *
-                  </label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Password *</label>
                   <div className="relative">
                     <input
                       type={showPassword ? 'text' : 'password'}
@@ -3653,7 +3690,9 @@ export default function ClinicDetailPage() {
                   minLength={8}
                 />
                 {newPassword.length > 0 && newPassword.length < 8 && (
-                  <p className="mt-1 text-xs text-red-500">Password must be at least 8 characters</p>
+                  <p className="mt-1 text-xs text-red-500">
+                    Password must be at least 8 characters
+                  </p>
                 )}
               </div>
 
@@ -3821,7 +3860,10 @@ export default function ClinicDetailPage() {
                   onChange={(e) => {
                     const nextRole = e.target.value;
                     setEditUserData({ ...editUserData, role: nextRole });
-                    if ((COMMISSION_ELIGIBLE_ROLES as readonly string[]).includes(nextRole) && editUserModal.user) {
+                    if (
+                      (COMMISSION_ELIGIBLE_ROLES as readonly string[]).includes(nextRole) &&
+                      editUserModal.user
+                    ) {
                       loadSalesRepCommissionContext(editUserModal.user.id);
                     } else {
                       setSalesRepCommissionPlans([]);
@@ -3836,7 +3878,9 @@ export default function ClinicDetailPage() {
                   <option value="STAFF">Staff - Limited administrative access</option>
                   <option value="SUPPORT">Support - Customer service access</option>
                   <option value="SALES_REP">Sales Rep - Patient assignment & tracking</option>
-                  <option value="PHARMACY_REP">Pharmacy Rep - Patient read + shipping/tracking</option>
+                  <option value="PHARMACY_REP">
+                    Pharmacy Rep - Patient read + shipping/tracking
+                  </option>
                 </select>
               </div>
 
@@ -3848,15 +3892,15 @@ export default function ClinicDetailPage() {
                   <select
                     value={selectedSalesRepPlanId === '' ? '' : String(selectedSalesRepPlanId)}
                     onChange={(e) =>
-                      setSelectedSalesRepPlanId(
-                        e.target.value === '' ? '' : Number(e.target.value)
-                      )
+                      setSelectedSalesRepPlanId(e.target.value === '' ? '' : Number(e.target.value))
                     }
                     className="w-full rounded-lg border border-emerald-300 bg-white px-4 py-2 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
                     disabled={loadingSalesRepPlans}
                   >
                     <option value="">
-                      {loadingSalesRepPlans ? 'Loading plans...' : 'No commission plan (unassigned)'}
+                      {loadingSalesRepPlans
+                        ? 'Loading plans...'
+                        : 'No commission plan (unassigned)'}
                     </option>
                     {salesRepCommissionPlans.map((plan) => (
                       <option key={plan.id} value={plan.id}>
@@ -4095,9 +4139,10 @@ export default function ClinicDetailPage() {
                     </button>
                   </div>
                   <p className="text-xs text-purple-700">
-                    This user has <span className="font-medium">{editUserData.role}</span> role defaults.
-                    Click &quot;Manage Permissions&quot; to customize individual permissions and features
-                    for this user — add or remove access beyond their role defaults.
+                    This user has <span className="font-medium">{editUserData.role}</span> role
+                    defaults. Click &quot;Manage Permissions&quot; to customize individual
+                    permissions and features for this user — add or remove access beyond their role
+                    defaults.
                   </p>
                 </div>
               )}
@@ -4135,7 +4180,7 @@ export default function ClinicDetailPage() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="mx-4 w-full max-w-lg rounded-2xl bg-white shadow-2xl">
             {/* Header */}
-            <div className="flex items-center gap-3 border-b border-red-100 bg-red-50 px-6 py-4 rounded-t-2xl">
+            <div className="flex items-center gap-3 rounded-t-2xl border-b border-red-100 bg-red-50 px-6 py-4">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
                 <AlertTriangle className="h-5 w-5 text-red-600" />
               </div>
@@ -4157,8 +4202,8 @@ export default function ClinicDetailPage() {
                 <div className="space-y-4">
                   <p className="text-sm text-gray-700">
                     You are about to permanently delete{' '}
-                    <span className="font-bold text-gray-900">{clinic.name}</span> and all associated
-                    data. This includes:
+                    <span className="font-bold text-gray-900">{clinic.name}</span> and all
+                    associated data. This includes:
                   </p>
 
                   <div className="grid grid-cols-2 gap-3">
@@ -4244,7 +4289,12 @@ export default function ClinicDetailPage() {
                   <div className="flex gap-3 pt-2">
                     <button
                       onClick={() =>
-                        setDeleteModal((prev) => ({ ...prev, step: 1, confirmName: '', error: null }))
+                        setDeleteModal((prev) => ({
+                          ...prev,
+                          step: 1,
+                          confirmName: '',
+                          error: null,
+                        }))
                       }
                       disabled={deleteModal.deleting}
                       className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"

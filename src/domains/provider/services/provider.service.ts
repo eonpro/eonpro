@@ -188,10 +188,12 @@ export const providerService = {
           })
         : Promise.resolve([]),
       providerId != null
-        ? prisma.provider.findUnique({
-            where: { id: providerId },
-            select: { clinicId: true },
-          }).then((p) => p?.clinicId ?? null)
+        ? prisma.provider
+            .findUnique({
+              where: { id: providerId },
+              select: { clinicId: true },
+            })
+            .then((p) => p?.clinicId ?? null)
         : Promise.resolve(null),
     ]);
 

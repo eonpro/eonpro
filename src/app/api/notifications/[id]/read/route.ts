@@ -50,7 +50,9 @@ async function markSingleReadHandler(req: NextRequest, user: AuthUser): Promise<
       unreadCount,
     });
   } catch (error) {
-    logger.error('[Notification Read] Error', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('[Notification Read] Error', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     // Return success on any error - notifications are non-critical
     return NextResponse.json({
       success: true,

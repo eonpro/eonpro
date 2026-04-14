@@ -43,7 +43,10 @@ export const POST = withAuth(async (request, user) => {
 
     const body = await request.json();
     if (!body.name?.trim() || !body.titleTemplate?.trim() || !body.category) {
-      return NextResponse.json({ error: 'Name, title template, and category are required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Name, title template, and category are required' },
+        { status: 400 }
+      );
     }
 
     const template = await prisma.ticketTemplate.create({

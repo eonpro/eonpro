@@ -14,7 +14,7 @@ import { checkRateLimit, RATE_LIMIT_CONFIGS } from '@/lib/security/rate-limiter'
 
 const INTAKE_SUBMIT_RATE_LIMIT = {
   windowMs: 60 * 60 * 1000, // 1 hour
-  maxAttempts: 10,           // 10 submissions per hour per IP
+  maxAttempts: 10, // 10 submissions per hour per IP
   blockDuration: 30 * 60 * 1000, // 30 min block
 };
 
@@ -26,13 +26,15 @@ interface RouteParams {
 
 // Validation schema for form submission
 const submitSchema = z.object({
-  responses: z.array(
-    z.object({
-      questionId: z.number().int().positive(),
-      answer: z.string().max(10000).optional(),
-      fileUrl: z.string().url().max(2000).optional(),
-    })
-  ).max(500),
+  responses: z
+    .array(
+      z.object({
+        questionId: z.number().int().positive(),
+        answer: z.string().max(10000).optional(),
+        fileUrl: z.string().url().max(2000).optional(),
+      })
+    )
+    .max(500),
   patientInfo: z
     .object({
       firstName: z.string().max(100).optional(),
@@ -79,7 +81,6 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       form: formData,
     });
   } catch (error: unknown) {
-
     logger.error('Failed to get public form', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
@@ -187,7 +188,6 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       submissionId: result.submission.id,
     });
   } catch (error: unknown) {
-
     logger.error('Failed to submit public form', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 

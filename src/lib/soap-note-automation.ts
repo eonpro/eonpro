@@ -9,7 +9,11 @@ import { instantToCalendarDate } from '@/lib/utils/platform-calendar';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { generateSOAPFromIntake } from '@/services/ai/soapNoteService';
-import { generateSOAPNote, type SOAPGenerationInput, type PreviousRxInfo } from '@/services/ai/openaiService';
+import {
+  generateSOAPNote,
+  type SOAPGenerationInput,
+  type PreviousRxInfo,
+} from '@/services/ai/openaiService';
 import type { SOAPNote, Patient, PatientDocument, Invoice } from '@prisma/client';
 import { decryptPatientPHI, DEFAULT_PHI_FIELDS } from '@/lib/security/phi-encryption';
 
@@ -145,7 +149,9 @@ export async function ensureSoapNoteExists(
               sig: rx.sig,
               dose: doseMatch ? parseFloat(doseMatch[1]) : null,
               prescribedAt: instantToCalendarDate(o.createdAt),
-              providerName: o.provider ? `${o.provider.firstName} ${o.provider.lastName}` : undefined,
+              providerName: o.provider
+                ? `${o.provider.firstName} ${o.provider.lastName}`
+                : undefined,
             };
           });
 
@@ -160,7 +166,12 @@ export async function ensureSoapNoteExists(
     } catch (rxErr) {
       logger.warn('[SOAP-AUTOMATION] Failed to check previous prescriptions', {
         ...logContext,
-        error: rxErr instanceof Error ? (rxErr instanceof Error ? rxErr.message : String(rxErr)) : String(rxErr),
+        error:
+          rxErr instanceof Error
+            ? rxErr instanceof Error
+              ? rxErr.message
+              : String(rxErr)
+            : String(rxErr),
       });
     }
 
@@ -217,17 +228,19 @@ export async function ensureSoapNoteExists(
     const fnLooksEncrypted = fn.includes(':') && fn.length > 30;
     const lnLooksEncrypted = ln.includes(':') && ln.length > 30;
 
-    const testPatientReason = fnLooksEncrypted || lnLooksEncrypted
-      ? null // Never flag patients whose names failed to decrypt
-      : fn === 'unknown' || ln === 'unknown'
-        ? 'name_unknown'
-        : fn === 'test' || ln === 'test' || fn === 'demo' || ln === 'demo'
-          ? 'name_exact_test_demo'
-          : /^test[\s._-]|[\s._-]test$|^test\d*$/i.test(fn) || /^test[\s._-]|[\s._-]test$|^test\d*$/i.test(ln)
-            ? 'name_test_pattern'
-            : /^(test|demo)[.+_-].*@/.test(em) || /^.*[.+_-](test|demo)@/.test(em)
-              ? 'email_test_pattern'
-              : null;
+    const testPatientReason =
+      fnLooksEncrypted || lnLooksEncrypted
+        ? null // Never flag patients whose names failed to decrypt
+        : fn === 'unknown' || ln === 'unknown'
+          ? 'name_unknown'
+          : fn === 'test' || ln === 'test' || fn === 'demo' || ln === 'demo'
+            ? 'name_exact_test_demo'
+            : /^test[\s._-]|[\s._-]test$|^test\d*$/i.test(fn) ||
+                /^test[\s._-]|[\s._-]test$|^test\d*$/i.test(ln)
+              ? 'name_test_pattern'
+              : /^(test|demo)[.+_-].*@/.test(em) || /^.*[.+_-](test|demo)@/.test(em)
+                ? 'email_test_pattern'
+                : null;
 
     if (testPatientReason) {
       logger.info('[SOAP-AUTOMATION] Skipping test/demo patient', {
@@ -572,7 +585,9 @@ async function generateSoapFromInvoiceMetadata(
     chiefComplaint:
       (metadata.goals as string) ||
       (metadata.primary_fitness_goal as string) ||
-      (renewalContext?.isRenewal ? 'Follow-up weight management evaluation and dose titration' : 'Weight loss evaluation'),
+      (renewalContext?.isRenewal
+        ? 'Follow-up weight management evaluation and dose titration'
+        : 'Weight loss evaluation'),
     isRenewal: renewalContext?.isRenewal,
     previousPrescriptions: renewalContext?.previousPrescriptions,
   };

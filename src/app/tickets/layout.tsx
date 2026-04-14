@@ -39,14 +39,11 @@ import {
 } from 'lucide-react';
 import InternalChat from '@/components/InternalChat';
 import dynamic from 'next/dynamic';
-import {
-  NotificationProvider,
-  NotificationToastContainer,
-} from '@/components/notifications';
-const NotificationCenter = dynamic(
-  () => import('@/components/notifications/NotificationCenter'),
-  { ssr: false, loading: () => <div className="h-8 w-8 animate-pulse rounded-full bg-gray-200" /> },
-);
+import { NotificationProvider, NotificationToastContainer } from '@/components/notifications';
+const NotificationCenter = dynamic(() => import('@/components/notifications/NotificationCenter'), {
+  ssr: false,
+  loading: () => <div className="h-8 w-8 animate-pulse rounded-full bg-gray-200" />,
+});
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { getAdminNavConfig } from '@/lib/nav/adminNav';
@@ -159,7 +156,10 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
       }
 
       const parsedUser = safeParseJsonString<Record<string, unknown>>(user);
-      if (!parsedUser) { router.push('/login'); return; }
+      if (!parsedUser) {
+        router.push('/login');
+        return;
+      }
       const role = String(parsedUser?.role ?? '').toLowerCase();
 
       // Allow multiple roles to access tickets
@@ -294,13 +294,8 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
                 )}
               </a>
               {isWhiteLabeled && sidebarExpanded && (
-                <span className="mt-1 flex items-center justify-center gap-1 text-[10px] text-gray-400 whitespace-nowrap">
-                  Powered by{' '}
-                  <img
-                    src={EONPRO_LOGO}
-                    alt="EONPRO"
-                    className="h-[21px] w-auto"
-                  />
+                <span className="mt-1 flex items-center justify-center gap-1 whitespace-nowrap text-[10px] text-gray-400">
+                  Powered by <img src={EONPRO_LOGO} alt="EONPRO" className="h-[21px] w-auto" />
                 </span>
               )}
             </div>
@@ -329,7 +324,9 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
                     className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left no-underline transition-colors ${
                       active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                     }`}
-                    style={active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
+                    style={
+                      active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}
+                    }
                   >
                     <Icon className="h-5 w-5 flex-shrink-0" />
                     {sidebarExpanded && (
@@ -386,11 +383,13 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
               { path: '/tickets/new', label: 'New Ticket', icon: Plus },
               { path: '/tickets/macros', label: 'Macros', icon: Zap },
               { path: '/tickets/automations', label: 'Automations', icon: BookOpen },
-              ...(['admin', 'super_admin'].includes(userRole) ? [
-                { path: '/tickets/teams', label: 'Teams', icon: Users },
-                { path: '/tickets/sla-policies', label: 'SLA Policies', icon: Shield },
-                { path: '/tickets/business-hours', label: 'Hours', icon: Clock },
-              ] : []),
+              ...(['admin', 'super_admin'].includes(userRole)
+                ? [
+                    { path: '/tickets/teams', label: 'Teams', icon: Users },
+                    { path: '/tickets/sla-policies', label: 'SLA Policies', icon: Shield },
+                    { path: '/tickets/business-hours', label: 'Hours', icon: Clock },
+                  ]
+                : []),
             ].map((item) => {
               const Icon = item.icon;
               const active = item.exact

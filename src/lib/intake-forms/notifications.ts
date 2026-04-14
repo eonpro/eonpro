@@ -159,7 +159,6 @@ export async function sendIntakeFormNotifications(options: NotificationOptions):
       notificationsSent: notifications.length,
     });
   } catch (error: unknown) {
-    
     logger.error('Failed to send intake form notifications', { error, submissionId });
     throw error;
   }
@@ -238,7 +237,6 @@ export async function sendTestNotification(
     await sendEmail(testEmail);
     logger.info('Test notification sent', { templateId, recipientEmail });
   } catch (error: unknown) {
-    
     logger.error('Failed to send test notification', { error, templateId, recipientEmail });
     throw error;
   }

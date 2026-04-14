@@ -5,7 +5,10 @@ import { normalizeMedLinkPayload } from '@/lib/medlink/intakeNormalizer';
 import { generateIntakePdf } from '@/services/intakePdfService';
 import { storeIntakePdf } from '@/services/storage/intakeStorage';
 import { generateSOAPFromIntake } from '@/services/ai/soapNoteService';
-import { attributeFromIntakeExtended, tagPatientWithReferralCodeOnly } from '@/services/affiliate/attributionService';
+import {
+  attributeFromIntakeExtended,
+  tagPatientWithReferralCodeOnly,
+} from '@/services/affiliate/attributionService';
 import { logger } from '@/lib/logger';
 import { createHash } from 'crypto';
 import { recordSuccess, recordError, recordAuthFailure } from '@/lib/webhooks/monitor';
@@ -187,637 +190,680 @@ export async function POST(req: NextRequest) {
   const rawBody = await req.text();
 
   return runWithClinicContext(clinicId, async () => {
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 2.5: IDEMPOTENCY CHECK
+    // ═══════════════════════════════════════════════════════════════════
+    const idempotencyKey = `weightlossintake_${createHash('sha256').update(rawBody).digest('hex')}`;
 
-  // ═══════════════════════════════════════════════════════════════════
-  // STEP 2.5: IDEMPOTENCY CHECK
-  // ═══════════════════════════════════════════════════════════════════
-  const idempotencyKey = `weightlossintake_${createHash('sha256').update(rawBody).digest('hex')}`;
-
-  const existingIdempotencyRecord = await prisma.idempotencyRecord.findUnique({
-    where: { key: idempotencyKey },
-  }).catch((err) => {
-    logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] Idempotency lookup failed, proceeding`, { error: err instanceof Error ? err.message : String(err) });
-    return null;
-  });
-
-  if (existingIdempotencyRecord) {
-    logger.info(`[WEIGHTLOSSINTAKE ${requestId}] Duplicate webhook detected, returning cached response`, {
-      idempotencyKey,
-      originalCreatedAt: existingIdempotencyRecord.createdAt,
-    });
-    return Response.json(
-      { received: true, status: 'duplicate', requestId, originalResponse: existingIdempotencyRecord.responseBody },
-      { status: existingIdempotencyRecord.responseStatus }
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  // STEP 3: PARSE PAYLOAD (with graceful handling)
-  // ═══════════════════════════════════════════════════════════════════
-  let payload: Record<string, unknown> = {};
-  try {
-    const text = rawBody;
-    payload = safeParseJSON(text) || {};
-
-    // Log payload structure
-    logger.info(`[WEIGHTLOSSINTAKE ${requestId}] Payload:`, {
-      keys: Object.keys(payload).slice(0, 15),
-      submissionId:
-        payload.submissionId || payload.submission_id || payload.responseId || payload.id,
-      hasData: !!payload.data,
-      hasAnswers: !!payload.answers,
-      submissionType: payload.submissionType,
-    });
-  } catch (err) {
-    logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] Failed to parse payload, using empty object`);
-    errors.push('Failed to parse JSON payload');
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  // STEP 4: NORMALIZE DATA (with fallbacks)
-  // ═══════════════════════════════════════════════════════════════════
-  let normalized;
-  try {
-    normalized = normalizeMedLinkPayload(payload);
-    logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] ✓ Payload normalized successfully`);
-  } catch (err) {
-    const errMsg = err instanceof Error ? err.message : 'Unknown error';
-    logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] Normalization failed, using fallback:`, {
-      error: errMsg,
-    });
-    errors.push('Normalization failed, using fallback data');
-    normalized = {
-      submissionId: `fallback-${requestId}`,
-      submittedAt: new Date(),
-      patient: {
-        firstName: 'Unknown',
-        lastName: 'Lead',
-        email: `unknown-${Date.now()}@intake.local`,
-        phone: '',
-        dob: '',
-        gender: '',
-        address1: '',
-        address2: '',
-        city: '',
-        state: '',
-        zip: '',
-      },
-      sections: [],
-      answers: [],
-    };
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  // STEP 5: EXTRACT SUBMISSION TYPE
-  // ═══════════════════════════════════════════════════════════════════
-  const submissionType = String(
-    payload.submissionType || (payload.data as any)?.submissionType || 'complete'
-  ).toLowerCase();
-  const isPartialSubmission = submissionType === 'partial';
-  const qualifiedStatus = String(
-    payload.qualified ||
-      (payload.data as any)?.qualified ||
-      (isPartialSubmission ? 'Pending' : 'Yes')
-  );
-  const intakeNotes = String(
-    payload.intakeNotes || (payload.data as any)?.intakeNotes || (payload.data as any)?.notes || ''
-  );
-
-  logger.info(
-    `[WEIGHTLOSSINTAKE ${requestId}] Type: ${submissionType}, Qualified: ${qualifiedStatus}`
-  );
-
-  // ═══════════════════════════════════════════════════════════════════
-  // STEP 6: UPSERT PATIENT (with retry and fallbacks)
-  // ═══════════════════════════════════════════════════════════════════
-  let patient: any;
-  let isNewPatient = false;
-
-  const patientData = normalizePatientData(normalized.patient);
-
-  // Build tags
-  const baseTags = ['weightlossintake', 'eonmeds', 'glp1'];
-  const submissionTags = isPartialSubmission
-    ? [...baseTags, 'partial-lead', 'needs-followup']
-    : [...baseTags, 'complete-intake'];
-
-  // Build notes
-  const buildNotes = (existing: string | null | undefined) => {
-    const parts: string[] = [];
-    if (existing && !existing.includes(normalized.submissionId)) {
-      parts.push(existing);
-    }
-    parts.push(
-      `[${new Date().toISOString()}] ${isPartialSubmission ? 'PARTIAL' : 'COMPLETE'}: ${normalized.submissionId}`
-    );
-    if (intakeNotes) parts.push(`Notes: ${intakeNotes}`);
-    if (qualifiedStatus !== 'Yes') parts.push(`Qualified: ${qualifiedStatus}`);
-    return parts.join('\n');
-  };
-
-  try {
-    const result = await withRetry(() =>
-      patientDeduplicationService.resolvePatientForIntake(patientData, {
-        clinicId,
-        tags: submissionTags,
-        notes: buildNotes(null),
-        source: 'webhook',
-        sourceMetadata: {
-          type: 'weightlossintake',
-          submissionId: normalized.submissionId,
-          submissionType,
-          qualified: qualifiedStatus,
-          intakeNotes,
-          timestamp: new Date().toISOString(),
-          clinicId,
-          clinicName: 'EONMEDS',
-        },
+    const existingIdempotencyRecord = await prisma.idempotencyRecord
+      .findUnique({
+        where: { key: idempotencyKey },
       })
-    );
-    patient = result.patient;
-    isNewPatient = result.isNew;
-    if (result.wasMerged) {
+      .catch((err) => {
+        logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] Idempotency lookup failed, proceeding`, {
+          error: err instanceof Error ? err.message : String(err),
+        });
+        return null;
+      });
+
+    if (existingIdempotencyRecord) {
       logger.info(
-        `[WEIGHTLOSSINTAKE ${requestId}] ✓ Merged into existing patient: ${patient.id} (${patient.patientId})`
+        `[WEIGHTLOSSINTAKE ${requestId}] Duplicate webhook detected, returning cached response`,
+        {
+          idempotencyKey,
+          originalCreatedAt: existingIdempotencyRecord.createdAt,
+        }
       );
-    } else {
-      logger.info(
-        `[WEIGHTLOSSINTAKE ${requestId}] ✓ Created patient: ${patient.id} (${patient.patientId})`
+      return Response.json(
+        {
+          received: true,
+          status: 'duplicate',
+          requestId,
+          originalResponse: existingIdempotencyRecord.responseBody,
+        },
+        { status: existingIdempotencyRecord.responseStatus }
       );
     }
-  } catch (err) {
-    const errorMsg = err instanceof Error ? err.message : 'Unknown error';
-    logger.error(`[WEIGHTLOSSINTAKE ${requestId}] CRITICAL: Patient upsert failed:`, {
-      error: errorMsg,
-    });
-    recordError('weightlossintake', `Patient creation failed: ${errorMsg}`, { requestId });
 
-    // Queue to DLQ for retry
-    if (isDLQConfigured()) {
-      try {
-        await queueFailedSubmission(
-          payload,
-          'weightlossintake',
-          `Patient creation failed: ${errorMsg}`,
-          {
-            patientEmail: normalized?.patient?.email,
-            submissionId: normalized?.submissionId || requestId,
-          }
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 3: PARSE PAYLOAD (with graceful handling)
+    // ═══════════════════════════════════════════════════════════════════
+    let payload: Record<string, unknown> = {};
+    try {
+      const text = rawBody;
+      payload = safeParseJSON(text) || {};
+
+      // Log payload structure
+      logger.info(`[WEIGHTLOSSINTAKE ${requestId}] Payload:`, {
+        keys: Object.keys(payload).slice(0, 15),
+        submissionId:
+          payload.submissionId || payload.submission_id || payload.responseId || payload.id,
+        hasData: !!payload.data,
+        hasAnswers: !!payload.answers,
+        submissionType: payload.submissionType,
+      });
+    } catch (err) {
+      logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] Failed to parse payload, using empty object`);
+      errors.push('Failed to parse JSON payload');
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 4: NORMALIZE DATA (with fallbacks)
+    // ═══════════════════════════════════════════════════════════════════
+    let normalized;
+    try {
+      normalized = normalizeMedLinkPayload(payload);
+      logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] ✓ Payload normalized successfully`);
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'Unknown error';
+      logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] Normalization failed, using fallback:`, {
+        error: errMsg,
+      });
+      errors.push('Normalization failed, using fallback data');
+      normalized = {
+        submissionId: `fallback-${requestId}`,
+        submittedAt: new Date(),
+        patient: {
+          firstName: 'Unknown',
+          lastName: 'Lead',
+          email: `unknown-${Date.now()}@intake.local`,
+          phone: '',
+          dob: '',
+          gender: '',
+          address1: '',
+          address2: '',
+          city: '',
+          state: '',
+          zip: '',
+        },
+        sections: [],
+        answers: [],
+      };
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 5: EXTRACT SUBMISSION TYPE
+    // ═══════════════════════════════════════════════════════════════════
+    const submissionType = String(
+      payload.submissionType || (payload.data as any)?.submissionType || 'complete'
+    ).toLowerCase();
+    const isPartialSubmission = submissionType === 'partial';
+    const qualifiedStatus = String(
+      payload.qualified ||
+        (payload.data as any)?.qualified ||
+        (isPartialSubmission ? 'Pending' : 'Yes')
+    );
+    const intakeNotes = String(
+      payload.intakeNotes ||
+        (payload.data as any)?.intakeNotes ||
+        (payload.data as any)?.notes ||
+        ''
+    );
+
+    logger.info(
+      `[WEIGHTLOSSINTAKE ${requestId}] Type: ${submissionType}, Qualified: ${qualifiedStatus}`
+    );
+
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 6: UPSERT PATIENT (with retry and fallbacks)
+    // ═══════════════════════════════════════════════════════════════════
+    let patient: any;
+    let isNewPatient = false;
+
+    const patientData = normalizePatientData(normalized.patient);
+
+    // Build tags
+    const baseTags = ['weightlossintake', 'eonmeds', 'glp1'];
+    const submissionTags = isPartialSubmission
+      ? [...baseTags, 'partial-lead', 'needs-followup']
+      : [...baseTags, 'complete-intake'];
+
+    // Build notes
+    const buildNotes = (existing: string | null | undefined) => {
+      const parts: string[] = [];
+      if (existing && !existing.includes(normalized.submissionId)) {
+        parts.push(existing);
+      }
+      parts.push(
+        `[${new Date().toISOString()}] ${isPartialSubmission ? 'PARTIAL' : 'COMPLETE'}: ${normalized.submissionId}`
+      );
+      if (intakeNotes) parts.push(`Notes: ${intakeNotes}`);
+      if (qualifiedStatus !== 'Yes') parts.push(`Qualified: ${qualifiedStatus}`);
+      return parts.join('\n');
+    };
+
+    try {
+      const result = await withRetry(() =>
+        patientDeduplicationService.resolvePatientForIntake(patientData, {
+          clinicId,
+          tags: submissionTags,
+          notes: buildNotes(null),
+          source: 'webhook',
+          sourceMetadata: {
+            type: 'weightlossintake',
+            submissionId: normalized.submissionId,
+            submissionType,
+            qualified: qualifiedStatus,
+            intakeNotes,
+            timestamp: new Date().toISOString(),
+            clinicId,
+            clinicName: 'EONMEDS',
+          },
+        })
+      );
+      patient = result.patient;
+      isNewPatient = result.isNew;
+      if (result.wasMerged) {
+        logger.info(
+          `[WEIGHTLOSSINTAKE ${requestId}] ✓ Merged into existing patient: ${patient.id} (${patient.patientId})`
         );
-        logger.info(`[WEIGHTLOSSINTAKE ${requestId}] Queued to DLQ for retry`);
-      } catch (dlqErr) {
-        logger.error(`[WEIGHTLOSSINTAKE ${requestId}] Failed to queue to DLQ:`, dlqErr);
+      } else {
+        logger.info(
+          `[WEIGHTLOSSINTAKE ${requestId}] ✓ Created patient: ${patient.id} (${patient.patientId})`
+        );
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+      logger.error(`[WEIGHTLOSSINTAKE ${requestId}] CRITICAL: Patient upsert failed:`, {
+        error: errorMsg,
+      });
+      recordError('weightlossintake', `Patient creation failed: ${errorMsg}`, { requestId });
+
+      // Queue to DLQ for retry
+      if (isDLQConfigured()) {
+        try {
+          await queueFailedSubmission(
+            payload,
+            'weightlossintake',
+            `Patient creation failed: ${errorMsg}`,
+            {
+              patientEmail: normalized?.patient?.email,
+              submissionId: normalized?.submissionId || requestId,
+            }
+          );
+          logger.info(`[WEIGHTLOSSINTAKE ${requestId}] Queued to DLQ for retry`);
+        } catch (dlqErr) {
+          logger.error(`[WEIGHTLOSSINTAKE ${requestId}] Failed to queue to DLQ:`, dlqErr);
+        }
+      }
+
+      return Response.json(
+        {
+          error: 'Failed to create patient',
+          code: 'PATIENT_ERROR',
+          requestId,
+          message: errorMsg,
+          partialSuccess: false,
+          queued: isDLQConfigured(),
+        },
+        { status: 500 }
+      );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 7: GENERATE PDF (non-critical - continue on failure)
+    // ═══════════════════════════════════════════════════════════════════
+    let pdfContent: Buffer | null = null;
+    try {
+      pdfContent = await generateIntakePdf(normalized, patient);
+      logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] ✓ PDF: ${pdfContent.byteLength} bytes`);
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'Unknown error';
+      logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] PDF generation failed (continuing):`, {
+        error: errMsg,
+      });
+      errors.push('PDF generation failed');
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 8: PREPARE PDF FOR STORAGE (non-critical - continue on failure)
+    // ═══════════════════════════════════════════════════════════════════
+    let stored: { filename: string; pdfBuffer: Buffer } | null = null;
+    if (pdfContent) {
+      try {
+        stored = await storeIntakePdf({
+          patientId: patient.id,
+          submissionId: normalized.submissionId,
+          pdfBuffer: pdfContent,
+        });
+        logger.debug(
+          `[WEIGHTLOSSINTAKE ${requestId}] ✓ PDF prepared: ${stored.filename}, ${stored.pdfBuffer.length} bytes`
+        );
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : 'Unknown error';
+        logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] PDF preparation failed (continuing):`, {
+          error: errMsg,
+        });
+        errors.push('PDF preparation failed');
       }
     }
 
-    return Response.json(
-      {
-        error: 'Failed to create patient',
-        code: 'PATIENT_ERROR',
-        requestId,
-        message: errorMsg,
-        partialSuccess: false,
-        queued: isDLQConfigured(),
-      },
-      { status: 500 }
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  // STEP 7: GENERATE PDF (non-critical - continue on failure)
-  // ═══════════════════════════════════════════════════════════════════
-  let pdfContent: Buffer | null = null;
-  try {
-    pdfContent = await generateIntakePdf(normalized, patient);
-    logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] ✓ PDF: ${pdfContent.byteLength} bytes`);
-  } catch (err) {
-    const errMsg = err instanceof Error ? err.message : 'Unknown error';
-    logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] PDF generation failed (continuing):`, {
-      error: errMsg,
-    });
-    errors.push('PDF generation failed');
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  // STEP 8: PREPARE PDF FOR STORAGE (non-critical - continue on failure)
-  // ═══════════════════════════════════════════════════════════════════
-  let stored: { filename: string; pdfBuffer: Buffer } | null = null;
-  if (pdfContent) {
-    try {
-      stored = await storeIntakePdf({
-        patientId: patient.id,
-        submissionId: normalized.submissionId,
-        pdfBuffer: pdfContent,
-      });
-      logger.debug(
-        `[WEIGHTLOSSINTAKE ${requestId}] ✓ PDF prepared: ${stored.filename}, ${stored.pdfBuffer.length} bytes`
-      );
-    } catch (err) {
-      const errMsg = err instanceof Error ? err.message : 'Unknown error';
-      logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] PDF preparation failed (continuing):`, {
-        error: errMsg,
-      });
-      errors.push('PDF preparation failed');
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 9: UPLOAD PDF TO S3 (if available and S3 is configured)
+    // ═══════════════════════════════════════════════════════════════════
+    let pdfExternalUrl: string | null = null;
+    if (pdfContent && stored) {
+      try {
+        if (isS3Enabled()) {
+          const s3Result = await uploadToS3({
+            file: pdfContent,
+            fileName: stored.filename,
+            category: FileCategory.INTAKE_FORMS,
+            patientId: patient.id,
+            contentType: 'application/pdf',
+            metadata: {
+              submissionId: normalized.submissionId,
+              patientEmail: normalized.patient.email,
+              source: 'weightlossintake',
+            },
+          });
+          pdfExternalUrl = s3Result.url;
+          logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] ✓ PDF uploaded to S3: ${s3Result.key}`);
+        } else {
+          logger.debug(
+            `[WEIGHTLOSSINTAKE ${requestId}] S3 not configured, PDF stored in database only`
+          );
+        }
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : 'Unknown error';
+        logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] S3 upload failed (continuing):`, {
+          error: errMsg,
+        });
+        errors.push('S3 PDF upload failed');
+      }
     }
-  }
 
-  // ═══════════════════════════════════════════════════════════════════
-  // STEP 9: UPLOAD PDF TO S3 (if available and S3 is configured)
-  // ═══════════════════════════════════════════════════════════════════
-  let pdfExternalUrl: string | null = null;
-  if (pdfContent && stored) {
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 10: CREATE DOCUMENT RECORD WITH INTAKE DATA (CRITICAL FOR DISPLAY)
+    // ═══════════════════════════════════════════════════════════════════
+    // IMPORTANT: Always store intake data, even if PDF generation failed.
+    // The intake tab needs this data to display patient responses.
+    // PDF is stored separately in S3 (externalUrl) - data field is for intake JSON only.
+    let patientDocument: any = null;
     try {
-      if (isS3Enabled()) {
-        const s3Result = await uploadToS3({
-          file: pdfContent,
-          fileName: stored.filename,
-          category: FileCategory.INTAKE_FORMS,
-          patientId: patient.id,
-          contentType: 'application/pdf',
-          metadata: {
-            submissionId: normalized.submissionId,
-            patientEmail: normalized.patient.email,
-            source: 'weightlossintake',
+      const existingDoc = await prisma.patientDocument.findUnique({
+        where: { sourceSubmissionId: normalized.submissionId },
+        select: { id: true, externalUrl: true },
+      });
+
+      // Capture consent and metadata from request headers
+      const ipAddress =
+        req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+      const userAgent = req.headers.get('user-agent') || 'unknown';
+      const consentTimestamp = new Date().toISOString();
+
+      // Extract e-signature data from payload (sent by WeightLossIntake platform)
+      const payloadData = (payload.data as Record<string, unknown>) || payload;
+
+      // Geolocation data from the intake platform
+      const geoLocation = {
+        ip:
+          payloadData.consentIP || payloadData.Consent_IP || payloadData['Consent IP'] || ipAddress,
+        city:
+          payloadData.consentCity ||
+          payloadData.Consent_City ||
+          payloadData['Consent City'] ||
+          null,
+        region:
+          payloadData.consentRegion ||
+          payloadData.Consent_Region ||
+          payloadData['Consent Region'] ||
+          null,
+        regionCode:
+          payloadData.consentRegionCode ||
+          payloadData.Consent_Region_Code ||
+          payloadData['Consent Region Code'] ||
+          null,
+        country:
+          payloadData.consentCountry ||
+          payloadData.Consent_Country ||
+          payloadData['Consent Country'] ||
+          null,
+        countryCode:
+          payloadData.consentCountryCode ||
+          payloadData.Consent_Country_Code ||
+          payloadData['Consent Country Code'] ||
+          null,
+        timezone:
+          payloadData.consentTimezone ||
+          payloadData.Consent_Timezone ||
+          payloadData['Consent Timezone'] ||
+          null,
+        isp:
+          payloadData.consentISP || payloadData.Consent_ISP || payloadData['Consent ISP'] || null,
+      };
+
+      // Consent signatures log from the intake platform
+      const consentSignatures =
+        payloadData.consentSignatures ||
+        payloadData.Consent_Signatures ||
+        payloadData['Consent Signatures'] ||
+        null;
+
+      // Extract all consent flags from payload
+      const consentData = {
+        // Privacy & Terms
+        privacyPolicyConsent:
+          payloadData['Privacy Policy Accepted'] ||
+          payloadData.privacyPolicyConsent ||
+          payloadData.privacy_consent ||
+          true,
+        termsConsent:
+          payloadData['Terms of Use Accepted'] ||
+          payloadData.termsConsent ||
+          payloadData.terms_consent ||
+          true,
+
+        // Telehealth & Communication
+        telehealthConsent:
+          payloadData['Telehealth Consent Accepted'] ||
+          payloadData.telehealthConsent ||
+          payloadData.telehealth_consent ||
+          true,
+        smsConsent:
+          payloadData['SMS Consent Accepted'] ||
+          payloadData.smsConsent ||
+          payloadData.sms_consent ||
+          true,
+        emailConsent:
+          payloadData['Email Consent Accepted'] ||
+          payloadData.emailConsent ||
+          payloadData.email_consent ||
+          true,
+
+        // Policy & Medical
+        cancellationPolicyConsent:
+          payloadData['Cancellation Policy Accepted'] ||
+          payloadData.cancellationPolicyConsent ||
+          true,
+        medicalWeightConsent:
+          payloadData['Weight Loss Treatment Consent Accepted'] ||
+          payloadData.medicalWeightConsent ||
+          payloadData.weightLossConsent ||
+          true,
+
+        // HIPAA & Legal
+        hipaaConsent:
+          payloadData['HIPAA Authorization Accepted'] || payloadData.hipaaConsent || true,
+        floridaBillOfRights:
+          payloadData['Florida Bill of Rights Accepted'] || payloadData.floridaBillOfRights || true,
+
+        // Metadata
+        timestamp: payloadData.timestamp || consentTimestamp,
+        ipAddress: geoLocation.ip,
+        userAgent:
+          payloadData.consentUserAgent ||
+          payloadData.Consent_User_Agent ||
+          payloadData['Consent User Agent'] ||
+          userAgent,
+
+        // Geolocation
+        geoLocation: geoLocation,
+
+        // Full signatures log
+        signatures: consentSignatures,
+      };
+
+      // Store intake data as JSON for display on Intake tab
+      const intakeDataToStore = {
+        submissionId: normalized.submissionId,
+        sections: normalized.sections,
+        answers: normalized.answers,
+        source: 'weightlossintake',
+        clinicId: clinicId,
+        receivedAt: consentTimestamp,
+        pdfGenerated: !!pdfContent,
+        pdfUrl: pdfExternalUrl,
+        // E-Signature and consent data for legal compliance
+        ipAddress: geoLocation.ip,
+        userAgent: consentData.userAgent,
+        consentTimestamp: consentData.timestamp,
+        consentData: consentData,
+        geoLocation: geoLocation,
+      };
+
+      // Dual-write: S3 + DB `data` column (Phase 3.3)
+      const { s3DataKey, dataBuffer: intakeDataBuffer } = await storeIntakeData(intakeDataToStore, {
+        documentId: existingDoc?.id,
+        patientId: patient.id,
+        clinicId,
+      });
+
+      if (existingDoc) {
+        patientDocument = await prisma.patientDocument.update({
+          where: { id: existingDoc.id },
+          data: {
+            filename: stored?.filename || `intake-${normalized.submissionId}.json`,
+            data: new Uint8Array(intakeDataBuffer),
+            ...(s3DataKey != null ? { s3DataKey } : {}),
+            externalUrl: pdfExternalUrl || existingDoc.externalUrl,
           },
         });
-        pdfExternalUrl = s3Result.url;
-        logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] ✓ PDF uploaded to S3: ${s3Result.key}`);
+        logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] ✓ Updated document: ${patientDocument.id}`);
       } else {
-        logger.debug(
-          `[WEIGHTLOSSINTAKE ${requestId}] S3 not configured, PDF stored in database only`
-        );
+        patientDocument = await prisma.patientDocument.create({
+          data: {
+            patientId: patient.id,
+            clinicId: clinicId,
+            filename: stored?.filename || `intake-${normalized.submissionId}.json`,
+            mimeType: 'application/json',
+            category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
+            data: new Uint8Array(intakeDataBuffer),
+            ...(s3DataKey != null ? { s3DataKey } : {}),
+            externalUrl: pdfExternalUrl,
+            source: 'weightlossintake',
+            sourceSubmissionId: normalized.submissionId,
+          },
+        });
+        logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] ✓ Created document: ${patientDocument.id}`);
       }
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : 'Unknown error';
-      logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] S3 upload failed (continuing):`, {
-        error: errMsg,
-      });
-      errors.push('S3 PDF upload failed');
+      logger.error(`[WEIGHTLOSSINTAKE ${requestId}] Document record failed:`, { error: errMsg });
+      errors.push('Document record creation failed');
     }
-  }
 
-  // ═══════════════════════════════════════════════════════════════════
-  // STEP 10: CREATE DOCUMENT RECORD WITH INTAKE DATA (CRITICAL FOR DISPLAY)
-  // ═══════════════════════════════════════════════════════════════════
-  // IMPORTANT: Always store intake data, even if PDF generation failed.
-  // The intake tab needs this data to display patient responses.
-  // PDF is stored separately in S3 (externalUrl) - data field is for intake JSON only.
-  let patientDocument: any = null;
-  try {
-    const existingDoc = await prisma.patientDocument.findUnique({
-      where: { sourceSubmissionId: normalized.submissionId },
-      select: { id: true, externalUrl: true },
-    });
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 11: GENERATE SOAP NOTE (non-critical for partial, important for complete)
+    // ═══════════════════════════════════════════════════════════════════
+    let soapNoteId: number | null = null;
 
-    // Capture consent and metadata from request headers
-    const ipAddress =
-      req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
-    const userAgent = req.headers.get('user-agent') || 'unknown';
-    const consentTimestamp = new Date().toISOString();
+    // Only generate SOAP for complete submissions with a document
+    if (!isPartialSubmission && patientDocument) {
+      try {
+        logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] Generating SOAP note...`);
+        const soapNote = await generateSOAPFromIntake(patient.id, patientDocument.id);
+        soapNoteId = soapNote.id;
+        logger.info(`[WEIGHTLOSSINTAKE ${requestId}] ✓ SOAP Note generated: ID ${soapNoteId}`);
+      } catch (err) {
+        // SOAP generation can fail (OpenAI rate limits, etc.) - don't block the webhook
+        const errMsg = err instanceof Error ? err.message : 'Unknown error';
+        logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] SOAP generation failed (non-fatal):`, {
+          error: errMsg,
+        });
+        errors.push(`SOAP generation failed: ${errMsg}`);
+      }
+    } else if (isPartialSubmission) {
+      logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] Skipping SOAP for partial submission`);
+    }
 
-    // Extract e-signature data from payload (sent by WeightLossIntake platform)
-    const payloadData = (payload.data as Record<string, unknown>) || payload;
-
-    // Geolocation data from the intake platform
-    const geoLocation = {
-      ip: payloadData.consentIP || payloadData.Consent_IP || payloadData['Consent IP'] || ipAddress,
-      city:
-        payloadData.consentCity || payloadData.Consent_City || payloadData['Consent City'] || null,
-      region:
-        payloadData.consentRegion ||
-        payloadData.Consent_Region ||
-        payloadData['Consent Region'] ||
-        null,
-      regionCode:
-        payloadData.consentRegionCode ||
-        payloadData.Consent_Region_Code ||
-        payloadData['Consent Region Code'] ||
-        null,
-      country:
-        payloadData.consentCountry ||
-        payloadData.Consent_Country ||
-        payloadData['Consent Country'] ||
-        null,
-      countryCode:
-        payloadData.consentCountryCode ||
-        payloadData.Consent_Country_Code ||
-        payloadData['Consent Country Code'] ||
-        null,
-      timezone:
-        payloadData.consentTimezone ||
-        payloadData.Consent_Timezone ||
-        payloadData['Consent Timezone'] ||
-        null,
-      isp: payloadData.consentISP || payloadData.Consent_ISP || payloadData['Consent ISP'] || null,
-    };
-
-    // Consent signatures log from the intake platform
-    const consentSignatures =
-      payloadData.consentSignatures ||
-      payloadData.Consent_Signatures ||
-      payloadData['Consent Signatures'] ||
-      null;
-
-    // Extract all consent flags from payload
-    const consentData = {
-      // Privacy & Terms
-      privacyPolicyConsent:
-        payloadData['Privacy Policy Accepted'] ||
-        payloadData.privacyPolicyConsent ||
-        payloadData.privacy_consent ||
-        true,
-      termsConsent:
-        payloadData['Terms of Use Accepted'] ||
-        payloadData.termsConsent ||
-        payloadData.terms_consent ||
-        true,
-
-      // Telehealth & Communication
-      telehealthConsent:
-        payloadData['Telehealth Consent Accepted'] ||
-        payloadData.telehealthConsent ||
-        payloadData.telehealth_consent ||
-        true,
-      smsConsent:
-        payloadData['SMS Consent Accepted'] ||
-        payloadData.smsConsent ||
-        payloadData.sms_consent ||
-        true,
-      emailConsent:
-        payloadData['Email Consent Accepted'] ||
-        payloadData.emailConsent ||
-        payloadData.email_consent ||
-        true,
-
-      // Policy & Medical
-      cancellationPolicyConsent:
-        payloadData['Cancellation Policy Accepted'] ||
-        payloadData.cancellationPolicyConsent ||
-        true,
-      medicalWeightConsent:
-        payloadData['Weight Loss Treatment Consent Accepted'] ||
-        payloadData.medicalWeightConsent ||
-        payloadData.weightLossConsent ||
-        true,
-
-      // HIPAA & Legal
-      hipaaConsent: payloadData['HIPAA Authorization Accepted'] || payloadData.hipaaConsent || true,
-      floridaBillOfRights:
-        payloadData['Florida Bill of Rights Accepted'] || payloadData.floridaBillOfRights || true,
-
-      // Metadata
-      timestamp: payloadData.timestamp || consentTimestamp,
-      ipAddress: geoLocation.ip,
-      userAgent:
-        payloadData.consentUserAgent ||
-        payloadData.Consent_User_Agent ||
-        payloadData['Consent User Agent'] ||
-        userAgent,
-
-      // Geolocation
-      geoLocation: geoLocation,
-
-      // Full signatures log
-      signatures: consentSignatures,
-    };
-
-    // Store intake data as JSON for display on Intake tab
-    const intakeDataToStore = {
-      submissionId: normalized.submissionId,
-      sections: normalized.sections,
-      answers: normalized.answers,
-      source: 'weightlossintake',
-      clinicId: clinicId,
-      receivedAt: consentTimestamp,
-      pdfGenerated: !!pdfContent,
-      pdfUrl: pdfExternalUrl,
-      // E-Signature and consent data for legal compliance
-      ipAddress: geoLocation.ip,
-      userAgent: consentData.userAgent,
-      consentTimestamp: consentData.timestamp,
-      consentData: consentData,
-      geoLocation: geoLocation,
-    };
-
-    // Dual-write: S3 + DB `data` column (Phase 3.3)
-    const { s3DataKey, dataBuffer: intakeDataBuffer } = await storeIntakeData(
-      intakeDataToStore,
-      { documentId: existingDoc?.id, patientId: patient.id, clinicId }
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 12: TRACK PROMO CODE (non-critical)
+    // ═══════════════════════════════════════════════════════════════════
+    const promoCodeEntry = normalized.answers?.find(
+      (entry: any) =>
+        entry.label?.toLowerCase().includes('promo') ||
+        entry.label?.toLowerCase().includes('referral') ||
+        entry.label?.toLowerCase().includes('discount') ||
+        entry.id === 'promo_code' ||
+        entry.id === 'promoCode' ||
+        entry.id === 'referralCode'
     );
 
-    if (existingDoc) {
-      patientDocument = await prisma.patientDocument.update({
-        where: { id: existingDoc.id },
-        data: {
-          filename: stored?.filename || `intake-${normalized.submissionId}.json`,
-          data: new Uint8Array(intakeDataBuffer),
-          ...(s3DataKey != null ? { s3DataKey } : {}),
-          externalUrl: pdfExternalUrl || existingDoc.externalUrl,
-        },
-      });
-      logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] ✓ Updated document: ${patientDocument.id}`);
-    } else {
-      patientDocument = await prisma.patientDocument.create({
-        data: {
-          patientId: patient.id,
-          clinicId: clinicId,
-          filename: stored?.filename || `intake-${normalized.submissionId}.json`,
-          mimeType: 'application/json',
-          category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
-          data: new Uint8Array(intakeDataBuffer),
-          ...(s3DataKey != null ? { s3DataKey } : {}),
-          externalUrl: pdfExternalUrl,
-          source: 'weightlossintake',
-          sourceSubmissionId: normalized.submissionId,
-        },
-      });
-      logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] ✓ Created document: ${patientDocument.id}`);
-    }
-  } catch (err) {
-    const errMsg = err instanceof Error ? err.message : 'Unknown error';
-    logger.error(`[WEIGHTLOSSINTAKE ${requestId}] Document record failed:`, { error: errMsg });
-    errors.push('Document record creation failed');
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  // STEP 11: GENERATE SOAP NOTE (non-critical for partial, important for complete)
-  // ═══════════════════════════════════════════════════════════════════
-  let soapNoteId: number | null = null;
-
-  // Only generate SOAP for complete submissions with a document
-  if (!isPartialSubmission && patientDocument) {
-    try {
-      logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] Generating SOAP note...`);
-      const soapNote = await generateSOAPFromIntake(patient.id, patientDocument.id);
-      soapNoteId = soapNote.id;
-      logger.info(`[WEIGHTLOSSINTAKE ${requestId}] ✓ SOAP Note generated: ID ${soapNoteId}`);
-    } catch (err) {
-      // SOAP generation can fail (OpenAI rate limits, etc.) - don't block the webhook
-      const errMsg = err instanceof Error ? err.message : 'Unknown error';
-      logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] SOAP generation failed (non-fatal):`, {
-        error: errMsg,
-      });
-      errors.push(`SOAP generation failed: ${errMsg}`);
-    }
-  } else if (isPartialSubmission) {
-    logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] Skipping SOAP for partial submission`);
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  // STEP 12: TRACK PROMO CODE (non-critical)
-  // ═══════════════════════════════════════════════════════════════════
-  const promoCodeEntry = normalized.answers?.find(
-    (entry: any) =>
-      entry.label?.toLowerCase().includes('promo') ||
-      entry.label?.toLowerCase().includes('referral') ||
-      entry.label?.toLowerCase().includes('discount') ||
-      entry.id === 'promo_code' ||
-      entry.id === 'promoCode' ||
-      entry.id === 'referralCode'
-  );
-
-  if (promoCodeEntry?.value) {
-    const promoCode = String(promoCodeEntry.value).trim().toUpperCase();
-    try {
-      const result = await attributeFromIntakeExtended(patient.id, promoCode, clinicId, 'weightlossintake');
-      if (result.success) {
-        logger.info(`[WEIGHTLOSSINTAKE ${requestId}] ✓ Affiliate attribution: ${promoCode} -> affiliateId=${result.affiliateId}`);
-      } else {
-        // No AffiliateRefCode exists yet - tag patient for later reconciliation
-        const tagged = await tagPatientWithReferralCodeOnly(patient.id, promoCode, clinicId);
-        if (tagged) {
-          logger.info(`[WEIGHTLOSSINTAKE ${requestId}] ✓ Profile tagged with referral code (no affiliate yet): ${promoCode}`);
-        } else {
-          logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] No affiliate match for code: ${promoCode}`);
-        }
-      }
-    } catch (err) {
-      const errMsg = err instanceof Error ? err.message : 'Unknown error';
-      logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] Affiliate tracking failed:`, { error: errMsg });
-      errors.push(`Affiliate tracking failed: ${promoCode}`);
-    }
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  // STEP 13: AUDIT LOG (non-critical)
-  // ═══════════════════════════════════════════════════════════════════
-  try {
-    await prisma.auditLog.create({
-      data: {
-        action: isPartialSubmission ? 'PARTIAL_INTAKE_RECEIVED' : 'PATIENT_INTAKE_RECEIVED',
-        resource: 'Patient',
-        resourceId: patient.id,
-        userId: 0,
-        details: {
-          source: 'weightlossintake',
-          submissionId: normalized.submissionId,
-          submissionType,
-          qualified: qualifiedStatus,
+    if (promoCodeEntry?.value) {
+      const promoCode = String(promoCodeEntry.value).trim().toUpperCase();
+      try {
+        const result = await attributeFromIntakeExtended(
+          patient.id,
+          promoCode,
           clinicId,
-          isNewPatient,
-          isPartialSubmission,
-          documentId: patientDocument?.id,
-          soapNoteId: soapNoteId,
-          errors: errors.length > 0 ? errors : undefined,
+          'weightlossintake'
+        );
+        if (result.success) {
+          logger.info(
+            `[WEIGHTLOSSINTAKE ${requestId}] ✓ Affiliate attribution: ${promoCode} -> affiliateId=${result.affiliateId}`
+          );
+        } else {
+          // No AffiliateRefCode exists yet - tag patient for later reconciliation
+          const tagged = await tagPatientWithReferralCodeOnly(patient.id, promoCode, clinicId);
+          if (tagged) {
+            logger.info(
+              `[WEIGHTLOSSINTAKE ${requestId}] ✓ Profile tagged with referral code (no affiliate yet): ${promoCode}`
+            );
+          } else {
+            logger.debug(
+              `[WEIGHTLOSSINTAKE ${requestId}] No affiliate match for code: ${promoCode}`
+            );
+          }
+        }
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : 'Unknown error';
+        logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] Affiliate tracking failed:`, {
+          error: errMsg,
+        });
+        errors.push(`Affiliate tracking failed: ${promoCode}`);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 13: AUDIT LOG (non-critical)
+    // ═══════════════════════════════════════════════════════════════════
+    try {
+      await prisma.auditLog.create({
+        data: {
+          action: isPartialSubmission ? 'PARTIAL_INTAKE_RECEIVED' : 'PATIENT_INTAKE_RECEIVED',
+          resource: 'Patient',
+          resourceId: patient.id,
+          userId: 0,
+          details: {
+            source: 'weightlossintake',
+            submissionId: normalized.submissionId,
+            submissionType,
+            qualified: qualifiedStatus,
+            clinicId,
+            isNewPatient,
+            isPartialSubmission,
+            documentId: patientDocument?.id,
+            soapNoteId: soapNoteId,
+            errors: errors.length > 0 ? errors : undefined,
+          },
+          ipAddress:
+            req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'webhook',
         },
-        ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'webhook',
+      });
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'Unknown error';
+      logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] Audit log failed:`, { error: errMsg });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // SUCCESS RESPONSE
+    // ═══════════════════════════════════════════════════════════════════
+    const duration = Date.now() - startTime;
+
+    // Record success for monitoring
+    recordSuccess('weightlossintake', duration);
+
+    logger.info(
+      `[WEIGHTLOSSINTAKE ${requestId}] ✓ SUCCESS in ${duration}ms (${errors.length} warnings)`
+    );
+
+    // Record idempotency key for duplicate detection
+    await prisma.idempotencyRecord
+      .create({
+        data: {
+          key: idempotencyKey,
+          resource: 'weightlossintake',
+          responseStatus: 200,
+          responseBody: {
+            success: true,
+            requestId,
+            patientId: patient.id,
+            submissionId: normalized.submissionId,
+          },
+        },
+      })
+      .catch((err) => {
+        logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] Failed to store idempotency record`, {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
+
+    // Extract Airtable record ID if provided (for bidirectional sync)
+    const payloadForAirtable = (payload.data as Record<string, unknown>) || payload;
+    const airtableRecordId =
+      payloadForAirtable.airtableRecordId ||
+      payloadForAirtable.airtable_record_id ||
+      payloadForAirtable.recordId ||
+      payloadForAirtable.record_id ||
+      null;
+
+    // Response format matching WeightLossIntake EMR Integration expectations
+    // WeightLossIntake should capture these fields and store them in Airtable
+    return Response.json({
+      success: true,
+      requestId,
+
+      // ═══════════════════════════════════════════════════════════════════
+      // BIDIRECTIONAL SYNC FIELDS - Store these in Airtable!
+      // ═══════════════════════════════════════════════════════════════════
+      eonproPatientId: patient.patientId, // Formatted ID like "000059" - STORE IN AIRTABLE
+      eonproDatabaseId: patient.id, // Database ID like 62
+      submissionId: normalized.submissionId, // Link back to original submission
+      airtableRecordId: airtableRecordId, // Echo back for easy record update
+
+      // Detailed patient info
+      patient: {
+        id: patient.id,
+        patientId: patient.patientId,
+        name: `${patient.firstName} ${patient.lastName}`,
+        email: patient.email,
+        isNew: isNewPatient,
       },
+      // Submission details
+      submission: {
+        type: submissionType,
+        qualified: qualifiedStatus,
+        isPartial: isPartialSubmission,
+      },
+      // Document info
+      document: patientDocument
+        ? {
+            id: patientDocument.id,
+            filename: stored?.filename,
+          }
+        : null,
+      // SOAP note (if generated)
+      soapNote: soapNoteId
+        ? {
+            id: soapNoteId,
+            status: 'DRAFT',
+          }
+        : null,
+      // Clinic info
+      clinic: {
+        id: clinicId,
+        name: 'EONMEDS',
+      },
+      // Metadata
+      processingTimeMs: duration,
+      processingTime: `${duration}ms`,
+      message: isNewPatient ? 'Patient created successfully' : 'Patient updated successfully',
+      warnings: errors.length > 0 ? errors : undefined,
+
+      // Legacy field names (for backwards compatibility)
+      patientId: patient.id,
     });
-  } catch (err) {
-    const errMsg = err instanceof Error ? err.message : 'Unknown error';
-    logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] Audit log failed:`, { error: errMsg });
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  // SUCCESS RESPONSE
-  // ═══════════════════════════════════════════════════════════════════
-  const duration = Date.now() - startTime;
-
-  // Record success for monitoring
-  recordSuccess('weightlossintake', duration);
-
-  logger.info(
-    `[WEIGHTLOSSINTAKE ${requestId}] ✓ SUCCESS in ${duration}ms (${errors.length} warnings)`
-  );
-
-  // Record idempotency key for duplicate detection
-  await prisma.idempotencyRecord.create({
-    data: {
-      key: idempotencyKey,
-      resource: 'weightlossintake',
-      responseStatus: 200,
-      responseBody: { success: true, requestId, patientId: patient.id, submissionId: normalized.submissionId },
-    },
-  }).catch((err) => {
-    logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] Failed to store idempotency record`, { error: err instanceof Error ? err.message : String(err) });
-  });
-
-  // Extract Airtable record ID if provided (for bidirectional sync)
-  const payloadForAirtable = (payload.data as Record<string, unknown>) || payload;
-  const airtableRecordId =
-    payloadForAirtable.airtableRecordId ||
-    payloadForAirtable.airtable_record_id ||
-    payloadForAirtable.recordId ||
-    payloadForAirtable.record_id ||
-    null;
-
-  // Response format matching WeightLossIntake EMR Integration expectations
-  // WeightLossIntake should capture these fields and store them in Airtable
-  return Response.json({
-    success: true,
-    requestId,
-
-    // ═══════════════════════════════════════════════════════════════════
-    // BIDIRECTIONAL SYNC FIELDS - Store these in Airtable!
-    // ═══════════════════════════════════════════════════════════════════
-    eonproPatientId: patient.patientId, // Formatted ID like "000059" - STORE IN AIRTABLE
-    eonproDatabaseId: patient.id, // Database ID like 62
-    submissionId: normalized.submissionId, // Link back to original submission
-    airtableRecordId: airtableRecordId, // Echo back for easy record update
-
-    // Detailed patient info
-    patient: {
-      id: patient.id,
-      patientId: patient.patientId,
-      name: `${patient.firstName} ${patient.lastName}`,
-      email: patient.email,
-      isNew: isNewPatient,
-    },
-    // Submission details
-    submission: {
-      type: submissionType,
-      qualified: qualifiedStatus,
-      isPartial: isPartialSubmission,
-    },
-    // Document info
-    document: patientDocument
-      ? {
-          id: patientDocument.id,
-          filename: stored?.filename,
-        }
-      : null,
-    // SOAP note (if generated)
-    soapNote: soapNoteId
-      ? {
-          id: soapNoteId,
-          status: 'DRAFT',
-        }
-      : null,
-    // Clinic info
-    clinic: {
-      id: clinicId,
-      name: 'EONMEDS',
-    },
-    // Metadata
-    processingTimeMs: duration,
-    processingTime: `${duration}ms`,
-    message: isNewPatient ? 'Patient created successfully' : 'Patient updated successfully',
-    warnings: errors.length > 0 ? errors : undefined,
-
-    // Legacy field names (for backwards compatibility)
-    patientId: patient.id,
-  });
-
   }); // end runWithClinicContext
 }
 

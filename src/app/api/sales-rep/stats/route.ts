@@ -16,10 +16,7 @@ export const dynamic = 'force-dynamic';
 export const GET = withAuth(
   async (_req: NextRequest, user: AuthUser) => {
     if (user.role !== 'sales_rep' || user.clinicId == null) {
-      return NextResponse.json(
-        { error: 'Sales rep clinic context required' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'Sales rep clinic context required' }, { status: 403 });
     }
 
     try {
@@ -30,7 +27,9 @@ export const GET = withAuth(
       const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
       const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-      const activeStatuses = { in: ['PENDING', 'APPROVED', 'PAID'] as ('PENDING' | 'APPROVED' | 'PAID')[] };
+      const activeStatuses = {
+        in: ['PENDING', 'APPROVED', 'PAID'] as ('PENDING' | 'APPROVED' | 'PAID')[],
+      };
 
       const result = await runWithClinicContext(clinicId, async () => {
         const [
@@ -44,22 +43,40 @@ export const GET = withAuth(
           prisma.patientSalesRepAssignment.count({
             where: { salesRepId, clinicId, isActive: true },
           }),
-          prisma.salesRepCommissionEvent.aggregate({
-            where: { salesRepId, clinicId, status: activeStatuses },
-            _sum: { commissionAmountCents: true, eventAmountCents: true },
-          }).catch(() => ({ _sum: { commissionAmountCents: null, eventAmountCents: null } })),
-          prisma.salesRepCommissionEvent.aggregate({
-            where: { salesRepId, clinicId, status: activeStatuses, occurredAt: { gte: sevenDaysAgo } },
-            _sum: { eventAmountCents: true, commissionAmountCents: true },
-          }).catch(() => ({ _sum: { eventAmountCents: null, commissionAmountCents: null } })),
-          prisma.salesRepCommissionEvent.aggregate({
-            where: { salesRepId, clinicId, status: activeStatuses, occurredAt: { gte: thirtyDaysAgo } },
-            _sum: { eventAmountCents: true, commissionAmountCents: true },
-          }).catch(() => ({ _sum: { eventAmountCents: null, commissionAmountCents: null } })),
-          prisma.salesRepOverrideCommissionEvent.aggregate({
-            where: { overrideRepId: salesRepId, clinicId, status: activeStatuses },
-            _sum: { commissionAmountCents: true, eventAmountCents: true },
-          }).catch(() => ({ _sum: { commissionAmountCents: null, eventAmountCents: null } })),
+          prisma.salesRepCommissionEvent
+            .aggregate({
+              where: { salesRepId, clinicId, status: activeStatuses },
+              _sum: { commissionAmountCents: true, eventAmountCents: true },
+            })
+            .catch(() => ({ _sum: { commissionAmountCents: null, eventAmountCents: null } })),
+          prisma.salesRepCommissionEvent
+            .aggregate({
+              where: {
+                salesRepId,
+                clinicId,
+                status: activeStatuses,
+                occurredAt: { gte: sevenDaysAgo },
+              },
+              _sum: { eventAmountCents: true, commissionAmountCents: true },
+            })
+            .catch(() => ({ _sum: { eventAmountCents: null, commissionAmountCents: null } })),
+          prisma.salesRepCommissionEvent
+            .aggregate({
+              where: {
+                salesRepId,
+                clinicId,
+                status: activeStatuses,
+                occurredAt: { gte: thirtyDaysAgo },
+              },
+              _sum: { eventAmountCents: true, commissionAmountCents: true },
+            })
+            .catch(() => ({ _sum: { eventAmountCents: null, commissionAmountCents: null } })),
+          prisma.salesRepOverrideCommissionEvent
+            .aggregate({
+              where: { overrideRepId: salesRepId, clinicId, status: activeStatuses },
+              _sum: { commissionAmountCents: true, eventAmountCents: true },
+            })
+            .catch(() => ({ _sum: { commissionAmountCents: null, eventAmountCents: null } })),
           prisma.salesRepOverrideAssignment.count({
             where: { overrideRepId: salesRepId, clinicId, isActive: true },
           }),

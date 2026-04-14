@@ -106,18 +106,14 @@ export default function AdminMessagesPage() {
             setConversations((prev) => {
               if (prev.length <= PAGE_SIZE) return incoming;
               const incomingIds = new Set(incoming.map((c) => c.patientId));
-              const rest = prev.slice(PAGE_SIZE).filter(
-                (c) => !incomingIds.has(c.patientId),
-              );
+              const rest = prev.slice(PAGE_SIZE).filter((c) => !incomingIds.has(c.patientId));
               return [...incoming, ...rest];
             });
           } else {
             // Loading next page: append new conversations
             setConversations((prev) => {
               const existingIds = new Set(prev.map((c) => c.patientId));
-              const deduped = incoming.filter(
-                (c) => !existingIds.has(c.patientId),
-              );
+              const deduped = incoming.filter((c) => !existingIds.has(c.patientId));
               return [...prev, ...deduped];
             });
             setPagination(data.pagination || null);
@@ -137,7 +133,7 @@ export default function AdminMessagesPage() {
         setLoadingMore(false);
       }
     },
-    [filter, searchTerm],
+    [filter, searchTerm]
   );
 
   const loadMore = useCallback(() => {
@@ -167,7 +163,7 @@ export default function AdminMessagesPage() {
       (entries) => {
         if (entries[0].isIntersecting) loadMore();
       },
-      { root: listRef.current, rootMargin: '200px' },
+      { root: listRef.current, rootMargin: '200px' }
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
@@ -204,7 +200,7 @@ export default function AdminMessagesPage() {
       .slice(0, 2);
 
   const filteredConversations = conversations.filter((c) =>
-    normalizedIncludes(c.patientName, searchTerm),
+    normalizedIncludes(c.patientName, searchTerm)
   );
 
   return (
@@ -327,9 +323,7 @@ export default function AdminMessagesPage() {
                       <div className="relative flex-shrink-0">
                         <div
                           className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold ${
-                            conv.unread
-                              ? 'bg-blue-100 text-blue-700'
-                              : 'bg-gray-100 text-gray-600'
+                            conv.unread ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
                           }`}
                         >
                           {getInitials(conv.patientName)}
@@ -343,7 +337,9 @@ export default function AdminMessagesPage() {
                         <div className="flex items-center justify-between">
                           <span
                             className={`truncate text-sm ${
-                              conv.unread ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'
+                              conv.unread
+                                ? 'font-semibold text-gray-900'
+                                : 'font-medium text-gray-700'
                             }`}
                           >
                             {conv.patientName}

@@ -57,7 +57,6 @@ export async function POST(req: NextRequest) {
         mock: false,
       });
     } catch (error: unknown) {
-
       logger.error('[CHAT_TOKEN] Failed to generate token:', error);
 
       // Fallback to mock token if generation fails
@@ -79,7 +78,6 @@ export async function POST(req: NextRequest) {
       });
     }
   } catch (error: unknown) {
-
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[CHAT_TOKEN] Error:', error);
     return NextResponse.json(

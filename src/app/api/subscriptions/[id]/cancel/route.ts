@@ -70,7 +70,7 @@ async function cancelSubscriptionHandler(
           await stripeContext.stripe.subscriptions.cancel(
             subscription.stripeSubscriptionId,
             {},
-            requestOptions as any,
+            requestOptions as any
           );
 
           logger.info('[SUBSCRIPTIONS] Stripe subscription canceled successfully', {
@@ -119,42 +119,45 @@ async function cancelSubscriptionHandler(
     }
 
     // ENTERPRISE: Update DB in transaction AFTER Stripe confirms
-    const updatedSubscription = await prisma.$transaction(async (tx: TransactionClient) => {
-      // Update subscription
-      const updated = await tx.subscription.update({
-        where: { id: subscriptionId },
-        data: {
-          status: SubscriptionStatus.CANCELED,
-          canceledAt: new Date(),
-          endedAt: new Date(),
-          nextBillingDate: null,
-        },
-      });
-
-      // Update patient tags
-      if (subscription.patient) {
-        const currentTags = (subscription.patient.tags as string[]) || [];
-        const updatedTags = currentTags
-          .filter((tag: string) => tag !== 'active-subscription' && tag !== 'paused-subscription')
-          .concat('canceled-subscription');
-
-        await tx.patient.update({
-          where: { id: subscription.patientId },
-          data: { tags: updatedTags },
+    const updatedSubscription = await prisma.$transaction(
+      async (tx: TransactionClient) => {
+        // Update subscription
+        const updated = await tx.subscription.update({
+          where: { id: subscriptionId },
+          data: {
+            status: SubscriptionStatus.CANCELED,
+            canceledAt: new Date(),
+            endedAt: new Date(),
+            nextBillingDate: null,
+          },
         });
-      }
 
-      // Create subscription action for audit trail
-      await tx.subscriptionAction.create({
-        data: {
-          subscriptionId,
-          actionType: 'CANCELLED',
-          reason: `Cancelled via API by user ${user.id}`,
-        },
-      });
+        // Update patient tags
+        if (subscription.patient) {
+          const currentTags = (subscription.patient.tags as string[]) || [];
+          const updatedTags = currentTags
+            .filter((tag: string) => tag !== 'active-subscription' && tag !== 'paused-subscription')
+            .concat('canceled-subscription');
 
-      return updated;
-    }, { timeout: 15000 });
+          await tx.patient.update({
+            where: { id: subscription.patientId },
+            data: { tags: updatedTags },
+          });
+        }
+
+        // Create subscription action for audit trail
+        await tx.subscriptionAction.create({
+          data: {
+            subscriptionId,
+            actionType: 'CANCELLED',
+            reason: `Cancelled via API by user ${user.id}`,
+          },
+        });
+
+        return updated;
+      },
+      { timeout: 15000 }
+    );
 
     logger.info('[SUBSCRIPTIONS] Subscription canceled successfully', {
       subscriptionId,
@@ -170,7 +173,9 @@ async function cancelSubscriptionHandler(
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[SUBSCRIPTIONS] Error canceling subscription:', {
       error: errorMessage,
-      ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
+      ...(process.env.NODE_ENV === 'development' && {
+        stack: error instanceof Error ? error.stack : undefined,
+      }),
     });
     return NextResponse.json(
       { error: 'Failed to cancel subscription', detail: errorMessage },

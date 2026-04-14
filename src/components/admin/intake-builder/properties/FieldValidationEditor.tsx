@@ -20,9 +20,7 @@ const VALIDATION_RULE_TYPES = [
 
 type ValidationRuleType = ValidationRule['type'];
 
-function getApplicableRules(
-  fieldType: string
-): ValidationRuleType[] {
+function getApplicableRules(fieldType: string): ValidationRuleType[] {
   const text: ValidationRuleType[] = ['required', 'minLength', 'maxLength', 'pattern'];
   const number: ValidationRuleType[] = ['required', 'min', 'max'];
   const email: ValidationRuleType[] = ['required', 'email'];
@@ -38,11 +36,7 @@ function getApplicableRules(
 interface FieldValidationEditorProps {
   step: FormStep;
   field: FormField;
-  onUpdateField: (
-    stepId: string,
-    fieldId: string,
-    updates: Partial<FormField>
-  ) => void;
+  onUpdateField: (stepId: string, fieldId: string, updates: Partial<FormField>) => void;
 }
 
 export default function FieldValidationEditor({
@@ -99,7 +93,7 @@ export default function FieldValidationEditor({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <label className="text-xs font-medium text-gray-600 uppercase tracking-wider">
+        <label className="text-xs font-medium uppercase tracking-wider text-gray-600">
           Required
         </label>
         <button
@@ -126,19 +120,17 @@ export default function FieldValidationEditor({
           return (
             <div
               key={`${rule.type}-${actualIndex}`}
-              className="p-3 rounded-lg border border-gray-200 bg-gray-50/50 space-y-2"
+              className="space-y-2 rounded-lg border border-gray-200 bg-gray-50/50 p-3"
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-medium text-gray-700 capitalize">
-                  {rule.type}
-                </span>
+                <span className="text-xs font-medium capitalize text-gray-700">{rule.type}</span>
                 <button
                   type="button"
                   onClick={() => removeRule(actualIndex)}
-                  className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                  className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"
                   aria-label="Remove rule"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="h-4 w-4" />
                 </button>
               </div>
               {(rule.type === 'minLength' ||
@@ -149,9 +141,7 @@ export default function FieldValidationEditor({
                 <input
                   type={rule.type === 'pattern' ? 'text' : 'number'}
                   value={
-                    rule.type === 'pattern'
-                      ? String(rule.value ?? '')
-                      : Number(rule.value ?? 0)
+                    rule.type === 'pattern' ? String(rule.value ?? '') : Number(rule.value ?? 0)
                   }
                   onChange={(e) =>
                     updateRule(actualIndex, {
@@ -161,10 +151,8 @@ export default function FieldValidationEditor({
                           : parseInt(e.target.value, 10) || 0,
                     })
                   }
-                  placeholder={
-                    rule.type === 'pattern' ? 'e.g. ^[A-Z]+$' : undefined
-                  }
-                  className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  placeholder={rule.type === 'pattern' ? 'e.g. ^[A-Z]+$' : undefined}
+                  className="w-full rounded border border-gray-200 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                 />
               )}
               <LocalizedInput
@@ -178,7 +166,7 @@ export default function FieldValidationEditor({
         })}
 
       <div className="pt-2">
-        <label className="block text-xs font-medium text-gray-600 uppercase tracking-wider mb-2">
+        <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-gray-600">
           Add Validation Rule
         </label>
         <div className="flex flex-wrap gap-1">
@@ -192,9 +180,9 @@ export default function FieldValidationEditor({
               key={t.value}
               type="button"
               onClick={() => addRule(t.value)}
-              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded border border-indigo-200"
+              className="inline-flex items-center gap-1 rounded border border-indigo-200 px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700"
             >
-              <Plus className="w-3 h-3" />
+              <Plus className="h-3 w-3" />
               {t.label}
             </button>
           ))}

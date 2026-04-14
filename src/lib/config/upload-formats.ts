@@ -50,12 +50,7 @@ export const ACCEPTED_DOCUMENT_MIME_TYPES = [
   'text/plain',
 ] as const;
 
-export const ACCEPTED_DOCUMENT_EXTENSIONS = [
-  '.pdf',
-  '.doc',
-  '.docx',
-  '.txt',
-] as const;
+export const ACCEPTED_DOCUMENT_EXTENSIONS = ['.pdf', '.doc', '.docx', '.txt'] as const;
 
 export const ACCEPTED_DOCUMENT_LABEL = 'PDF, DOC, DOCX, or TXT';
 

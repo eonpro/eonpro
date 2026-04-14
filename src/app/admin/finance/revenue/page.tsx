@@ -137,7 +137,14 @@ export default function RevenuePage() {
   const [granularity, setGranularity] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [showTransactions, setShowTransactions] = useState(false);
   const [transactions, setTransactions] = useState<
-    Array<{ id: number; amount: number; createdAt: string; patientName: string | null; paymentMethod: string; invoiceId: number | null }>
+    Array<{
+      id: number;
+      amount: number;
+      createdAt: string;
+      patientName: string | null;
+      paymentMethod: string;
+      invoiceId: number | null;
+    }>
   >([]);
   const [transactionsLoading, setTransactionsLoading] = useState(false);
   const [stripeAnalytics, setStripeAnalytics] = useState<any>(null);
@@ -365,7 +372,9 @@ export default function RevenuePage() {
                     const n = new Date();
                     const start = new Date(n.getFullYear(), n.getMonth(), 1);
                     setCustomEnd(`${n.getFullYear()}-${pad(n.getMonth() + 1)}-${pad(n.getDate())}`);
-                    setCustomStart(`${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`);
+                    setCustomStart(
+                      `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`
+                    );
                   }
                 }}
                 className={`rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors ${
@@ -745,7 +754,7 @@ export default function RevenuePage() {
                       <td className="py-3 pr-4 text-right tabular-nums text-gray-700">
                         {row.count.toLocaleString()}
                       </td>
-                      <td className="py-3 pr-4 text-right tabular-nums font-medium text-gray-900">
+                      <td className="py-3 pr-4 text-right font-medium tabular-nums text-gray-900">
                         {formatCurrency(row.revenue)}
                       </td>
                       <td className="py-3 text-right">
@@ -769,11 +778,11 @@ export default function RevenuePage() {
                 </tbody>
                 <tfoot>
                   <tr className="border-t border-gray-200 font-semibold text-gray-900">
-                    <td className="pt-3 pr-4">Total</td>
-                    <td className="pt-3 pr-4 text-right tabular-nums">
+                    <td className="pr-4 pt-3">Total</td>
+                    <td className="pr-4 pt-3 text-right tabular-nums">
                       {productBreakdown.totalUnits.toLocaleString()}
                     </td>
-                    <td className="pt-3 pr-4 text-right tabular-nums">
+                    <td className="pr-4 pt-3 text-right tabular-nums">
                       {formatCurrency(productBreakdown.totalRevenue)}
                     </td>
                     <td className="pt-3 text-right tabular-nums text-gray-500">100%</td>
@@ -849,7 +858,10 @@ export default function RevenuePage() {
             </ResponsiveContainer>
             <div className="mt-4 flex items-center gap-6 border-t border-gray-100 pt-4 text-sm text-gray-500">
               <div className="flex items-center gap-2">
-                <div className="h-0.5 w-4 bg-[var(--brand-primary)]" style={{ strokeDasharray: '5 5' }} />
+                <div
+                  className="h-0.5 w-4 bg-[var(--brand-primary)]"
+                  style={{ strokeDasharray: '5 5' }}
+                />
                 <span>Predicted Revenue</span>
               </div>
               <div className="flex items-center gap-2">
@@ -905,7 +917,9 @@ export default function RevenuePage() {
               <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Activity className="h-5 w-5 text-blue-500" />
-                  <h3 className="text-lg font-semibold text-gray-900">Net Revenue Trend (Stripe)</h3>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Net Revenue Trend (Stripe)
+                  </h3>
                 </div>
                 <span className="text-sm text-gray-500">Last 12 months</span>
               </div>
@@ -923,11 +937,52 @@ export default function RevenuePage() {
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                   <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#6B7280' }} />
-                  <YAxis tick={{ fontSize: 12, fill: '#6B7280' }} tickFormatter={(v) => formatCurrencyCompact(v)} />
-                  <Tooltip formatter={((value: number | undefined, name: string) => [formatCurrency(value ?? 0), name === 'gross' ? 'Gross' : name === 'net' ? 'Net' : name === 'fees' ? 'Fees' : name === 'refunds' ? 'Refunds' : name]) as any} contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB' }} />
-                  <Area type="monotone" dataKey="gross" name="Gross" stroke="#10B981" fill="url(#grossGradient)" strokeWidth={2} />
-                  <Area type="monotone" dataKey="net" name="Net" stroke="#3B82F6" fill="url(#netGradient)" strokeWidth={2} />
-                  <Line type="monotone" dataKey="fees" name="Fees" stroke="#EF4444" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
+                  <YAxis
+                    tick={{ fontSize: 12, fill: '#6B7280' }}
+                    tickFormatter={(v) => formatCurrencyCompact(v)}
+                  />
+                  <Tooltip
+                    formatter={
+                      ((value: number | undefined, name: string) => [
+                        formatCurrency(value ?? 0),
+                        name === 'gross'
+                          ? 'Gross'
+                          : name === 'net'
+                            ? 'Net'
+                            : name === 'fees'
+                              ? 'Fees'
+                              : name === 'refunds'
+                                ? 'Refunds'
+                                : name,
+                      ]) as any
+                    }
+                    contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB' }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="gross"
+                    name="Gross"
+                    stroke="#10B981"
+                    fill="url(#grossGradient)"
+                    strokeWidth={2}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="net"
+                    name="Net"
+                    stroke="#3B82F6"
+                    fill="url(#netGradient)"
+                    strokeWidth={2}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="fees"
+                    name="Fees"
+                    stroke="#EF4444"
+                    strokeWidth={1.5}
+                    strokeDasharray="4 4"
+                    dot={false}
+                  />
                   <Legend />
                 </AreaChart>
               </ResponsiveContainer>
@@ -947,15 +1002,21 @@ export default function RevenuePage() {
                   <div className="mb-4 flex gap-4">
                     <div className="rounded-lg bg-emerald-50 px-3 py-2">
                       <p className="text-xs text-emerald-600">Current MRR</p>
-                      <p className="text-lg font-bold text-emerald-700">{stripeAnalytics.summary.currentMRRFormatted}</p>
+                      <p className="text-lg font-bold text-emerald-700">
+                        {stripeAnalytics.summary.currentMRRFormatted}
+                      </p>
                     </div>
                     <div className="rounded-lg bg-blue-50 px-3 py-2">
                       <p className="text-xs text-blue-600">Current ARR</p>
-                      <p className="text-lg font-bold text-blue-700">{stripeAnalytics.summary.currentARRFormatted}</p>
+                      <p className="text-lg font-bold text-blue-700">
+                        {stripeAnalytics.summary.currentARRFormatted}
+                      </p>
                     </div>
                     <div className="rounded-lg bg-gray-50 px-3 py-2">
                       <p className="text-xs text-gray-600">Active Subs</p>
-                      <p className="text-lg font-bold text-gray-700">{stripeAnalytics.summary.activeSubscriptions}</p>
+                      <p className="text-lg font-bold text-gray-700">
+                        {stripeAnalytics.summary.activeSubscriptions}
+                      </p>
                     </div>
                   </div>
                 )}
@@ -963,9 +1024,22 @@ export default function RevenuePage() {
                   <AreaChart data={stripeAnalytics.mrr}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                     <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#6B7280' }} />
-                    <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={(v) => formatCurrencyCompact(v)} />
-                    <Tooltip formatter={(v: number | undefined) => formatCurrency(v ?? 0)} contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB' }} />
-                    <Area type="monotone" dataKey="mrr" name="MRR" stroke="#10B981" fill="#10B98120" strokeWidth={2} />
+                    <YAxis
+                      tick={{ fontSize: 11, fill: '#6B7280' }}
+                      tickFormatter={(v) => formatCurrencyCompact(v)}
+                    />
+                    <Tooltip
+                      formatter={(v: number | undefined) => formatCurrency(v ?? 0)}
+                      contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB' }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="mrr"
+                      name="MRR"
+                      stroke="#10B981"
+                      fill="#10B98120"
+                      strokeWidth={2}
+                    />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -982,11 +1056,15 @@ export default function RevenuePage() {
                   <div className="mb-4 flex gap-4">
                     <div className="rounded-lg bg-orange-50 px-3 py-2">
                       <p className="text-xs text-orange-600">Avg Churn</p>
-                      <p className="text-lg font-bold text-orange-700">{stripeAnalytics.summary.avgMonthlyChurnFormatted}</p>
+                      <p className="text-lg font-bold text-orange-700">
+                        {stripeAnalytics.summary.avgMonthlyChurnFormatted}
+                      </p>
                     </div>
                     <div className="rounded-lg bg-emerald-50 px-3 py-2">
                       <p className="text-xs text-emerald-600">Avg Retention</p>
-                      <p className="text-lg font-bold text-emerald-700">{(100 - stripeAnalytics.summary.avgMonthlyChurn).toFixed(1)}%</p>
+                      <p className="text-lg font-bold text-emerald-700">
+                        {(100 - stripeAnalytics.summary.avgMonthlyChurn).toFixed(1)}%
+                      </p>
                     </div>
                   </div>
                 )}
@@ -994,10 +1072,30 @@ export default function RevenuePage() {
                   <LineChart data={stripeAnalytics.churn}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                     <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#6B7280' }} />
-                    <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={(v) => `${v}%`} />
-                    <Tooltip formatter={(v: number | undefined) => `${v ?? 0}%`} contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB' }} />
-                    <Line type="monotone" dataKey="churnRate" name="Churn Rate" stroke="#F59E0B" strokeWidth={2} dot={{ fill: '#F59E0B', r: 3 }} />
-                    <Line type="monotone" dataKey="retentionRate" name="Retention Rate" stroke="#10B981" strokeWidth={2} dot={{ fill: '#10B981', r: 3 }} />
+                    <YAxis
+                      tick={{ fontSize: 11, fill: '#6B7280' }}
+                      tickFormatter={(v) => `${v}%`}
+                    />
+                    <Tooltip
+                      formatter={(v: number | undefined) => `${v ?? 0}%`}
+                      contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB' }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="churnRate"
+                      name="Churn Rate"
+                      stroke="#F59E0B"
+                      strokeWidth={2}
+                      dot={{ fill: '#F59E0B', r: 3 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="retentionRate"
+                      name="Retention Rate"
+                      stroke="#10B981"
+                      strokeWidth={2}
+                      dot={{ fill: '#10B981', r: 3 }}
+                    />
                     <Legend />
                   </LineChart>
                 </ResponsiveContainer>
@@ -1011,15 +1109,22 @@ export default function RevenuePage() {
               <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Calendar className="h-5 w-5 text-purple-500" />
-                  <h3 className="text-lg font-semibold text-gray-900">3-Month Revenue Forecast (Stripe)</h3>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    3-Month Revenue Forecast (Stripe)
+                  </h3>
                 </div>
                 <span className="text-sm text-gray-500">Based on linear regression</span>
               </div>
               <div className="grid grid-cols-3 gap-4">
                 {stripeAnalytics.forecast.map((f: any) => (
-                  <div key={f.month} className="rounded-lg border border-purple-100 bg-purple-50/50 p-4">
+                  <div
+                    key={f.month}
+                    className="rounded-lg border border-purple-100 bg-purple-50/50 p-4"
+                  >
                     <p className="text-sm font-medium text-purple-700">{f.month}</p>
-                    <p className="mt-1 text-2xl font-bold text-purple-900">{f.projectedFormatted}</p>
+                    <p className="mt-1 text-2xl font-bold text-purple-900">
+                      {f.projectedFormatted}
+                    </p>
                     <p className="mt-1 text-xs text-purple-600">
                       Range: {f.lowerBoundFormatted} &ndash; {f.upperBoundFormatted}
                     </p>
@@ -1036,32 +1141,49 @@ export default function RevenuePage() {
                 <BarChart2 className="h-5 w-5 text-indigo-500" />
                 <h3 className="text-lg font-semibold text-gray-900">Revenue Cohorts</h3>
               </div>
-              <p className="mb-3 text-sm text-gray-500">Revenue by customer signup month &mdash; how each cohort spends over time</p>
+              <p className="mb-3 text-sm text-gray-500">
+                Revenue by customer signup month &mdash; how each cohort spends over time
+              </p>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b text-left text-xs text-gray-500">
                       <th className="pb-2 pr-4 font-medium">Cohort</th>
-                      <th className="pb-2 pr-3 font-medium text-right">Customers</th>
-                      {Array.from({ length: Math.min(6, stripeAnalytics.cohorts[0]?.months?.length || 0) }, (_, i) => (
-                        <th key={i} className="pb-2 pr-3 font-medium text-right">M{i}</th>
-                      ))}
+                      <th className="pb-2 pr-3 text-right font-medium">Customers</th>
+                      {Array.from(
+                        { length: Math.min(6, stripeAnalytics.cohorts[0]?.months?.length || 0) },
+                        (_, i) => (
+                          <th key={i} className="pb-2 pr-3 text-right font-medium">
+                            M{i}
+                          </th>
+                        )
+                      )}
                     </tr>
                   </thead>
                   <tbody>
                     {stripeAnalytics.cohorts.slice(-8).map((cohort: any) => (
                       <tr key={cohort.cohortMonth} className="border-b last:border-0">
-                        <td className="py-2 pr-4 font-medium text-gray-700">{cohort.cohortMonth}</td>
-                        <td className="py-2 pr-3 text-right text-gray-600">{cohort.customerCount}</td>
+                        <td className="py-2 pr-4 font-medium text-gray-700">
+                          {cohort.cohortMonth}
+                        </td>
+                        <td className="py-2 pr-3 text-right text-gray-600">
+                          {cohort.customerCount}
+                        </td>
                         {cohort.months.slice(0, 6).map((m: any) => {
-                          const maxRev = Math.max(...cohort.months.slice(0, 6).map((x: any) => x.revenue), 1);
+                          const maxRev = Math.max(
+                            ...cohort.months.slice(0, 6).map((x: any) => x.revenue),
+                            1
+                          );
                           const intensity = Math.min(m.revenue / maxRev, 1);
                           return (
                             <td
                               key={m.month}
                               className="py-2 pr-3 text-right text-xs font-medium"
                               style={{
-                                backgroundColor: m.revenue > 0 ? `rgba(16, 185, 129, ${0.1 + intensity * 0.4})` : 'transparent',
+                                backgroundColor:
+                                  m.revenue > 0
+                                    ? `rgba(16, 185, 129, ${0.1 + intensity * 0.4})`
+                                    : 'transparent',
                                 color: m.revenue > 0 ? '#065F46' : '#9CA3AF',
                               }}
                             >
@@ -1116,7 +1238,9 @@ export default function RevenuePage() {
                   <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
                 </div>
               ) : transactions.length === 0 ? (
-                <div className="py-12 text-center text-gray-500">No transactions in this period</div>
+                <div className="py-12 text-center text-gray-500">
+                  No transactions in this period
+                </div>
               ) : (
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 bg-gray-50">

@@ -278,11 +278,7 @@ export default function ProviderLayout({ children, userData }: ProviderLayoutPro
 
               {/* Logo with clinical badge */}
               <div className="ml-4 flex items-center gap-4">
-                <img
-                  src={EONPRO_LOGO}
-                  alt="EONPRO logo"
-                  className="h-10 w-auto"
-                />
+                <img src={EONPRO_LOGO} alt="EONPRO logo" className="h-10 w-auto" />
                 <div className="hidden md:block">
                   <p className="text-sm text-gray-500">Active Patients</p>
                   <p className="text-lg font-semibold text-gray-900">{currentPatientCount}</p>

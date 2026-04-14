@@ -51,9 +51,7 @@ const DB_HEALTH_TIMEOUT_MS = 4000; // Fail fast to avoid holding pool for 15s on
 function withTimeout<T>(p: Promise<T>, ms: number, timeoutMessage: string): Promise<T> {
   return Promise.race([
     p,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error(timeoutMessage)), ms)
-    ),
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(timeoutMessage)), ms)),
   ]);
 }
 
@@ -84,7 +82,9 @@ async function checkDatabase(): Promise<HealthCheck> {
       DB_HEALTH_TIMEOUT_MS,
       'Query timed out'
     ).catch((err) => {
-      logger.debug('[Health] Patient count check failed', { error: err instanceof Error ? err.message : String(err) });
+      logger.debug('[Health] Patient count check failed', {
+        error: err instanceof Error ? err.message : String(err),
+      });
       return null;
     });
 
@@ -533,7 +533,10 @@ async function checkMigrations(): Promise<HealthCheck> {
     };
   } catch (error: unknown) {
     // If table doesn't exist, migrations haven't been run
-    if ((error as any).message.includes('does not exist') || (error as any).message.includes('_prisma_migrations')) {
+    if (
+      (error as any).message.includes('does not exist') ||
+      (error as any).message.includes('_prisma_migrations')
+    ) {
       return {
         name: 'Migrations',
         status: 'degraded',

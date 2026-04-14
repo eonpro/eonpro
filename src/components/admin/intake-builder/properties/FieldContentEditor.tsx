@@ -3,12 +3,7 @@
 import React from 'react';
 import LocalizedInput from '../shared/LocalizedInput';
 import OptionListEditor from './OptionListEditor';
-import type {
-  FormField,
-  FormStep,
-  FieldType,
-  FieldOption,
-} from '../state/builderTypes';
+import type { FormField, FormStep, FieldType, FieldOption } from '../state/builderTypes';
 
 const FIELD_TYPES: { value: FieldType; label: string }[] = [
   { value: 'text', label: 'Short Text' },
@@ -41,29 +36,16 @@ const OPTION_TYPES: FieldType[] = ['radio', 'checkbox', 'select'];
 interface FieldContentEditorProps {
   step: FormStep;
   field: FormField;
-  onUpdateField: (
-    stepId: string,
-    fieldId: string,
-    updates: Partial<FormField>
-  ) => void;
+  onUpdateField: (stepId: string, fieldId: string, updates: Partial<FormField>) => void;
   onAddOption: (stepId: string, fieldId: string) => void;
-  onDeleteOption: (
-    stepId: string,
-    fieldId: string,
-    optionId: string
-  ) => void;
+  onDeleteOption: (stepId: string, fieldId: string, optionId: string) => void;
   onUpdateOption: (
     stepId: string,
     fieldId: string,
     optionId: string,
     updates: Partial<FieldOption>
   ) => void;
-  onReorderOptions: (
-    stepId: string,
-    fieldId: string,
-    activeId: string,
-    overId: string
-  ) => void;
+  onReorderOptions: (stepId: string, fieldId: string, activeId: string, overId: string) => void;
 }
 
 export default function FieldContentEditor({
@@ -85,13 +67,13 @@ export default function FieldContentEditor({
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-xs font-medium text-gray-600 uppercase tracking-wider mb-1.5">
+        <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-gray-600">
           Field Type
         </label>
         <select
           value={field.type}
           onChange={(e) => update({ type: e.target.value as FieldType })}
-          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
+          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
         >
           {FIELD_TYPES.map((t) => (
             <option key={t.value} value={t.value}>
@@ -127,7 +109,7 @@ export default function FieldContentEditor({
       />
 
       <div>
-        <label className="block text-xs font-medium text-gray-600 uppercase tracking-wider mb-1.5">
+        <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-gray-600">
           Storage Key
         </label>
         <input
@@ -135,7 +117,7 @@ export default function FieldContentEditor({
           value={field.storageKey}
           onChange={(e) => update({ storageKey: e.target.value })}
           placeholder="e.g. first_name"
-          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
+          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
         />
         <p className="mt-1 text-[10px] text-gray-500">
           Used to store responses. Auto-generated from label if empty.
@@ -144,7 +126,7 @@ export default function FieldContentEditor({
 
       {!['hidden', 'signature', 'file'].includes(field.type) && (
         <div>
-          <label className="block text-xs font-medium text-gray-600 uppercase tracking-wider mb-1.5">
+          <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-gray-600">
             Default Value
           </label>
           <input
@@ -156,7 +138,7 @@ export default function FieldContentEditor({
               })
             }
             placeholder="Optional default"
-            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
+            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
           />
         </div>
       )}

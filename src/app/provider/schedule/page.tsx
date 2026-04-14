@@ -143,7 +143,9 @@ export default function ProviderSchedulePage() {
       {/* Today's Stats */}
       <div className="grid grid-cols-4 gap-4">
         <div className="rounded-lg bg-white p-4 shadow">
-          <div className="text-2xl font-bold text-[var(--brand-primary)]">{appointments.length}</div>
+          <div className="text-2xl font-bold text-[var(--brand-primary)]">
+            {appointments.length}
+          </div>
           <div className="text-sm text-gray-600">Total Appointments</div>
         </div>
         <div className="rounded-lg bg-white p-4 shadow">

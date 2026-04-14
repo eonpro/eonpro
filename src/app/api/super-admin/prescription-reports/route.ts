@@ -86,9 +86,6 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
       error: error instanceof Error ? error.message : 'Unknown error',
       userId: user.id,
     });
-    return NextResponse.json(
-      { error: 'Failed to fetch prescription report' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch prescription report' }, { status: 500 });
   }
 });

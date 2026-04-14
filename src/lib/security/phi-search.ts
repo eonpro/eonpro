@@ -317,10 +317,13 @@ export const PHISearchService = {
 
     // Ensure tenant scoping: baseQuery must include clinicId for non-global searches
     if (!baseQuery || !('clinicId' in baseQuery)) {
-      logger.warn('[PHI-SEARCH] searchPatients called without clinicId in baseQuery — results may span tenants', {
-        hasBaseQuery: !!baseQuery,
-        queryKeys: baseQuery ? Object.keys(baseQuery) : [],
-      });
+      logger.warn(
+        '[PHI-SEARCH] searchPatients called without clinicId in baseQuery — results may span tenants',
+        {
+          hasBaseQuery: !!baseQuery,
+          queryKeys: baseQuery ? Object.keys(baseQuery) : [],
+        }
+      );
     }
 
     // ── FAST PATH: searchIndex (GIN-indexed, O(1) via pg_trgm) ──────────

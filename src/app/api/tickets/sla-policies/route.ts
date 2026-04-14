@@ -47,7 +47,10 @@ export const POST = withAuth(async (request, user) => {
 
     const body = await request.json();
     if (!body.name?.trim() || !body.firstResponseMinutes || !body.resolutionMinutes) {
-      return NextResponse.json({ error: 'Name, first response time, and resolution time are required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Name, first response time, and resolution time are required' },
+        { status: 400 }
+      );
     }
 
     const policy = await prisma.slaPolicyConfig.create({
@@ -60,7 +63,9 @@ export const POST = withAuth(async (request, user) => {
         isDefault: body.isDefault ?? false,
         firstResponseMinutes: parseInt(body.firstResponseMinutes, 10),
         resolutionMinutes: parseInt(body.resolutionMinutes, 10),
-        nextResponseMinutes: body.nextResponseMinutes ? parseInt(body.nextResponseMinutes, 10) : null,
+        nextResponseMinutes: body.nextResponseMinutes
+          ? parseInt(body.nextResponseMinutes, 10)
+          : null,
         businessHoursId: body.businessHoursId || null,
         respectBusinessHours: body.respectBusinessHours ?? true,
         escalateOnBreach: body.escalateOnBreach ?? true,

@@ -23,10 +23,7 @@ export interface AddonUnmatchedSalesReport {
   clinicId: number;
   paidSalesChecked: number;
   unmatchedTotal: number;
-  grouped: Record<
-    string,
-    { total: number; no_customer_email: number; no_patient_match: number }
-  >;
+  grouped: Record<string, { total: number; no_customer_email: number; no_patient_match: number }>;
   samples: UnmatchedSaleSample[];
   lookbackDays: number;
 }
@@ -115,7 +112,10 @@ export async function buildAddonUnmatchedSalesReport(
             if (byCustomer) return true;
 
             const bySearchIndex = await prisma.patient.findFirst({
-              where: { clinicId: options.clinicId, searchIndex: { contains: email, mode: 'insensitive' } },
+              where: {
+                clinicId: options.clinicId,
+                searchIndex: { contains: email, mode: 'insensitive' },
+              },
               select: { id: true },
               orderBy: { createdAt: 'desc' },
             });
@@ -168,4 +168,3 @@ export async function buildAddonUnmatchedSalesReport(
     lookbackDays,
   };
 }
-

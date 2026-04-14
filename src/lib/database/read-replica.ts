@@ -137,8 +137,18 @@ export function getReadPrisma(): PrismaClient {
 // =============================================================================
 
 const TRANSIENT_PRISMA_CODES = new Set([
-  'P2035', 'P2024', 'P2034', 'P2037', 'P2023', 'P2028',
-  'P1000', 'P1001', 'P1002', 'P1008', 'P1011', 'P1017',
+  'P2035',
+  'P2024',
+  'P2034',
+  'P2037',
+  'P2023',
+  'P2028',
+  'P1000',
+  'P1001',
+  'P1002',
+  'P1008',
+  'P1011',
+  'P1017',
 ]);
 
 /**
@@ -192,9 +202,7 @@ export function getResilientReadDb(): PrismaClient {
  * });
  * ```
  */
-export async function withReadFallback<T>(
-  operation: (db: PrismaClient) => Promise<T>
-): Promise<T> {
+export async function withReadFallback<T>(operation: (db: PrismaClient) => Promise<T>): Promise<T> {
   const db = getResilientReadDb();
   try {
     return await operation(db);

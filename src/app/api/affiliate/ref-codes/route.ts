@@ -19,7 +19,11 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 const createRefCodeSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters').max(50).regex(/^[A-Za-z0-9_-]+$/i, 'Name may only contain letters, numbers, hyphens, and underscores'),
+  name: z
+    .string()
+    .min(2, 'Name must be at least 2 characters')
+    .max(50)
+    .regex(/^[A-Za-z0-9_-]+$/i, 'Name may only contain letters, numbers, hyphens, and underscores'),
 });
 
 const MAX_REF_CODES = 10;

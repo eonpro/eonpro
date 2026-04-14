@@ -70,7 +70,15 @@ function navConfigToItems(config: { path: string; label: string; iconKey: string
 }
 
 // Roles allowed to access patient pages
-const ALLOWED_ROLES = ['admin', 'super_admin', 'provider', 'staff', 'support', 'sales_rep', 'pharmacy_rep'];
+const ALLOWED_ROLES = [
+  'admin',
+  'super_admin',
+  'provider',
+  'staff',
+  'support',
+  'sales_rep',
+  'pharmacy_rep',
+];
 
 function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -107,7 +115,10 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
 
     try {
       const parsedUser = safeParseJsonString<Record<string, unknown>>(user);
-      if (!parsedUser) { router.push('/login'); return; }
+      if (!parsedUser) {
+        router.push('/login');
+        return;
+      }
       const role = String(parsedUser?.role ?? '').toLowerCase();
       if (!ALLOWED_ROLES.includes(role)) {
         router.push('/dashboard');
@@ -115,7 +126,11 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
       }
       setUserRole(role);
       // Providers should use /provider/patients/[id] for consistent ProviderLayout context
-      if (role === 'provider' && pathname?.startsWith('/patients/') && !pathname.startsWith('/provider/patients/')) {
+      if (
+        role === 'provider' &&
+        pathname?.startsWith('/patients/') &&
+        !pathname.startsWith('/provider/patients/')
+      ) {
         const patientId = pathname.replace(/^\/patients\//, '').split('?')[0];
         const query = typeof window !== 'undefined' ? window.location.search : '';
         setLoading(false);
@@ -124,7 +139,11 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
       }
       // Admin-side roles should use /admin/patients/[id] for consistent AdminLayout context
       const adminRoles = ['admin', 'super_admin', 'staff', 'sales_rep', 'pharmacy_rep'];
-      if (adminRoles.includes(role) && pathname?.startsWith('/patients/') && !pathname.startsWith('/admin/patients/')) {
+      if (
+        adminRoles.includes(role) &&
+        pathname?.startsWith('/patients/') &&
+        !pathname.startsWith('/admin/patients/')
+      ) {
         const patientId = pathname.replace(/^\/patients\//, '').split('?')[0];
         const query = typeof window !== 'undefined' ? window.location.search : '';
         setLoading(false);
@@ -213,13 +232,8 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
                 )}
               </a>
               {isWhiteLabeled && sidebarExpanded && (
-                <span className="mt-1 flex items-center justify-center gap-1 text-[10px] text-gray-400 whitespace-nowrap">
-                  Powered by{' '}
-                  <img
-                    src={EONPRO_LOGO}
-                    alt="EONPRO"
-                    className="h-[21px] w-auto"
-                  />
+                <span className="mt-1 flex items-center justify-center gap-1 whitespace-nowrap text-[10px] text-gray-400">
+                  Powered by <img src={EONPRO_LOGO} alt="EONPRO" className="h-[21px] w-auto" />
                 </span>
               )}
             </div>
@@ -247,7 +261,9 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
                     className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all ${
                       active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                     }`}
-                    style={active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
+                    style={
+                      active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}
+                    }
                   >
                     <Icon className="h-5 w-5 flex-shrink-0" />
                     {sidebarExpanded && (
@@ -281,7 +297,9 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Main Content - always rendered so page-level loading.tsx skeleton shows */}
-      <main className={`flex-1 pb-16 transition-all duration-300 md:pb-0 ${sidebarExpanded ? 'md:ml-56' : 'md:ml-20'}`}>
+      <main
+        className={`flex-1 pb-16 transition-all duration-300 md:pb-0 ${sidebarExpanded ? 'md:ml-56' : 'md:ml-20'}`}
+      >
         {children}
       </main>
 
@@ -302,7 +320,9 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
                   style={active ? { color: primaryColor } : {}}
                 >
                   <Icon className="h-5 w-5 flex-shrink-0" />
-                  <span className="truncate text-[10px] font-medium leading-tight">{item.label}</span>
+                  <span className="truncate text-[10px] font-medium leading-tight">
+                    {item.label}
+                  </span>
                 </a>
               );
             })}

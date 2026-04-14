@@ -69,10 +69,13 @@ async function handler(request: NextRequest, user: AuthUser) {
         data = await getAllAnalytics(clinicId, months);
         break;
       default:
-        return NextResponse.json({
-          error: 'Invalid type',
-          validTypes: ['mrr', 'churn', 'cohorts', 'trends', 'forecast', 'all'],
-        }, { status: 400 });
+        return NextResponse.json(
+          {
+            error: 'Invalid type',
+            validTypes: ['mrr', 'churn', 'cohorts', 'trends', 'forecast', 'all'],
+          },
+          { status: 400 }
+        );
     }
 
     const duration = Date.now() - startTime;

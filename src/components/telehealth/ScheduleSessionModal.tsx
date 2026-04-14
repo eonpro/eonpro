@@ -2,16 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 
-import {
-  X,
-  Calendar,
-  Clock,
-  Users,
-  AlertCircle,
-  Loader2,
-  CheckCircle,
-  Video,
-} from 'lucide-react';
+import { X, Calendar, Clock, Users, AlertCircle, Loader2, CheckCircle, Video } from 'lucide-react';
 
 import { apiFetch } from '@/lib/api/fetch';
 import { CONSULTATION_DURATIONS } from '@/lib/integrations/zoom/config';
@@ -48,11 +39,15 @@ export default function ScheduleSessionModal({ onClose, onCreated }: ScheduleSes
     }
     setPatientsLoading(true);
     try {
-      const res = await apiFetch(`/api/admin/patients?search=${encodeURIComponent(query)}&limit=10`);
+      const res = await apiFetch(
+        `/api/admin/patients?search=${encodeURIComponent(query)}&limit=10`
+      );
       if (res.ok) {
         const data = await res.json();
         setPatients(
-          ((data.patients as Array<{ id: number; firstName?: string; lastName?: string }>) ?? []).map((p) => ({
+          (
+            (data.patients as Array<{ id: number; firstName?: string; lastName?: string }>) ?? []
+          ).map((p) => ({
             id: p.id,
             firstName: p.firstName ?? '',
             lastName: p.lastName ?? '',

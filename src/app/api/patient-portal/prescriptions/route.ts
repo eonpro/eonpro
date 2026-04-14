@@ -53,56 +53,72 @@ function derivePlanInterval(sub: {
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 async function fetchPatientPrescriptions(req: NextRequest, user: AuthUser, patientId: number) {
-
   const safeQuery = async <T>(fn: () => Promise<T>, fallback: T): Promise<T> => {
-    try { return await fn(); } catch (err) {
-      logger.error('[Prescriptions] DB query failed', { error: err instanceof Error ? err.message : String(err), patientId });
+    try {
+      return await fn();
+    } catch (err) {
+      logger.error('[Prescriptions] DB query failed', {
+        error: err instanceof Error ? err.message : String(err),
+        patientId,
+      });
       return fallback;
     }
   };
 
   const [orders, subscription, invoices] = await Promise.all([
-    safeQuery(async () => prisma.order.findMany({
-      where: { patientId },
-      include: {
-        rxs: {
+    safeQuery(
+      async () =>
+        prisma.order.findMany({
+          where: { patientId },
+          include: {
+            rxs: {
+              select: {
+                id: true,
+                medicationKey: true,
+                medName: true,
+                strength: true,
+                form: true,
+                quantity: true,
+                sig: true,
+                daysSupply: true,
+              },
+            },
+            provider: {
+              select: { firstName: true, lastName: true },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 50,
+        }),
+      []
+    ),
+    safeQuery(
+      async () =>
+        prisma.subscription.findFirst({
+          where: { patientId, status: 'ACTIVE' },
+          orderBy: { createdAt: 'desc' },
+        }),
+      null
+    ),
+    safeQuery(
+      async () =>
+        prisma.invoice.findMany({
+          where: { patientId },
+          orderBy: { createdAt: 'desc' },
+          take: 20,
           select: {
             id: true,
-            medicationKey: true,
-            medName: true,
-            strength: true,
-            form: true,
-            quantity: true,
-            sig: true,
-            daysSupply: true,
+            createdAt: true,
+            amount: true,
+            amountPaid: true,
+            status: true,
+            description: true,
+            stripeInvoiceId: true,
+            stripeInvoiceNumber: true,
           },
-        },
-        provider: {
-          select: { firstName: true, lastName: true },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-    }), []),
-    safeQuery(async () => prisma.subscription.findFirst({
-      where: { patientId, status: 'ACTIVE' },
-      orderBy: { createdAt: 'desc' },
-    }), null),
-    safeQuery(async () => prisma.invoice.findMany({
-      where: { patientId },
-      orderBy: { createdAt: 'desc' },
-      take: 20,
-      select: {
-        id: true,
-        createdAt: true,
-        amount: true,
-        amountPaid: true,
-        status: true,
-        description: true,
-        stripeInvoiceId: true,
-        stripeInvoiceNumber: true,
-      },
-    }), []),
+        }),
+      []
+    ),
   ]);
 
   await logPHIAccess(req, user, 'Prescription', String(patientId), patientId);
@@ -158,7 +174,7 @@ async function fetchPatientPrescriptions(req: NextRequest, user: AuthUser, patie
   // 3. Keep the record with the most informative description
   const GENERIC = /subscription creation|payment received|payment successful/i;
 
-  type Inv = typeof invoices[number];
+  type Inv = (typeof invoices)[number];
 
   function pickBetter(existing: Inv, candidate: Inv): Inv {
     const existingIsGeneric = GENERIC.test(existing.description ?? '');
@@ -200,9 +216,7 @@ async function fetchPatientPrescriptions(req: NextRequest, user: AuthUser, patie
     }
   }
 
-  const dedupedPaid = paidGroups.map((group) =>
-    group.reduce((best, inv) => pickBetter(best, inv)),
-  );
+  const dedupedPaid = paidGroups.map((group) => group.reduce((best, inv) => pickBetter(best, inv)));
 
   const invoiceHistory = [...dedupedPaid, ...nonPaid]
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())

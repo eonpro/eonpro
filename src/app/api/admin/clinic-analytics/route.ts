@@ -16,7 +16,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAdminAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { handleApiError } from '@/domains/shared/errors';
-import { getResilientReadDb, isTransientDbError, hasReadReplica } from '@/lib/database/read-replica';
+import {
+  getResilientReadDb,
+  isTransientDbError,
+  hasReadReplica,
+} from '@/lib/database/read-replica';
 import { decryptPHI } from '@/lib/security/phi-encryption';
 import {
   RevenueAnalyticsService,
@@ -292,8 +296,8 @@ async function getOrderTimeline(clinicId: number, period: Period) {
       date: format(intervalStart, dateFormat),
       total: intervalOrders.length,
       completed: intervalOrders.filter((o) => o.status === 'COMPLETED').length,
-      pending: intervalOrders.filter((o) =>
-        o.status != null && ['PENDING', 'PENDING_REVIEW'].includes(o.status)
+      pending: intervalOrders.filter(
+        (o) => o.status != null && ['PENDING', 'PENDING_REVIEW'].includes(o.status)
       ).length,
     };
   });
@@ -350,12 +354,15 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     } catch (firstError) {
       const isTransient = isTransientDbError(firstError);
       if (isTransient && hasReadReplica) {
-        logger.warn('[CLINIC-ANALYTICS] Transient DB error on read replica, retrying with primary', {
-          clinicId: effectiveClinicId,
-          section,
-          errorCode: (firstError as any)?.code,
-          requestId,
-        });
+        logger.warn(
+          '[CLINIC-ANALYTICS] Transient DB error on read replica, retrying with primary',
+          {
+            clinicId: effectiveClinicId,
+            section,
+            errorCode: (firstError as any)?.code,
+            requestId,
+          }
+        );
         data = await fetchSection();
       } else {
         throw firstError;

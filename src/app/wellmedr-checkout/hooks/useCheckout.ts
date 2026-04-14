@@ -22,10 +22,7 @@ export interface UseCheckoutReturn {
   plans: Plan[];
   products: Record<ProductNameType, ProductType>;
   addonTotal: number;
-  handleProductSelect: (
-    productName: ProductNameType,
-    medicationType: MedicationType,
-  ) => void;
+  handleProductSelect: (productName: ProductNameType, medicationType: MedicationType) => void;
   handlePlanSelect: (planId: PlanOptions) => void;
   handleAddonToggle: (addonId: AddonId) => void;
 }
@@ -129,9 +126,7 @@ export function useCheckout(): UseCheckoutReturn {
         setValue('planDetails', defaultPlan);
         setValue('selectedPlan', defaultPlan.id);
       } else {
-        const currentPlanDetails = plans.find(
-          (plan) => plan.id === selectedPlan,
-        );
+        const currentPlanDetails = plans.find((plan) => plan.id === selectedPlan);
         if (currentPlanDetails) {
           setValue('planDetails', currentPlanDetails);
         }
@@ -150,7 +145,7 @@ export function useCheckout(): UseCheckoutReturn {
       setValue('selectedPlan', '');
       setValue('planDetails', null);
     },
-    [setValue],
+    [setValue]
   );
 
   const handlePlanSelect = useCallback(
@@ -162,7 +157,7 @@ export function useCheckout(): UseCheckoutReturn {
         setValue('planDetails', selectedPlanDetails);
       }
     },
-    [setValue, plans],
+    [setValue, plans]
   );
 
   const handleAddonToggle = useCallback(
@@ -184,7 +179,7 @@ export function useCheckout(): UseCheckoutReturn {
         const individuals: AddonId[] = ['nad_plus', 'sermorelin', 'b12'];
         setValue(
           'selectedAddons',
-          individuals.filter((id) => id !== addonId),
+          individuals.filter((id) => id !== addonId)
         );
         return;
       }
@@ -197,13 +192,10 @@ export function useCheckout(): UseCheckoutReturn {
       }
       setValue('selectedAddons', next);
     },
-    [selectedAddons, setValue],
+    [selectedAddons, setValue]
   );
 
-  const addonTotal = useMemo(
-    () => getAddonTotal(selectedAddons || []),
-    [selectedAddons],
-  );
+  const addonTotal = useMemo(() => getAddonTotal(selectedAddons || []), [selectedAddons]);
 
   return {
     selectedProduct,

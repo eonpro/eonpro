@@ -134,7 +134,9 @@ export default function AffiliateResetPasswordPage() {
 
     const verifyToken = async () => {
       try {
-        const res = await fetch(`/api/affiliate/auth/reset-password?token=${encodeURIComponent(token)}`);
+        const res = await fetch(
+          `/api/affiliate/auth/reset-password?token=${encodeURIComponent(token)}`
+        );
         const data = await res.json();
 
         if (data.valid) {
@@ -248,21 +250,12 @@ export default function AffiliateResetPasswordPage() {
                   {branding.name}
                 </h1>
               )}
-              <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-gray-500 whitespace-nowrap">
-                Powered by{' '}
-                <img
-                  src={EONPRO_LOGO}
-                  alt="EONPRO"
-                  className="h-[21px] w-auto"
-                />
+              <p className="mt-2 flex items-center justify-center gap-1.5 whitespace-nowrap text-xs text-gray-500">
+                Powered by <img src={EONPRO_LOGO} alt="EONPRO" className="h-[21px] w-auto" />
               </p>
             </>
           ) : (
-            <img
-              src={EONPRO_LOGO}
-              alt="EONPRO"
-              className="h-10 w-auto"
-            />
+            <img src={EONPRO_LOGO} alt="EONPRO" className="h-10 w-auto" />
           )}
         </div>
 
@@ -332,7 +325,10 @@ export default function AffiliateResetPasswordPage() {
                 <form onSubmit={handleSubmit} className="space-y-4">
                   {/* New Password */}
                   <div>
-                    <label htmlFor="new-password" className="mb-1.5 block text-sm font-medium text-gray-700">
+                    <label
+                      htmlFor="new-password"
+                      className="mb-1.5 block text-sm font-medium text-gray-700"
+                    >
                       New password
                     </label>
                     <div className="relative">
@@ -355,7 +351,11 @@ export default function AffiliateResetPasswordPage() {
                         onClick={() => setShowPassword(!showPassword)}
                         className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600"
                       >
-                        {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                        {showPassword ? (
+                          <EyeOff className="h-5 w-5" />
+                        ) : (
+                          <Eye className="h-5 w-5" />
+                        )}
                       </button>
                     </div>
 
@@ -384,7 +384,10 @@ export default function AffiliateResetPasswordPage() {
 
                   {/* Confirm Password */}
                   <div>
-                    <label htmlFor="confirm-password" className="mb-1.5 block text-sm font-medium text-gray-700">
+                    <label
+                      htmlFor="confirm-password"
+                      className="mb-1.5 block text-sm font-medium text-gray-700"
+                    >
                       Confirm password
                     </label>
                     <div className="relative">
@@ -512,9 +515,7 @@ export default function AffiliateResetPasswordPage() {
                   Your password has been saved. Redirecting you to login...
                 </p>
                 <div className="mt-6">
-                  <div
-                    className="mx-auto h-1.5 w-32 overflow-hidden rounded-full bg-gray-100"
-                  >
+                  <div className="mx-auto h-1.5 w-32 overflow-hidden rounded-full bg-gray-100">
                     <motion.div
                       className="h-full rounded-full"
                       style={{ backgroundColor: primaryColor }}
@@ -548,9 +549,7 @@ export default function AffiliateResetPasswordPage() {
               Contact support
             </a>
           </p>
-          <p className="mt-2 text-xs text-gray-400">
-            &copy; 2026 EONPro &bull; Partner Portal
-          </p>
+          <p className="mt-2 text-xs text-gray-400">&copy; 2026 EONPro &bull; Partner Portal</p>
         </footer>
       </div>
     </div>

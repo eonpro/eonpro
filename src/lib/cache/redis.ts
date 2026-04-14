@@ -91,8 +91,14 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`Redis call timed out after ${ms}ms`)), ms);
     promise.then(
-      (val) => { clearTimeout(timer); resolve(val); },
-      (err) => { clearTimeout(timer); reject(err); },
+      (val) => {
+        clearTimeout(timer);
+        resolve(val);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      }
     );
   });
 }
@@ -116,7 +122,7 @@ class RedisCache {
       if (process.env.REDIS_URL) {
         logger.warn(
           '[RedisCache] REDIS_URL is set but UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN are missing. ' +
-          'TCP-based redis connections are unreliable in serverless. Please set the Upstash REST env vars.'
+            'TCP-based redis connections are unreliable in serverless. Please set the Upstash REST env vars.'
         );
       }
       logger.info('[RedisCache] Upstash credentials not configured — running without Redis cache');
@@ -259,16 +265,25 @@ class RedisCache {
     return collected;
   }
 
-  async tenantGet<T = unknown>(clinicId: number, key: string, options?: CacheOptions): Promise<T | null> {
+  async tenantGet<T = unknown>(
+    clinicId: number,
+    key: string,
+    options?: CacheOptions
+  ): Promise<T | null> {
     const fullKey = this.getTenantKey(clinicId, key, options?.namespace);
     return this.guardedCall(
       async () => (await this.client!.get<T>(fullKey)) ?? null,
       null,
-      'tenantGet',
+      'tenantGet'
     );
   }
 
-  async tenantSet(clinicId: number, key: string, value: unknown, options?: CacheOptions): Promise<boolean> {
+  async tenantSet(
+    clinicId: number,
+    key: string,
+    value: unknown,
+    options?: CacheOptions
+  ): Promise<boolean> {
     const fullKey = this.getTenantKey(clinicId, key, options?.namespace);
     if (!options?.ttl) {
       this.warnMissingTtl(options?.namespace, 'tenantSet');
@@ -283,7 +298,7 @@ class RedisCache {
         return true;
       },
       false,
-      'tenantSet',
+      'tenantSet'
     );
   }
 
@@ -292,17 +307,13 @@ class RedisCache {
     return this.guardedCall(
       async () => (await this.client!.del(fullKey)) === 1,
       false,
-      'tenantDelete',
+      'tenantDelete'
     );
   }
 
   async get<T = unknown>(key: string, options?: CacheOptions): Promise<T | null> {
     const fullKey = this.getKey(key, options?.namespace);
-    return this.guardedCall(
-      async () => (await this.client!.get<T>(fullKey)) ?? null,
-      null,
-      'get',
-    );
+    return this.guardedCall(async () => (await this.client!.get<T>(fullKey)) ?? null, null, 'get');
   }
 
   async set(key: string, value: unknown, options?: CacheOptions): Promise<boolean> {
@@ -320,17 +331,13 @@ class RedisCache {
         return true;
       },
       false,
-      'set',
+      'set'
     );
   }
 
   async delete(key: string, options?: CacheOptions): Promise<boolean> {
     const fullKey = this.getKey(key, options?.namespace);
-    return this.guardedCall(
-      async () => (await this.client!.del(fullKey)) === 1,
-      false,
-      'delete',
-    );
+    return this.guardedCall(async () => (await this.client!.del(fullKey)) === 1, false, 'delete');
   }
 
   async flush(namespace?: string): Promise<boolean> {
@@ -348,7 +355,7 @@ class RedisCache {
         return true;
       },
       false,
-      'flush',
+      'flush'
     );
   }
 
@@ -363,7 +370,7 @@ class RedisCache {
         return result;
       },
       null,
-      'increment',
+      'increment'
     );
   }
 
@@ -373,7 +380,7 @@ class RedisCache {
     return this.guardedCall(
       async () => (await this.client!.mget<(T | null)[]>(...fullKeys)) ?? keys.map(() => null),
       keys.map(() => null),
-      'mget',
+      'mget'
     );
   }
 
@@ -382,17 +389,13 @@ class RedisCache {
     return this.guardedCall(
       async () => (await this.client!.exists(fullKey)) === 1,
       false,
-      'exists',
+      'exists'
     );
   }
 
   async ttl(key: string, options?: CacheOptions): Promise<number | null> {
     const fullKey = this.getKey(key, options?.namespace);
-    return this.guardedCall(
-      async () => this.client!.ttl(fullKey),
-      null,
-      'ttl',
-    );
+    return this.guardedCall(async () => this.client!.ttl(fullKey), null, 'ttl');
   }
 
   async disconnect(): Promise<void> {
@@ -423,11 +426,7 @@ class RedisCache {
     fallback: T,
     operation: (client: Redis) => Promise<T>
   ): Promise<T> {
-    return this.guardedCall(
-      async () => operation(this.client!),
-      fallback,
-      label,
-    );
+    return this.guardedCall(async () => operation(this.client!), fallback, label);
   }
 
   /**
@@ -435,11 +434,7 @@ class RedisCache {
    * Warning: Use sparingly — many matches still mean many SCAN round-trips.
    */
   async keys(pattern: string): Promise<string[]> {
-    return this.guardedCall(
-      async () => this.scanKeysMatching(pattern),
-      [],
-      'keys',
-    );
+    return this.guardedCall(async () => this.scanKeysMatching(pattern), [], 'keys');
   }
 
   /**

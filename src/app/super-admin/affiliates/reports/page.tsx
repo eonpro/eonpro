@@ -149,7 +149,8 @@ export default function SuperAdminAffiliateReportsPage() {
         setLeaderboardData(await response.json());
       }
     } catch (error) {
-      process.env.NODE_ENV === 'development' && console.error('Failed to fetch leaderboard:', error);
+      process.env.NODE_ENV === 'development' &&
+        console.error('Failed to fetch leaderboard:', error);
     } finally {
       setLeaderboardLoading(false);
     }
@@ -229,7 +230,9 @@ export default function SuperAdminAffiliateReportsPage() {
         <div>
           <div className="mb-1 flex items-center gap-2">
             <Building2 className="h-5 w-5 text-[var(--brand-primary)]" />
-            <span className="text-sm font-medium text-[var(--brand-primary)]">Cross-Clinic View</span>
+            <span className="text-sm font-medium text-[var(--brand-primary)]">
+              Cross-Clinic View
+            </span>
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Affiliate Reports</h1>
           <p className="text-gray-500">Program performance across all clinics</p>
@@ -242,7 +245,9 @@ export default function SuperAdminAffiliateReportsPage() {
                 key={p}
                 onClick={() => setPeriod(p)}
                 className={`rounded-md px-3 py-1.5 text-sm font-medium transition-all ${
-                  period === p ? 'bg-[var(--brand-primary)] text-white' : 'text-gray-600 hover:bg-gray-100'
+                  period === p
+                    ? 'bg-[var(--brand-primary)] text-white'
+                    : 'text-gray-600 hover:bg-gray-100'
                 }`}
               >
                 {p === 'ytd' ? 'YTD' : p}

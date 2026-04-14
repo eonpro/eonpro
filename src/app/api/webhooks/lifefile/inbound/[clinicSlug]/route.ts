@@ -244,7 +244,8 @@ async function processShippingUpdate(
         : null;
 
       const shippingData = {
-        carrier: deliveryService && String(deliveryService).trim() ? String(deliveryService) : 'Unknown',
+        carrier:
+          deliveryService && String(deliveryService).trim() ? String(deliveryService) : 'Unknown',
         status: mapToShippingStatusEnum(status),
         estimatedDelivery: estimatedDelivery ? new Date(estimatedDelivery) : null,
         trackingUrl: trackingUrl || null,
@@ -271,10 +272,13 @@ async function processShippingUpdate(
         });
       }
     } catch (createErr: unknown) {
-      logger.warn('[LIFEFILE INBOUND] Failed to create/update PatientShippingUpdate (order still updated)', {
-        orderId: order.id,
-        error: createErr instanceof Error ? createErr.message : String(createErr),
-      });
+      logger.warn(
+        '[LIFEFILE INBOUND] Failed to create/update PatientShippingUpdate (order still updated)',
+        {
+          orderId: order.id,
+          error: createErr instanceof Error ? createErr.message : String(createErr),
+        }
+      );
     }
   }
 
@@ -690,7 +694,9 @@ export async function POST(req: NextRequest, context: RouteParams) {
       webhookLogData.errorMessage = 'Webhook endpoint not found or disabled';
 
       await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
-        logger.warn('[LifeFile Inbound] Failed to persist webhook log for unknown clinic', { error: err instanceof Error ? err.message : String(err) });
+        logger.warn('[LifeFile Inbound] Failed to persist webhook log for unknown clinic', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       });
 
       return NextResponse.json({ error: 'Webhook endpoint not found' }, { status: 404 });
@@ -726,7 +732,9 @@ export async function POST(req: NextRequest, context: RouteParams) {
       webhookLogData.errorMessage = `IP ${clientIp} not in allowed list`;
 
       await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
-        logger.warn('[LifeFile Inbound] Failed to persist webhook log for IP rejection', { error: err instanceof Error ? err.message : String(err) });
+        logger.warn('[LifeFile Inbound] Failed to persist webhook log for IP rejection', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       });
 
       return NextResponse.json({ error: 'IP not allowed' }, { status: 403 });
@@ -741,7 +749,9 @@ export async function POST(req: NextRequest, context: RouteParams) {
       webhookLogData.errorMessage = 'Authentication failed';
 
       await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
-        logger.warn('[LifeFile Inbound] Failed to persist webhook log for auth failure', { error: err instanceof Error ? err.message : String(err) });
+        logger.warn('[LifeFile Inbound] Failed to persist webhook log for auth failure', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       });
 
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -752,7 +762,9 @@ export async function POST(req: NextRequest, context: RouteParams) {
     if (!rawBody) {
       webhookLogData.errorMessage = 'Empty request body';
       await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
-        logger.warn('[LifeFile Inbound] Failed to persist webhook log for empty body', { error: err instanceof Error ? err.message : String(err) });
+        logger.warn('[LifeFile Inbound] Failed to persist webhook log for empty body', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       });
       return NextResponse.json({ error: 'Empty request body' }, { status: 400 });
     }
@@ -761,7 +773,9 @@ export async function POST(req: NextRequest, context: RouteParams) {
       webhookLogData.statusCode = 413;
       webhookLogData.errorMessage = 'Payload too large';
       await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
-        logger.warn('[LifeFile Inbound] Failed to persist webhook log for oversized payload', { error: err instanceof Error ? err.message : String(err) });
+        logger.warn('[LifeFile Inbound] Failed to persist webhook log for oversized payload', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       });
       return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
     }
@@ -778,7 +792,9 @@ export async function POST(req: NextRequest, context: RouteParams) {
       webhookLogData.errorMessage = 'Invalid webhook signature';
 
       await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
-        logger.warn('[LifeFile Inbound] Failed to persist webhook log for invalid signature', { error: err instanceof Error ? err.message : String(err) });
+        logger.warn('[LifeFile Inbound] Failed to persist webhook log for invalid signature', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       });
 
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
@@ -792,7 +808,9 @@ export async function POST(req: NextRequest, context: RouteParams) {
       webhookLogData.statusCode = 400;
       webhookLogData.errorMessage = 'Invalid JSON or payload must be an object';
       await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
-        logger.warn('[LifeFile Inbound] Failed to persist webhook log for invalid payload', { error: err instanceof Error ? err.message : String(err) });
+        logger.warn('[LifeFile Inbound] Failed to persist webhook log for invalid payload', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       });
       return NextResponse.json({ error: 'Invalid JSON format' }, { status: 400 });
     }
@@ -822,7 +840,9 @@ export async function POST(req: NextRequest, context: RouteParams) {
       webhookLogData.processingTimeMs = Date.now() - startTime;
 
       await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
-        logger.warn('[LifeFile Inbound] Failed to persist webhook log for test event', { error: err instanceof Error ? err.message : String(err) });
+        logger.warn('[LifeFile Inbound] Failed to persist webhook log for test event', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       });
 
       return NextResponse.json({
@@ -850,7 +870,9 @@ export async function POST(req: NextRequest, context: RouteParams) {
         webhookLogData.errorMessage = `Event type '${eventType}' not allowed`;
 
         await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
-          logger.warn('[LifeFile Inbound] Failed to persist webhook log for disallowed event', { error: err instanceof Error ? err.message : String(err) });
+          logger.warn('[LifeFile Inbound] Failed to persist webhook log for disallowed event', {
+            error: err instanceof Error ? err.message : String(err),
+          });
         });
 
         return NextResponse.json(
@@ -924,7 +946,9 @@ export async function POST(req: NextRequest, context: RouteParams) {
     webhookLogData.processingTimeMs = Date.now() - startTime;
 
     await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
-      logger.warn('[LifeFile Inbound] Failed to persist webhook log for processing error', { error: err instanceof Error ? err.message : String(err) });
+      logger.warn('[LifeFile Inbound] Failed to persist webhook log for processing error', {
+        error: err instanceof Error ? err.message : String(err),
+      });
     });
 
     return NextResponse.json(

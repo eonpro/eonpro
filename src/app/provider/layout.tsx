@@ -30,14 +30,11 @@ import {
 } from 'lucide-react';
 import InternalChat from '@/components/InternalChat';
 import dynamic from 'next/dynamic';
-import {
-  NotificationProvider,
-  NotificationToastContainer,
-} from '@/components/notifications';
-const NotificationCenter = dynamic(
-  () => import('@/components/notifications/NotificationCenter'),
-  { ssr: false, loading: () => <div className="h-8 w-8 animate-pulse rounded-full bg-gray-200" /> },
-);
+import { NotificationProvider, NotificationToastContainer } from '@/components/notifications';
+const NotificationCenter = dynamic(() => import('@/components/notifications/NotificationCenter'), {
+  ssr: false,
+  loading: () => <div className="h-8 w-8 animate-pulse rounded-full bg-gray-200" />,
+});
 import ClinicSwitcher from '@/components/ClinicSwitcher';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { SubdomainClinicBanner } from '@/components/SubdomainClinicBanner';
@@ -126,7 +123,9 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
       const displayName =
         authUser.firstName && authUser.lastName
           ? `${authUser.firstName} ${authUser.lastName}`
-          : (authUser as Record<string, unknown>).name as string || authUser.email?.split('@')[0] || '';
+          : ((authUser as Record<string, unknown>).name as string) ||
+            authUser.email?.split('@')[0] ||
+            '';
       setUserName(`Dr. ${displayName}`.trim());
       setUserId(authUser.id ?? null);
       setLoading(false);
@@ -209,197 +208,199 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
 
       {/* Sidebar - hidden below md; drawer when open on mobile; visible on md+ */}
       <aside
-        className={`fixed bottom-0 left-0 top-0 z-[101] flex flex-col border-r border-gray-200 bg-white py-4 transition-all duration-300
-          md:translate-x-0
-          ${mobileNavOpen ? 'translate-x-0 w-[280px]' : '-translate-x-full w-[280px] md:translate-x-0 md:w-20'}
-          ${sidebarExpanded ? 'md:w-56' : 'md:w-20'}`}
+        className={`fixed bottom-0 left-0 top-0 z-[101] flex flex-col border-r border-gray-200 bg-white py-4 transition-all duration-300 md:translate-x-0 ${mobileNavOpen ? 'w-[280px] translate-x-0' : 'w-[280px] -translate-x-full md:w-20 md:translate-x-0'} ${sidebarExpanded ? 'md:w-56' : 'md:w-20'}`}
       >
         {layoutReady ? (
           <>
-        {/* Mobile: close button (below md) */}
-        <div className="flex items-center justify-between px-4 pb-2 md:hidden">
-          <Link href="/provider" onClick={() => setMobileNavOpen(false)}>
-            <img
-              src={clinicLogo}
-              alt={clinicName}
-              className="h-9 w-auto max-w-[140px] object-contain"
-              onError={(e) => {
-                e.currentTarget.src = EONPRO_LOGO;
-              }}
-            />
-          </Link>
-          <button
-            type="button"
-            onClick={() => setMobileNavOpen(false)}
-            className="flex h-11 w-11 items-center justify-center rounded-xl text-gray-500 hover:bg-gray-100"
-            aria-label="Close menu"
-          >
-            <X className="h-6 w-6" />
-          </button>
-        </div>
-
-        {/* Logo - desktop (md+) */}
-        <div className="mb-6 hidden flex-col items-center px-4 md:flex">
-          <Link href="/provider">
-            {sidebarExpanded ? (
-              <img
-                src={clinicLogo}
-                alt={clinicName}
-                className="h-10 w-auto max-w-[140px] object-contain"
-                onError={(e) => {
-                  e.currentTarget.src = EONPRO_LOGO;
-                }}
-              />
-            ) : (
-              <img
-                src={clinicIcon}
-                alt={clinicName}
-                className="h-10 w-10 object-contain"
-                onError={(e) => {
-                  e.currentTarget.src = EONPRO_ICON;
-                }}
-              />
-            )}
-          </Link>
-          {isWhiteLabeled && sidebarExpanded && (
-            <span className="mt-1 flex items-center justify-center gap-1 text-[10px] text-gray-400 whitespace-nowrap">
-              Powered by{' '}
-              <img
-                src={EONPRO_LOGO}
-                alt="EONPRO"
-                className="h-[21px] w-auto"
-              />
-            </span>
-          )}
-        </div>
-
-        {/* Expand Button - desktop only */}
-        <button
-          onClick={() => setSidebarExpanded(!sidebarExpanded)}
-          className={`absolute -right-3 top-20 hidden h-6 w-6 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition-all hover:bg-gray-50 focus:outline-none md:flex ${
-            sidebarExpanded ? 'rotate-180' : ''
-          }`}
-        >
-          <ChevronRight className="h-3 w-3 text-gray-400" />
-        </button>
-
-        <nav className="flex flex-1 flex-col space-y-1 overflow-y-auto px-3">
-          {mainNavItems.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.path, item.exact);
-            const showBadge = item.hasBadge && rxQueueCount > 0;
-            const showLabels = sidebarExpanded || mobileNavOpen;
-
-            return (
-              <a
-                key={item.path}
-                href={item.path}
+            {/* Mobile: close button (below md) */}
+            <div className="flex items-center justify-between px-4 pb-2 md:hidden">
+              <Link href="/provider" onClick={() => setMobileNavOpen(false)}>
+                <img
+                  src={clinicLogo}
+                  alt={clinicName}
+                  className="h-9 w-auto max-w-[140px] object-contain"
+                  onError={(e) => {
+                    e.currentTarget.src = EONPRO_LOGO;
+                  }}
+                />
+              </Link>
+              <button
+                type="button"
                 onClick={() => setMobileNavOpen(false)}
-                title={
-                  !showLabels
-                    ? `${item.label}${showBadge ? ` (${rxQueueCount})` : ''}`
-                    : undefined
-                }
-                className={`relative flex w-full min-h-[44px] items-center gap-3 rounded-xl px-3 py-3 text-left no-underline transition-colors touch-manipulation ${
-                  active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 active:bg-gray-100'
-                }`}
-                style={active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
+                className="flex h-11 w-11 items-center justify-center rounded-xl text-gray-500 hover:bg-gray-100"
+                aria-label="Close menu"
               >
-                <div className="relative flex-shrink-0">
-                  <Icon className="h-5 w-5" />
-                  {showBadge && !showLabels && (
-                    <span className="absolute -right-1.5 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold text-white">
-                      {rxQueueCount > 99 ? '99+' : rxQueueCount}
-                    </span>
-                  )}
-                </div>
-                {showLabels && (
-                  <span className="flex-1 whitespace-nowrap text-left text-sm font-medium">{item.label}</span>
-                )}
-                {showLabels && showBadge && (
-                  <span className="flex h-[20px] min-w-[20px] items-center justify-center rounded-full bg-orange-500 px-1.5 text-xs font-bold text-white">
-                    {rxQueueCount > 99 ? '99+' : rxQueueCount}
-                  </span>
-                )}
-              </a>
-            );
-          })}
+                <X className="h-6 w-6" />
+              </button>
+            </div>
 
-          {/* Clinical Tools Section - show when expanded or mobile drawer */}
-          {(sidebarExpanded || mobileNavOpen) && (
-            <div className="mt-6 border-t border-gray-100 pt-6">
-              <p className="mb-3 px-3 text-xs font-semibold uppercase tracking-wider text-gray-400">
-                Clinical Tools
-              </p>
-              {clinicalTools.map((item) => {
+            {/* Logo - desktop (md+) */}
+            <div className="mb-6 hidden flex-col items-center px-4 md:flex">
+              <Link href="/provider">
+                {sidebarExpanded ? (
+                  <img
+                    src={clinicLogo}
+                    alt={clinicName}
+                    className="h-10 w-auto max-w-[140px] object-contain"
+                    onError={(e) => {
+                      e.currentTarget.src = EONPRO_LOGO;
+                    }}
+                  />
+                ) : (
+                  <img
+                    src={clinicIcon}
+                    alt={clinicName}
+                    className="h-10 w-10 object-contain"
+                    onError={(e) => {
+                      e.currentTarget.src = EONPRO_ICON;
+                    }}
+                  />
+                )}
+              </Link>
+              {isWhiteLabeled && sidebarExpanded && (
+                <span className="mt-1 flex items-center justify-center gap-1 whitespace-nowrap text-[10px] text-gray-400">
+                  Powered by <img src={EONPRO_LOGO} alt="EONPRO" className="h-[21px] w-auto" />
+                </span>
+              )}
+            </div>
+
+            {/* Expand Button - desktop only */}
+            <button
+              onClick={() => setSidebarExpanded(!sidebarExpanded)}
+              className={`absolute -right-3 top-20 hidden h-6 w-6 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition-all hover:bg-gray-50 focus:outline-none md:flex ${
+                sidebarExpanded ? 'rotate-180' : ''
+              }`}
+            >
+              <ChevronRight className="h-3 w-3 text-gray-400" />
+            </button>
+
+            <nav className="flex flex-1 flex-col space-y-1 overflow-y-auto px-3">
+              {mainNavItems.map((item) => {
                 const Icon = item.icon;
-                const active = isActive(item.path);
+                const active = isActive(item.path, item.exact);
+                const showBadge = item.hasBadge && rxQueueCount > 0;
+                const showLabels = sidebarExpanded || mobileNavOpen;
+
                 return (
                   <a
                     key={item.path}
                     href={item.path}
                     onClick={() => setMobileNavOpen(false)}
-                    className={`flex w-full min-h-[44px] items-center gap-3 rounded-xl px-3 py-2.5 text-left no-underline transition-colors touch-manipulation ${
-                      active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                    title={
+                      !showLabels
+                        ? `${item.label}${showBadge ? ` (${rxQueueCount})` : ''}`
+                        : undefined
+                    }
+                    className={`relative flex min-h-[44px] w-full touch-manipulation items-center gap-3 rounded-xl px-3 py-3 text-left no-underline transition-colors ${
+                      active
+                        ? ''
+                        : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 active:bg-gray-100'
                     }`}
                     style={
                       active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}
                     }
                   >
-                    <Icon className="h-4 w-4 flex-shrink-0" />
-                    <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
+                    <div className="relative flex-shrink-0">
+                      <Icon className="h-5 w-5" />
+                      {showBadge && !showLabels && (
+                        <span className="absolute -right-1.5 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold text-white">
+                          {rxQueueCount > 99 ? '99+' : rxQueueCount}
+                        </span>
+                      )}
+                    </div>
+                    {showLabels && (
+                      <span className="flex-1 whitespace-nowrap text-left text-sm font-medium">
+                        {item.label}
+                      </span>
+                    )}
+                    {showLabels && showBadge && (
+                      <span className="flex h-[20px] min-w-[20px] items-center justify-center rounded-full bg-orange-500 px-1.5 text-xs font-bold text-white">
+                        {rxQueueCount > 99 ? '99+' : rxQueueCount}
+                      </span>
+                    )}
                   </a>
                 );
               })}
-            </div>
-          )}
 
-          {/* Collapsed Clinical Tools - desktop (md+) only when collapsed */}
-          {!sidebarExpanded && !mobileNavOpen && (
-            <div className="mt-6 space-y-1 border-t border-gray-100 pt-6">
-              {clinicalTools.map((item) => {
-                const Icon = item.icon;
-                const active = isActive(item.path);
-                return (
-                  <a
-                    key={item.path}
-                    href={item.path}
-                    title={item.label}
-                    className={`flex w-full items-center justify-center rounded-xl p-2.5 no-underline transition-colors ${
-                      active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
-                    }`}
-                    style={
-                      active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}
-                    }
-                  >
-                    <Icon className="h-4 w-4" />
-                  </a>
-                );
-              })}
-            </div>
-          )}
-        </nav>
+              {/* Clinical Tools Section - show when expanded or mobile drawer */}
+              {(sidebarExpanded || mobileNavOpen) && (
+                <div className="mt-6 border-t border-gray-100 pt-6">
+                  <p className="mb-3 px-3 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                    Clinical Tools
+                  </p>
+                  {clinicalTools.map((item) => {
+                    const Icon = item.icon;
+                    const active = isActive(item.path);
+                    return (
+                      <a
+                        key={item.path}
+                        href={item.path}
+                        onClick={() => setMobileNavOpen(false)}
+                        className={`flex min-h-[44px] w-full touch-manipulation items-center gap-3 rounded-xl px-3 py-2.5 text-left no-underline transition-colors ${
+                          active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                        }`}
+                        style={
+                          active
+                            ? { backgroundColor: `${primaryColor}15`, color: primaryColor }
+                            : {}
+                        }
+                      >
+                        <Icon className="h-4 w-4 flex-shrink-0" />
+                        <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
+                      </a>
+                    );
+                  })}
+                </div>
+              )}
 
-        {/* User Info & Logout */}
-        <div className="space-y-2 border-t border-gray-100 px-3 pt-4">
-          {(sidebarExpanded || mobileNavOpen) && userName && (
-            <div className="truncate px-3 py-2 text-xs text-gray-500">{userName}</div>
-          )}
-          <button
-            type="button"
-            onClick={(e) => {
-              setMobileNavOpen(false);
-              handleLogout(e);
-            }}
-            title={!sidebarExpanded && !mobileNavOpen ? 'Sign Out' : undefined}
-            className="flex min-h-[44px] w-full touch-manipulation items-center gap-3 rounded-xl px-3 py-2.5 text-gray-400 transition-all hover:bg-red-50 hover:text-red-600 active:bg-red-50"
-          >
-            <LogOut className="h-5 w-5 flex-shrink-0" />
-            {(sidebarExpanded || mobileNavOpen) && (
-              <span className="whitespace-nowrap text-sm font-medium">Sign Out</span>
-            )}
-          </button>
-        </div>
+              {/* Collapsed Clinical Tools - desktop (md+) only when collapsed */}
+              {!sidebarExpanded && !mobileNavOpen && (
+                <div className="mt-6 space-y-1 border-t border-gray-100 pt-6">
+                  {clinicalTools.map((item) => {
+                    const Icon = item.icon;
+                    const active = isActive(item.path);
+                    return (
+                      <a
+                        key={item.path}
+                        href={item.path}
+                        title={item.label}
+                        className={`flex w-full items-center justify-center rounded-xl p-2.5 no-underline transition-colors ${
+                          active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                        }`}
+                        style={
+                          active
+                            ? { backgroundColor: `${primaryColor}15`, color: primaryColor }
+                            : {}
+                        }
+                      >
+                        <Icon className="h-4 w-4" />
+                      </a>
+                    );
+                  })}
+                </div>
+              )}
+            </nav>
+
+            {/* User Info & Logout */}
+            <div className="space-y-2 border-t border-gray-100 px-3 pt-4">
+              {(sidebarExpanded || mobileNavOpen) && userName && (
+                <div className="truncate px-3 py-2 text-xs text-gray-500">{userName}</div>
+              )}
+              <button
+                type="button"
+                onClick={(e) => {
+                  setMobileNavOpen(false);
+                  handleLogout(e);
+                }}
+                title={!sidebarExpanded && !mobileNavOpen ? 'Sign Out' : undefined}
+                className="flex min-h-[44px] w-full touch-manipulation items-center gap-3 rounded-xl px-3 py-2.5 text-gray-400 transition-all hover:bg-red-50 hover:text-red-600 active:bg-red-50"
+              >
+                <LogOut className="h-5 w-5 flex-shrink-0" />
+                {(sidebarExpanded || mobileNavOpen) && (
+                  <span className="whitespace-nowrap text-sm font-medium">Sign Out</span>
+                )}
+              </button>
+            </div>
           </>
         ) : (
           <div className="flex flex-1 items-center justify-center">
@@ -413,7 +414,10 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
         className={`flex-1 transition-all duration-300 ${sidebarExpanded ? 'md:ml-56' : 'md:ml-20'}`}
       >
         {layoutReady && (
-          <div className="sticky top-0 z-40 flex items-center justify-between border-b border-gray-200/50 bg-[#efece7]/95 px-4 py-3 backdrop-blur-sm md:px-6" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}>
+          <div
+            className="sticky top-0 z-40 flex items-center justify-between border-b border-gray-200/50 bg-[#efece7]/95 px-4 py-3 backdrop-blur-sm md:px-6"
+            style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}
+          >
             <button
               type="button"
               onClick={() => setMobileNavOpen(true)}
@@ -430,7 +434,9 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
                 notificationsPath="/provider/notifications"
                 dropdownPosition="left"
               />
-              <span className="hidden text-sm font-medium text-gray-600 md:inline">Notifications</span>
+              <span className="hidden text-sm font-medium text-gray-600 md:inline">
+                Notifications
+              </span>
             </div>
           </div>
         )}

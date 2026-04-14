@@ -24,7 +24,11 @@ export interface AddressAutocompleteProps {
 }
 
 // Google Places Autocomplete Component
-export function AddressAutocomplete({ value, onChange, language = 'en' }: AddressAutocompleteProps) {
+export function AddressAutocomplete({
+  value,
+  onChange,
+  language = 'en',
+}: AddressAutocompleteProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [googleLoaded, setGoogleLoaded] = useState(false);
   const [isUserTyping, setIsUserTyping] = useState(false);
@@ -34,7 +38,7 @@ export function AddressAutocomplete({ value, onChange, language = 'en' }: Addres
       .then(() => {
         setGoogleLoaded(true);
       })
-      .catch(err => {
+      .catch((err) => {
         console.warn('Failed to load Google Maps:', err);
       });
   }, []);
@@ -52,16 +56,19 @@ export function AddressAutocomplete({ value, onChange, language = 'en' }: Addres
     if (!inputRef.current) return;
 
     // Create autocomplete instance
-    const autocompleteInstance = new (window as any).google.maps.places.Autocomplete(inputRef.current, {
-      types: ['address'],
-      componentRestrictions: { country: 'us' },
-      fields: ['address_components', 'formatted_address']
-    });
+    const autocompleteInstance = new (window as any).google.maps.places.Autocomplete(
+      inputRef.current,
+      {
+        types: ['address'],
+        componentRestrictions: { country: 'us' },
+        fields: ['address_components', 'formatted_address'],
+      }
+    );
 
     // Handle place selection
     autocompleteInstance.addListener('place_changed', () => {
       const place = autocompleteInstance.getPlace();
-      
+
       if (!place.address_components) return;
 
       let streetNumber = '';
@@ -98,7 +105,7 @@ export function AddressAutocomplete({ value, onChange, language = 'en' }: Addres
         city,
         state,
         zipCode: zip,
-        country
+        country,
       });
     });
 
@@ -114,40 +121,40 @@ export function AddressAutocomplete({ value, onChange, language = 'en' }: Addres
       <div className="grid gap-4">
         <input
           type="text"
-          placeholder={language === 'es' ? "Dirección de calle" : "Street Address"}
+          placeholder={language === 'es' ? 'Dirección de calle' : 'Street Address'}
           value={value.addressLine1}
-          onChange={(e) => onChange({...value, addressLine1: e.target.value})}
-          className="px-4 py-2 border rounded-lg w-full"
+          onChange={(e) => onChange({ ...value, addressLine1: e.target.value })}
+          className="w-full rounded-lg border px-4 py-2"
         />
         <input
           type="text"
-          placeholder={language === 'es' ? "Apto/Suite (opcional)" : "Apt/Suite (optional)"}
+          placeholder={language === 'es' ? 'Apto/Suite (opcional)' : 'Apt/Suite (optional)'}
           value={value.addressLine2 || ''}
-          onChange={(e) => onChange({...value, addressLine2: e.target.value})}
-          className="px-4 py-2 border rounded-lg w-full"
+          onChange={(e) => onChange({ ...value, addressLine2: e.target.value })}
+          className="w-full rounded-lg border px-4 py-2"
         />
         <div className="grid grid-cols-2 gap-4">
           <input
             type="text"
-            placeholder={language === 'es' ? "Ciudad" : "City"}
+            placeholder={language === 'es' ? 'Ciudad' : 'City'}
             value={value.city}
-            onChange={(e) => onChange({...value, city: e.target.value})}
-            className="px-4 py-2 border rounded-lg"
+            onChange={(e) => onChange({ ...value, city: e.target.value })}
+            className="rounded-lg border px-4 py-2"
           />
           <input
             type="text"
-            placeholder={language === 'es' ? "Estado" : "State"}
+            placeholder={language === 'es' ? 'Estado' : 'State'}
             value={value.state}
-            onChange={(e) => onChange({...value, state: e.target.value})}
-            className="px-4 py-2 border rounded-lg"
+            onChange={(e) => onChange({ ...value, state: e.target.value })}
+            className="rounded-lg border px-4 py-2"
           />
         </div>
         <input
           type="text"
-          placeholder={language === 'es' ? "Código Postal" : "ZIP Code"}
+          placeholder={language === 'es' ? 'Código Postal' : 'ZIP Code'}
           value={value.zipCode}
-          onChange={(e) => onChange({...value, zipCode: e.target.value})}
-          className="px-4 py-2 border rounded-lg w-full"
+          onChange={(e) => onChange({ ...value, zipCode: e.target.value })}
+          className="w-full rounded-lg border px-4 py-2"
         />
       </div>
     );
@@ -159,46 +166,52 @@ export function AddressAutocomplete({ value, onChange, language = 'en' }: Addres
         <input
           ref={inputRef}
           type="text"
-          placeholder={language === 'es' ? "Comience a escribir su dirección..." : "Start typing your address..."}
-          className="px-4 py-2 border rounded-lg w-full"
+          placeholder={
+            language === 'es'
+              ? 'Comience a escribir su dirección...'
+              : 'Start typing your address...'
+          }
+          className="w-full rounded-lg border px-4 py-2"
           onFocus={() => setIsUserTyping(true)}
           onBlur={() => setIsUserTyping(false)}
           // Capture manual typing as a fallback (some users don't select an autocomplete suggestion)
           onChange={(e) => onChange({ ...value, addressLine1: e.target.value })}
         />
-        <p className="text-xs text-gray-500 mt-1">
-          {language === 'es' ? "Seleccione una dirección de las sugerencias" : "Select an address from the suggestions"}
+        <p className="mt-1 text-xs text-gray-500">
+          {language === 'es'
+            ? 'Seleccione una dirección de las sugerencias'
+            : 'Select an address from the suggestions'}
         </p>
       </div>
       <input
         type="text"
-        placeholder={language === 'es' ? "Apto/Suite (opcional)" : "Apt/Suite (optional)"}
+        placeholder={language === 'es' ? 'Apto/Suite (opcional)' : 'Apt/Suite (optional)'}
         value={value.addressLine2 || ''}
-        onChange={(e) => onChange({...value, addressLine2: e.target.value})}
-        className="px-4 py-2 border rounded-lg w-full"
+        onChange={(e) => onChange({ ...value, addressLine2: e.target.value })}
+        className="w-full rounded-lg border px-4 py-2"
       />
       <div className="grid grid-cols-2 gap-4">
         <input
           type="text"
-          placeholder={language === 'es' ? "Ciudad" : "City"}
+          placeholder={language === 'es' ? 'Ciudad' : 'City'}
           value={value.city}
-          onChange={(e) => onChange({...value, city: e.target.value})}
-          className="px-4 py-2 border rounded-lg"
+          onChange={(e) => onChange({ ...value, city: e.target.value })}
+          className="rounded-lg border px-4 py-2"
         />
         <input
           type="text"
-          placeholder={language === 'es' ? "Estado" : "State"}
+          placeholder={language === 'es' ? 'Estado' : 'State'}
           value={value.state}
-          onChange={(e) => onChange({...value, state: e.target.value})}
-          className="px-4 py-2 border rounded-lg"
+          onChange={(e) => onChange({ ...value, state: e.target.value })}
+          className="rounded-lg border px-4 py-2"
         />
       </div>
       <input
         type="text"
-        placeholder={language === 'es' ? "Código Postal" : "ZIP Code"}
+        placeholder={language === 'es' ? 'Código Postal' : 'ZIP Code'}
         value={value.zipCode}
-        onChange={(e) => onChange({...value, zipCode: e.target.value})}
-        className="px-4 py-2 border rounded-lg w-full"
+        onChange={(e) => onChange({ ...value, zipCode: e.target.value })}
+        className="w-full rounded-lg border px-4 py-2"
       />
     </div>
   );

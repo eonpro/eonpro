@@ -105,8 +105,10 @@ export async function getAvailableSlots(
   const dateStr = toDateStringET(date);
   const dayStart = startOfDayET(date);
   const dayEnd = endOfDayET(date);
-  const dayOfWeek = new Intl.DateTimeFormat('en-US', { timeZone: EASTERN_TZ, weekday: 'short' })
-    .format(date);
+  const dayOfWeek = new Intl.DateTimeFormat('en-US', {
+    timeZone: EASTERN_TZ,
+    weekday: 'short',
+  }).format(date);
   const dayIdx = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(dayOfWeek);
 
   // Check for time off first (applies regardless of overrides)
@@ -376,7 +378,9 @@ export async function getProviderWeeklySchedule(
     const dateStr = `${calDate.getFullYear()}-${String(calDate.getMonth() + 1).padStart(2, '0')}-${String(calDate.getDate()).padStart(2, '0')}`;
     const cursorDate = parseDateET(dateStr);
     const dayOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(
-      new Intl.DateTimeFormat('en-US', { timeZone: EASTERN_TZ, weekday: 'short' }).format(cursorDate)
+      new Intl.DateTimeFormat('en-US', { timeZone: EASTERN_TZ, weekday: 'short' }).format(
+        cursorDate
+      )
     );
     const cursorStart = parseDateET(dateStr);
     const cursorEnd = endOfDayET(cursorDate);
@@ -424,7 +428,6 @@ export async function getProviderWeeklySchedule(
         appointmentCount: aptCountByDate[dateStr] || 0,
       });
     }
-
   }
 
   return schedule;

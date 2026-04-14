@@ -96,10 +96,22 @@ interface PatientProfileClientProps {
 
 function TabContent(props: PatientProfileClientProps): React.ReactNode {
   const {
-    patientId, patientCore, currentTab, userRole, patientsListPath,
-    doseSpotEnabled, clinicSubdomain, providerId, hasPortalAccess,
-    hasEmail, hasPhone, portalInvite, patientTags, patientCreatedAt,
-    isAdminView, fallbackSubdomain,
+    patientId,
+    patientCore,
+    currentTab,
+    userRole,
+    patientsListPath,
+    doseSpotEnabled,
+    clinicSubdomain,
+    providerId,
+    hasPortalAccess,
+    hasEmail,
+    hasPhone,
+    portalInvite,
+    patientTags,
+    patientCreatedAt,
+    isAdminView,
+    fallbackSubdomain,
   } = props;
 
   const patientName = `${patientCore.firstName} ${patientCore.lastName}`;
@@ -133,7 +145,9 @@ function TabContent(props: PatientProfileClientProps): React.ReactNode {
             <div className="rounded-2xl border border-gray-200 bg-white p-4 md:p-6">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-lg font-semibold">Patient Audit Log</h2>
-                <span className="rounded bg-red-100 px-2 py-1 text-xs text-red-700">Admin Only</span>
+                <span className="rounded bg-red-100 px-2 py-1 text-xs text-red-700">
+                  Admin Only
+                </span>
               </div>
               <p className="text-sm text-gray-500">Audit log loads on demand via admin view.</p>
             </div>
@@ -153,7 +167,12 @@ function TabContent(props: PatientProfileClientProps): React.ReactNode {
     case 'soap-notes':
       return <PatientSOAPNotesView patientId={patientId} />;
     case 'appointments':
-      return <PatientAppointmentsView patient={patientCore} clinicId={patientCore.clinicId ?? undefined} />;
+      return (
+        <PatientAppointmentsView
+          patient={patientCore}
+          clinicId={patientCore.clinicId ?? undefined}
+        />
+      );
     case 'progress':
       return <PatientProgressView patient={patientCore} />;
     case 'prescriptions':
@@ -174,7 +193,9 @@ function TabContent(props: PatientProfileClientProps): React.ReactNode {
             clinicSubdomain={clinicSubdomain ?? fallbackSubdomain}
           />
           <div className="rounded-2xl border border-gray-200 bg-white p-4 md:p-6">
-            <h3 className="mb-4 border-b border-gray-200 pb-3 text-lg font-semibold">Payment Methods</h3>
+            <h3 className="mb-4 border-b border-gray-200 pb-3 text-lg font-semibold">
+              Payment Methods
+            </h3>
             <PatientPaymentMethods patientId={patientId} patientName={patientName} />
           </div>
         </div>
@@ -182,7 +203,13 @@ function TabContent(props: PatientProfileClientProps): React.ReactNode {
     case 'lab':
       return <PatientLabView patientId={patientId} patientName={patientName} />;
     case 'documents':
-      return <PatientDocumentsView patientId={patientId} patientName={patientName} patientBasePath={patientsListPath} />;
+      return (
+        <PatientDocumentsView
+          patientId={patientId}
+          patientName={patientName}
+          patientBasePath={patientsListPath}
+        />
+      );
     case 'chat':
       return <PatientChatView patient={patientCore} />;
     case 'photos':
@@ -202,7 +229,12 @@ export default function PatientProfileClient(props: PatientProfileClientProps) {
     <>
       {submittedFlag && (currentTab === 'profile' || currentTab === 'prescriptions') && (
         <div className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
-          <svg className="h-5 w-5 flex-shrink-0 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg
+            className="h-5 w-5 flex-shrink-0 text-emerald-600"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
           Prescription submitted successfully.

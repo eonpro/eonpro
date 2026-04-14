@@ -33,10 +33,15 @@ export const GET = withAuth(
       const limit = parseInt(searchParams.get('limit') || '20');
       const roleParam = searchParams.get('role');
       const roleList = searchParams.getAll('role').filter(Boolean);
-      const roleRaw = roleList.length ? roleList : (roleParam ? [roleParam] : []);
+      const roleRaw = roleList.length ? roleList : roleParam ? [roleParam] : [];
       // Support comma-separated roles (e.g. ?role=staff,admin,provider,support from New Ticket page)
       // Normalize to UPPER_CASE to match the Prisma UserRole enum
-      const roles = roleRaw.flatMap((r) => r.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean));
+      const roles = roleRaw.flatMap((r) =>
+        r
+          .split(',')
+          .map((s) => s.trim().toUpperCase())
+          .filter(Boolean)
+      );
       const status = searchParams.get('status');
       const search = searchParams.get('search')?.trim() || null;
       const clinicIdParam = searchParams.get('clinicId');
@@ -57,18 +62,18 @@ export const GET = withAuth(
       }
 
       // Clinic scope: only super_admin may query a different clinic's users
-      const effectiveClinicIdParam = (clinicIdParam && user.role === 'super_admin')
-        ? clinicIdParam
-        : (user.clinicId ? String(user.clinicId) : clinicIdParam);
+      const effectiveClinicIdParam =
+        clinicIdParam && user.role === 'super_admin'
+          ? clinicIdParam
+          : user.clinicId
+            ? String(user.clinicId)
+            : clinicIdParam;
       if (effectiveClinicIdParam) {
         const clinicId = parseInt(effectiveClinicIdParam, 10);
         if (!isNaN(clinicId)) {
           where.AND = (where.AND || []).concat([
             {
-              OR: [
-                { clinicId },
-                { userClinics: { some: { clinicId, isActive: true } } },
-              ],
+              OR: [{ clinicId }, { userClinics: { some: { clinicId, isActive: true } } }],
             },
           ]);
         }
@@ -130,7 +135,9 @@ export const GET = withAuth(
       // When searching, sort by relevance so the best match appears first
       const sortedUsers = search
         ? sortBySearchRelevance(users, search, (u) => [
-            u.firstName ?? '', u.lastName ?? '', u.email ?? '',
+            u.firstName ?? '',
+            u.lastName ?? '',
+            u.email ?? '',
           ])
         : users;
 
@@ -144,7 +151,6 @@ export const GET = withAuth(
         },
       });
     } catch (error: unknown) {
-
       logger.error('Error fetching users:', error);
       return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
     }
@@ -235,41 +241,44 @@ export const PUT = withAuth(
       }
 
       // Update user in transaction
-      const updatedUser = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-        const updated = await tx.user.update({
-          where: { id },
-          data: updatePayload,
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-            role: true,
-            status: true,
-            permissions: true,
-            features: true,
-            updatedAt: true,
-          },
-        });
-
-        // Create audit log
-        await tx.userAuditLog.create({
-          data: {
-            userId: id,
-            action: 'USER_UPDATED',
-            details: {
-              updatedBy: user.id,
-              updatedByRole: user.role,
-              diff: Object.keys(validated),
-              passwordChanged: !!validated.password,
+      const updatedUser = await prisma.$transaction(
+        async (tx: Prisma.TransactionClient) => {
+          const updated = await tx.user.update({
+            where: { id },
+            data: updatePayload,
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+              role: true,
+              status: true,
+              permissions: true,
+              features: true,
+              updatedAt: true,
             },
-            ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
-            userAgent: req.headers.get('user-agent'),
-          },
-        });
+          });
 
-        return updated;
-      }, { timeout: 15000 });
+          // Create audit log
+          await tx.userAuditLog.create({
+            data: {
+              userId: id,
+              action: 'USER_UPDATED',
+              details: {
+                updatedBy: user.id,
+                updatedByRole: user.role,
+                diff: Object.keys(validated),
+                passwordChanged: !!validated.password,
+              },
+              ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
+              userAgent: req.headers.get('user-agent'),
+            },
+          });
+
+          return updated;
+        },
+        { timeout: 15000 }
+      );
 
       logger.info('User updated', { targetUserId: targetUser.id, userId: user.id });
 
@@ -330,29 +339,32 @@ export const DELETE = withAuth(
 
       if (action === 'delete') {
         // Hard delete
-        await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-          // Delete related records first
-          await tx.userAuditLog.deleteMany({ where: { userId: id } });
-          await tx.userSession.deleteMany({ where: { userId: id } });
+        await prisma.$transaction(
+          async (tx: Prisma.TransactionClient) => {
+            // Delete related records first
+            await tx.userAuditLog.deleteMany({ where: { userId: id } });
+            await tx.userSession.deleteMany({ where: { userId: id } });
 
-          // Delete the user
-          await tx.user.delete({ where: { id } });
+            // Delete the user
+            await tx.user.delete({ where: { id } });
 
-          // Log the deletion
-          await tx.userAuditLog.create({
-            data: {
-              userId: user.id, // Log under the admin who deleted
-              action: 'USER_DELETED',
-              details: {
-                deletedUser: targetUser.email,
-                deletedUserId: id,
-                deletedByRole: user.role,
+            // Log the deletion
+            await tx.userAuditLog.create({
+              data: {
+                userId: user.id, // Log under the admin who deleted
+                action: 'USER_DELETED',
+                details: {
+                  deletedUser: targetUser.email,
+                  deletedUserId: id,
+                  deletedByRole: user.role,
+                },
+                ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
+                userAgent: req.headers.get('user-agent'),
               },
-              ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
-              userAgent: req.headers.get('user-agent'),
-            },
-          });
-        }, { timeout: 15000 });
+            });
+          },
+          { timeout: 15000 }
+        );
 
         logger.warn('User permanently deleted', { targetUserId: targetUser.id, userId: user.id });
 
@@ -362,34 +374,37 @@ export const DELETE = withAuth(
         });
       } else {
         // Soft delete (suspend)
-        const suspended = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-          const updated = await tx.user.update({
-            where: { id },
-            data: {
-              status: 'SUSPENDED',
-              updatedAt: new Date(),
-            },
-          });
-
-          // Invalidate all sessions
-          await tx.userSession.deleteMany({ where: { userId: id } });
-
-          // Create audit log
-          await tx.userAuditLog.create({
-            data: {
-              userId: id,
-              action: 'USER_SUSPENDED',
-              details: {
-                suspendedBy: user.email,
-                suspendedByRole: user.role,
+        const suspended = await prisma.$transaction(
+          async (tx: Prisma.TransactionClient) => {
+            const updated = await tx.user.update({
+              where: { id },
+              data: {
+                status: 'SUSPENDED',
+                updatedAt: new Date(),
               },
-              ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
-              userAgent: req.headers.get('user-agent'),
-            },
-          });
+            });
 
-          return updated;
-        }, { timeout: 15000 });
+            // Invalidate all sessions
+            await tx.userSession.deleteMany({ where: { userId: id } });
+
+            // Create audit log
+            await tx.userAuditLog.create({
+              data: {
+                userId: id,
+                action: 'USER_SUSPENDED',
+                details: {
+                  suspendedBy: user.email,
+                  suspendedByRole: user.role,
+                },
+                ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
+                userAgent: req.headers.get('user-agent'),
+              },
+            });
+
+            return updated;
+          },
+          { timeout: 15000 }
+        );
 
         logger.info('User suspended', { targetUserId: targetUser.id, userId: user.id });
 
@@ -399,7 +414,6 @@ export const DELETE = withAuth(
         });
       }
     } catch (error: unknown) {
-
       logger.error('User deletion error:', error);
       return NextResponse.json({ error: 'Failed to delete user' }, { status: 500 });
     }

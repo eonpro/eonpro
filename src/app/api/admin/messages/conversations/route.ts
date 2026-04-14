@@ -44,7 +44,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
     if (!parsed.success) {
       return NextResponse.json(
         { error: 'Invalid parameters', details: parsed.error.flatten().fieldErrors },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -95,7 +95,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
         select: { patientId: true, direction: true },
       });
       const needsReplyIds = new Set(
-        latestMessages.filter((m) => m.direction === 'INBOUND').map((m) => m.patientId),
+        latestMessages.filter((m) => m.direction === 'INBOUND').map((m) => m.patientId)
       );
       orderedPatientIds = orderedPatientIds.filter((id) => needsReplyIds.has(id));
     }
@@ -147,7 +147,9 @@ async function getHandler(request: NextRequest, user: AuthUser) {
 
     // Re-sort to match the ordered IDs (DB findMany doesn't preserve IN order)
     const patientMap = new Map(patientsWithMessages.map((p) => [p.id, p]));
-    const sortedPatients = finalIds.map((id) => patientMap.get(id)).filter(Boolean) as typeof patientsWithMessages;
+    const sortedPatients = finalIds
+      .map((id) => patientMap.get(id))
+      .filter(Boolean) as typeof patientsWithMessages;
 
     // Step 4: Unread + total counts for the page
     const unreadCounts = await prisma.patientChatMessage.groupBy({
@@ -200,7 +202,16 @@ async function getHandler(request: NextRequest, user: AuthUser) {
       }),
       prisma.patientChatMessage.groupBy({
         by: ['patientId'],
-        where: { createdAt: { gte: (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; })() }, ...clinicFilter },
+        where: {
+          createdAt: {
+            gte: (() => {
+              const d = new Date();
+              d.setHours(0, 0, 0, 0);
+              return d;
+            })(),
+          },
+          ...clinicFilter,
+        },
         _count: { id: true },
       }),
     ]);
@@ -221,7 +232,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
       request,
       buildAuditPhiOptions(request, user, 'message:view', {
         route: 'GET /api/admin/messages/conversations',
-      }),
+      })
     );
 
     return NextResponse.json({
@@ -246,7 +257,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
 
     return NextResponse.json(
       { error: 'Failed to fetch conversations', conversations: [], stats: null },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

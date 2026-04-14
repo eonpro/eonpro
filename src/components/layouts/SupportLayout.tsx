@@ -56,11 +56,7 @@ export default function SupportLayout({ children, userData }: SupportLayoutProps
               >
                 <Menu className="h-6 w-6" />
               </button>
-              <img
-                src={EONPRO_LOGO}
-                alt="EONPRO logo"
-                className="ml-2 h-10 w-auto"
-              />
+              <img src={EONPRO_LOGO} alt="EONPRO logo" className="ml-2 h-10 w-auto" />
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-600">

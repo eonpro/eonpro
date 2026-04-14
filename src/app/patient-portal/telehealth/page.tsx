@@ -53,7 +53,9 @@ function TelehealthJoinContent() {
     }
 
     try {
-      const res = await portalFetch(`/api/patient-portal/appointments?appointmentId=${appointmentId}`);
+      const res = await portalFetch(
+        `/api/patient-portal/appointments?appointmentId=${appointmentId}`
+      );
       if (res.ok) {
         const data = await res.json();
         const appt = data.appointment ?? data;
@@ -116,12 +118,16 @@ function TelehealthJoinContent() {
   }, [appointment?.startTime]);
 
   const toggleCamera = () => {
-    stream?.getVideoTracks().forEach((t) => { t.enabled = !cameraOn; });
+    stream?.getVideoTracks().forEach((t) => {
+      t.enabled = !cameraOn;
+    });
     setCameraOn(!cameraOn);
   };
 
   const toggleMic = () => {
-    stream?.getAudioTracks().forEach((t) => { t.enabled = !micOn; });
+    stream?.getAudioTracks().forEach((t) => {
+      t.enabled = !micOn;
+    });
     setMicOn(!micOn);
   };
 
@@ -241,9 +247,7 @@ function TelehealthJoinContent() {
             ) : (
               <div className="flex h-full flex-col items-center justify-center text-gray-400">
                 <VideoOff className="mb-2 h-12 w-12" />
-                <p className="text-sm">
-                  {devicesReady ? 'Camera off' : 'Camera not available'}
-                </p>
+                <p className="text-sm">{devicesReady ? 'Camera off' : 'Camera not available'}</p>
               </div>
             )}
           </div>
@@ -254,7 +258,9 @@ function TelehealthJoinContent() {
               onClick={toggleMic}
               disabled={!devicesReady}
               className={`flex h-12 w-12 items-center justify-center rounded-full transition-all ${
-                micOn ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-red-600 text-white hover:bg-red-700'
+                micOn
+                  ? 'bg-gray-700 text-white hover:bg-gray-600'
+                  : 'bg-red-600 text-white hover:bg-red-700'
               } disabled:opacity-40`}
             >
               {micOn ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
@@ -263,7 +269,9 @@ function TelehealthJoinContent() {
               onClick={toggleCamera}
               disabled={!devicesReady}
               className={`flex h-12 w-12 items-center justify-center rounded-full transition-all ${
-                cameraOn ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-red-600 text-white hover:bg-red-700'
+                cameraOn
+                  ? 'bg-gray-700 text-white hover:bg-gray-600'
+                  : 'bg-red-600 text-white hover:bg-red-700'
               } disabled:opacity-40`}
             >
               {cameraOn ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
@@ -272,18 +280,19 @@ function TelehealthJoinContent() {
 
           {/* Join Button with Countdown */}
           <div className="px-6 py-5">
-            {appointment?.startTime && (() => {
-              const msUntil = new Date(appointment.startTime).getTime() - Date.now();
-              const minsUntil = Math.max(0, Math.floor(msUntil / 60000));
-              if (minsUntil > 0 && minsUntil <= 60) {
-                return (
-                  <p className="mb-3 text-center text-sm font-medium text-blue-700">
-                    Starting in {minsUntil} minute{minsUntil !== 1 ? 's' : ''}
-                  </p>
-                );
-              }
-              return null;
-            })()}
+            {appointment?.startTime &&
+              (() => {
+                const msUntil = new Date(appointment.startTime).getTime() - Date.now();
+                const minsUntil = Math.max(0, Math.floor(msUntil / 60000));
+                if (minsUntil > 0 && minsUntil <= 60) {
+                  return (
+                    <p className="mb-3 text-center text-sm font-medium text-blue-700">
+                      Starting in {minsUntil} minute{minsUntil !== 1 ? 's' : ''}
+                    </p>
+                  );
+                }
+                return null;
+              })()}
             <button
               onClick={joinCall}
               disabled={!appointment?.zoomJoinUrl && !appointment?.videoLink}

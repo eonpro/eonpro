@@ -22,8 +22,16 @@ function withSuperAdminAuth(
 }
 
 const VALID_ROLES = [
-  'SUPER_ADMIN', 'ADMIN', 'PROVIDER', 'INFLUENCER',
-  'AFFILIATE', 'PATIENT', 'STAFF', 'SUPPORT', 'SALES_REP', 'PHARMACY_REP',
+  'SUPER_ADMIN',
+  'ADMIN',
+  'PROVIDER',
+  'INFLUENCER',
+  'AFFILIATE',
+  'PATIENT',
+  'STAFF',
+  'SUPPORT',
+  'SALES_REP',
+  'PHARMACY_REP',
 ] as const;
 
 const VALID_STATUSES = ['ACTIVE', 'INACTIVE', 'SUSPENDED'] as const;
@@ -54,19 +62,13 @@ export const PUT = withSuperAdminAuth(
       const targetUser = await prisma.user.findFirst({
         where: {
           id: userId,
-          OR: [
-            { clinicId },
-            { userClinics: { some: { clinicId, isActive: true } } },
-          ],
+          OR: [{ clinicId }, { userClinics: { some: { clinicId, isActive: true } } }],
         },
         select: { id: true, email: true, firstName: true, lastName: true, role: true },
       });
 
       if (!targetUser) {
-        return NextResponse.json(
-          { error: 'User not found in this clinic' },
-          { status: 404 }
-        );
+        return NextResponse.json({ error: 'User not found in this clinic' }, { status: 404 });
       }
 
       const body = await req.json();
@@ -116,10 +118,7 @@ export const PUT = withSuperAdminAuth(
       }
 
       if (changes.length === 0) {
-        return NextResponse.json(
-          { error: 'No valid fields to update' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
       }
 
       await prisma.$transaction(async (tx) => {
@@ -150,10 +149,7 @@ export const PUT = withSuperAdminAuth(
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       logger.error('Error updating user', { error: message });
-      return NextResponse.json(
-        { error: 'Failed to update user' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to update user' }, { status: 500 });
     }
   }
 );
@@ -192,48 +188,51 @@ export const DELETE = withSuperAdminAuth(
       }
 
       // Remove UserClinic association and update legacy clinicId in a transaction
-      await prisma.$transaction(async (tx) => {
-        // Try to remove UserClinic record if it exists
-        try {
-          await tx.userClinic.delete({
-            where: {
-              userId_clinicId: { userId, clinicId },
-            },
-          });
-        } catch (ucError: unknown) {
-          // UserClinic record may not exist — that's okay, continue
-          logger.warn('UserClinic record not found or could not be deleted', {
-            userId,
-            clinicId,
-            error: ucError instanceof Error ? ucError.message : String(ucError),
-          });
-        }
-
-        // If the user's primary clinicId matches, clear it
-        if (targetUser.clinicId === clinicId) {
-          // Check if user has another clinic assignment to fall back to
-          let fallbackClinicId: number | null = null;
+      await prisma.$transaction(
+        async (tx) => {
+          // Try to remove UserClinic record if it exists
           try {
-            const otherClinic = await tx.userClinic.findFirst({
+            await tx.userClinic.delete({
               where: {
-                userId,
-                clinicId: { not: clinicId },
-                isActive: true,
+                userId_clinicId: { userId, clinicId },
               },
-              orderBy: { isPrimary: 'desc' },
-              select: { clinicId: true },
             });
-            fallbackClinicId = otherClinic?.clinicId ?? null;
-          } catch {
-            // UserClinic table may not be available
+          } catch (ucError: unknown) {
+            // UserClinic record may not exist — that's okay, continue
+            logger.warn('UserClinic record not found or could not be deleted', {
+              userId,
+              clinicId,
+              error: ucError instanceof Error ? ucError.message : String(ucError),
+            });
           }
 
-          await tx.user.update({
-            where: { id: userId },
-            data: { clinicId: fallbackClinicId },
-          });
-        }
-      }, { timeout: 15000 });
+          // If the user's primary clinicId matches, clear it
+          if (targetUser.clinicId === clinicId) {
+            // Check if user has another clinic assignment to fall back to
+            let fallbackClinicId: number | null = null;
+            try {
+              const otherClinic = await tx.userClinic.findFirst({
+                where: {
+                  userId,
+                  clinicId: { not: clinicId },
+                  isActive: true,
+                },
+                orderBy: { isPrimary: 'desc' },
+                select: { clinicId: true },
+              });
+              fallbackClinicId = otherClinic?.clinicId ?? null;
+            } catch {
+              // UserClinic table may not be available
+            }
+
+            await tx.user.update({
+              where: { id: userId },
+              data: { clinicId: fallbackClinicId },
+            });
+          }
+        },
+        { timeout: 15000 }
+      );
 
       logger.info('User removed from clinic by super admin', {
         targetUserId: userId,
@@ -252,10 +251,7 @@ export const DELETE = withSuperAdminAuth(
         error: message,
         params: { clinicId: params.id, userId: params.userId },
       });
-      return NextResponse.json(
-        { error: 'Failed to remove user from clinic' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to remove user from clinic' }, { status: 500 });
     }
   }
 );

@@ -57,7 +57,9 @@ export default function DrugInteractionBanner({ medications, allergies }: Props)
         setAllergyWarnings(data.allergyWarnings ?? []);
         setAiSummary(data.aiSummary ?? null);
       }
-    } catch { /* silent */ } finally {
+    } catch {
+      /* silent */
+    } finally {
       setLoading(false);
     }
   }, [medications, allergies]);
@@ -65,13 +67,16 @@ export default function DrugInteractionBanner({ medications, allergies }: Props)
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(checkInteractions, 1500);
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
   }, [checkInteractions]);
 
   const hasWarnings = interactions.length > 0 || allergyWarnings.length > 0;
   if (!hasWarnings || dismissed) return null;
 
-  const hasSevere = interactions.some((i) => i.severity === 'high') ||
+  const hasSevere =
+    interactions.some((i) => i.severity === 'high') ||
     allergyWarnings.some((w) => w.severity === 'high');
   const borderColor = hasSevere ? 'border-red-300' : 'border-amber-300';
   const bgColor = hasSevere ? 'bg-red-50' : 'bg-amber-50';
@@ -82,8 +87,18 @@ export default function DrugInteractionBanner({ medications, allergies }: Props)
     <div className={`rounded-xl border ${borderColor} ${bgColor} p-4`}>
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-2">
-          <svg className={`mt-0.5 h-5 w-5 flex-shrink-0 ${iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+          <svg
+            className={`mt-0.5 h-5 w-5 flex-shrink-0 ${iconColor}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+            />
           </svg>
           <div>
             <p className={`text-sm font-semibold ${textColor}`}>
@@ -91,7 +106,8 @@ export default function DrugInteractionBanner({ medications, allergies }: Props)
             </p>
             <p className={`mt-0.5 text-xs ${textColor} opacity-80`}>
               {interactions.length} interaction{interactions.length !== 1 ? 's' : ''} found
-              {allergyWarnings.length > 0 && `, ${allergyWarnings.length} allergy warning${allergyWarnings.length !== 1 ? 's' : ''}`}
+              {allergyWarnings.length > 0 &&
+                `, ${allergyWarnings.length} allergy warning${allergyWarnings.length !== 1 ? 's' : ''}`}
             </p>
           </div>
         </div>
@@ -108,7 +124,12 @@ export default function DrugInteractionBanner({ medications, allergies }: Props)
             title="Dismiss"
           >
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
@@ -119,21 +140,35 @@ export default function DrugInteractionBanner({ medications, allergies }: Props)
           {allergyWarnings.map((w, i) => (
             <div key={`aw-${i}`} className="rounded-lg border border-red-200 bg-white p-2.5">
               <div className="flex items-center gap-1.5">
-                <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-700">ALLERGY</span>
-                <span className="text-xs font-semibold text-red-800">{w.medication} vs {w.allergy}</span>
+                <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-700">
+                  ALLERGY
+                </span>
+                <span className="text-xs font-semibold text-red-800">
+                  {w.medication} vs {w.allergy}
+                </span>
               </div>
               <p className="mt-1 text-xs text-red-700">{w.reason}</p>
             </div>
           ))}
 
           {interactions.map((int, i) => {
-            const sevColor = int.severity === 'high' ? 'bg-red-100 text-red-700' :
-              int.severity === 'moderate' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700';
+            const sevColor =
+              int.severity === 'high'
+                ? 'bg-red-100 text-red-700'
+                : int.severity === 'moderate'
+                  ? 'bg-amber-100 text-amber-700'
+                  : 'bg-blue-100 text-blue-700';
             return (
               <div key={`int-${i}`} className="rounded-lg border border-gray-200 bg-white p-2.5">
                 <div className="flex items-center gap-1.5">
-                  <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${sevColor}`}>{int.severity}</span>
-                  <span className="text-xs font-semibold text-gray-800">{int.drug1} + {int.drug2}</span>
+                  <span
+                    className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${sevColor}`}
+                  >
+                    {int.severity}
+                  </span>
+                  <span className="text-xs font-semibold text-gray-800">
+                    {int.drug1} + {int.drug2}
+                  </span>
                 </div>
                 <p className="mt-1 text-xs text-gray-600">{int.description}</p>
                 <p className="mt-0.5 text-[10px] text-gray-400">Source: {int.source}</p>
@@ -143,7 +178,9 @@ export default function DrugInteractionBanner({ medications, allergies }: Props)
 
           {aiSummary && (
             <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-2.5">
-              <p className="text-[10px] font-semibold uppercase text-indigo-500">Clinical Summary</p>
+              <p className="text-[10px] font-semibold uppercase text-indigo-500">
+                Clinical Summary
+              </p>
               <p className="mt-1 text-xs text-indigo-800">{aiSummary}</p>
             </div>
           )}

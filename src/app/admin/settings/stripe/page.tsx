@@ -64,7 +64,9 @@ function StripeSettingsContent() {
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
   const [oauthSupported, setOauthSupported] = useState(true);
   const [origin, setOrigin] = useState('');
-  useEffect(() => { setOrigin(window.location.origin); }, []);
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
 
   // Check for return from Stripe OAuth/onboarding
   useEffect(() => {
@@ -95,8 +97,11 @@ function StripeSettingsContent() {
           return;
         }
 
-        const user = safeParseJsonString<{role?: string; clinicId?: number}>(userData);
-        if (!user) { router.push('/login'); return; }
+        const user = safeParseJsonString<{ role?: string; clinicId?: number }>(userData);
+        if (!user) {
+          router.push('/login');
+          return;
+        }
         if (!['admin', 'super_admin'].includes(user.role?.toLowerCase() ?? '')) {
           router.push('/login');
           return;
@@ -133,7 +138,7 @@ function StripeSettingsContent() {
         throw new Error(data.error || 'Failed to load Stripe status');
       }
     } catch (err: unknown) {
-      setError((err instanceof Error ? err.message : String(err)));
+      setError(err instanceof Error ? err.message : String(err));
     }
   };
 
@@ -166,7 +171,7 @@ function StripeSettingsContent() {
       // Redirect to Stripe OAuth
       window.location.href = data.authorizeUrl;
     } catch (err: unknown) {
-      setError((err instanceof Error ? err.message : String(err)));
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setActionLoading(false);
     }
@@ -189,7 +194,7 @@ function StripeSettingsContent() {
       const userData = localStorage.getItem('user');
       if (userData) {
         try {
-          const parsed = safeParseJsonString<{email?: string}>(userData);
+          const parsed = safeParseJsonString<{ email?: string }>(userData);
           adminEmail = parsed?.email ?? '';
         } catch {
           // Ignore corrupted localStorage
@@ -216,7 +221,7 @@ function StripeSettingsContent() {
       // Redirect to Stripe onboarding
       window.location.href = data.onboardingUrl;
     } catch (err: unknown) {
-      setError((err instanceof Error ? err.message : String(err)));
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setActionLoading(false);
     }
@@ -238,7 +243,7 @@ function StripeSettingsContent() {
         throw new Error(data.error || 'Failed to get onboarding link');
       }
     } catch (err: unknown) {
-      setError((err instanceof Error ? err.message : String(err)));
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setActionLoading(false);
     }
@@ -260,7 +265,7 @@ function StripeSettingsContent() {
         throw new Error(data.error || 'Dashboard access not available');
       }
     } catch (err: unknown) {
-      setError((err instanceof Error ? err.message : String(err)));
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setActionLoading(false);
     }
@@ -284,7 +289,7 @@ function StripeSettingsContent() {
         throw new Error(data.error || 'Failed to sync status');
       }
     } catch (err: unknown) {
-      setError((err instanceof Error ? err.message : String(err)));
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setActionLoading(false);
     }
@@ -311,7 +316,7 @@ function StripeSettingsContent() {
       setShowDisconnectConfirm(false);
       setSuccess('Stripe account disconnected');
     } catch (err: unknown) {
-      setError((err instanceof Error ? err.message : String(err)));
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setActionLoading(false);
     }
@@ -392,7 +397,9 @@ function StripeSettingsContent() {
           <div className="mb-6 rounded-xl border border-[var(--brand-primary-medium)] bg-[var(--brand-primary-light)] p-6">
             <div className="mb-2 flex items-center gap-3">
               <Building2 className="h-6 w-6 text-[var(--brand-primary)]" />
-              <h2 className="text-lg font-semibold text-[var(--brand-primary)]">Platform Account</h2>
+              <h2 className="text-lg font-semibold text-[var(--brand-primary)]">
+                Platform Account
+              </h2>
             </div>
             <p className="text-[var(--brand-primary)]">
               This clinic is configured as the platform account. All payments are processed directly
@@ -738,7 +745,9 @@ function StripeSettingsContent() {
               contact your platform administrator to add the following redirect URI:
             </p>
             <div className="break-all rounded-lg bg-amber-100 p-3 font-mono text-sm text-amber-900">
-              {origin ? `${origin}/api/stripe/connect/oauth/callback` : 'https://[your-domain]/api/stripe/connect/oauth/callback'}
+              {origin
+                ? `${origin}/api/stripe/connect/oauth/callback`
+                : 'https://[your-domain]/api/stripe/connect/oauth/callback'}
             </div>
             <p className="mt-3 text-xs text-amber-700">
               This URI must be added in Stripe Dashboard → Connect → Settings → OAuth settings →

@@ -21,7 +21,10 @@ export const POST = withAuthParams<RouteContext>(
       }
 
       if (!user.clinicId) {
-        return NextResponse.json({ error: 'User is not associated with a clinic' }, { status: 400 });
+        return NextResponse.json(
+          { error: 'User is not associated with a clinic' },
+          { status: 400 }
+        );
       }
 
       const clinic = await prisma.clinic.findUnique({

@@ -10,7 +10,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuthParams, AuthUser } from '@/lib/auth/middleware-with-params';
 import { logger } from '@/lib/logger';
-import { handleApiError, BadRequestError, NotFoundError, ForbiddenError } from '@/domains/shared/errors';
+import {
+  handleApiError,
+  BadRequestError,
+  NotFoundError,
+  ForbiddenError,
+} from '@/domains/shared/errors';
 import { getRefillById, cancelRefill, holdRefill, resumeRefill } from '@/services/refill';
 
 interface RouteContext {

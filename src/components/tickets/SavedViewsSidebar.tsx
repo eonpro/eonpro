@@ -1,7 +1,17 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Bookmark, Plus, Trash2, Eye, Filter, Users, AlertTriangle, Clock, Loader2 } from 'lucide-react';
+import {
+  Bookmark,
+  Plus,
+  Trash2,
+  Eye,
+  Filter,
+  Users,
+  AlertTriangle,
+  Clock,
+  Loader2,
+} from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 
 interface SavedView {
@@ -22,7 +32,12 @@ interface SavedViewsSidebarProps {
 const DEFAULT_VIEWS = [
   { id: 'my-tickets', name: 'My Tickets', icon: 'user', filters: { myTickets: true } },
   { id: 'unassigned', name: 'Unassigned', icon: 'users', filters: { isUnassigned: true } },
-  { id: 'high-priority', name: 'High Priority', icon: 'alert', filters: { priority: ['P0_CRITICAL', 'P1_URGENT', 'P2_HIGH'] } },
+  {
+    id: 'high-priority',
+    name: 'High Priority',
+    icon: 'alert',
+    filters: { priority: ['P0_CRITICAL', 'P1_URGENT', 'P2_HIGH'] },
+  },
   { id: 'sla-breach', name: 'SLA Breaching', icon: 'clock', filters: { hasSlaBreach: true } },
 ];
 
@@ -95,7 +110,9 @@ export default function SavedViewsSidebar({ currentFilters, onApplyView }: Saved
   return (
     <div className="w-56 flex-shrink-0 space-y-4">
       <div>
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">Quick Views</h3>
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
+          Quick Views
+        </h3>
         <div className="space-y-0.5">
           {DEFAULT_VIEWS.map((view) => {
             const Icon = ICON_MAP[view.icon] || Filter;
@@ -115,7 +132,9 @@ export default function SavedViewsSidebar({ currentFilters, onApplyView }: Saved
 
       {(views.length > 0 || !loading) && (
         <div>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">Saved Views</h3>
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
+            Saved Views
+          </h3>
           {loading ? (
             <div className="flex justify-center py-2">
               <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
@@ -135,7 +154,7 @@ export default function SavedViewsSidebar({ currentFilters, onApplyView }: Saved
                   </button>
                   <button
                     onClick={() => handleDeleteView(view.id)}
-                    className="rounded p-1 text-gray-400 opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-500"
+                    className="rounded p-1 text-gray-400 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100"
                     title="Delete view"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -167,7 +186,10 @@ export default function SavedViewsSidebar({ currentFilters, onApplyView }: Saved
               {saving ? 'Saving...' : 'Save'}
             </button>
             <button
-              onClick={() => { setShowSaveForm(false); setSaveName(''); }}
+              onClick={() => {
+                setShowSaveForm(false);
+                setSaveName('');
+              }}
               className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-600 hover:bg-gray-50"
             >
               Cancel

@@ -18,12 +18,16 @@ import OpenAI from 'openai';
 import { z } from 'zod';
 
 const assessSchema = z.object({
-  symptoms: z.array(z.object({
-    id: z.string(),
-    name: z.string(),
-    category: z.string(),
-    severity: z.enum(['common', 'moderate', 'urgent', 'emergency']),
-  })).min(1, 'Select at least one symptom'),
+  symptoms: z
+    .array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        category: z.string(),
+        severity: z.enum(['common', 'moderate', 'urgent', 'emergency']),
+      })
+    )
+    .min(1, 'Select at least one symptom'),
   bodyAreas: z.array(z.string()).min(1),
   duration: z.enum(['just-now', 'today', 'few-days', 'week', 'more-than-week', 'more-than-month']),
   severityLevel: z.enum(['mild', 'moderate', 'severe']),
@@ -31,7 +35,13 @@ const assessSchema = z.object({
   additionalNotes: z.string().max(500).optional(),
 });
 
-type UrgencyLevel = 'self-care' | 'monitor' | 'schedule-visit' | 'contact-team' | 'urgent-care' | 'emergency';
+type UrgencyLevel =
+  | 'self-care'
+  | 'monitor'
+  | 'schedule-visit'
+  | 'contact-team'
+  | 'urgent-care'
+  | 'emergency';
 
 interface AssessmentResult {
   urgency: UrgencyLevel;
@@ -113,7 +123,9 @@ async function getPatientMedicationContext(patientId: number): Promise<string> {
 
     if (patient.weightLogs.length >= 2) {
       const change = patient.weightLogs[1].weight - patient.weightLogs[0].weight;
-      context.push(`Recent weight trend: ${change > 0 ? 'losing' : change < 0 ? 'gaining' : 'stable'}`);
+      context.push(
+        `Recent weight trend: ${change > 0 ? 'losing' : change < 0 ? 'gaining' : 'stable'}`
+      );
     }
 
     return anonymizeText(context.join('\n'));
@@ -232,24 +244,56 @@ async function handler(req: NextRequest, user: AuthUser) {
         actions.push({ label: 'Call 911', url: 'tel:911', type: 'primary' });
         break;
       case 'urgent-care':
-        actions.push({ label: 'Message Care Team Now', url: '/patient-portal/chat', type: 'primary' });
-        actions.push({ label: 'Book Urgent Appointment', url: '/patient-portal/appointments', type: 'secondary' });
+        actions.push({
+          label: 'Message Care Team Now',
+          url: '/patient-portal/chat',
+          type: 'primary',
+        });
+        actions.push({
+          label: 'Book Urgent Appointment',
+          url: '/patient-portal/appointments',
+          type: 'secondary',
+        });
         break;
       case 'contact-team':
         actions.push({ label: 'Message Care Team', url: '/patient-portal/chat', type: 'primary' });
-        actions.push({ label: 'Book Appointment', url: '/patient-portal/appointments', type: 'secondary' });
+        actions.push({
+          label: 'Book Appointment',
+          url: '/patient-portal/appointments',
+          type: 'secondary',
+        });
         break;
       case 'schedule-visit':
-        actions.push({ label: 'Book Appointment', url: '/patient-portal/appointments', type: 'primary' });
-        actions.push({ label: 'View Resources', url: '/patient-portal/resources', type: 'secondary' });
+        actions.push({
+          label: 'Book Appointment',
+          url: '/patient-portal/appointments',
+          type: 'primary',
+        });
+        actions.push({
+          label: 'View Resources',
+          url: '/patient-portal/resources',
+          type: 'secondary',
+        });
         break;
       case 'monitor':
         actions.push({ label: 'Log Symptoms', url: '/patient-portal/progress', type: 'primary' });
-        actions.push({ label: 'Message Care Team', url: '/patient-portal/chat', type: 'secondary' });
+        actions.push({
+          label: 'Message Care Team',
+          url: '/patient-portal/chat',
+          type: 'secondary',
+        });
         break;
       case 'self-care':
-        actions.push({ label: 'View Wellness Resources', url: '/patient-portal/resources', type: 'primary' });
-        actions.push({ label: 'Track Progress', url: '/patient-portal/progress', type: 'secondary' });
+        actions.push({
+          label: 'View Wellness Resources',
+          url: '/patient-portal/resources',
+          type: 'primary',
+        });
+        actions.push({
+          label: 'Track Progress',
+          url: '/patient-portal/progress',
+          type: 'secondary',
+        });
         break;
     }
 
@@ -258,7 +302,9 @@ async function handler(req: NextRequest, user: AuthUser) {
       title: (aiResult.title as string) || 'Assessment Complete',
       summary: (aiResult.summary as string) || '',
       detailedAssessment: (aiResult.detailedAssessment as string) || '',
-      selfCareTips: Array.isArray(aiResult.selfCareTips) ? (aiResult.selfCareTips as string[]).slice(0, 5) : [],
+      selfCareTips: Array.isArray(aiResult.selfCareTips)
+        ? (aiResult.selfCareTips as string[]).slice(0, 5)
+        : [],
       warningSignsToWatch: Array.isArray(aiResult.warningSignsToWatch)
         ? (aiResult.warningSignsToWatch as string[]).slice(0, 4)
         : [],
@@ -280,7 +326,8 @@ async function handler(req: NextRequest, user: AuthUser) {
 
     return NextResponse.json(
       {
-        error: 'Unable to complete assessment. Please try again or contact your care team directly.',
+        error:
+          'Unable to complete assessment. Please try again or contact your care team directly.',
         fallback: true,
       },
       { status: 500 }
@@ -288,7 +335,4 @@ async function handler(req: NextRequest, user: AuthUser) {
   }
 }
 
-export const POST = withRateLimit(
-  withAuth(handler, { roles: ['patient'] }),
-  RATE_LIMIT_CONFIGS.ai
-);
+export const POST = withRateLimit(withAuth(handler, { roles: ['patient'] }), RATE_LIMIT_CONFIGS.ai);

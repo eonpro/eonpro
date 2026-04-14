@@ -322,7 +322,12 @@ export const PROVIDER_CONFIG: RoleConfig = {
     primary: [
       { label: 'Dashboard', path: '/provider', icon: 'Home' },
       { label: 'My Patients', path: '/provider/patients', icon: 'Users' },
-      { label: 'Pending Profiles', path: '/provider/pending-profiles', icon: 'UserCheck', badge: 'count' },
+      {
+        label: 'Pending Profiles',
+        path: '/provider/pending-profiles',
+        icon: 'UserCheck',
+        badge: 'count',
+      },
       { label: 'Calendar', path: '/provider/calendar', icon: 'Calendar' },
       { label: 'Consultations', path: '/provider/consultations', icon: 'Video' },
       { label: 'Prescriptions', path: '/provider/prescriptions', icon: 'Pill' },
@@ -594,7 +599,6 @@ export const PATIENT_CONFIG: RoleConfig = {
     'Cannot prescribe or order tests',
   ],
 };
-
 
 // AFFILIATE - Affiliate/referral partners portal
 export const AFFILIATE_CONFIG: RoleConfig = {

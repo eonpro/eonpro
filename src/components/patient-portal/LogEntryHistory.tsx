@@ -89,9 +89,15 @@ function EditForm({
   const [formData, setFormData] = useState<Record<string, string | number>>(() => {
     switch (type) {
       case 'weight':
-        return { weight: String(entry.weight ?? ''), notes: String(entry.notes ?? '') } as Record<string, string | number>;
+        return { weight: String(entry.weight ?? ''), notes: String(entry.notes ?? '') } as Record<
+          string,
+          string | number
+        >;
       case 'water':
-        return { amount: String(entry.amount ?? ''), notes: String(entry.notes ?? '') } as Record<string, string | number>;
+        return { amount: String(entry.amount ?? ''), notes: String(entry.notes ?? '') } as Record<
+          string,
+          string | number
+        >;
       case 'exercise':
         return {
           activityType: String(entry.activityType ?? 'walking'),
@@ -116,8 +122,7 @@ function EditForm({
     }
   });
 
-  const update = (key: string, val: string) =>
-    setFormData((prev) => ({ ...prev, [key]: val }));
+  const update = (key: string, val: string) => setFormData((prev) => ({ ...prev, [key]: val }));
 
   const handleSubmit = () => {
     const data: Record<string, unknown> = {};
@@ -151,8 +156,7 @@ function EditForm({
         break;
       }
       case 'nutrition': {
-        if (formData.mealType !== String(entry.mealType ?? ''))
-          data.mealType = formData.mealType;
+        if (formData.mealType !== String(entry.mealType ?? '')) data.mealType = formData.mealType;
         if (formData.description !== String(entry.description ?? ''))
           data.description = formData.description || null;
         const c = parseInt(formData.calories as string, 10);
@@ -223,13 +227,20 @@ function EditForm({
               onChange={(e) => update('activityType', e.target.value)}
               className={inputCls}
             >
-              {['walking', 'running', 'cycling', 'swimming', 'strength', 'yoga', 'hiit', 'other'].map(
-                (t) => (
-                  <option key={t} value={t}>
-                    {t.charAt(0).toUpperCase() + t.slice(1)}
-                  </option>
-                )
-              )}
+              {[
+                'walking',
+                'running',
+                'cycling',
+                'swimming',
+                'strength',
+                'yoga',
+                'hiit',
+                'other',
+              ].map((t) => (
+                <option key={t} value={t}>
+                  {t.charAt(0).toUpperCase() + t.slice(1)}
+                </option>
+              ))}
             </select>
           </div>
           <div>
@@ -354,14 +365,10 @@ export default function LogEntryHistory({
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const editableEntries = entries.filter(
-    (e) => e.id > 0 && e.source === 'patient'
-  );
+  const editableEntries = entries.filter((e) => e.id > 0 && e.source === 'patient');
 
   const COLLAPSED_COUNT = 3;
-  const visibleEntries = expanded
-    ? editableEntries
-    : editableEntries.slice(0, COLLAPSED_COUNT);
+  const visibleEntries = expanded ? editableEntries : editableEntries.slice(0, COLLAPSED_COUNT);
   const hasMore = editableEntries.length > COLLAPSED_COUNT;
 
   const handleEdit = useCallback(

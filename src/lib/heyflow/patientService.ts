@@ -14,7 +14,7 @@ import type { NormalizedIntake, NormalizedPatient } from './types';
  */
 export async function upsertPatientFromIntake(
   intake: NormalizedIntake,
-  clinicId: number = 1,
+  clinicId: number = 1
 ): Promise<Patient> {
   const normalized = normalizePatient(intake.patient);
   const hashtags = collectHashtags(intake);

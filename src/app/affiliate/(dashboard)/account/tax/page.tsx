@@ -62,7 +62,8 @@ export default function TaxInfoPage() {
           setTaxStatus(data.taxStatus);
         }
       } catch (error) {
-        process.env.NODE_ENV === 'development' && console.error('Failed to fetch tax status:', error);
+        process.env.NODE_ENV === 'development' &&
+          console.error('Failed to fetch tax status:', error);
       } finally {
         setIsLoading(false);
       }

@@ -6,7 +6,7 @@ export const definition: ChatCompletionTool = {
   function: {
     name: 'get_tracking_info',
     description:
-      'Get shipping and tracking details for a patient\'s orders. Shows carrier, tracking number, status, and estimated delivery.',
+      "Get shipping and tracking details for a patient's orders. Shows carrier, tracking number, status, and estimated delivery.",
     parameters: {
       type: 'object',
       properties: {
@@ -17,10 +17,7 @@ export const definition: ChatCompletionTool = {
   },
 };
 
-export async function execute(
-  params: { patientId: number },
-  clinicId: number,
-): Promise<unknown> {
+export async function execute(params: { patientId: number }, clinicId: number): Promise<unknown> {
   const verified = await prisma.patient.findFirst({
     where: { id: params.patientId, clinicId },
     select: { id: true },
@@ -60,7 +57,11 @@ export async function execute(
   ]);
 
   if (orders.length === 0 && shippingUpdates.length === 0) {
-    return { found: true, tracking: [], message: 'No tracking information available for this patient.' };
+    return {
+      found: true,
+      tracking: [],
+      message: 'No tracking information available for this patient.',
+    };
   }
 
   return {

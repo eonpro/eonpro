@@ -56,153 +56,185 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
     const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
 
-    const { existingDuplicate, lineItems, hasRecurringProducts, patientForClinic } = await withRetry(
-      async () => {
-        // --- Duplicate prevention: single query instead of 3 sequential findFirst ---
-        let existingDuplicate: { id: number; stripeInvoiceUrl: string | null; metadata: unknown; orderId: number | null; amountDue: number } | null = null;
+    const { existingDuplicate, lineItems, hasRecurringProducts, patientForClinic } =
+      await withRetry(
+        async () => {
+          // --- Duplicate prevention: single query instead of 3 sequential findFirst ---
+          let existingDuplicate: {
+            id: number;
+            stripeInvoiceUrl: string | null;
+            metadata: unknown;
+            orderId: number | null;
+            amountDue: number;
+          } | null = null;
 
-        if (!validatedData.allowDuplicate) {
-          const orConditions: Array<Record<string, unknown>> = [];
+          if (!validatedData.allowDuplicate) {
+            const orConditions: Array<Record<string, unknown>> = [];
 
-          if (validatedData.idempotencyKey) {
-            orConditions.push({
-              metadata: {
-                path: ['idempotencyKey'],
-                equals: validatedData.idempotencyKey,
-              },
-            });
-          }
-          if (validatedData.orderId) {
-            orConditions.push({
-              patientId: validatedData.patientId,
-              orderId: validatedData.orderId,
-              createdAt: { gte: fiveMinutesAgo },
-            });
-          }
-          if (totalAmount > 0) {
-            orConditions.push({
-              patientId: validatedData.patientId,
-              amountDue: totalAmount,
-              createdAt: { gte: twoMinutesAgo },
-              status: { in: ['DRAFT', 'OPEN'] as const },
-            });
-          }
+            if (validatedData.idempotencyKey) {
+              orConditions.push({
+                metadata: {
+                  path: ['idempotencyKey'],
+                  equals: validatedData.idempotencyKey,
+                },
+              });
+            }
+            if (validatedData.orderId) {
+              orConditions.push({
+                patientId: validatedData.patientId,
+                orderId: validatedData.orderId,
+                createdAt: { gte: fiveMinutesAgo },
+              });
+            }
+            if (totalAmount > 0) {
+              orConditions.push({
+                patientId: validatedData.patientId,
+                amountDue: totalAmount,
+                createdAt: { gte: twoMinutesAgo },
+                status: { in: ['DRAFT', 'OPEN'] as const },
+              });
+            }
 
-          if (orConditions.length > 0) {
-            const existing = await prisma.invoice.findFirst({
-              where: { OR: orConditions },
-              orderBy: { createdAt: 'desc' },
-            });
+            if (orConditions.length > 0) {
+              const existing = await prisma.invoice.findFirst({
+                where: { OR: orConditions },
+                orderBy: { createdAt: 'desc' },
+              });
 
-            if (existing) {
-              existingDuplicate = existing as unknown as typeof existingDuplicate;
+              if (existing) {
+                existingDuplicate = existing as unknown as typeof existingDuplicate;
+              }
             }
           }
-        }
 
-        if (existingDuplicate) {
-          return {
-            existingDuplicate,
-            lineItems: [] as typeof validatedData.lineItems,
-            hasRecurringProducts: false,
-            patientForClinic: null as { clinicId: number } | null,
-          };
-        }
+          if (existingDuplicate) {
+            return {
+              existingDuplicate,
+              lineItems: [] as typeof validatedData.lineItems,
+              hasRecurringProducts: false,
+              patientForClinic: null as { clinicId: number } | null,
+            };
+          }
 
-        // --- Product lookup: batched instead of N+1 ---
-        let lineItems = validatedData.lineItems || [];
-        let hasRecurringProducts = false;
-        let productRecords: Array<{ id: number; name: string; shortDescription: string | null; price: number; billingType: string }> = [];
+          // --- Product lookup: batched instead of N+1 ---
+          let lineItems = validatedData.lineItems || [];
+          let hasRecurringProducts = false;
+          let productRecords: Array<{
+            id: number;
+            name: string;
+            shortDescription: string | null;
+            price: number;
+            billingType: string;
+          }> = [];
 
-        if (validatedData.productIds && validatedData.productIds.length > 0) {
-          productRecords = await prisma.product.findMany({
-            where: { id: { in: validatedData.productIds }, isActive: true },
+          if (validatedData.productIds && validatedData.productIds.length > 0) {
+            productRecords = await prisma.product.findMany({
+              where: { id: { in: validatedData.productIds }, isActive: true },
+            });
+
+            lineItems = productRecords.map((product) => ({
+              description: product.shortDescription || product.name,
+              amount: product.price,
+              quantity: 1,
+              productId: product.id,
+              metadata: { productId: product.id.toString() },
+            }));
+
+            hasRecurringProducts = productRecords.some((p) => p.billingType === 'RECURRING');
+          } else {
+            // Resolve productSlug -> productId for line items from billing plan selection
+            const slugsToResolve = [
+              ...new Set(
+                lineItems
+                  .map((i) => i.productSlug)
+                  .filter(
+                    (s): s is string =>
+                      !!s && !lineItems.find((li) => li.productSlug === s && li.productId)
+                  )
+              ),
+            ];
+
+            if (slugsToResolve.length > 0) {
+              const slugProducts = await prisma.product.findMany({
+                where: {
+                  isActive: true,
+                  metadata: { path: ['slug'], string_contains: '' },
+                },
+                select: { id: true, metadata: true, billingType: true },
+              });
+
+              const slugToId = new Map<string, number>();
+              for (const sp of slugProducts) {
+                const meta = sp.metadata as Record<string, unknown> | null;
+                if (meta && typeof meta.slug === 'string' && slugsToResolve.includes(meta.slug)) {
+                  slugToId.set(meta.slug, sp.id);
+                }
+              }
+
+              lineItems = lineItems.map((item) => {
+                if (item.productSlug && !item.productId && slugToId.has(item.productSlug)) {
+                  return { ...item, productId: slugToId.get(item.productSlug)! };
+                }
+                return item;
+              });
+            }
+
+            const productIds = [
+              ...new Set(lineItems.map((i) => i.productId).filter(Boolean)),
+            ] as number[];
+            if (productIds.length > 0) {
+              const products = await prisma.product.findMany({
+                where: { id: { in: productIds } },
+                select: { id: true, billingType: true },
+              });
+              hasRecurringProducts = products.some((p) => p.billingType === 'RECURRING');
+            }
+          }
+
+          // --- Patient lookup for clinic context ---
+          const patientForClinic = await prisma.patient.findUnique({
+            where: { id: validatedData.patientId },
+            select: { clinicId: true },
           });
 
-          lineItems = productRecords.map((product) => ({
-            description: product.shortDescription || product.name,
-            amount: product.price,
-            quantity: 1,
-            productId: product.id,
-            metadata: { productId: product.id.toString() },
-          }));
-
-          hasRecurringProducts = productRecords.some((p) => p.billingType === 'RECURRING');
-        } else {
-          // Resolve productSlug -> productId for line items from billing plan selection
-          const slugsToResolve = [...new Set(
-            lineItems.map((i) => i.productSlug).filter((s): s is string => !!s && !lineItems.find((li) => li.productSlug === s && li.productId))
-          )];
-
-          if (slugsToResolve.length > 0) {
-            const slugProducts = await prisma.product.findMany({
-              where: {
-                isActive: true,
-                metadata: { path: ['slug'], string_contains: '' },
-              },
-              select: { id: true, metadata: true, billingType: true },
-            });
-
-            const slugToId = new Map<string, number>();
-            for (const sp of slugProducts) {
-              const meta = sp.metadata as Record<string, unknown> | null;
-              if (meta && typeof meta.slug === 'string' && slugsToResolve.includes(meta.slug)) {
-                slugToId.set(meta.slug, sp.id);
-              }
-            }
-
-            lineItems = lineItems.map((item) => {
-              if (item.productSlug && !item.productId && slugToId.has(item.productSlug)) {
-                return { ...item, productId: slugToId.get(item.productSlug)! };
-              }
-              return item;
-            });
-          }
-
-          const productIds = [...new Set(lineItems.map((i) => i.productId).filter(Boolean))] as number[];
-          if (productIds.length > 0) {
-            const products = await prisma.product.findMany({
-              where: { id: { in: productIds } },
-              select: { id: true, billingType: true },
-            });
-            hasRecurringProducts = products.some((p) => p.billingType === 'RECURRING');
-          }
-        }
-
-        // --- Patient lookup for clinic context ---
-        const patientForClinic = await prisma.patient.findUnique({
-          where: { id: validatedData.patientId },
-          select: { clinicId: true },
-        });
-
-        return {
-          existingDuplicate: null,
-          lineItems,
-          hasRecurringProducts,
-          patientForClinic,
-        };
-      },
-      {
-        maxRetries: 2,
-        initialDelayMs: 200,
-        maxDelayMs: 2000,
-        retryOn: (e) => {
-          const msg = e.message?.toLowerCase() || '';
-          return (
-            msg.includes('connection pool') ||
-            msg.includes('timed out fetching') ||
-            msg.includes('p2024') ||
-            (e as { code?: string }).code === 'P2024'
-          );
+          return {
+            existingDuplicate: null,
+            lineItems,
+            hasRecurringProducts,
+            patientForClinic,
+          };
         },
-      }
-    );
+        {
+          maxRetries: 2,
+          initialDelayMs: 200,
+          maxDelayMs: 2000,
+          retryOn: (e) => {
+            const msg = e.message?.toLowerCase() || '';
+            return (
+              msg.includes('connection pool') ||
+              msg.includes('timed out fetching') ||
+              msg.includes('p2024') ||
+              (e as { code?: string }).code === 'P2024'
+            );
+          },
+        }
+      );
 
     // Handle duplicate found - return appropriate message
     if (existingDuplicate) {
-      const dup = existingDuplicate as { id: number; stripeInvoiceUrl: string | null; metadata: { idempotencyKey?: string }; orderId: number | null; amountDue: number; patientId: number };
+      const dup = existingDuplicate as {
+        id: number;
+        stripeInvoiceUrl: string | null;
+        metadata: { idempotencyKey?: string };
+        orderId: number | null;
+        amountDue: number;
+        patientId: number;
+      };
       let message = 'Duplicate invoice prevented';
-      if (validatedData.idempotencyKey && dup.metadata?.idempotencyKey === validatedData.idempotencyKey) {
+      if (
+        validatedData.idempotencyKey &&
+        dup.metadata?.idempotencyKey === validatedData.idempotencyKey
+      ) {
         message = 'Invoice already exists (idempotency key match)';
         logger.info('[API] Duplicate invoice prevented by idempotency key', {
           idempotencyKey: validatedData.idempotencyKey,
@@ -227,7 +259,8 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
       return NextResponse.json({
         success: true,
         invoice: existingDuplicate,
-        stripeInvoiceUrl: (existingDuplicate as { stripeInvoiceUrl: string | null }).stripeInvoiceUrl,
+        stripeInvoiceUrl: (existingDuplicate as { stripeInvoiceUrl: string | null })
+          .stripeInvoiceUrl,
         duplicate: true,
         message,
       });
@@ -287,69 +320,80 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
       // withRetry: resilient to transient pool exhaustion (P2024)
       const invoice = await withRetry(
         () =>
-          prisma.$transaction(async (tx) => {
-        const newInvoice = await tx.invoice.create({
-          data: {
-            patientId: validatedData.patientId,
-            clinicId: patientClinicId,
-            amount: total,
-            amountDue: isMarkedAsPaid ? 0 : total,
-            amountPaid: isMarkedAsPaid ? total : 0,
-            status: isMarkedAsPaid ? 'PAID' : 'DRAFT',
-            paidAt: isMarkedAsPaid ? paymentDate : null,
-            dueDate: new Date(Date.now() + (validatedData.dueInDays || 30) * 24 * 60 * 60 * 1000),
-            description: validatedData.description || 'Medical Services',
-            metadata: invoiceMetadata,
-            lineItems: lineItems,
-            orderId: validatedData.orderId,
-            createSubscription,
-          },
-        });
-
-        // Try to create invoice items records (optional - table might not exist)
-        try {
-          for (const item of lineItems) {
-            await tx.invoiceItem.create({
-              data: {
-                invoiceId: newInvoice.id,
-                productId: item.productId || null,
-                description: item.description,
-                quantity: item.quantity || 1,
-                unitPrice: item.amount,
-                amount: item.amount * (item.quantity || 1),
-                metadata: item.metadata || {},
-              },
-            });
-          }
-        } catch (itemError: unknown) {
-          logger.warn('[API] Could not create InvoiceItem records (demo mode):', (itemError as any).message);
-        }
-
-        // Create payment record if marked as paid externally
-        if (isMarkedAsPaid) {
-          try {
-            await tx.payment.create({
-              data: {
-                patientId: validatedData.patientId,
-                invoiceId: newInvoice.id,
-                amount: total,
-                status: 'SUCCEEDED',
-                paymentMethod: validatedData.externalPaymentMethod || 'external',
-                metadata: {
-                  isExternalPayment: true,
-                  externalPaymentMethod: validatedData.externalPaymentMethod,
-                  externalPaymentNotes: validatedData.externalPaymentNotes,
-                  externalPaymentDate: paymentDate.toISOString(),
+          prisma.$transaction(
+            async (tx) => {
+              const newInvoice = await tx.invoice.create({
+                data: {
+                  patientId: validatedData.patientId,
+                  clinicId: patientClinicId,
+                  amount: total,
+                  amountDue: isMarkedAsPaid ? 0 : total,
+                  amountPaid: isMarkedAsPaid ? total : 0,
+                  status: isMarkedAsPaid ? 'PAID' : 'DRAFT',
+                  paidAt: isMarkedAsPaid ? paymentDate : null,
+                  dueDate: new Date(
+                    Date.now() + (validatedData.dueInDays || 30) * 24 * 60 * 60 * 1000
+                  ),
+                  description: validatedData.description || 'Medical Services',
+                  metadata: invoiceMetadata,
+                  lineItems: lineItems,
+                  orderId: validatedData.orderId,
+                  createSubscription,
                 },
-              },
-            });
-          } catch (paymentError: unknown) {
-            logger.warn('[API] Could not create Payment record (demo mode):', (paymentError as any).message);
-          }
-        }
+              });
 
-        return newInvoice;
-          }, { timeout: 15000 }),
+              // Try to create invoice items records (optional - table might not exist)
+              try {
+                for (const item of lineItems) {
+                  await tx.invoiceItem.create({
+                    data: {
+                      invoiceId: newInvoice.id,
+                      productId: item.productId || null,
+                      description: item.description,
+                      quantity: item.quantity || 1,
+                      unitPrice: item.amount,
+                      amount: item.amount * (item.quantity || 1),
+                      metadata: item.metadata || {},
+                    },
+                  });
+                }
+              } catch (itemError: unknown) {
+                logger.warn(
+                  '[API] Could not create InvoiceItem records (demo mode):',
+                  (itemError as any).message
+                );
+              }
+
+              // Create payment record if marked as paid externally
+              if (isMarkedAsPaid) {
+                try {
+                  await tx.payment.create({
+                    data: {
+                      patientId: validatedData.patientId,
+                      invoiceId: newInvoice.id,
+                      amount: total,
+                      status: 'SUCCEEDED',
+                      paymentMethod: validatedData.externalPaymentMethod || 'external',
+                      metadata: {
+                        isExternalPayment: true,
+                        externalPaymentMethod: validatedData.externalPaymentMethod,
+                        externalPaymentNotes: validatedData.externalPaymentNotes,
+                        externalPaymentDate: paymentDate.toISOString(),
+                      },
+                    },
+                  });
+                } catch (paymentError: unknown) {
+                  logger.warn(
+                    '[API] Could not create Payment record (demo mode):',
+                    (paymentError as any).message
+                  );
+                }
+              }
+
+              return newInvoice;
+            },
+            { timeout: 15000 }
+          ),
         {
           maxRetries: 2,
           initialDelayMs: 200,
@@ -393,67 +437,78 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
 
       const invoice = await withRetry(
         () =>
-          prisma.$transaction(async (tx) => {
-            const newInvoice = await tx.invoice.create({
-              data: {
-                patientId: validatedData.patientId,
-                clinicId: patientClinicId,
-                amount: total,
-                amountDue: 0,
-                amountPaid: total,
-                status: 'PAID',
-                paidAt: paymentDate,
-                dueDate: new Date(Date.now() + (validatedData.dueInDays || 30) * 24 * 60 * 60 * 1000),
-                description: validatedData.description || 'Medical Services',
-                metadata: invoiceMetadata,
-                lineItems: lineItems,
-                orderId: validatedData.orderId,
-                createSubscription,
-              },
-            });
-
-            // Create invoice items records
-            try {
-              for (const item of lineItems) {
-                await tx.invoiceItem.create({
-                  data: {
-                    invoiceId: newInvoice.id,
-                    productId: item.productId || null,
-                    description: item.description,
-                    quantity: item.quantity || 1,
-                    unitPrice: item.amount,
-                    amount: item.amount * (item.quantity || 1),
-                    metadata: item.metadata || {},
-                  },
-                });
-              }
-            } catch (itemError: unknown) {
-              logger.warn('[API] Could not create InvoiceItem records:', (itemError as any).message);
-            }
-
-            // Create payment record
-            try {
-              await tx.payment.create({
+          prisma.$transaction(
+            async (tx) => {
+              const newInvoice = await tx.invoice.create({
                 data: {
                   patientId: validatedData.patientId,
-                  invoiceId: newInvoice.id,
+                  clinicId: patientClinicId,
                   amount: total,
-                  status: 'SUCCEEDED',
-                  paymentMethod: validatedData.externalPaymentMethod || 'external',
-                  metadata: {
-                    isExternalPayment: true,
-                    externalPaymentMethod: validatedData.externalPaymentMethod,
-                    externalPaymentNotes: validatedData.externalPaymentNotes,
-                    externalPaymentDate: paymentDate.toISOString(),
-                  },
+                  amountDue: 0,
+                  amountPaid: total,
+                  status: 'PAID',
+                  paidAt: paymentDate,
+                  dueDate: new Date(
+                    Date.now() + (validatedData.dueInDays || 30) * 24 * 60 * 60 * 1000
+                  ),
+                  description: validatedData.description || 'Medical Services',
+                  metadata: invoiceMetadata,
+                  lineItems: lineItems,
+                  orderId: validatedData.orderId,
+                  createSubscription,
                 },
               });
-            } catch (paymentError: unknown) {
-              logger.warn('[API] Could not create Payment record:', (paymentError as any).message);
-            }
 
-            return newInvoice;
-          }, { timeout: 15000 }),
+              // Create invoice items records
+              try {
+                for (const item of lineItems) {
+                  await tx.invoiceItem.create({
+                    data: {
+                      invoiceId: newInvoice.id,
+                      productId: item.productId || null,
+                      description: item.description,
+                      quantity: item.quantity || 1,
+                      unitPrice: item.amount,
+                      amount: item.amount * (item.quantity || 1),
+                      metadata: item.metadata || {},
+                    },
+                  });
+                }
+              } catch (itemError: unknown) {
+                logger.warn(
+                  '[API] Could not create InvoiceItem records:',
+                  (itemError as any).message
+                );
+              }
+
+              // Create payment record
+              try {
+                await tx.payment.create({
+                  data: {
+                    patientId: validatedData.patientId,
+                    invoiceId: newInvoice.id,
+                    amount: total,
+                    status: 'SUCCEEDED',
+                    paymentMethod: validatedData.externalPaymentMethod || 'external',
+                    metadata: {
+                      isExternalPayment: true,
+                      externalPaymentMethod: validatedData.externalPaymentMethod,
+                      externalPaymentNotes: validatedData.externalPaymentNotes,
+                      externalPaymentDate: paymentDate.toISOString(),
+                    },
+                  },
+                });
+              } catch (paymentError: unknown) {
+                logger.warn(
+                  '[API] Could not create Payment record:',
+                  (paymentError as any).message
+                );
+              }
+
+              return newInvoice;
+            },
+            { timeout: 15000 }
+          ),
         {
           maxRetries: 2,
           initialDelayMs: 200,
@@ -494,33 +549,39 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
       // withRetry: resilient to transient pool exhaustion (P2024)
       await withRetry(
         () =>
-          prisma.$transaction(async (tx) => {
-        // Update invoice with subscription flag
-        await tx.invoice.update({
-          where: { id: result.invoice.id },
-          data: { createSubscription },
-        });
+          prisma.$transaction(
+            async (tx) => {
+              // Update invoice with subscription flag
+              await tx.invoice.update({
+                where: { id: result.invoice.id },
+                data: { createSubscription },
+              });
 
-        // Try to create invoice items records (optional - table might not exist yet)
-        try {
-          for (const item of lineItems) {
-            await tx.invoiceItem.create({
-              data: {
-                invoiceId: result.invoice.id,
-                productId: item.productId || null,
-                description: item.description,
-                quantity: item.quantity || 1,
-                unitPrice: item.amount,
-                amount: item.amount * (item.quantity || 1),
-                metadata: item.metadata || {},
-              },
-            });
-          }
-        } catch (itemError: unknown) {
-          // InvoiceItem table might not exist - not critical for invoice creation
-          logger.warn('[API] Could not create InvoiceItem records:', (itemError as any).message);
-        }
-          }, { timeout: 15000 }),
+              // Try to create invoice items records (optional - table might not exist yet)
+              try {
+                for (const item of lineItems) {
+                  await tx.invoiceItem.create({
+                    data: {
+                      invoiceId: result.invoice.id,
+                      productId: item.productId || null,
+                      description: item.description,
+                      quantity: item.quantity || 1,
+                      unitPrice: item.amount,
+                      amount: item.amount * (item.quantity || 1),
+                      metadata: item.metadata || {},
+                    },
+                  });
+                }
+              } catch (itemError: unknown) {
+                // InvoiceItem table might not exist - not critical for invoice creation
+                logger.warn(
+                  '[API] Could not create InvoiceItem records:',
+                  (itemError as any).message
+                );
+              }
+            },
+            { timeout: 15000 }
+          ),
         {
           maxRetries: 2,
           initialDelayMs: 200,
@@ -551,19 +612,19 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
       const invoice = await withRetry(
         () =>
           prisma.invoice.create({
-        data: {
-          patientId: validatedData.patientId,
-          clinicId: patientClinicId,
-          amount: total,
-          amountDue: total,
-          status: 'DRAFT',
-          dueDate: new Date(Date.now() + (validatedData.dueInDays || 30) * 24 * 60 * 60 * 1000),
-          description: validatedData.description || 'Medical Services',
-          metadata: validatedData.metadata || {},
-          lineItems: lineItems,
-          createSubscription,
-          orderId: validatedData.orderId,
-        },
+            data: {
+              patientId: validatedData.patientId,
+              clinicId: patientClinicId,
+              amount: total,
+              amountDue: total,
+              status: 'DRAFT',
+              dueDate: new Date(Date.now() + (validatedData.dueInDays || 30) * 24 * 60 * 60 * 1000),
+              description: validatedData.description || 'Medical Services',
+              metadata: validatedData.metadata || {},
+              lineItems: lineItems,
+              createSubscription,
+              orderId: validatedData.orderId,
+            },
           }),
         {
           maxRetries: 2,
@@ -715,7 +776,13 @@ async function getInvoicesHandler(request: NextRequest, user: AuthUser) {
       // Simple query succeeded
       const simpleData = simpleResult.data as unknown[];
       const { auditPhiAccess, buildAuditPhiOptions } = await import('@/lib/audit/hipaa-audit');
-      await auditPhiAccess(request, buildAuditPhiOptions(request, user, 'invoice:view', { patientId: parsedPatientId, route: 'GET /api/stripe/invoices' }));
+      await auditPhiAccess(
+        request,
+        buildAuditPhiOptions(request, user, 'invoice:view', {
+          patientId: parsedPatientId,
+          route: 'GET /api/stripe/invoices',
+        })
+      );
       return NextResponse.json({
         success: true,
         invoices: simpleData || [],
@@ -728,7 +795,13 @@ async function getInvoicesHandler(request: NextRequest, user: AuthUser) {
     // Full query succeeded
     const fullData = result.data as unknown[];
     const { auditPhiAccess, buildAuditPhiOptions } = await import('@/lib/audit/hipaa-audit');
-    await auditPhiAccess(request, buildAuditPhiOptions(request, user, 'invoice:view', { patientId: parsedPatientId, route: 'GET /api/stripe/invoices' }));
+    await auditPhiAccess(
+      request,
+      buildAuditPhiOptions(request, user, 'invoice:view', {
+        patientId: parsedPatientId,
+        route: 'GET /api/stripe/invoices',
+      })
+    );
     return NextResponse.json({
       success: true,
       invoices: fullData || [],
@@ -737,7 +810,12 @@ async function getInvoicesHandler(request: NextRequest, user: AuthUser) {
     });
   } catch (error: unknown) {
     // Log and return detailed error
-    const err = error as { name?: string; message?: string; code?: unknown; constructor?: { name?: string } };
+    const err = error as {
+      name?: string;
+      message?: string;
+      code?: unknown;
+      constructor?: { name?: string };
+    };
     const errorInfo = {
       error: 'Failed to fetch invoices',
       errorType: err?.name || err?.constructor?.name || 'UnknownError',

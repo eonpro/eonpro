@@ -358,9 +358,9 @@ async function getHandler(request: NextRequest, user: AuthUser) {
       // Schema/query mismatch - this indicates a code issue
       errorCode = 'SCHEMA_VALIDATION_ERROR';
 
-    logger.error('Prisma validation error in internal messages:', {
-      error: errorMessage,
-      ...(process.env.NODE_ENV === 'development' && { stack: errorStack }),
+      logger.error('Prisma validation error in internal messages:', {
+        error: errorMessage,
+        ...(process.env.NODE_ENV === 'development' && { stack: errorStack }),
         userId: user?.id,
         userRole: user?.role,
         durationMs: Date.now() - startTime,
@@ -377,9 +377,9 @@ async function getHandler(request: NextRequest, user: AuthUser) {
       }
 
       // Generic error logging
-    logger.error('Error fetching internal messages:', {
-      error: errorMessage,
-      ...(process.env.NODE_ENV === 'development' && { stack: errorStack }),
+      logger.error('Error fetching internal messages:', {
+        error: errorMessage,
+        ...(process.env.NODE_ENV === 'development' && { stack: errorStack }),
         userId: user?.id,
         userRole: user?.role,
         durationMs: Date.now() - startTime,
@@ -549,9 +549,27 @@ async function postHandler(request: NextRequest, user: AuthUser) {
 // Export handlers with authentication
 // Include all staff roles that should have access to internal chat
 export const GET = withAuth(getHandler, {
-  roles: ['super_admin', 'admin', 'provider', 'staff', 'support', 'affiliate', 'pharmacy_rep', 'sales_rep'],
+  roles: [
+    'super_admin',
+    'admin',
+    'provider',
+    'staff',
+    'support',
+    'affiliate',
+    'pharmacy_rep',
+    'sales_rep',
+  ],
 });
 
 export const POST = withAuth(postHandler, {
-  roles: ['super_admin', 'admin', 'provider', 'staff', 'support', 'affiliate', 'pharmacy_rep', 'sales_rep'],
+  roles: [
+    'super_admin',
+    'admin',
+    'provider',
+    'staff',
+    'support',
+    'affiliate',
+    'pharmacy_rep',
+    'sales_rep',
+  ],
 });

@@ -29,7 +29,11 @@ import {
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
 import NextLink from 'next/link';
-import { portalFetch, getPortalResponseError, SESSION_EXPIRED_MESSAGE } from '@/lib/api/patient-portal-client';
+import {
+  portalFetch,
+  getPortalResponseError,
+  SESSION_EXPIRED_MESSAGE,
+} from '@/lib/api/patient-portal-client';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import { safeParseJson } from '@/lib/utils/safe-json';
 import { logger } from '@/lib/logger';
@@ -132,8 +136,8 @@ export default function BillingPage() {
   const { branding } = useClinicBranding();
   const { t } = usePatientPortalLanguage();
   const primaryColor = branding?.primaryColor || '#4fa77e';
-  const brandLocale = (branding as Record<string, unknown> | null)?.locale as string || 'en-US';
-  const brandCurrency = (branding as Record<string, unknown> | null)?.currency as string || 'USD';
+  const brandLocale = ((branding as Record<string, unknown> | null)?.locale as string) || 'en-US';
+  const brandCurrency = ((branding as Record<string, unknown> | null)?.currency as string) || 'USD';
 
   const [data, setData] = useState<BillingData | null>(null);
   const [subDetails, setSubDetails] = useState<SubscriptionDetails | null>(null);
@@ -170,9 +174,7 @@ export default function BillingPage() {
       }
       if (res.ok) {
         const result = await safeParseJson(res);
-        setData(
-          result !== null && typeof result === 'object' ? (result as BillingData) : null
-        );
+        setData(result !== null && typeof result === 'object' ? (result as BillingData) : null);
       }
     } catch (error) {
       setLoadError('Unable to load billing data. Please check your connection and try again.');
@@ -271,26 +273,32 @@ export default function BillingPage() {
     }
   };
 
-  const formatCurrency = useCallback((amount: number) => {
-    return new Intl.NumberFormat(brandLocale, {
-      style: 'currency',
-      currency: brandCurrency,
-    }).format(amount / 100);
-  }, [brandLocale, brandCurrency]);
+  const formatCurrency = useCallback(
+    (amount: number) => {
+      return new Intl.NumberFormat(brandLocale, {
+        style: 'currency',
+        currency: brandCurrency,
+      }).format(amount / 100);
+    },
+    [brandLocale, brandCurrency]
+  );
 
-  const formatDate = useCallback((dateStr: string) => {
-    if (!dateStr) return '—';
-    return new Date(dateStr).toLocaleDateString(brandLocale, {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  }, [brandLocale]);
+  const formatDate = useCallback(
+    (dateStr: string) => {
+      if (!dateStr) return '—';
+      return new Date(dateStr).toLocaleDateString(brandLocale, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      });
+    },
+    [brandLocale]
+  );
 
   const totalPaid = useMemo(() => {
-    return data?.invoices
-      ?.filter((i) => i.status === 'paid')
-      .reduce((sum, i) => sum + i.amount, 0) || 0;
+    return (
+      data?.invoices?.filter((i) => i.status === 'paid').reduce((sum, i) => sum + i.amount, 0) || 0
+    );
   }, [data?.invoices]);
 
   const memberSince = useMemo(() => {
@@ -305,10 +313,11 @@ export default function BillingPage() {
 
   const subStatus = subDetails?.status || data?.subscription?.status || '';
   const normalizedStatus = subStatus.toUpperCase();
-  const statusStyle = SUB_STATUS_STYLES[subStatus] || SUB_STATUS_STYLES[normalizedStatus] || {
-    badge: 'bg-gray-100 text-gray-700',
-    label: subStatus,
-  };
+  const statusStyle = SUB_STATUS_STYLES[subStatus] ||
+    SUB_STATUS_STYLES[normalizedStatus] || {
+      badge: 'bg-gray-100 text-gray-700',
+      label: subStatus,
+    };
 
   const hasSubscription = !!(subDetails || data?.subscription);
   const isActive = normalizedStatus === 'ACTIVE';
@@ -338,12 +347,16 @@ export default function BillingPage() {
           }`}
           role="alert"
         >
-          <AlertCircle className={`h-5 w-5 shrink-0 ${
-            loadError === SESSION_EXPIRED_MESSAGE ? 'text-amber-600' : 'text-red-500'
-          }`} />
-          <p className={`flex-1 text-sm font-medium ${
-            loadError === SESSION_EXPIRED_MESSAGE ? 'text-amber-900' : 'text-red-700'
-          }`}>
+          <AlertCircle
+            className={`h-5 w-5 shrink-0 ${
+              loadError === SESSION_EXPIRED_MESSAGE ? 'text-amber-600' : 'text-red-500'
+            }`}
+          />
+          <p
+            className={`flex-1 text-sm font-medium ${
+              loadError === SESSION_EXPIRED_MESSAGE ? 'text-amber-900' : 'text-red-700'
+            }`}
+          >
             {loadError}
           </p>
           {loadError === SESSION_EXPIRED_MESSAGE ? (
@@ -355,7 +368,10 @@ export default function BillingPage() {
             </NextLink>
           ) : (
             <button
-              onClick={() => { setLoadError(null); fetchAllData(); }}
+              onClick={() => {
+                setLoadError(null);
+                fetchAllData();
+              }}
               className="shrink-0 rounded-lg bg-red-100 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-200"
             >
               Retry
@@ -390,11 +406,15 @@ export default function BillingPage() {
                 )}
               </p>
             </div>
-            <span className={`rounded-full px-3 py-1 text-sm font-medium ${
-              isActive ? 'bg-white/20 text-white'
-                : isPaused ? 'bg-amber-400/30 text-amber-100'
-                : 'bg-red-400/30 text-red-100'
-            }`}>
+            <span
+              className={`rounded-full px-3 py-1 text-sm font-medium ${
+                isActive
+                  ? 'bg-white/20 text-white'
+                  : isPaused
+                    ? 'bg-amber-400/30 text-amber-100'
+                    : 'bg-red-400/30 text-red-100'
+              }`}
+            >
               {statusStyle.label}
             </span>
           </div>
@@ -423,7 +443,7 @@ export default function BillingPage() {
           )}
 
           {/* Next billing / refill info */}
-          <div className="mt-4 border-t border-white/20 pt-4 space-y-2">
+          <div className="mt-4 space-y-2 border-t border-white/20 pt-4">
             {subDetails?.nextBillingDate && isActive && (
               <div className="flex justify-between text-sm">
                 <span className="text-white/80">{t('billingNextBillingDate')}</span>
@@ -449,7 +469,8 @@ export default function BillingPage() {
                   Next Refill
                 </span>
                 <span className="font-medium">
-                  {subDetails.nextRefill.medicationName && `${subDetails.nextRefill.medicationName} — `}
+                  {subDetails.nextRefill.medicationName &&
+                    `${subDetails.nextRefill.medicationName} — `}
                   {subDetails.nextRefill.status === 'PENDING_PROVIDER'
                     ? 'In provider queue'
                     : formatDate(subDetails.nextRefill.nextRefillDate)}
@@ -463,14 +484,20 @@ export default function BillingPage() {
             {isActive && (
               <>
                 <button
-                  onClick={() => { setConfirmAction('pause'); setActionError(null); }}
+                  onClick={() => {
+                    setConfirmAction('pause');
+                    setActionError(null);
+                  }}
                   className="flex items-center gap-2 rounded-xl bg-white/20 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-white/30"
                 >
                   <PauseCircle className="h-4 w-4" />
                   Pause Subscription
                 </button>
                 <button
-                  onClick={() => { setConfirmAction('cancel'); setActionError(null); }}
+                  onClick={() => {
+                    setConfirmAction('cancel');
+                    setActionError(null);
+                  }}
                   className="flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-white/20"
                 >
                   <XCircle className="h-4 w-4" />
@@ -481,14 +508,20 @@ export default function BillingPage() {
             {isPaused && (
               <>
                 <button
-                  onClick={() => { setConfirmAction('resume'); setActionError(null); }}
+                  onClick={() => {
+                    setConfirmAction('resume');
+                    setActionError(null);
+                  }}
                   className="flex items-center gap-2 rounded-xl bg-white/20 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-white/30"
                 >
                   <PlayCircle className="h-4 w-4" />
                   Resume Subscription
                 </button>
                 <button
-                  onClick={() => { setConfirmAction('cancel'); setActionError(null); }}
+                  onClick={() => {
+                    setConfirmAction('cancel');
+                    setActionError(null);
+                  }}
                   className="flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-white/20"
                 >
                   <XCircle className="h-4 w-4" />
@@ -533,8 +566,8 @@ export default function BillingPage() {
                   <h3 className="text-lg font-semibold text-gray-900">Pause Subscription</h3>
                 </div>
                 <p className="mb-4 text-sm text-gray-600">
-                  Your subscription billing will be paused and your next refill will be
-                  put on hold until you resume. You can resume at any time.
+                  Your subscription billing will be paused and your next refill will be put on hold
+                  until you resume. You can resume at any time.
                 </p>
                 <label className="mb-4 block">
                   <span className="text-sm font-medium text-gray-700">Reason (optional)</span>
@@ -559,8 +592,8 @@ export default function BillingPage() {
                   <h3 className="text-lg font-semibold text-gray-900">Resume Subscription</h3>
                 </div>
                 <p className="mb-4 text-sm text-gray-600">
-                  Your subscription will resume and your next refill will be scheduled.
-                  Billing will restart from today.
+                  Your subscription will resume and your next refill will be scheduled. Billing will
+                  restart from today.
                 </p>
               </>
             )}
@@ -608,7 +641,10 @@ export default function BillingPage() {
 
             <div className="flex gap-3">
               <button
-                onClick={() => { setConfirmAction(null); setActionError(null); }}
+                onClick={() => {
+                  setConfirmAction(null);
+                  setActionError(null);
+                }}
                 disabled={actionLoading}
                 className="flex-1 rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
               >
@@ -698,8 +734,12 @@ export default function BillingPage() {
                           <StatusIcon className={`h-4 w-4 sm:h-5 sm:w-5 ${status.color}`} />
                         </div>
                         <div className="min-w-0">
-                          <p className="break-words text-sm font-medium leading-tight text-gray-900">{invoice.description}</p>
-                          <p className="text-xs text-gray-500 sm:text-sm">{formatDate(invoice.date)}</p>
+                          <p className="break-words text-sm font-medium leading-tight text-gray-900">
+                            {invoice.description}
+                          </p>
+                          <p className="text-xs text-gray-500 sm:text-sm">
+                            {formatDate(invoice.date)}
+                          </p>
                         </div>
                       </div>
                       <div className="shrink-0 text-right">
@@ -730,9 +770,7 @@ export default function BillingPage() {
               <Shield className="mt-0.5 h-5 w-5 text-green-600" />
               <div>
                 <h4 className="font-medium text-gray-900">{t('billingSecurePayments')}</h4>
-                <p className="mt-1 text-sm text-gray-600">
-                  {t('billingSecureDesc')}
-                </p>
+                <p className="mt-1 text-sm text-gray-600">{t('billingSecureDesc')}</p>
               </div>
             </div>
           </div>
@@ -802,15 +840,20 @@ export default function BillingPage() {
                 <div className="flex items-center gap-3">
                   <div className="flex h-8 w-12 items-center justify-center rounded bg-gray-100">
                     {getCardNetworkLogo(method.brand) ? (
-                      <img src={getCardNetworkLogo(method.brand)!} alt={method.brand} className="h-6 w-10 object-contain" width={40} height={24} loading="lazy" />
+                      <img
+                        src={getCardNetworkLogo(method.brand)!}
+                        alt={method.brand}
+                        className="h-6 w-10 object-contain"
+                        width={40}
+                        height={24}
+                        loading="lazy"
+                      />
                     ) : (
                       <CreditCard className="h-6 w-6 text-gray-500" />
                     )}
                   </div>
                   <div>
-                    <p className="font-medium text-gray-900">
-                      •••• {method.last4}
-                    </p>
+                    <p className="font-medium text-gray-900">•••• {method.last4}</p>
                     <p className="text-sm text-gray-500">
                       Expires {method.expMonth}/{method.expYear}
                     </p>

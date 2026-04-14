@@ -111,7 +111,9 @@ export async function transcribeAudio(input: TranscribeAudioInput): Promise<Tran
   try {
     const openai = getOpenAI();
 
-    const audioFile = new File([new Uint8Array(input.audioBuffer)], `audio.${ext}`, { type: mimeType });
+    const audioFile = new File([new Uint8Array(input.audioBuffer)], `audio.${ext}`, {
+      type: mimeType,
+    });
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 25_000);
@@ -127,7 +129,7 @@ export async function transcribeAudio(input: TranscribeAudioInput): Promise<Tran
           response_format: 'verbose_json',
           timestamp_granularities: ['segment'],
         },
-        { signal: controller.signal },
+        { signal: controller.signal }
       );
     } finally {
       clearTimeout(timeout);
@@ -368,20 +370,18 @@ export async function completeSession(sessionId: string): Promise<{
   // Build segments from messages
   const segments: TranscriptionSegment[] = conversation.messages
     .filter((m: any) => m.queryType === 'transcription')
-    .map(
-      (m: any, idx: number) => {
-        const citations = (m.citations as any) || {};
-        return {
-          id: `seg-${idx}`,
-          speaker: citations.speaker || (m.role === 'assistant' ? 'provider' : 'patient'),
-          text: m.content,
-          startTime: citations.startTime || idx * 10,
-          endTime: citations.endTime || (idx + 1) * 10,
-          confidence: citations.confidence || 0.85,
-          timestamp: m.createdAt,
-        };
-      }
-    );
+    .map((m: any, idx: number) => {
+      const citations = (m.citations as any) || {};
+      return {
+        id: `seg-${idx}`,
+        speaker: citations.speaker || (m.role === 'assistant' ? 'provider' : 'patient'),
+        text: m.content,
+        startTime: citations.startTime || idx * 10,
+        endTime: citations.endTime || (idx + 1) * 10,
+        confidence: citations.confidence || 0.85,
+        timestamp: m.createdAt,
+      };
+    });
 
   // Build formatted transcript
   const transcript = segments
@@ -435,20 +435,18 @@ export async function getActiveSession(sessionId: string): Promise<{
     return null;
   }
 
-  const segments: TranscriptionSegment[] = conversation.messages.map(
-    (m: any, idx: number) => {
-      const citations = (m.citations as any) || {};
-      return {
-        id: `seg-${idx}`,
-        speaker: citations.speaker || (m.role === 'assistant' ? 'provider' : 'patient'),
-        text: m.content,
-        startTime: citations.startTime || idx * 10,
-        endTime: citations.endTime || (idx + 1) * 10,
-        confidence: citations.confidence || 0.85,
-        timestamp: m.createdAt,
-      };
-    }
-  );
+  const segments: TranscriptionSegment[] = conversation.messages.map((m: any, idx: number) => {
+    const citations = (m.citations as any) || {};
+    return {
+      id: `seg-${idx}`,
+      speaker: citations.speaker || (m.role === 'assistant' ? 'provider' : 'patient'),
+      text: m.content,
+      startTime: citations.startTime || idx * 10,
+      endTime: citations.endTime || (idx + 1) * 10,
+      confidence: citations.confidence || 0.85,
+      timestamp: m.createdAt,
+    };
+  });
 
   return {
     session: conversation,

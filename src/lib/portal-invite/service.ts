@@ -18,7 +18,9 @@ const INVITE_EXPIRY_DAYS = 7;
 
 /** Production base domain for invite links. Never send localhost to patients. */
 const INVITE_LINK_BASE_DOMAIN =
-  process.env.PATIENT_PORTAL_INVITE_BASE_DOMAIN || process.env.NEXT_PUBLIC_BASE_DOMAIN || 'eonpro.io';
+  process.env.PATIENT_PORTAL_INVITE_BASE_DOMAIN ||
+  process.env.NEXT_PUBLIC_BASE_DOMAIN ||
+  'eonpro.io';
 
 export type PortalInviteTrigger = 'manual' | 'first_payment' | 'first_order';
 
@@ -162,10 +164,9 @@ export async function createAndSendPortalInvite(
 
     // Use the patient's clinic subdomain only (e.g. wellmedr.eonpro.io). Do not use customDomain
     // for invite links so we never send unreachable domains like portal.wellmedr.com.
-    let clinicPortalBase =
-      patient.clinic?.subdomain
-        ? getClinicUrl(patient.clinic.subdomain, undefined)
-        : undefined;
+    let clinicPortalBase = patient.clinic?.subdomain
+      ? getClinicUrl(patient.clinic.subdomain, undefined)
+      : undefined;
     // Never send localhost to patients. If we got localhost (dev or misconfigured env), use production subdomain URL.
     if (clinicPortalBase && clinicPortalBase.includes('localhost')) {
       const baseDomain = INVITE_LINK_BASE_DOMAIN.includes('localhost')
@@ -194,7 +195,10 @@ export async function createAndSendPortalInvite(
 
     const firstName = (decrypted.firstName || 'Patient').trim();
     // Strip " LLC" from clinic name for patient-facing copy (e.g. "Wellmedr LLC" → "Wellmedr").
-    const clinicName = (patient.clinic?.name || 'Your Clinic').replace(/\s+LLC\.?$/i, '').trim() || patient.clinic?.name || 'Your Clinic';
+    const clinicName =
+      (patient.clinic?.name || 'Your Clinic').replace(/\s+LLC\.?$/i, '').trim() ||
+      patient.clinic?.name ||
+      'Your Clinic';
 
     const sendEmail = (channel === 'email' || channel === 'both') && !!email;
     const sendSms = (channel === 'sms' || channel === 'both') && !!phone;

@@ -14,7 +14,11 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { getResilientReadDb } from '@/lib/database/read-replica';
 import { patientService, type UserContext } from '@/domains/patient';
-import { getDashboardCache, getDashboardCacheAsync, setDashboardCache } from '@/lib/cache/dashboard';
+import {
+  getDashboardCache,
+  getDashboardCacheAsync,
+  setDashboardCache,
+} from '@/lib/cache/dashboard';
 import { executeDbRead } from '@/lib/database/executeDb';
 import { logger } from '@/lib/logger';
 
@@ -55,11 +59,10 @@ const RECENT_INTAKES_LIMIT = 20;
  * All Prisma queries run in parallel.
  * Two-tier cache: L1 in-memory (20s) + L2 Redis (60s).
  */
-export async function getAdminDashboard(
-  userContext: UserContext
-): Promise<AdminDashboardPayload> {
+export async function getAdminDashboard(userContext: UserContext): Promise<AdminDashboardPayload> {
   // Ensure clinicId is strictly a number (JWT may deliver it as string)
-  const rawClinicId = userContext.role === 'super_admin' ? undefined : (userContext.clinicId ?? undefined);
+  const rawClinicId =
+    userContext.role === 'super_admin' ? undefined : (userContext.clinicId ?? undefined);
   const clinicId = rawClinicId != null ? Number(rawClinicId) : undefined;
   if (clinicId != null && (isNaN(clinicId) || clinicId <= 0)) {
     logger.error('[ADMIN-DASHBOARD] Invalid clinicId — cannot load stats', {
@@ -224,9 +227,7 @@ export async function getAdminDashboard(
 
   const totalIntakes = Math.max(0, totalPatientsCount - totalConverted);
   const conversionRate =
-    totalPatientsCount > 0
-      ? Math.round((totalConverted / totalPatientsCount) * 100 * 10) / 10
-      : 0;
+    totalPatientsCount > 0 ? Math.round((totalConverted / totalPatientsCount) * 100 * 10) / 10 : 0;
 
   const stats: DashboardStats = {
     totalIntakes,

@@ -153,7 +153,9 @@ async function resolveVolumeTier(
     where: { id: clinicId },
     select: { timezone: true },
   });
-  const bounds = getWeekBounds((clinic as { timezone?: string } | null)?.timezone || 'America/New_York');
+  const bounds = getWeekBounds(
+    (clinic as { timezone?: string } | null)?.timezone || 'America/New_York'
+  );
   const windowStart = bounds.weekStart;
   const windowEnd = bounds.weekEnd;
 
@@ -268,7 +270,12 @@ async function applyRetroactiveTierUpdate(
         id: { not: newEventId },
         isRecurring: false,
       },
-      select: { id: true, eventAmountCents: true, volumeTierBonusCents: true, commissionAmountCents: true },
+      select: {
+        id: true,
+        eventAmountCents: true,
+        volumeTierBonusCents: true,
+        commissionAmountCents: true,
+      },
     });
 
     let n = 0;
@@ -516,11 +523,7 @@ async function calculateFullCommission(
 // Get Effective Commission Plan for a Sales Rep
 // ============================================================================
 
-async function getEffectiveSalesRepPlan(
-  salesRepId: number,
-  clinicId: number,
-  atDate: Date
-) {
+async function getEffectiveSalesRepPlan(salesRepId: number, clinicId: number, atDate: Date) {
   const assignment = await prisma.salesRepPlanAssignment.findFirst({
     where: {
       salesRepId,
@@ -709,7 +712,7 @@ export async function processPaymentForSalesRepCommission(
 
     // Infer isRecurring when not explicitly provided by the webhook.
     // If the patient has prior payments (effectiveIsFirstPayment=false), treat as recurring.
-    const effectiveIsRecurring = isRecurring ?? (effectiveIsFirstPayment === false);
+    const effectiveIsRecurring = isRecurring ?? effectiveIsFirstPayment === false;
 
     if (effectiveIsRecurring && !plan.recurringEnabled) {
       return {
@@ -744,7 +747,14 @@ export async function processPaymentForSalesRepCommission(
         multiItemMinQuantity: plan.multiItemMinQuantity,
       },
       amountCents,
-      { isFirstPayment: effectiveIsFirstPayment, isRecurring: effectiveIsRecurring, recurringMonth, itemCount, productId, productBundleId }
+      {
+        isFirstPayment: effectiveIsFirstPayment,
+        isRecurring: effectiveIsRecurring,
+        recurringMonth,
+        itemCount,
+        productId,
+        productBundleId,
+      }
     );
 
     if (breakdown.totalCommissionCents <= 0) {
@@ -757,54 +767,59 @@ export async function processPaymentForSalesRepCommission(
 
     // Calculate hold date
     const holdUntil =
-      plan.holdDays > 0
-        ? new Date(occurredAt.getTime() + plan.holdDays * 86400000)
-        : null;
+      plan.holdDays > 0 ? new Date(occurredAt.getTime() + plan.holdDays * 86400000) : null;
 
     let commissionEvent;
     try {
-      commissionEvent = await prisma.$transaction(async (tx) => {
-        const event = await tx.salesRepCommissionEvent.create({
-          data: {
-            clinicId,
-            salesRepId,
-            stripeEventId,
-            stripeObjectId,
-            stripeEventType,
-            eventAmountCents: amountCents,
-            commissionAmountCents: breakdown.totalCommissionCents,
-            baseCommissionCents: breakdown.baseCommissionCents,
-            volumeTierBonusCents: breakdown.volumeTierBonusCents,
-            productBonusCents: breakdown.productBonusCents,
-            multiItemBonusCents: breakdown.multiItemBonusCents,
-            commissionPlanId: plan.id,
-            patientId,
-            isRecurring: effectiveIsRecurring,
-            recurringMonth: recurringMonth || null,
-            status: 'PENDING',
-            occurredAt,
-            holdUntil,
-            metadata: {
-              planName: plan.name,
-              planType: plan.planType,
+      commissionEvent = await prisma.$transaction(
+        async (tx) => {
+          const event = await tx.salesRepCommissionEvent.create({
+            data: {
+              clinicId,
+              salesRepId,
+              stripeEventId,
+              stripeObjectId,
+              stripeEventType,
+              eventAmountCents: amountCents,
+              commissionAmountCents: breakdown.totalCommissionCents,
+              baseCommissionCents: breakdown.baseCommissionCents,
+              volumeTierBonusCents: breakdown.volumeTierBonusCents,
+              productBonusCents: breakdown.productBonusCents,
+              multiItemBonusCents: breakdown.multiItemBonusCents,
+              commissionPlanId: plan.id,
+              patientId,
+              isRecurring: effectiveIsRecurring,
+              recurringMonth: recurringMonth || null,
+              status: 'PENDING',
+              occurredAt,
+              holdUntil,
+              metadata: {
+                planName: plan.name,
+                planType: plan.planType,
+              },
             },
-          },
-        });
+          });
 
-        // Retroactive tier: if this sale crossed into a higher tier and the plan
-        // has retroactive enabled, bump all earlier events in the window to the new tier.
-        if (
-          plan.volumeTierEnabled &&
-          plan.volumeTierRetroactive &&
-          breakdown.volumeTierResult?.crossedNewTier
-        ) {
-          await applyRetroactiveTierUpdate(
-            tx, salesRepId, clinicId, breakdown.volumeTierResult, event.id
-          );
-        }
+          // Retroactive tier: if this sale crossed into a higher tier and the plan
+          // has retroactive enabled, bump all earlier events in the window to the new tier.
+          if (
+            plan.volumeTierEnabled &&
+            plan.volumeTierRetroactive &&
+            breakdown.volumeTierResult?.crossedNewTier
+          ) {
+            await applyRetroactiveTierUpdate(
+              tx,
+              salesRepId,
+              clinicId,
+              breakdown.volumeTierResult,
+              event.id
+            );
+          }
 
-        return event;
-      }, { timeout: 15000 });
+          return event;
+        },
+        { timeout: 15000 }
+      );
     } catch (txError: unknown) {
       if (
         txError &&

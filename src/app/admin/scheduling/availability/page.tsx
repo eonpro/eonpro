@@ -59,7 +59,9 @@ export default function AdminAvailabilityPage() {
             <Settings className="h-6 w-6 text-[#4fa77e]" />
             <div>
               <h1 className="text-xl font-bold text-gray-900">Provider Availability</h1>
-              <p className="text-xs text-gray-500">Manage weekly schedules and time-off for providers</p>
+              <p className="text-xs text-gray-500">
+                Manage weekly schedules and time-off for providers
+              </p>
             </div>
           </div>
         </div>
@@ -89,9 +91,13 @@ export default function AdminAvailabilityPage() {
                         : 'border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50'
                     }`}
                   >
-                    <div className={`flex h-7 w-7 items-center justify-center rounded-full ${
-                      selectedProviderId === p.id ? 'bg-[#4fa77e] text-white' : 'bg-gray-100 text-gray-500'
-                    }`}>
+                    <div
+                      className={`flex h-7 w-7 items-center justify-center rounded-full ${
+                        selectedProviderId === p.id
+                          ? 'bg-[#4fa77e] text-white'
+                          : 'bg-gray-100 text-gray-500'
+                      }`}
+                    >
                       <User className="h-3.5 w-3.5" />
                     </div>
                     {p.firstName} {p.lastName}
@@ -134,13 +140,21 @@ export default function AdminAvailabilityPage() {
           {selectedProviderId && activeTab === 'weekly' && (
             <ProviderWeeklyAvailabilityEditor
               providerId={selectedProviderId}
-              providerName={selectedProvider ? `${selectedProvider.firstName} ${selectedProvider.lastName}` : undefined}
+              providerName={
+                selectedProvider
+                  ? `${selectedProvider.firstName} ${selectedProvider.lastName}`
+                  : undefined
+              }
             />
           )}
           {selectedProviderId && activeTab === 'recurring' && (
             <ProviderAvailabilityManager
               providerId={selectedProviderId}
-              providerName={selectedProvider ? `${selectedProvider.firstName} ${selectedProvider.lastName}` : undefined}
+              providerName={
+                selectedProvider
+                  ? `${selectedProvider.firstName} ${selectedProvider.lastName}`
+                  : undefined
+              }
             />
           )}
         </div>

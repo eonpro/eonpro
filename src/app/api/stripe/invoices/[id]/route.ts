@@ -142,10 +142,13 @@ async function getHandler(request: NextRequest, user: AuthUser, context?: Params
     if (ensureTenantResource(invoice, user.clinicId ?? undefined)) return tenantNotFoundResponse();
     if (!invoice) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
 
-    await auditPhiAccess(request, buildAuditPhiOptions(request, user, 'invoice:view', {
-      patientId: invoice.patientId ?? undefined,
-      route: 'GET /api/stripe/invoices/[id]',
-    }));
+    await auditPhiAccess(
+      request,
+      buildAuditPhiOptions(request, user, 'invoice:view', {
+        patientId: invoice.patientId ?? undefined,
+        route: 'GET /api/stripe/invoices/[id]',
+      })
+    );
 
     if (invoice.patient) {
       try {
@@ -158,7 +161,12 @@ async function getHandler(request: NextRequest, user: AuthUser, context?: Params
       } catch (decryptErr) {
         logger.warn('[API] Failed to decrypt invoice patient PHI', {
           patientId: invoice.patient?.id,
-          error: decryptErr instanceof Error ? (decryptErr instanceof Error ? decryptErr.message : String(decryptErr)) : String(decryptErr),
+          error:
+            decryptErr instanceof Error
+              ? decryptErr instanceof Error
+                ? decryptErr.message
+                : String(decryptErr)
+              : String(decryptErr),
         });
       }
     }
@@ -246,7 +254,10 @@ async function postHandler(request: NextRequest, user: AuthUser, context?: Param
             const { stripe, opts } = await resolveClinicStripe(invoice.clinicId!);
             await stripe.invoices.voidInvoice(invoice.stripeInvoiceId, {}, opts);
           } catch (stripeError: unknown) {
-            logger.warn('[API] Stripe void invoice error:', { error: stripeError } as Record<string, unknown>);
+            logger.warn('[API] Stripe void invoice error:', { error: stripeError } as Record<
+              string,
+              unknown
+            >);
           }
         }
 
@@ -325,7 +336,12 @@ async function postHandler(request: NextRequest, user: AuthUser, context?: Param
           logger.warn('[API] Portal invite on external payment failed (non-blocking)', {
             invoiceId: id,
             patientId: invoice.patientId,
-            error: inviteErr instanceof Error ? (inviteErr instanceof Error ? inviteErr.message : String(inviteErr)) : 'Unknown',
+            error:
+              inviteErr instanceof Error
+                ? inviteErr instanceof Error
+                  ? inviteErr.message
+                  : String(inviteErr)
+                : 'Unknown',
           });
         }
 
@@ -348,7 +364,11 @@ async function postHandler(request: NextRequest, user: AuthUser, context?: Param
         if (invoice.stripeInvoiceId) {
           try {
             const { stripe, opts } = await resolveClinicStripe(invoice.clinicId!);
-            const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.stripeInvoiceId, {}, opts);
+            const finalizedInvoice = await stripe.invoices.finalizeInvoice(
+              invoice.stripeInvoiceId,
+              {},
+              opts
+            );
 
             await prisma.invoice.update({
               where: { id },
@@ -417,7 +437,11 @@ async function postHandler(request: NextRequest, user: AuthUser, context?: Param
             );
 
             // Refresh invoice to get updated total
-            const updatedStripeInvoice = await stripe.invoices.retrieve(invoice.stripeInvoiceId, {}, opts);
+            const updatedStripeInvoice = await stripe.invoices.retrieve(
+              invoice.stripeInvoiceId,
+              {},
+              opts
+            );
 
             await prisma.invoice.update({
               where: { id },
@@ -506,7 +530,10 @@ async function postHandler(request: NextRequest, user: AuthUser, context?: Param
             const { stripe, opts } = await resolveClinicStripe(invoice.clinicId!);
             await stripe.invoices.markUncollectible(invoice.stripeInvoiceId, {}, opts);
           } catch (stripeError: unknown) {
-            logger.warn('[API] Stripe mark uncollectible error:', { error: stripeError } as Record<string, unknown>);
+            logger.warn('[API] Stripe mark uncollectible error:', { error: stripeError } as Record<
+              string,
+              unknown
+            >);
           }
         }
 
@@ -808,24 +835,32 @@ async function deleteHandler(request: NextRequest, user: AuthUser, context?: Par
     }
 
     // Wrap deletion of invoice items and invoice in a transaction for atomicity
-    await prisma.$transaction(async (tx) => {
-      // Delete related invoice items first (if table exists)
-      try {
-        await tx.invoiceItem.deleteMany({
-          where: { invoiceId: id },
-        });
-      } catch (error: unknown) {
-        // Table might not exist - continue with invoice deletion
-        logger.warn('[API] InvoiceItem table may not exist', {
-          error: error instanceof Error ? error instanceof Error ? error.message : String(error) : 'Unknown error',
-        });
-      }
+    await prisma.$transaction(
+      async (tx) => {
+        // Delete related invoice items first (if table exists)
+        try {
+          await tx.invoiceItem.deleteMany({
+            where: { invoiceId: id },
+          });
+        } catch (error: unknown) {
+          // Table might not exist - continue with invoice deletion
+          logger.warn('[API] InvoiceItem table may not exist', {
+            error:
+              error instanceof Error
+                ? error instanceof Error
+                  ? error.message
+                  : String(error)
+                : 'Unknown error',
+          });
+        }
 
-      // Delete the invoice from database
-      await tx.invoice.delete({
-        where: { id },
-      });
-    }, { timeout: 15000 });
+        // Delete the invoice from database
+        await tx.invoice.delete({
+          where: { id },
+        });
+      },
+      { timeout: 15000 }
+    );
 
     logger.info('[API] Invoice deleted', { invoiceId: id });
 

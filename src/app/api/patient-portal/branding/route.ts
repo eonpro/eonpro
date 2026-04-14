@@ -106,14 +106,17 @@ const getBrandingHandler = async (request: NextRequest) => {
     // Only attempt auth if the request carries a token (cookie or header) to avoid
     // expensive dynamic-import + JWT verification on admin/unauthenticated loads.
     let patientTreatment: PortalTreatmentType | null = null;
-    const hasAuthToken =
-      request.cookies.has('token') || request.headers.has('authorization');
+    const hasAuthToken = request.cookies.has('token') || request.headers.has('authorization');
 
     if (hasAuthToken) {
       try {
         const { verifyAuth } = await import('@/lib/auth/middleware');
         const authResult = await verifyAuth(request);
-        if (authResult.success && authResult.user?.role === 'patient' && authResult.user.patientId) {
+        if (
+          authResult.success &&
+          authResult.user?.role === 'patient' &&
+          authResult.user.patientId
+        ) {
           patientTreatment = await resolvePatientTreatmentType(authResult.user.patientId);
         }
       } catch {
@@ -175,8 +178,7 @@ const getBrandingHandler = async (request: NextRequest) => {
       primaryColor: clinic.primaryColor || '#4fa77e',
       secondaryColor: clinic.secondaryColor || '#3B82F6',
       accentColor: clinic.accentColor || patientPortalSettings.accentColor || '#d3f931',
-      buttonTextColor:
-        (clinic as { buttonTextColor?: string }).buttonTextColor ?? 'auto',
+      buttonTextColor: (clinic as { buttonTextColor?: string }).buttonTextColor ?? 'auto',
       customCss: clinic.customCss,
 
       // Treatment configuration (primaryTreatment per-patient when auth present)
@@ -239,13 +241,10 @@ const getBrandingHandler = async (request: NextRequest) => {
       headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
     });
   } catch (error) {
-    logger.error(
-      'Error fetching clinic branding',
-      error instanceof Error ? error : undefined
-    );
+    logger.error('Error fetching clinic branding', error instanceof Error ? error : undefined);
     return NextResponse.json(
       { error: 'Failed to fetch clinic branding' },
-      { status: 500, headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } },
+      { status: 500, headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } }
     );
   }
 };
@@ -412,10 +411,7 @@ async function putHandler(request: NextRequest, user: AuthUser) {
       },
     });
   } catch (error) {
-    logger.error(
-      'Error updating clinic branding',
-      error instanceof Error ? error : undefined
-    );
+    logger.error('Error updating clinic branding', error instanceof Error ? error : undefined);
     return NextResponse.json({ error: 'Failed to update clinic branding' }, { status: 500 });
   }
 }

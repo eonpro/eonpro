@@ -25,7 +25,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   const startTime = Date.now();
-  const results: Record<string, { processed: number; failed: number; remaining: number; skipped?: boolean }> = {};
+  const results: Record<
+    string,
+    { processed: number; failed: number; remaining: number; skipped?: boolean }
+  > = {};
 
   try {
     // Only process queues for services whose circuit breakers are CLOSED
@@ -44,7 +47,9 @@ export async function GET(request: NextRequest) {
           const body = payload.body as string;
 
           if (!to || !subject) {
-            logger.warn('[MessageQueue] Email missing required fields', { payload: Object.keys(payload) });
+            logger.warn('[MessageQueue] Email missing required fields', {
+              payload: Object.keys(payload),
+            });
             return false;
           }
 
@@ -60,7 +65,10 @@ export async function GET(request: NextRequest) {
           );
           return true;
         } catch (error) {
-          logger.error('[MessageQueue] Email retry failed', error instanceof Error ? error : undefined);
+          logger.error(
+            '[MessageQueue] Email retry failed',
+            error instanceof Error ? error : undefined
+          );
           return false;
         }
       });
@@ -78,7 +86,9 @@ export async function GET(request: NextRequest) {
           const body = payload.body as string;
 
           if (!to || !body) {
-            logger.warn('[MessageQueue] SMS missing required fields', { payload: Object.keys(payload) });
+            logger.warn('[MessageQueue] SMS missing required fields', {
+              payload: Object.keys(payload),
+            });
             return false;
           }
 
@@ -89,7 +99,10 @@ export async function GET(request: NextRequest) {
           });
           return true;
         } catch (error) {
-          logger.error('[MessageQueue] SMS retry failed', error instanceof Error ? error : undefined);
+          logger.error(
+            '[MessageQueue] SMS retry failed',
+            error instanceof Error ? error : undefined
+          );
           return false;
         }
       });

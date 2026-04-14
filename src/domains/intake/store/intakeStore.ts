@@ -260,7 +260,9 @@ function persistResponsesToSession(getState: () => IntakeStore) {
     const state = getState();
     if (!state.responses || Object.keys(state.responses).length === 0) return;
     sessionStorage.setItem('wm_intake_responses', JSON.stringify(state.responses));
-  } catch { /* quota exceeded or unavailable */ }
+  } catch {
+    /* quota exceeded or unavailable */
+  }
 }
 
 function restoreResponsesFromSession(): Record<string, unknown> {
@@ -268,7 +270,9 @@ function restoreResponsesFromSession(): Record<string, unknown> {
     if (typeof sessionStorage === 'undefined') return {};
     const stored = sessionStorage.getItem('wm_intake_responses');
     if (stored) return JSON.parse(stored);
-  } catch { /* parse error */ }
+  } catch {
+    /* parse error */
+  }
   return {};
 }
 
@@ -311,14 +315,14 @@ function scheduleDraftSync(getState: () => IntakeStore) {
 // ---------------------------------------------------------------------------
 
 let airtableSyncTimeout: ReturnType<typeof setTimeout> | null = null;
-let airtableRecordId: string | null = typeof sessionStorage !== 'undefined'
-  ? sessionStorage.getItem('wm_airtable_record_id')
-  : null;
+let airtableRecordId: string | null =
+  typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('wm_airtable_record_id') : null;
 
 function scheduleAirtableSync(getState: () => IntakeStore) {
   if (airtableSyncTimeout) clearTimeout(airtableSyncTimeout);
 
-  airtableSyncTimeout = setTimeout(async () => { // 200ms debounce for fast sync before navigation
+  airtableSyncTimeout = setTimeout(async () => {
+    // 200ms debounce for fast sync before navigation
     const state = getState();
     if (!state.sessionId || state.clinicSlug !== 'wellmedr') return;
 

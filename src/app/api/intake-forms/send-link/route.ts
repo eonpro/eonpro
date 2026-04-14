@@ -92,7 +92,6 @@ async function sendEmailWithLink(
       });
       logger.info('Intake form email sent');
     } catch (error: unknown) {
-
       logger.error('Failed to send email:', error);
       throw new Error('Failed to send email');
     }
@@ -128,7 +127,6 @@ async function sendSMSWithLink(phone: string, formName: string, link: string): P
 
     logger.info('Intake form SMS sent');
   } catch (error: unknown) {
-
     logger.error('Failed to send SMS:', error);
     // Don't throw - SMS is optional
   }
@@ -138,64 +136,70 @@ async function sendSMSWithLink(phone: string, formName: string, link: string): P
  * POST /api/intake-forms/send-link
  * Send an intake form link to a patient
  */
-export const POST = withAuth(async (req: NextRequest, user) => {
-  try {
-    const body = await req.json();
+export const POST = withAuth(
+  async (req: NextRequest, user) => {
+    try {
+      const body = await req.json();
 
-    // Validate request
-    const parsed = sendLinkSchema.safeParse(body);
-    if (!parsed.success) {
+      // Validate request
+      const parsed = sendLinkSchema.safeParse(body);
+      if (!parsed.success) {
+        return NextResponse.json(
+          { error: 'Invalid request data', details: parsed.error.issues },
+          { status: 400 }
+        );
+      }
+
+      const { templateId, patientEmail, patientPhone, sendMethod, customMessage } = parsed.data;
+
+      // Create the form link
+      const link = await createFormLink({
+        templateId,
+        patientEmail,
+        patientPhone,
+        metadata: {
+          sentBy: user.email,
+          sendMethod,
+          customMessage,
+        } as any,
+      });
+
+      // Build the full URL
+      const baseUrl =
+        process.env.NEXT_PUBLIC_APP_URL ||
+        `${req.headers.get('x-forwarded-proto') || 'http'}://${req.headers.get('host')}`;
+      const fullLink = `${baseUrl}/intake/link/${link.id}`;
+
+      // Template should be included based on the service
+      const templateName = (link as any).template?.name || `Form Template #${templateId}`;
+
+      // Send based on method
+      if (sendMethod === 'email' || sendMethod === 'both') {
+        await sendEmailWithLink(patientEmail, templateName, fullLink, customMessage);
+      }
+
+      if ((sendMethod === 'sms' || sendMethod === 'both') && patientPhone) {
+        await sendSMSWithLink(patientPhone, templateName, fullLink);
+      }
+
+      return NextResponse.json({
+        success: true,
+        link: fullLink,
+        linkId: link.id,
+        expiresAt: link.expiresAt,
+        message:
+          sendMethod === 'none' ? 'Link created (not sent)' : `Form link sent via ${sendMethod}`,
+      });
+    } catch (error: unknown) {
+      logger.error('Failed to send form link', error);
       return NextResponse.json(
-        { error: 'Invalid request data', details: parsed.error.issues },
-        { status: 400 }
+        {
+          error:
+            error instanceof Error ? error.message : String(error) || 'Failed to send form link',
+        },
+        { status: 500 }
       );
     }
-
-    const { templateId, patientEmail, patientPhone, sendMethod, customMessage } = parsed.data;
-
-    // Create the form link
-    const link = await createFormLink({
-      templateId,
-      patientEmail,
-      patientPhone,
-      metadata: {
-        sentBy: user.email,
-        sendMethod,
-        customMessage,
-      } as any,
-    });
-
-    // Build the full URL
-    const baseUrl =
-      process.env.NEXT_PUBLIC_APP_URL ||
-      `${req.headers.get('x-forwarded-proto') || 'http'}://${req.headers.get('host')}`;
-    const fullLink = `${baseUrl}/intake/link/${link.id}`;
-
-    // Template should be included based on the service
-    const templateName = (link as any).template?.name || `Form Template #${templateId}`;
-
-    // Send based on method
-    if (sendMethod === 'email' || sendMethod === 'both') {
-      await sendEmailWithLink(patientEmail, templateName, fullLink, customMessage);
-    }
-
-    if ((sendMethod === 'sms' || sendMethod === 'both') && patientPhone) {
-      await sendSMSWithLink(patientPhone, templateName, fullLink);
-    }
-
-    return NextResponse.json({
-      success: true,
-      link: fullLink,
-      linkId: link.id,
-      expiresAt: link.expiresAt,
-      message:
-        sendMethod === 'none' ? 'Link created (not sent)' : `Form link sent via ${sendMethod}`,
-    });
-  } catch (error: unknown) {
-    logger.error('Failed to send form link', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : String(error) || 'Failed to send form link' },
-      { status: 500 }
-    );
-  }
-}, { roles: ['super_admin', 'admin', 'provider', 'sales_rep'] });
+  },
+  { roles: ['super_admin', 'admin', 'provider', 'sales_rep'] }
+);

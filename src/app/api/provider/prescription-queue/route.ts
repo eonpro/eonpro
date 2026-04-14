@@ -205,109 +205,109 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
     const [refills, refillCount] = await Promise.all([
       prisma.refillQueue.findMany({
-          where: {
-            clinicId: { in: clinicIds },
-            status: { in: ['APPROVED', 'PENDING_PROVIDER', 'ON_HOLD'] },
-          },
-          include: {
-            clinic: {
-              select: {
-                id: true,
-                name: true,
-                subdomain: true,
-                lifefileEnabled: true,
-                lifefilePracticeName: true,
-              },
+        where: {
+          clinicId: { in: clinicIds },
+          status: { in: ['APPROVED', 'PENDING_PROVIDER', 'ON_HOLD'] },
+        },
+        include: {
+          clinic: {
+            select: {
+              id: true,
+              name: true,
+              subdomain: true,
+              lifefileEnabled: true,
+              lifefilePracticeName: true,
             },
-            patient: {
-              select: {
-                id: true,
-                patientId: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-                phone: true,
-                dob: true,
-                clinicId: true,
-                intakeSubmissions: {
-                  where: { status: 'completed' },
-                  orderBy: { completedAt: 'desc' },
-                  take: 1,
-                  select: {
-                    id: true,
-                    completedAt: true,
-                  },
-                },
-                soapNotes: {
-                  orderBy: { createdAt: 'desc' },
-                  take: 1,
-                  select: {
-                    id: true,
-                    status: true,
-                    createdAt: true,
-                    approvedAt: true,
-                    approvedBy: true,
-                  },
+          },
+          patient: {
+            select: {
+              id: true,
+              patientId: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+              dob: true,
+              clinicId: true,
+              intakeSubmissions: {
+                where: { status: 'completed' },
+                orderBy: { completedAt: 'desc' },
+                take: 1,
+                select: {
+                  id: true,
+                  completedAt: true,
                 },
               },
-            },
-            subscription: {
-              select: {
-                id: true,
-                planName: true,
-                status: true,
+              soapNotes: {
+                orderBy: { createdAt: 'desc' },
+                take: 1,
+                select: {
+                  id: true,
+                  status: true,
+                  createdAt: true,
+                  approvedAt: true,
+                  approvedBy: true,
+                },
               },
             },
           },
-          orderBy: {
-            providerQueuedAt: 'asc',
+          subscription: {
+            select: {
+              id: true,
+              planName: true,
+              status: true,
+            },
           },
-        }),
-        prisma.refillQueue.count({ where: refillWhere }),
+        },
+        orderBy: {
+          providerQueuedAt: 'asc',
+        },
+      }),
+      prisma.refillQueue.count({ where: refillWhere }),
     ]);
 
     const [queuedOrders, queuedOrderCount] = await Promise.all([
       prisma.order.findMany({
         where: queuedOrderWhere,
-          include: {
-            clinic: {
-              select: {
-                id: true,
-                name: true,
-                subdomain: true,
-                lifefileEnabled: true,
-                lifefilePracticeName: true,
-              },
+        include: {
+          clinic: {
+            select: {
+              id: true,
+              name: true,
+              subdomain: true,
+              lifefileEnabled: true,
+              lifefilePracticeName: true,
             },
-            patient: {
-              select: {
-                id: true,
-                patientId: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-                phone: true,
-                dob: true,
-                clinicId: true,
-                soapNotes: {
-                  orderBy: { createdAt: 'desc' },
-                  take: 1,
-                  select: {
-                    id: true,
-                    status: true,
-                    createdAt: true,
-                    approvedAt: true,
-                    approvedBy: true,
-                  },
+          },
+          patient: {
+            select: {
+              id: true,
+              patientId: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+              dob: true,
+              clinicId: true,
+              soapNotes: {
+                orderBy: { createdAt: 'desc' },
+                take: 1,
+                select: {
+                  id: true,
+                  status: true,
+                  createdAt: true,
+                  approvedAt: true,
+                  approvedBy: true,
                 },
               },
             },
-            provider: { select: { id: true, firstName: true, lastName: true, email: true } },
-            rxs: true,
           },
-          orderBy: { queuedForProviderAt: 'asc' },
-        }),
-        prisma.order.count({ where: queuedOrderWhere }),
+          provider: { select: { id: true, firstName: true, lastName: true, email: true } },
+          rxs: true,
+        },
+        orderBy: { queuedForProviderAt: 'asc' },
+      }),
+      prisma.order.count({ where: queuedOrderWhere }),
     ]);
 
     // Fetch hold status via raw SQL (columns may not exist if migration not applied)
@@ -331,7 +331,9 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     }
 
     // Fetch refill hold reasons via raw SQL
-    const refillIds = (refills as any[]).filter((r: any) => r.status === 'ON_HOLD').map((r: any) => r.id);
+    const refillIds = (refills as any[])
+      .filter((r: any) => r.status === 'ON_HOLD')
+      .map((r: any) => r.id);
     let refillHoldMap = new Map<number, string>();
     if (refillIds.length > 0) {
       try {
@@ -371,7 +373,8 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       }
       // Plan-like: contains "injection" or "Xmo"/"X month" but NO medication name
       const hasInjection = /\binjections?\b/i.test(lower);
-      const hasPlanDuration = /\b(\d+\s*mo|\d+\s*month|1mo|2mo|3mo|6mo|1\s*month|3\s*month|6\s*month)\b/i.test(lower);
+      const hasPlanDuration =
+        /\b(\d+\s*mo|\d+\s*month|1mo|2mo|3mo|6mo|1\s*month|3\s*month|6\s*month)\b/i.test(lower);
       return hasInjection || hasPlanDuration;
     };
 
@@ -380,7 +383,10 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     // deterministically identifies the medication when Airtable sends plan-only product.
     // Prices in cents. Uses plan duration + price threshold to distinguish Sema vs Tirz.
     // At every plan level, Tirzepatide is ~1.5-1.7x Semaglutide price.
-    const deriveWellmedrMedicationFromPrice = (amountCents: number, planMonths: number): string | null => {
+    const deriveWellmedrMedicationFromPrice = (
+      amountCents: number,
+      planMonths: number
+    ): string | null => {
       if (!amountCents || amountCents <= 0) return null;
       const dollars = amountCents / 100;
       // Thresholds: midpoint between Semaglutide and Tirzepatide prices at each plan level
@@ -410,7 +416,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
             { price: 2130, med: 'Tirzepatide' },
           ];
           for (const kp of knownPrices) {
-            if (Math.abs(dollars - kp.price) / kp.price < 0.10) {
+            if (Math.abs(dollars - kp.price) / kp.price < 0.1) {
               return kp.med;
             }
           }
@@ -419,7 +425,9 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     };
 
     // Extract preferred medication from intake document for fallback when invoice metadata has plan-only
-    const extractMedicationFromDocument = (documentData: Buffer | Uint8Array | null): string | null => {
+    const extractMedicationFromDocument = (
+      documentData: Buffer | Uint8Array | null
+    ): string | null => {
       if (!documentData) return null;
       try {
         let rawData: string;
@@ -535,12 +543,18 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         if (rawGlp1Details && typeof rawGlp1Details === 'string' && rawGlp1Details.trim()) {
           const details = rawGlp1Details.trim().toLowerCase();
           const noHistoryPhrases = [
-            'none', 'no', 'n/a', 'na', 'not taking', "i'm not taking",
-            "i am not taking", 'never', 'first time', 'new patient',
+            'none',
+            'no',
+            'n/a',
+            'na',
+            'not taking',
+            "i'm not taking",
+            'i am not taking',
+            'never',
+            'first time',
+            'new patient',
           ];
-          const isNoHistory = noHistoryPhrases.some(
-            (p) => details === p || details.startsWith(p)
-          );
+          const isNoHistory = noHistoryPhrases.some((p) => details === p || details.startsWith(p));
           if (!isNoHistory) {
             let glp1Type: string | null = null;
             if (/tirzepatide|mounjaro|zepbound/i.test(details)) glp1Type = 'Tirzepatide';
@@ -562,7 +576,12 @@ async function handleGet(req: NextRequest, user: AuthUser) {
               };
             }
           } else {
-            return { usedGlp1: false, glp1Type: null, lastDose: null, previousGlp1Details: rawGlp1Details.trim() };
+            return {
+              usedGlp1: false,
+              glp1Type: null,
+              lastDose: null,
+              previousGlp1Details: rawGlp1Details.trim(),
+            };
           }
         }
       }
@@ -940,10 +959,13 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         });
       } catch (docError) {
         // Non-fatal: document data is used for GLP-1 extraction, not critical for the queue listing
-        logger.warn('[PRESCRIPTION-QUEUE] Failed to load intake documents, continuing without GLP-1 data', {
-          error: docError instanceof Error ? docError.message : String(docError),
-          patientCount: allPatientIds.length,
-        });
+        logger.warn(
+          '[PRESCRIPTION-QUEUE] Failed to load intake documents, continuing without GLP-1 data',
+          {
+            error: docError instanceof Error ? docError.message : String(docError),
+            patientCount: allPatientIds.length,
+          }
+        );
       }
     }
 
@@ -979,17 +1001,23 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           loaded: patientDocBlobMap.size,
         });
       } catch (blobErr) {
-        logger.warn('[PRESCRIPTION-QUEUE] Failed to load intake blobs, GLP-1 history may be missing', {
-          error: blobErr instanceof Error ? blobErr.message : String(blobErr),
-          count: allPatientIds.length,
-        });
+        logger.warn(
+          '[PRESCRIPTION-QUEUE] Failed to load intake blobs, GLP-1 history may be missing',
+          {
+            error: blobErr instanceof Error ? blobErr.message : String(blobErr),
+            count: allPatientIds.length,
+          }
+        );
       }
     }
 
     // ─── Phase 2c: Batch-load last prescribed Rx data for refill patients ───
     // For refills, the GLP-1 history should reflect what we ACTUALLY prescribed last time,
     // not the original intake form data. This enables correct dose escalation recommendations.
-    const lastOrderRxMap = new Map<number, { medName: string; strength: string; sig: string; dose: number | null }>();
+    const lastOrderRxMap = new Map<
+      number,
+      { medName: string; strength: string; sig: string; dose: number | null }
+    >();
     {
       const lastOrderIds = (refills as any[])
         .map((r: any) => r.lastOrderId)
@@ -1035,7 +1063,10 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     // ─── Phase 2d: Batch-load subscription start dates for renewal month computation ───
     // Invoices auto-created from Stripe subscription events may show generic labels
     // like "Subscription update". We compute the actual refill month from the subscription startDate.
-    const subscriptionStartMap = new Map<string, { startDate: Date; interval: string; intervalCount: number }>();
+    const subscriptionStartMap = new Map<
+      string,
+      { startDate: Date; interval: string; intervalCount: number }
+    >();
     {
       const stripeSubIds = new Set<string>();
       for (const inv of invoices as any[]) {
@@ -1048,7 +1079,12 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         try {
           const subs = await prisma.subscription.findMany({
             where: { stripeSubscriptionId: { in: [...stripeSubIds] } },
-            select: { stripeSubscriptionId: true, startDate: true, interval: true, intervalCount: true },
+            select: {
+              stripeSubscriptionId: true,
+              startDate: true,
+              interval: true,
+              intervalCount: true,
+            },
           });
           for (const s of subs) {
             if (s.stripeSubscriptionId) {
@@ -1060,9 +1096,12 @@ async function handleGet(req: NextRequest, user: AuthUser) {
             }
           }
         } catch (subErr) {
-          logger.warn('[PRESCRIPTION-QUEUE] Failed to load subscription start dates for renewal month', {
-            error: subErr instanceof Error ? subErr.message : String(subErr),
-          });
+          logger.warn(
+            '[PRESCRIPTION-QUEUE] Failed to load subscription start dates for renewal month',
+            {
+              error: subErr instanceof Error ? subErr.message : String(subErr),
+            }
+          );
         }
       }
     }
@@ -1151,10 +1190,11 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           if (stripeSubId && billingReason !== 'subscription_create') {
             const subInfo = subscriptionStartMap.get(stripeSubId);
             if (subInfo) {
-              const invPaidAt = invoice.paidAt ? new Date(invoice.paidAt) : new Date(invoice.createdAt);
-              const totalMonths = subInfo.interval === 'year'
-                ? subInfo.intervalCount * 12
-                : subInfo.intervalCount;
+              const invPaidAt = invoice.paidAt
+                ? new Date(invoice.paidAt)
+                : new Date(invoice.createdAt);
+              const totalMonths =
+                subInfo.interval === 'year' ? subInfo.intervalCount * 12 : subInfo.intervalCount;
               const monthsElapsed =
                 (invPaidAt.getFullYear() - subInfo.startDate.getFullYear()) * 12 +
                 (invPaidAt.getMonth() - subInfo.startDate.getMonth());
@@ -1216,8 +1256,12 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       if (!formattedMedType && isPlanOnly) {
         // Priority 1: Use preferredMedication from invoice metadata (set by invoice webhook)
         const preferredMed = metadata?.preferredMedication as string | undefined;
-        if (preferredMed && /tirzepatide|semaglutide|mounjaro|zepbound|ozempic|wegovy/i.test(preferredMed)) {
-          derivedMedication = preferredMed.charAt(0).toUpperCase() + preferredMed.slice(1).toLowerCase();
+        if (
+          preferredMed &&
+          /tirzepatide|semaglutide|mounjaro|zepbound|ozempic|wegovy/i.test(preferredMed)
+        ) {
+          derivedMedication =
+            preferredMed.charAt(0).toUpperCase() + preferredMed.slice(1).toLowerCase();
         }
         // Priority 2: Price-based derivation for WellMedR (deterministic, no intake needed)
         if (!derivedMedication && isWellmedrClinic) {
@@ -1290,7 +1334,10 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       const invoiceAddons = (metadata as Record<string, unknown> | null)?.selectedAddons;
       if (Array.isArray(invoiceAddons)) {
         const ADDON_LABELS: Record<string, string> = {
-          nad_plus: 'NAD+', sermorelin: 'Sermorelin', b12: 'B12', elite_bundle: 'Elite Bundle',
+          nad_plus: 'NAD+',
+          sermorelin: 'Sermorelin',
+          b12: 'B12',
+          elite_bundle: 'Elite Bundle',
         };
         for (const a of invoiceAddons) {
           if (typeof a === 'string' && ADDON_LABELS[a]) addonNames.push(ADDON_LABELS[a]);
@@ -1436,7 +1483,11 @@ async function handleGet(req: NextRequest, user: AuthUser) {
             : lastRxData.medName;
         refillLastDose = lastRxData.dose !== null ? String(lastRxData.dose) : lastRxData.strength;
       } else {
-        refillGlp1Type = isTirzepatide ? 'Tirzepatide' : isSemaglutide ? 'Semaglutide' : refill.medicationName;
+        refillGlp1Type = isTirzepatide
+          ? 'Tirzepatide'
+          : isSemaglutide
+            ? 'Semaglutide'
+            : refill.medicationName;
         refillLastDose = refill.medicationStrength || null;
       }
 
@@ -1482,12 +1533,14 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         // Source indicator for UI labeling
         glp1Source: lastRxData ? 'last_prescription' : 'medication_info',
         // Full previous Rx details for renewal display
-        lastRxDetails: lastRxData ? {
-          medName: lastRxData.medName,
-          strength: lastRxData.strength,
-          sig: lastRxData.sig,
-          dose: lastRxData.dose,
-        } : null,
+        lastRxDetails: lastRxData
+          ? {
+              medName: lastRxData.medName,
+              strength: lastRxData.strength,
+              sig: lastRxData.sig,
+              dose: lastRxData.dose,
+            }
+          : null,
         // SOAP Note status
         soapNote: soapNote
           ? {
@@ -1523,7 +1576,10 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         clinicMismatch: refillClinicId !== refillPatientClinicId,
         patientClinicId: refillPatientClinicId,
         // Hold status (fetched via raw SQL)
-        holdReason: refill.status === 'ON_HOLD' ? (refillHoldMap.get(refill.id) || 'Held for more information') : null,
+        holdReason:
+          refill.status === 'ON_HOLD'
+            ? refillHoldMap.get(refill.id) || 'Held for more information'
+            : null,
         heldAt: refill.status === 'ON_HOLD' ? refill.updatedAt?.toISOString() : null,
       };
     });
@@ -1609,7 +1665,18 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
     // ─── Batch-check for ANY previous order per patient (renewal detection) ───
     // A patient with any prior completed order is a RENEWAL, otherwise NEW.
-    const previousRxMap = new Map<number, { hasPreviousRx: boolean; lastRxDetails: { medName: string; strength: string; sig: string; dose: number | null } | null }>();
+    const previousRxMap = new Map<
+      number,
+      {
+        hasPreviousRx: boolean;
+        lastRxDetails: {
+          medName: string;
+          strength: string;
+          sig: string;
+          dose: number | null;
+        } | null;
+      }
+    >();
     if (queuePatientIds.length > 0) {
       try {
         const previousOrders = await prisma.order.findMany({
@@ -1662,9 +1729,12 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           renewals: [...previousRxMap.values()].filter((r) => r.hasPreviousRx).length,
         });
       } catch (err) {
-        logger.warn('[PRESCRIPTION-QUEUE] Failed to check previous prescriptions for renewal detection', {
-          error: err instanceof Error ? err.message : String(err),
-        });
+        logger.warn(
+          '[PRESCRIPTION-QUEUE] Failed to check previous prescriptions for renewal detection',
+          {
+            error: err instanceof Error ? err.message : String(err),
+          }
+        );
       }
     }
 
@@ -1711,7 +1781,8 @@ async function handleGet(req: NextRequest, user: AuthUser) {
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const errorName = error instanceof Error ? error.constructor.name : 'Unknown';
-    const errorStack = error instanceof Error ? error.stack?.split('\n').slice(0, 5).join(' | ') : undefined;
+    const errorStack =
+      error instanceof Error ? error.stack?.split('\n').slice(0, 5).join(' | ') : undefined;
     logger.error('[PRESCRIPTION-QUEUE] Error fetching queue', {
       error: errorMessage,
       errorType: errorName,
@@ -1739,7 +1810,10 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
     const { invoiceId, refillId, orderId, action, reason } = body;
 
     if (!invoiceId && !refillId && !orderId) {
-      return NextResponse.json({ error: 'Invoice ID, Refill ID, or Order ID is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invoice ID, Refill ID, or Order ID is required' },
+        { status: 400 }
+      );
     }
 
     if (!user.clinicId) {
@@ -1762,15 +1836,25 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
     // ── Hold for Info ──────────────────────────────────────────────────────
     if (action === 'hold_for_info') {
       if (!reason || typeof reason !== 'string' || reason.trim().length < 5) {
-        return NextResponse.json({ error: 'A reason is required (min 5 characters)' }, { status: 400 });
+        return NextResponse.json(
+          { error: 'A reason is required (min 5 characters)' },
+          { status: 400 }
+        );
       }
 
       if (refillId) {
         const refill = await prisma.refillQueue.findFirst({
-          where: { id: refillId, clinicId: { in: clinicIds }, status: { in: ['APPROVED', 'PENDING_PROVIDER'] } },
+          where: {
+            id: refillId,
+            clinicId: { in: clinicIds },
+            status: { in: ['APPROVED', 'PENDING_PROVIDER'] },
+          },
         });
         if (!refill) {
-          return NextResponse.json({ error: 'Refill not found or not in active queue' }, { status: 404 });
+          return NextResponse.json(
+            { error: 'Refill not found or not in active queue' },
+            { status: 404 }
+          );
         }
         await prisma.refillQueue.update({
           where: { id: refillId },
@@ -1780,10 +1864,16 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
         try {
           await prisma.$executeRawUnsafe(
             `UPDATE "RefillQueue" SET "providerHoldReason" = $1 WHERE id = $2`,
-            reason.trim(), refillId
+            reason.trim(),
+            refillId
           );
-        } catch { /* column may not exist yet */ }
-        logger.info('[PRESCRIPTION-QUEUE] Refill held for more info', { refillId, userId: user.id });
+        } catch {
+          /* column may not exist yet */
+        }
+        logger.info('[PRESCRIPTION-QUEUE] Refill held for more info', {
+          refillId,
+          userId: user.id,
+        });
         return NextResponse.json({ success: true, message: 'Refill held for more information' });
       }
 
@@ -1792,35 +1882,64 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
           where: { id: orderId, clinicId: { in: clinicIds }, status: 'queued_for_provider' },
         });
         if (!order) {
-          return NextResponse.json({ error: 'Order not found or not in active queue' }, { status: 404 });
+          return NextResponse.json(
+            { error: 'Order not found or not in active queue' },
+            { status: 404 }
+          );
         }
         await prisma.order.update({
           where: { id: orderId },
           data: { status: 'needs_info' },
         });
-        logger.info('[PRESCRIPTION-QUEUE] Queued order held for more info', { orderId, userId: user.id });
+        logger.info('[PRESCRIPTION-QUEUE] Queued order held for more info', {
+          orderId,
+          userId: user.id,
+        });
         return NextResponse.json({ success: true, message: 'Order held for more information' });
       }
 
       // Invoice hold (uses raw SQL since hold columns are not in Prisma schema)
       const invoice = await prisma.invoice.findFirst({
-        where: { id: invoiceId, clinicId: { in: clinicIds }, status: 'PAID', prescriptionProcessed: false },
+        where: {
+          id: invoiceId,
+          clinicId: { in: clinicIds },
+          status: 'PAID',
+          prescriptionProcessed: false,
+        },
         select: { id: true },
       });
       if (!invoice) {
-        return NextResponse.json({ error: 'Invoice not found or not in active queue' }, { status: 404 });
+        return NextResponse.json(
+          { error: 'Invoice not found or not in active queue' },
+          { status: 404 }
+        );
       }
       try {
         await prisma.$executeRawUnsafe(
           `UPDATE "Invoice" SET "prescriptionHoldReason" = $1, "prescriptionHeldAt" = NOW(), "prescriptionHeldBy" = $2 WHERE id = $3`,
-          reason.trim(), providerId ?? user.id, invoiceId
+          reason.trim(),
+          providerId ?? user.id,
+          invoiceId
         );
       } catch (sqlErr: unknown) {
-        logger.warn('[PRESCRIPTION-QUEUE] Hold columns missing - run migration 20260228120000', { error: (sqlErr as Error)?.message?.substring(0, 100) });
-        return NextResponse.json({ error: 'Hold feature requires a database migration. Please contact your administrator.' }, { status: 503 });
+        logger.warn('[PRESCRIPTION-QUEUE] Hold columns missing - run migration 20260228120000', {
+          error: (sqlErr as Error)?.message?.substring(0, 100),
+        });
+        return NextResponse.json(
+          {
+            error: 'Hold feature requires a database migration. Please contact your administrator.',
+          },
+          { status: 503 }
+        );
       }
-      logger.info('[PRESCRIPTION-QUEUE] Invoice held for more info', { invoiceId, userId: user.id });
-      return NextResponse.json({ success: true, message: 'Prescription held for more information' });
+      logger.info('[PRESCRIPTION-QUEUE] Invoice held for more info', {
+        invoiceId,
+        userId: user.id,
+      });
+      return NextResponse.json({
+        success: true,
+        message: 'Prescription held for more information',
+      });
     }
 
     // ── Resume from Hold ───────────────────────────────────────────────────
@@ -1838,8 +1957,13 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
           data: { status: resumeStatus },
         });
         try {
-          await prisma.$executeRawUnsafe(`UPDATE "RefillQueue" SET "providerHoldReason" = NULL WHERE id = $1`, refillId);
-        } catch { /* column may not exist yet */ }
+          await prisma.$executeRawUnsafe(
+            `UPDATE "RefillQueue" SET "providerHoldReason" = NULL WHERE id = $1`,
+            refillId
+          );
+        } catch {
+          /* column may not exist yet */
+        }
         logger.info('[PRESCRIPTION-QUEUE] Refill resumed from hold', { refillId, userId: user.id });
         return NextResponse.json({ success: true, message: 'Refill returned to queue' });
       }
@@ -1855,13 +1979,21 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
           where: { id: orderId },
           data: { status: 'queued_for_provider' },
         });
-        logger.info('[PRESCRIPTION-QUEUE] Queued order resumed from hold', { orderId, userId: user.id });
+        logger.info('[PRESCRIPTION-QUEUE] Queued order resumed from hold', {
+          orderId,
+          userId: user.id,
+        });
         return NextResponse.json({ success: true, message: 'Order returned to queue' });
       }
 
       // Invoice resume (uses raw SQL since hold columns are not in Prisma schema)
       const invoiceForResume = await prisma.invoice.findFirst({
-        where: { id: invoiceId, clinicId: { in: clinicIds }, status: 'PAID', prescriptionProcessed: false },
+        where: {
+          id: invoiceId,
+          clinicId: { in: clinicIds },
+          status: 'PAID',
+          prescriptionProcessed: false,
+        },
         select: { id: true },
       });
       if (!invoiceForResume) {
@@ -1873,8 +2005,15 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
           invoiceId
         );
       } catch (sqlErr: unknown) {
-        logger.warn('[PRESCRIPTION-QUEUE] Hold columns missing - run migration 20260228120000', { error: (sqlErr as Error)?.message?.substring(0, 100) });
-        return NextResponse.json({ error: 'Hold feature requires a database migration. Please contact your administrator.' }, { status: 503 });
+        logger.warn('[PRESCRIPTION-QUEUE] Hold columns missing - run migration 20260228120000', {
+          error: (sqlErr as Error)?.message?.substring(0, 100),
+        });
+        return NextResponse.json(
+          {
+            error: 'Hold feature requires a database migration. Please contact your administrator.',
+          },
+          { status: 503 }
+        );
       }
       logger.info('[PRESCRIPTION-QUEUE] Invoice resumed from hold', { invoiceId, userId: user.id });
       return NextResponse.json({ success: true, message: 'Prescription returned to queue' });

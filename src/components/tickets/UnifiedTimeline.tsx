@@ -35,14 +35,52 @@ interface UnifiedTimelineProps {
   refreshKey?: number;
 }
 
-const TYPE_CONFIG: Record<string, { icon: typeof MessageSquare; color: string; bgColor: string; label: string }> = {
-  comment: { icon: MessageSquare, color: 'text-blue-600', bgColor: 'bg-blue-100', label: 'Comment' },
-  internal_note: { icon: Lock, color: 'text-yellow-600', bgColor: 'bg-yellow-100', label: 'Internal Note' },
-  status_change: { icon: ArrowRightLeft, color: 'text-purple-600', bgColor: 'bg-purple-100', label: 'Status Changed' },
-  assignment: { icon: UserPlus, color: 'text-indigo-600', bgColor: 'bg-indigo-100', label: 'Assignment' },
-  escalation: { icon: AlertTriangle, color: 'text-red-600', bgColor: 'bg-red-100', label: 'Escalation' },
-  resolution: { icon: CheckCircle, color: 'text-green-600', bgColor: 'bg-green-100', label: 'Resolved' },
-  reopen: { icon: RotateCcw, color: 'text-orange-600', bgColor: 'bg-orange-100', label: 'Reopened' },
+const TYPE_CONFIG: Record<
+  string,
+  { icon: typeof MessageSquare; color: string; bgColor: string; label: string }
+> = {
+  comment: {
+    icon: MessageSquare,
+    color: 'text-blue-600',
+    bgColor: 'bg-blue-100',
+    label: 'Comment',
+  },
+  internal_note: {
+    icon: Lock,
+    color: 'text-yellow-600',
+    bgColor: 'bg-yellow-100',
+    label: 'Internal Note',
+  },
+  status_change: {
+    icon: ArrowRightLeft,
+    color: 'text-purple-600',
+    bgColor: 'bg-purple-100',
+    label: 'Status Changed',
+  },
+  assignment: {
+    icon: UserPlus,
+    color: 'text-indigo-600',
+    bgColor: 'bg-indigo-100',
+    label: 'Assignment',
+  },
+  escalation: {
+    icon: AlertTriangle,
+    color: 'text-red-600',
+    bgColor: 'bg-red-100',
+    label: 'Escalation',
+  },
+  resolution: {
+    icon: CheckCircle,
+    color: 'text-green-600',
+    bgColor: 'bg-green-100',
+    label: 'Resolved',
+  },
+  reopen: {
+    icon: RotateCcw,
+    color: 'text-orange-600',
+    bgColor: 'bg-orange-100',
+    label: 'Reopened',
+  },
   work_log: { icon: Clock, color: 'text-teal-600', bgColor: 'bg-teal-100', label: 'Work Logged' },
   created: { icon: Plus, color: 'text-gray-600', bgColor: 'bg-gray-100', label: 'Created' },
   system: { icon: Activity, color: 'text-gray-500', bgColor: 'bg-gray-100', label: 'System' },
@@ -107,7 +145,9 @@ export default function UnifiedTimeline({ ticketId, refreshKey = 0 }: UnifiedTim
         fetchTimeline();
       }
     });
-    return () => { if (unsub) unsub(); };
+    return () => {
+      if (unsub) unsub();
+    };
   }, [isConnected, subscribe, ticketId, fetchTimeline]);
 
   if (loading) {
@@ -136,21 +176,24 @@ export default function UnifiedTimeline({ ticketId, refreshKey = 0 }: UnifiedTim
   return (
     <div className="relative space-y-0">
       {/* Vertical line */}
-      <div className="absolute left-[19px] top-3 bottom-3 w-px bg-gray-200" />
+      <div className="absolute bottom-3 left-[19px] top-3 w-px bg-gray-200" />
 
       {entries.map((entry, index) => {
         const config = TYPE_CONFIG[entry.type] || TYPE_CONFIG.system;
         const Icon = config.icon;
         const isComment = entry.type === 'comment' || entry.type === 'internal_note';
         const isWorkLog = entry.type === 'work_log';
-        const duration = isWorkLog && entry.metadata?.duration
-          ? formatDuration(entry.metadata.duration as number)
-          : null;
+        const duration =
+          isWorkLog && entry.metadata?.duration
+            ? formatDuration(entry.metadata.duration as number)
+            : null;
 
         return (
           <div key={entry.id} className={`relative flex gap-3 ${index > 0 ? 'pt-4' : ''}`}>
             {/* Icon */}
-            <div className={`z-10 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full ${config.bgColor}`}>
+            <div
+              className={`z-10 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full ${config.bgColor}`}
+            >
               <Icon className={`h-4 w-4 ${config.color}`} />
             </div>
 
@@ -158,9 +201,7 @@ export default function UnifiedTimeline({ ticketId, refreshKey = 0 }: UnifiedTim
             <div className="min-w-0 flex-1 pb-4">
               <div className="flex items-center gap-2 text-sm">
                 <span className="font-medium text-gray-900">
-                  {entry.actor
-                    ? `${entry.actor.firstName} ${entry.actor.lastName}`
-                    : 'System'}
+                  {entry.actor ? `${entry.actor.firstName} ${entry.actor.lastName}` : 'System'}
                 </span>
                 <span className="text-gray-400">&middot;</span>
                 <span className="text-gray-500" title={new Date(entry.timestamp).toLocaleString()}>
@@ -183,7 +224,7 @@ export default function UnifiedTimeline({ ticketId, refreshKey = 0 }: UnifiedTim
 
               {isComment ? (
                 <div
-                  className={`mt-2 rounded-lg border p-3 text-sm whitespace-pre-wrap ${
+                  className={`mt-2 whitespace-pre-wrap rounded-lg border p-3 text-sm ${
                     entry.type === 'internal_note'
                       ? 'border-yellow-200 bg-yellow-50 text-gray-800'
                       : 'border-gray-200 bg-white text-gray-700'

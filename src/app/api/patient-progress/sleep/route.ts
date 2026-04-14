@@ -99,7 +99,11 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
     });
 
     logPHICreate(request, user, 'PatientSleepLog', sleepLog.id, patientId).catch((err) => {
-      logger.error('[HIPAA AUDIT] Failed to log PHI create', { error: err instanceof Error ? err.message : 'Unknown', resource: 'PatientSleepLog', patientId });
+      logger.error('[HIPAA AUDIT] Failed to log PHI create', {
+        error: err instanceof Error ? err.message : 'Unknown',
+        resource: 'PatientSleepLog',
+        patientId,
+      });
     });
 
     return NextResponse.json(sleepLog, { status: 201 });
@@ -161,7 +165,11 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
         : null;
 
     logPHIAccess(request, user, 'PatientSleepLog', 'list', patientId).catch((err) => {
-      logger.error('[HIPAA AUDIT] Failed to log PHI access', { error: err instanceof Error ? err.message : 'Unknown', resource: 'PatientSleepLog', patientId });
+      logger.error('[HIPAA AUDIT] Failed to log PHI access', {
+        error: err instanceof Error ? err.message : 'Unknown',
+        resource: 'PatientSleepLog',
+        patientId,
+      });
     });
 
     return NextResponse.json({
@@ -254,9 +262,18 @@ const patchHandler = withAuth(async (request: NextRequest, user) => {
       data: updateData,
     });
 
-    logPHIUpdate(request, user, 'PatientSleepLog', id, log.patientId, Object.keys(updateData)).catch(
-      (err) => { logger.error('PHI audit log failed', { error: err instanceof Error ? err.message : String(err) }); }
-    );
+    logPHIUpdate(
+      request,
+      user,
+      'PatientSleepLog',
+      id,
+      log.patientId,
+      Object.keys(updateData)
+    ).catch((err) => {
+      logger.error('PHI audit log failed', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
 
     return NextResponse.json(updated);
   } catch (error) {
@@ -301,7 +318,11 @@ const deleteHandler = withAuth(async (request: NextRequest, user) => {
     });
 
     logPHIDelete(request, user, 'PatientSleepLog', id, log.patientId, 'user_request').catch(
-      (err) => { logger.error('PHI audit log failed', { error: err instanceof Error ? err.message : String(err) }); }
+      (err) => {
+        logger.error('PHI audit log failed', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
     );
 
     return NextResponse.json({ success: true, deletedId: id });

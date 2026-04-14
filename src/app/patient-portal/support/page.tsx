@@ -4,12 +4,12 @@
  * Patient Portal - Support Ticket List
  * =====================================
  *
- * Shows patient's own tickets with status badges and a "New Request" button.
+ * Shows patient's own tickets with status badges (read-only view).
  */
 
 import { useMemo } from 'react';
 import Link from 'next/link';
-import { Plus, MessageSquare, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
+import { MessageSquare, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
 import { SESSION_EXPIRED_MESSAGE } from '@/lib/api/patient-portal-client';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import { usePortalSWR } from '@/hooks/usePortalSWR';
@@ -29,7 +29,11 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof
   NEW: { label: 'Submitted', color: 'bg-blue-100 text-blue-700', icon: Clock },
   OPEN: { label: 'Under Review', color: 'bg-yellow-100 text-yellow-700', icon: Clock },
   IN_PROGRESS: { label: 'In Progress', color: 'bg-indigo-100 text-indigo-700', icon: Clock },
-  PENDING_CUSTOMER: { label: 'Needs Your Reply', color: 'bg-orange-100 text-orange-700', icon: AlertTriangle },
+  PENDING_CUSTOMER: {
+    label: 'Needs Your Reply',
+    color: 'bg-orange-100 text-orange-700',
+    icon: AlertTriangle,
+  },
   PENDING_INTERNAL: { label: 'Being Reviewed', color: 'bg-gray-100 text-gray-700', icon: Clock },
   ON_HOLD: { label: 'On Hold', color: 'bg-gray-100 text-gray-600', icon: Clock },
   ESCALATED: { label: 'Escalated', color: 'bg-red-100 text-red-700', icon: AlertTriangle },
@@ -39,28 +43,25 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof
 };
 
 function formatDate(dateString: string) {
-  return new Date(dateString).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  return new Date(dateString).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 }
 
 export default function PatientSupportPage() {
-  const { data, error, isLoading } = usePortalSWR<{ tickets?: Ticket[] }>('/api/patient-portal/tickets');
+  const { data, error, isLoading } = usePortalSWR<{ tickets?: Ticket[] }>(
+    '/api/patient-portal/tickets'
+  );
   const tickets = useMemo(() => data?.tickets ?? [], [data]);
   const resolvedError = error?.message || null;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Support</h1>
-          <p className="text-sm text-gray-500">Submit and track your support requests</p>
-        </div>
-        <Link
-          href={`${PATIENT_PORTAL_PATH}/support/new`}
-          className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
-        >
-          <Plus className="h-4 w-4" />
-          New Request
-        </Link>
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Support</h1>
+        <p className="text-sm text-gray-500">Track your support requests</p>
       </div>
 
       {resolvedError && (
@@ -99,13 +100,6 @@ export default function PatientSupportPage() {
         <div className="flex flex-col items-center rounded-xl border border-gray-200 bg-white py-16">
           <MessageSquare className="h-12 w-12 text-gray-300" />
           <p className="mt-3 text-gray-500">No support requests yet</p>
-          <Link
-            href={`${PATIENT_PORTAL_PATH}/support/new`}
-            className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700"
-          >
-            <Plus className="h-4 w-4" />
-            Submit your first request
-          </Link>
         </div>
       ) : (
         <div className="space-y-3">
@@ -129,7 +123,9 @@ export default function PatientSupportPage() {
                       <span>{formatDate(ticket.createdAt)}</span>
                     </div>
                   </div>
-                  <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${config.color}`}>
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${config.color}`}
+                  >
                     <Icon className="h-3 w-3" />
                     {config.label}
                   </span>

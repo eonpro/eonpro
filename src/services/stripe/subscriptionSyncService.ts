@@ -36,14 +36,12 @@ const STRIPE_STATUS_TO_OUR: Record<
  * Stripe invoice.attempt_count tracks how many collection attempts were made.
  * For paid invoices, attempt_count includes the successful attempt, so we subtract 1.
  */
-function deriveFailedAttempts(
-  latestInvoice: any,
-  ourStatus: string,
-): number {
+function deriveFailedAttempts(latestInvoice: any, ourStatus: string): number {
   if (typeof latestInvoice === 'object' && latestInvoice) {
     const attemptCount: number = latestInvoice.attempt_count ?? 0;
     if (latestInvoice.status === 'paid') return Math.max(0, attemptCount - 1);
-    if (latestInvoice.status === 'open' || latestInvoice.status === 'uncollectible') return Math.max(1, attemptCount);
+    if (latestInvoice.status === 'open' || latestInvoice.status === 'uncollectible')
+      return Math.max(1, attemptCount);
     return attemptCount;
   }
   return ourStatus === 'PAST_DUE' ? 1 : 0;
@@ -85,7 +83,7 @@ async function findPatientByStripeCustomerId(
 function computeNextBillingFromAnchor(
   anchorUnix: number,
   interval: string,
-  intervalCount: number,
+  intervalCount: number
 ): Date {
   const now = new Date();
   const anchor = new Date(anchorUnix * 1000);
@@ -106,10 +104,7 @@ function computeNextBillingFromAnchor(
     return candidate;
   }
 
-  const intervalMs =
-    interval === 'week'
-      ? intervalCount * 7 * 86400000
-      : intervalCount * 86400000;
+  const intervalMs = interval === 'week' ? intervalCount * 7 * 86400000 : intervalCount * 86400000;
   const elapsed = now.getTime() - anchor.getTime();
   const periodsElapsed = Math.max(0, Math.floor(elapsed / intervalMs));
   let candidate = new Date(anchor.getTime() + intervalMs * (periodsElapsed + 1));
@@ -146,7 +141,10 @@ function extractPeriodEndTimestamp(sub: Stripe.Subscription): number {
  * downstream classification (monthly/quarterly/semiannual/annual) works correctly.
  * E.g. "every 84 days" → month/3, "every 12 weeks" → month/3, "every 1 year" → month/12.
  */
-function normalizeInterval(rawInterval: string, rawCount: number): { interval: string; intervalCount: number } {
+function normalizeInterval(
+  rawInterval: string,
+  rawCount: number
+): { interval: string; intervalCount: number } {
   switch (rawInterval) {
     case 'day': {
       const months = Math.round(rawCount / 30);
@@ -270,11 +268,14 @@ export async function syncSubscriptionFromStripe(
               data: { stripeCustomerId: customerId },
             });
             patientAndClinic = { patientId: patient.id, clinicId: patient.clinicId };
-            logger.info('[SubscriptionSync] Matched patient by email fallback, linked stripeCustomerId', {
-              stripeSubscriptionId,
-              patientId: patient.id,
-              clinicId: patient.clinicId,
-            });
+            logger.info(
+              '[SubscriptionSync] Matched patient by email fallback, linked stripeCustomerId',
+              {
+                stripeSubscriptionId,
+                patientId: patient.id,
+                clinicId: patient.clinicId,
+              }
+            );
           }
         }
       }
@@ -287,10 +288,13 @@ export async function syncSubscriptionFromStripe(
   }
 
   if (!patientAndClinic) {
-    logger.info('[SubscriptionSync] No patient linked to Stripe customer (fast path + email fallback exhausted)', {
-      stripeSubscriptionId,
-      stripeCustomerId: customerId,
-    });
+    logger.info(
+      '[SubscriptionSync] No patient linked to Stripe customer (fast path + email fallback exhausted)',
+      {
+        stripeSubscriptionId,
+        stripeCustomerId: customerId,
+      }
+    );
     return { success: true, skipped: true, reason: 'No patient linked to Stripe customer' };
   }
 
@@ -312,20 +316,17 @@ export async function syncSubscriptionFromStripe(
 
   // Fallback: compute currentPeriodEnd from billing_cycle_anchor aligned to current cycle
   if (!currentPeriodEnd) {
-    const anchor =
-      stripeSubscription.billing_cycle_anchor ?? stripeSubscription.created;
+    const anchor = stripeSubscription.billing_cycle_anchor ?? stripeSubscription.created;
     if (anchor && typeof anchor === 'number') {
       currentPeriodEnd = computeNextBillingFromAnchor(
         anchor,
         details.interval,
-        details.intervalCount,
+        details.intervalCount
       );
     } else {
       const fallback = new Date(currentPeriodStart);
       const intervalMonths =
-        details.interval === 'year'
-          ? 12 * details.intervalCount
-          : details.intervalCount;
+        details.interval === 'year' ? 12 * details.intervalCount : details.intervalCount;
       fallback.setMonth(fallback.getMonth() + intervalMonths);
       currentPeriodEnd = fallback;
     }
@@ -337,8 +338,7 @@ export async function syncSubscriptionFromStripe(
     : null;
   const endedAt = stripeSubscription.ended_at ? new Date(stripeSubscription.ended_at * 1000) : null;
 
-  const nextBilling =
-    status === 'ACTIVE' && currentPeriodEnd ? currentPeriodEnd : null;
+  const nextBilling = status === 'ACTIVE' && currentPeriodEnd ? currentPeriodEnd : null;
 
   // Derive failedAttempts: use latest_invoice attempt_count if expanded, else infer from status
   const latestInvoice = (stripeSubscription as any).latest_invoice;
@@ -456,20 +456,17 @@ export async function syncSubscriptionFromStripeByEmail(
 
   // Fallback: compute currentPeriodEnd from billing_cycle_anchor aligned to current cycle
   if (!currentPeriodEnd) {
-    const anchor =
-      stripeSubscription.billing_cycle_anchor ?? stripeSubscription.created;
+    const anchor = stripeSubscription.billing_cycle_anchor ?? stripeSubscription.created;
     if (anchor && typeof anchor === 'number') {
       currentPeriodEnd = computeNextBillingFromAnchor(
         anchor,
         details.interval,
-        details.intervalCount,
+        details.intervalCount
       );
     } else {
       const fallback = new Date(currentPeriodStart);
       const intervalMonths =
-        details.interval === 'year'
-          ? 12 * details.intervalCount
-          : details.intervalCount;
+        details.interval === 'year' ? 12 * details.intervalCount : details.intervalCount;
       fallback.setMonth(fallback.getMonth() + intervalMonths);
       currentPeriodEnd = fallback;
     }
@@ -481,8 +478,7 @@ export async function syncSubscriptionFromStripeByEmail(
     : null;
   const endedAt = stripeSubscription.ended_at ? new Date(stripeSubscription.ended_at * 1000) : null;
 
-  const nextBilling =
-    status === 'ACTIVE' && currentPeriodEnd ? currentPeriodEnd : null;
+  const nextBilling = status === 'ACTIVE' && currentPeriodEnd ? currentPeriodEnd : null;
 
   const latestInvoiceE = (stripeSubscription as any).latest_invoice;
   const failedAttempts = deriveFailedAttempts(latestInvoiceE, status);
@@ -518,7 +514,9 @@ export async function syncSubscriptionFromStripeByEmail(
           failedAttempts,
           canceledAt,
           endedAt,
-          metadata: stripeSubscription.metadata ? (stripeSubscription.metadata as object) : undefined,
+          metadata: stripeSubscription.metadata
+            ? (stripeSubscription.metadata as object)
+            : undefined,
         },
         update: {
           status,
@@ -534,7 +532,9 @@ export async function syncSubscriptionFromStripeByEmail(
           failedAttempts,
           canceledAt,
           endedAt,
-          metadata: stripeSubscription.metadata ? (stripeSubscription.metadata as object) : undefined,
+          metadata: stripeSubscription.metadata
+            ? (stripeSubscription.metadata as object)
+            : undefined,
         },
       });
     });

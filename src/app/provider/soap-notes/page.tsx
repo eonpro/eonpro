@@ -301,11 +301,15 @@ export default function ProviderSOAPNotesPage() {
                   <div
                     key={note.id}
                     onClick={() => setSelectedNote(note)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') setSelectedNote(note); }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') setSelectedNote(note);
+                    }}
                     tabIndex={0}
                     role="button"
                     className={`cursor-pointer rounded-lg border p-4 transition-shadow hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)] ${
-                      selectedNote?.id === note.id ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)]' : ''
+                      selectedNote?.id === note.id
+                        ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)]'
+                        : ''
                     }`}
                   >
                     <div className="flex items-start justify-between">
@@ -320,8 +324,18 @@ export default function ProviderSOAPNotesPage() {
                           </span>
                           {note.appointmentType === 'VIDEO' && (
                             <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
-                              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                              <svg
+                                className="h-3 w-3"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                strokeWidth={2}
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                                />
                               </svg>
                               Telehealth
                             </span>

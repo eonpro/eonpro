@@ -79,14 +79,16 @@ export async function resolvePatientId(user: MinimalUser): Promise<number | null
 
 /** Non-blocking update to persist User.patientId. */
 function persistPatientLink(userId: number, patientId: number): void {
-  basePrisma.user.update({
-    where: { id: userId },
-    data: { patientId },
-  }).catch((err: unknown) => {
-    logger.warn('[ResolvePatientId] Failed to persist User.patientId', {
-      userId,
-      patientId,
-      error: err instanceof Error ? err.message : String(err),
+  basePrisma.user
+    .update({
+      where: { id: userId },
+      data: { patientId },
+    })
+    .catch((err: unknown) => {
+      logger.warn('[ResolvePatientId] Failed to persist User.patientId', {
+        userId,
+        patientId,
+        error: err instanceof Error ? err.message : String(err),
+      });
     });
-  });
 }

@@ -18,6 +18,6 @@ export async function GET(req: NextRequest) {
   const results = await searchDrugs(q);
   return NextResponse.json(
     { results },
-    { headers: { 'Cache-Control': 'public, max-age=120, stale-while-revalidate=600' } },
+    { headers: { 'Cache-Control': 'public, max-age=120, stale-while-revalidate=600' } }
   );
 }

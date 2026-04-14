@@ -262,7 +262,6 @@ export const POST = withAuth(
           logger.warn(`Webhook test failed for ${validated.url}: ${response.status}`);
         }
       } catch (error: unknown) {
-
         logger.error(`Webhook test failed for ${validated.url}:`, error);
 
         await prisma.webhookDelivery.create({

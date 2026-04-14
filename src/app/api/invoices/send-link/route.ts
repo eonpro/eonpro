@@ -91,7 +91,8 @@ async function sendInvoiceLinkHandler(req: NextRequest, user: AuthUser): Promise
         return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
       }
 
-      const stripeConfigured = !!process.env.EONMEDS_STRIPE_SECRET_KEY || !!process.env.STRIPE_SECRET_KEY;
+      const stripeConfigured =
+        !!process.env.EONMEDS_STRIPE_SECRET_KEY || !!process.env.STRIPE_SECRET_KEY;
 
       if (stripeConfigured) {
         const { StripeInvoiceService } = await import('@/services/stripe/invoiceService');
@@ -237,7 +238,11 @@ async function sendInvoiceLinkHandler(req: NextRequest, user: AuthUser): Promise
         });
       } catch (emailError: unknown) {
         logger.error('Failed to send invoice email', emailError);
-        deliveryResults.push({ method: 'email', success: false, error: (emailError as any).message });
+        deliveryResults.push({
+          method: 'email',
+          success: false,
+          error: (emailError as any).message,
+        });
       }
     }
 

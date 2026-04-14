@@ -1,8 +1,25 @@
 'use client';
 
-import { Suspense, useState, useEffect, useRef, startTransition, useCallback, useMemo } from 'react';
+import {
+  Suspense,
+  useState,
+  useEffect,
+  useRef,
+  startTransition,
+  useCallback,
+  useMemo,
+} from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Eye, EyeOff, X, Mail, ArrowRight, RefreshCw, CheckCircle2, Smartphone } from 'lucide-react';
+import {
+  Eye,
+  EyeOff,
+  X,
+  Mail,
+  ArrowRight,
+  RefreshCw,
+  CheckCircle2,
+  Smartphone,
+} from 'lucide-react';
 import { isBrowser } from '@/lib/utils/ssr-safe';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import { EONPRO_LOGO, EONPRO_LOGO_DARK } from '@/lib/constants/brand-assets';
@@ -44,13 +61,13 @@ function hexToRgb(hex: string): [number, number, number] {
 function lightenHex(hex: string, amount: number): string {
   const [r, g, b] = hexToRgb(hex);
   const lighten = (c: number) => Math.min(255, Math.round(c + (255 - c) * amount));
-  return `#${[lighten(r), lighten(g), lighten(b)].map(c => c.toString(16).padStart(2, '0')).join('')}`;
+  return `#${[lighten(r), lighten(g), lighten(b)].map((c) => c.toString(16).padStart(2, '0')).join('')}`;
 }
 
 function darkenHex(hex: string, amount: number): string {
   const [r, g, b] = hexToRgb(hex);
   const darken = (c: number) => Math.max(0, Math.round(c * (1 - amount)));
-  return `#${[darken(r), darken(g), darken(b)].map(c => c.toString(16).padStart(2, '0')).join('')}`;
+  return `#${[darken(r), darken(g), darken(b)].map((c) => c.toString(16).padStart(2, '0')).join('')}`;
 }
 
 type LoginResponseData = {
@@ -85,7 +102,13 @@ async function parseJsonResponse(response: Response): Promise<LoginResponseData>
 
 export default function PatientLoginPageWrapper() {
   return (
-    <Suspense fallback={<div className="dark-login-bg flex min-h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-white/70" /></div>}>
+    <Suspense
+      fallback={
+        <div className="dark-login-bg flex min-h-screen items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-white/70" />
+        </div>
+      }
+    >
       <PatientLoginPage />
     </Suspense>
   );
@@ -112,7 +135,9 @@ function PatientLoginPage() {
     return '';
   });
   const [registeredMessage, setRegisteredMessage] = useState(() =>
-    searchParams.get('registered') === 'true' ? 'Account created successfully! You can now log in.' : ''
+    searchParams.get('registered') === 'true'
+      ? 'Account created successfully! You can now log in.'
+      : ''
   );
 
   // Non-patient rejection state
@@ -168,12 +193,17 @@ function PatientLoginPage() {
     try {
       const cached = localStorage.getItem('clinic-branding-cache');
       if (!cached) return;
-      const parsed = JSON.parse(cached) as ClinicBranding & { clinicId?: number; _cachedAt?: number };
+      const parsed = JSON.parse(cached) as ClinicBranding & {
+        clinicId?: number;
+        _cachedAt?: number;
+      };
       if (parsed._cachedAt && Date.now() - parsed._cachedAt > 24 * 60 * 60 * 1000) return;
       setIsMainApp(false);
       setBranding(parsed);
       if (parsed.clinicId) setResolvedClinicId(parsed.clinicId);
-    } catch { /* corrupt cache — ignore, fresh fetch below will resolve */ }
+    } catch {
+      /* corrupt cache — ignore, fresh fetch below will resolve */
+    }
   }, []);
 
   // Resolve clinic branding
@@ -205,9 +235,14 @@ function PatientLoginPage() {
           setResolvedClinicId(data.clinicId);
           setBranding(brandingData);
           try {
-            localStorage.setItem('clinic-branding-cache', JSON.stringify({ ...brandingData, _cachedAt: Date.now() }));
+            localStorage.setItem(
+              'clinic-branding-cache',
+              JSON.stringify({ ...brandingData, _cachedAt: Date.now() })
+            );
             localStorage.setItem('clinic-branding-is-whitelabel', '1');
-          } catch { /* quota exceeded — non-critical */ }
+          } catch {
+            /* quota exceeded — non-critical */
+          }
           if (data.branding.faviconUrl) {
             const injectFavicon = () => {
               let link = document.querySelector("link[rel*='icon']") as HTMLLinkElement | null;
@@ -273,11 +308,7 @@ function PatientLoginPage() {
     if (!loading) return;
     const t = setTimeout(() => {
       setLoading(false);
-      setError((prev) =>
-        prev
-          ? prev
-          : 'Login is taking too long. Please try again.'
-      );
+      setError((prev) => (prev ? prev : 'Login is taking too long. Please try again.'));
     }, 90_000);
     return () => clearTimeout(t);
   }, [loading]);
@@ -433,7 +464,8 @@ function PatientLoginPage() {
     if (userRole && userRole !== 'patient') {
       // Clear any tokens that were set by the login response cookies
       document.cookie = 'auth-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-      document.cookie = 'auth-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.eonpro.io;';
+      document.cookie =
+        'auth-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.eonpro.io;';
       document.cookie = `${userRole}-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
       document.cookie = `${userRole}-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.eonpro.io;`;
 
@@ -507,7 +539,9 @@ function PatientLoginPage() {
     }
 
     if (digit && index === 5 && newOtp.every((d) => d)) {
-      startTransition(() => { verifyEmailOtp(newOtp.join('')); });
+      startTransition(() => {
+        verifyEmailOtp(newOtp.join(''));
+      });
     }
   };
 
@@ -570,7 +604,12 @@ function PatientLoginPage() {
       const response = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: identifier, role: 'patient', clinicId: resolvedClinicId, method }),
+        body: JSON.stringify({
+          email: identifier,
+          role: 'patient',
+          clinicId: resolvedClinicId,
+          method,
+        }),
       });
       const data = await response.json();
       if (!response.ok) {
@@ -706,10 +745,7 @@ function PatientLoginPage() {
   }, []);
 
   return (
-    <div
-      className="dark-login-bg min-h-screen"
-      style={loginGlowVars as React.CSSProperties}
-    >
+    <div className="dark-login-bg min-h-screen" style={loginGlowVars as React.CSSProperties}>
       <div className="flex min-h-screen flex-col">
         <div className="p-4 sm:p-6">
           <button
@@ -735,18 +771,30 @@ function PatientLoginPage() {
                   onError={() => setLogoLoadError(true)}
                 />
               ) : (
-                <h1 className="text-3xl font-bold text-white">
-                  {branding.name}
-                </h1>
+                <h1 className="text-3xl font-bold text-white">{branding.name}</h1>
               )
             ) : (
-              <img src={EONPRO_LOGO_DARK} alt="EONPRO" className="h-10 w-auto" width={160} height={40} style={{ maxHeight: 40, width: 'auto' }} />
+              <img
+                src={EONPRO_LOGO_DARK}
+                alt="EONPRO"
+                className="h-10 w-auto"
+                width={160}
+                height={40}
+                style={{ maxHeight: 40, width: 'auto' }}
+              />
             )}
           </div>
           {branding && !isMainApp && (
-            <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-white/50 whitespace-nowrap">
+            <p className="mt-2 flex items-center justify-center gap-1.5 whitespace-nowrap text-xs text-white/50">
               Powered by{' '}
-              <img src={EONPRO_LOGO_DARK} alt="EONPRO" className="h-[21px] w-auto" width={84} height={21} style={{ maxHeight: 21, width: 'auto' }} />
+              <img
+                src={EONPRO_LOGO_DARK}
+                alt="EONPRO"
+                className="h-[21px] w-auto"
+                width={84}
+                height={21}
+                style={{ maxHeight: 21, width: 'auto' }}
+              />
             </p>
           )}
         </div>
@@ -763,7 +811,9 @@ function PatientLoginPage() {
           {/* Registration success message */}
           <div
             className={`w-full max-w-md rounded-2xl border transition-all duration-150 ${
-              registeredMessage ? 'mb-6 opacity-100 border-emerald-500/30 bg-emerald-900/30 backdrop-blur-sm p-4' : 'mb-0 h-0 overflow-hidden border-transparent p-0 opacity-0'
+              registeredMessage
+                ? 'mb-6 border-emerald-500/30 bg-emerald-900/30 p-4 opacity-100 backdrop-blur-sm'
+                : 'mb-0 h-0 overflow-hidden border-transparent p-0 opacity-0'
             }`}
             aria-live="polite"
           >
@@ -782,11 +832,16 @@ function PatientLoginPage() {
             {/* STEP 1: Email Input */}
             {step === 'identifier' && (
               <form onSubmit={handleIdentifierSubmit} className="space-y-4">
-                <label htmlFor="patient-email" className="block text-xs font-medium uppercase tracking-wider text-white/50">
+                <label
+                  htmlFor="patient-email"
+                  className="block text-xs font-medium uppercase tracking-wider text-white/50"
+                >
                   Email address
                 </label>
                 <div className="relative">
-                  <div className={`pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-white/30 transition-opacity duration-200 ${identifier ? 'opacity-0' : 'opacity-100'}`}>
+                  <div
+                    className={`pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-white/30 transition-opacity duration-200 ${identifier ? 'opacity-0' : 'opacity-100'}`}
+                  >
                     <Mail className="h-5 w-5" />
                   </div>
                   <input
@@ -794,7 +849,7 @@ function PatientLoginPage() {
                     type="email"
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
-                    className="w-full rounded-2xl border border-white/12 bg-white/[0.06] py-4 pl-12 pr-4 text-white placeholder-white/35 backdrop-blur-sm transition-all focus:border-transparent focus:outline-none focus:ring-2"
+                    className="border-white/12 w-full rounded-2xl border bg-white/[0.06] py-4 pl-12 pr-4 text-white placeholder-white/35 backdrop-blur-sm transition-all focus:border-transparent focus:outline-none focus:ring-2"
                     style={{ '--tw-ring-color': darkFocusRing } as React.CSSProperties}
                     placeholder="Your email address"
                     required
@@ -805,7 +860,9 @@ function PatientLoginPage() {
 
                 <div
                   className={`rounded-2xl border transition-all duration-150 ${
-                    sessionMessage ? 'opacity-100 border-amber-500/30 bg-amber-900/30 backdrop-blur-sm p-4' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                    sessionMessage
+                      ? 'border-amber-500/30 bg-amber-900/30 p-4 opacity-100 backdrop-blur-sm'
+                      : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
                   }`}
                   aria-live="polite"
                 >
@@ -816,20 +873,22 @@ function PatientLoginPage() {
 
                 <div
                   className={`rounded-2xl border transition-all duration-150 ${
-                    error ? 'opacity-100 border-red-500/30 bg-red-900/30 backdrop-blur-sm p-4' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                    error
+                      ? 'border-red-500/30 bg-red-900/30 p-4 opacity-100 backdrop-blur-sm'
+                      : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
                   }`}
                   aria-live="polite"
                 >
-                  {error && (
-                    <p className="text-center text-sm text-red-400">{error}</p>
-                  )}
+                  {error && <p className="text-center text-sm text-red-400">{error}</p>}
                 </div>
 
                 <button
                   type="submit"
                   disabled={loading}
                   className={`flex min-h-[48px] w-full touch-manipulation items-center justify-center gap-2 rounded-2xl px-6 py-4 text-base font-semibold transition-all ${
-                    loading ? 'cursor-not-allowed opacity-50' : 'hover:opacity-90 active:scale-[0.99]'
+                    loading
+                      ? 'cursor-not-allowed opacity-50'
+                      : 'hover:opacity-90 active:scale-[0.99]'
                   }`}
                   style={{
                     backgroundColor: loading ? '#9CA3AF' : primaryColor,
@@ -860,7 +919,7 @@ function PatientLoginPage() {
             {step === 'password' && (
               <form onSubmit={handlePasswordLogin} className="space-y-4">
                 {/* Email display */}
-                <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.06] backdrop-blur-sm p-4">
+                <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.06] p-4 backdrop-blur-sm">
                   <div>
                     <p className="mb-1 text-xs text-white/50">Email</p>
                     <p className="font-medium text-white">{identifier}</p>
@@ -880,7 +939,7 @@ function PatientLoginPage() {
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full rounded-2xl border border-white/12 bg-white/[0.06] px-4 py-4 pr-12 text-white placeholder-white/35 backdrop-blur-sm transition-all focus:border-transparent focus:outline-none focus:ring-2"
+                    className="border-white/12 w-full rounded-2xl border bg-white/[0.06] px-4 py-4 pr-12 text-white placeholder-white/35 backdrop-blur-sm transition-all focus:border-transparent focus:outline-none focus:ring-2"
                     style={{ '--tw-ring-color': darkFocusRing } as React.CSSProperties}
                     placeholder="Password"
                     required
@@ -892,17 +951,15 @@ function PatientLoginPage() {
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 transition-colors hover:text-white/70"
                   >
-                    {showPassword ? (
-                      <EyeOff className="h-5 w-5" />
-                    ) : (
-                      <Eye className="h-5 w-5" />
-                    )}
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
                 </div>
 
                 <div
-                  className={`rounded-2xl border transition-all duration-150 space-y-3 ${
-                    error ? 'opacity-100 border-red-500/30 bg-red-900/30 backdrop-blur-sm p-4' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                  className={`space-y-3 rounded-2xl border transition-all duration-150 ${
+                    error
+                      ? 'border-red-500/30 bg-red-900/30 p-4 opacity-100 backdrop-blur-sm'
+                      : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
                   }`}
                   aria-live="polite"
                 >
@@ -910,68 +967,68 @@ function PatientLoginPage() {
                     <>
                       <p className="text-center text-sm text-red-400">{error}</p>
                       {error.includes('temporarily locked') && (
-                      <div className="flex justify-center">
-                        <button
-                          type="button"
-                          onClick={sendEmailOtp}
-                          disabled={loading}
-                          className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50"
-                          style={{ backgroundColor: primaryColor }}
-                        >
-                          <Mail className="h-4 w-4" />
-                          Unlock via email code
-                        </button>
-                      </div>
-                    )}
-                    {error.includes('verify your email') && (
-                      <div className="flex justify-center">
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            try {
-                              setLoading(true);
-                              const res = await fetch('/api/auth/register', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                  email: identifier,
-                                  action: 'resend',
-                                }),
-                              });
-                              if (res.ok) {
-                                setError(
-                                  'Verification email sent! Check your inbox and spam folder.'
-                                );
-                              } else {
+                        <div className="flex justify-center">
+                          <button
+                            type="button"
+                            onClick={sendEmailOtp}
+                            disabled={loading}
+                            className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50"
+                            style={{ backgroundColor: primaryColor }}
+                          >
+                            <Mail className="h-4 w-4" />
+                            Unlock via email code
+                          </button>
+                        </div>
+                      )}
+                      {error.includes('verify your email') && (
+                        <div className="flex justify-center">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                setLoading(true);
+                                const res = await fetch('/api/auth/register', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    email: identifier,
+                                    action: 'resend',
+                                  }),
+                                });
+                                if (res.ok) {
+                                  setError(
+                                    'Verification email sent! Check your inbox and spam folder.'
+                                  );
+                                } else {
+                                  setError('Failed to resend. Please try again.');
+                                }
+                              } catch {
                                 setError('Failed to resend. Please try again.');
+                              } finally {
+                                setLoading(false);
                               }
-                            } catch {
-                              setError('Failed to resend. Please try again.');
-                            } finally {
-                              setLoading(false);
-                            }
-                          }}
-                          disabled={loading}
-                          className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all hover:opacity-90 disabled:opacity-50"
-                          style={{ backgroundColor: primaryColor, color: buttonTextColor }}
-                        >
-                          <Mail className="h-4 w-4" />
-                          Resend verification email
-                        </button>
-                      </div>
-                    )}
-                    {/* Non-patient user tried to log in - show link to staff/provider login */}
-                    {showStaffLoginLink && (
-                      <div className="flex justify-center">
-                        <a
-                          href="/login"
-                          className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/[0.06] px-4 py-2 text-sm font-semibold text-white/80 backdrop-blur-sm transition-all hover:bg-white/[0.1]"
-                        >
-                          <ArrowRight className="h-4 w-4" />
-                          Go to Provider / Staff Login
-                        </a>
-                      </div>
-                    )}
+                            }}
+                            disabled={loading}
+                            className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all hover:opacity-90 disabled:opacity-50"
+                            style={{ backgroundColor: primaryColor, color: buttonTextColor }}
+                          >
+                            <Mail className="h-4 w-4" />
+                            Resend verification email
+                          </button>
+                        </div>
+                      )}
+                      {/* Non-patient user tried to log in - show link to staff/provider login */}
+                      {showStaffLoginLink && (
+                        <div className="flex justify-center">
+                          <a
+                            href="/login"
+                            className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/[0.06] px-4 py-2 text-sm font-semibold text-white/80 backdrop-blur-sm transition-all hover:bg-white/[0.1]"
+                          >
+                            <ArrowRight className="h-4 w-4" />
+                            Go to Provider / Staff Login
+                          </a>
+                        </div>
+                      )}
                     </>
                   )}
                 </div>
@@ -980,7 +1037,9 @@ function PatientLoginPage() {
                   type="submit"
                   disabled={loading}
                   className={`flex min-h-[48px] w-full touch-manipulation items-center justify-center gap-2 rounded-2xl px-6 py-4 text-base font-semibold transition-all ${
-                    loading ? 'cursor-not-allowed opacity-50' : 'hover:opacity-90 active:scale-[0.99]'
+                    loading
+                      ? 'cursor-not-allowed opacity-50'
+                      : 'hover:opacity-90 active:scale-[0.99]'
                   }`}
                   style={{
                     backgroundColor: loading ? '#9CA3AF' : primaryColor,
@@ -1007,7 +1066,7 @@ function PatientLoginPage() {
                 <button
                   type="button"
                   disabled={loading}
-                  className="min-h-[48px] w-full touch-manipulation rounded-2xl border border-white/15 bg-white/[0.06] px-6 py-4 text-base font-semibold text-white transition-colors hover:bg-white/[0.1] active:bg-white/[0.14] backdrop-blur-sm disabled:opacity-50"
+                  className="min-h-[48px] w-full touch-manipulation rounded-2xl border border-white/15 bg-white/[0.06] px-6 py-4 text-base font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/[0.1] active:bg-white/[0.14] disabled:opacity-50"
                   onClick={sendEmailOtp}
                 >
                   Email me a login code
@@ -1049,7 +1108,7 @@ function PatientLoginPage() {
             {/* STEP: Email OTP (passwordless login) */}
             {step === 'email-otp' && (
               <div className="space-y-6">
-                <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.06] backdrop-blur-sm p-4">
+                <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.06] p-4 backdrop-blur-sm">
                   <div>
                     <p className="mb-1 text-xs text-white/50">Login code sent to</p>
                     <p className="font-medium text-white">{identifier}</p>
@@ -1066,9 +1125,7 @@ function PatientLoginPage() {
                 <div className="text-center">
                   <Mail className="mx-auto mb-4 h-12 w-12" style={{ color: darkAccent }} />
                   <h2 className="mb-2 text-xl font-semibold text-white">Check your email</h2>
-                  <p className="text-white/70">
-                    Enter the 6-digit code we sent to log in
-                  </p>
+                  <p className="text-white/70">Enter the 6-digit code we sent to log in</p>
                 </div>
 
                 <div className="flex justify-center gap-3">
@@ -1085,7 +1142,7 @@ function PatientLoginPage() {
                       onChange={(e) => handleEmailOtpChange(index, e.target.value)}
                       onKeyDown={(e) => handleEmailOtpKeyDown(index, e)}
                       onPaste={index === 0 ? handleEmailOtpPaste : undefined}
-                      className="h-14 w-12 rounded-xl border border-white/15 bg-white/[0.06] text-white text-center text-2xl font-semibold backdrop-blur-sm transition-all focus:border-transparent focus:outline-none focus:ring-2"
+                      className="h-14 w-12 rounded-xl border border-white/15 bg-white/[0.06] text-center text-2xl font-semibold text-white backdrop-blur-sm transition-all focus:border-transparent focus:outline-none focus:ring-2"
                       style={{ '--tw-ring-color': darkFocusRing } as React.CSSProperties}
                       autoFocus={index === 0}
                     />
@@ -1094,13 +1151,13 @@ function PatientLoginPage() {
 
                 <div
                   className={`rounded-2xl border transition-all duration-150 ${
-                    error ? 'opacity-100 border-red-500/30 bg-red-900/30 backdrop-blur-sm p-4' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                    error
+                      ? 'border-red-500/30 bg-red-900/30 p-4 opacity-100 backdrop-blur-sm'
+                      : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
                   }`}
                   aria-live="polite"
                 >
-                  {error && (
-                    <p className="text-center text-sm text-red-400">{error}</p>
-                  )}
+                  {error && <p className="text-center text-sm text-red-400">{error}</p>}
                 </div>
 
                 {loading && (
@@ -1132,7 +1189,8 @@ function PatientLoginPage() {
 
                 {/* Help text */}
                 <p className="text-center text-xs text-white/40">
-                  Didn&apos;t receive it? Check your spam/junk folder. Make sure you have an account with this email.
+                  Didn&apos;t receive it? Check your spam/junk folder. Make sure you have an account
+                  with this email.
                 </p>
 
                 <div className="flex flex-col items-center gap-3 pt-4">
@@ -1161,7 +1219,7 @@ function PatientLoginPage() {
             {/* STEP: Forgot Password */}
             {step === 'forgot' && (
               <div className="space-y-6">
-                <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.06] backdrop-blur-sm p-4">
+                <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.06] p-4 backdrop-blur-sm">
                   <div>
                     <p className="mb-1 text-xs text-white/50">
                       Reset code sent {resetMethod === 'sms' ? 'via text to phone on file' : 'to'}
@@ -1209,7 +1267,7 @@ function PatientLoginPage() {
                       onChange={(e) => handleResetCodeChange(index, e.target.value)}
                       onKeyDown={(e) => handleResetCodeKeyDown(index, e)}
                       onPaste={index === 0 ? handleResetCodePaste : undefined}
-                      className="h-14 w-12 rounded-xl border border-white/15 bg-white/[0.06] text-white text-center text-2xl font-semibold backdrop-blur-sm transition-all focus:border-transparent focus:outline-none focus:ring-2"
+                      className="h-14 w-12 rounded-xl border border-white/15 bg-white/[0.06] text-center text-2xl font-semibold text-white backdrop-blur-sm transition-all focus:border-transparent focus:outline-none focus:ring-2"
                       style={{ '--tw-ring-color': darkFocusRing } as React.CSSProperties}
                       autoFocus={index === 0}
                     />
@@ -1218,13 +1276,13 @@ function PatientLoginPage() {
 
                 <div
                   className={`rounded-2xl border transition-all duration-150 ${
-                    error ? 'opacity-100 border-red-500/30 bg-red-900/30 backdrop-blur-sm p-4' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                    error
+                      ? 'border-red-500/30 bg-red-900/30 p-4 opacity-100 backdrop-blur-sm'
+                      : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
                   }`}
                   aria-live="polite"
                 >
-                  {error && (
-                    <p className="text-center text-sm text-red-400">{error}</p>
-                  )}
+                  {error && <p className="text-center text-sm text-red-400">{error}</p>}
                 </div>
 
                 <div className="text-center">
@@ -1274,9 +1332,7 @@ function PatientLoginPage() {
                     <CheckCircle2 className="h-8 w-8" style={{ color: darkAccent }} />
                   </div>
                   <h2 className="mb-2 text-xl font-semibold text-white">
-                    {patientFirstName
-                      ? `Welcome, ${patientFirstName}!`
-                      : 'Welcome!'}
+                    {patientFirstName ? `Welcome, ${patientFirstName}!` : 'Welcome!'}
                   </h2>
                   <p className="text-white/70">
                     We found your patient record. To access your portal, you need to create a login.
@@ -1315,7 +1371,7 @@ function PatientLoginPage() {
             {/* STEP: Reset Password */}
             {step === 'reset' && (
               <form onSubmit={handleResetPassword} className="space-y-6">
-                <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.06] backdrop-blur-sm p-4">
+                <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.06] p-4 backdrop-blur-sm">
                   <div>
                     <p className="mb-1 text-xs text-white/50">Resetting password for</p>
                     <p className="font-medium text-white">{identifier}</p>
@@ -1332,7 +1388,7 @@ function PatientLoginPage() {
                     type={showNewPassword ? 'text' : 'password'}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full rounded-2xl border border-white/12 bg-white/[0.06] px-4 py-4 pr-12 text-white placeholder-white/35 backdrop-blur-sm transition-all focus:border-transparent focus:outline-none focus:ring-2"
+                    className="border-white/12 w-full rounded-2xl border bg-white/[0.06] px-4 py-4 pr-12 text-white placeholder-white/35 backdrop-blur-sm transition-all focus:border-transparent focus:outline-none focus:ring-2"
                     style={{ '--tw-ring-color': darkFocusRing } as React.CSSProperties}
                     placeholder="New password"
                     required
@@ -1344,11 +1400,7 @@ function PatientLoginPage() {
                     onClick={() => setShowNewPassword(!showNewPassword)}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 transition-colors hover:text-white/70"
                   >
-                    {showNewPassword ? (
-                      <EyeOff className="h-5 w-5" />
-                    ) : (
-                      <Eye className="h-5 w-5" />
-                    )}
+                    {showNewPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
                 </div>
 
@@ -1375,13 +1427,13 @@ function PatientLoginPage() {
 
                 <div
                   className={`rounded-2xl border transition-all duration-150 ${
-                    error ? 'opacity-100 border-red-500/30 bg-red-900/30 backdrop-blur-sm p-4' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                    error
+                      ? 'border-red-500/30 bg-red-900/30 p-4 opacity-100 backdrop-blur-sm'
+                      : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
                   }`}
                   aria-live="polite"
                 >
-                  {error && (
-                    <p className="text-center text-sm text-red-400">{error}</p>
-                  )}
+                  {error && <p className="text-center text-sm text-red-400">{error}</p>}
                 </div>
 
                 <button
@@ -1392,7 +1444,11 @@ function PatientLoginPage() {
                       ? 'cursor-not-allowed opacity-50'
                       : 'hover:opacity-90'
                   }`}
-                  style={{ backgroundColor: primaryColor, background: darkButtonGradient, color: '#ffffff' }}
+                  style={{
+                    backgroundColor: primaryColor,
+                    background: darkButtonGradient,
+                    color: '#ffffff',
+                  }}
                 >
                   {loading ? (
                     <>
@@ -1424,15 +1480,41 @@ function PatientLoginPage() {
         <div className="mt-auto p-6 text-center">
           <div className="mb-3 flex items-center justify-center gap-6 text-white/35">
             <span className="flex items-center gap-1.5 text-xs">
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+              <svg
+                className="h-3.5 w-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <rect x="3" y="11" width="18" height="11" rx="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
               Encrypted
             </span>
             <span className="flex items-center gap-1.5 text-xs">
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
+              <svg
+                className="h-3.5 w-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              </svg>
               HIPAA Compliant
             </span>
             <span className="flex items-center gap-1.5 text-xs">
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+              <svg
+                className="h-3.5 w-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                <polyline points="22 4 12 14.01 9 11.01" />
+              </svg>
               SOC 2
             </span>
           </div>

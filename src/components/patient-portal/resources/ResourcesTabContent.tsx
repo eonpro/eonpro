@@ -27,14 +27,16 @@ interface Resource {
 const INJECTION_VIDEO = {
   en: {
     id: 'RUxd5uk_lAc',
-    thumbnail: 'https://static.wixstatic.com/media/c49a9b_c5588b4357604ce39ae7ba80c6f83edd~mv2.webp',
+    thumbnail:
+      'https://static.wixstatic.com/media/c49a9b_c5588b4357604ce39ae7ba80c6f83edd~mv2.webp',
     title: 'How to Safely Apply a Semaglutide Injection at Home',
     description:
       'Step-by-step guide from EONPro covering preparation, dosage, injection technique, and post-injection care.',
   },
   es: {
     id: 'ETqz2fmh5ww',
-    thumbnail: 'https://static.wixstatic.com/media/c49a9b_bd7ba147288b4395a7a43faa4f0dd4d4~mv2.webp',
+    thumbnail:
+      'https://static.wixstatic.com/media/c49a9b_bd7ba147288b4395a7a43faa4f0dd4d4~mv2.webp',
     title: 'Cómo aplicar una inyección de Semaglutida en casa de forma segura',
     description:
       'Guía paso a paso de EONPro sobre preparación, dosificación, técnica de inyección y cuidados posteriores.',
@@ -257,7 +259,9 @@ export default function ResourcesTabContent({
             <a
               key={resource.id}
               href={resource.url}
-              {...(resource.url.startsWith('/') ? {} : { target: '_blank', rel: 'noopener noreferrer' })}
+              {...(resource.url.startsWith('/')
+                ? {}
+                : { target: '_blank', rel: 'noopener noreferrer' })}
               className="group overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-all hover:shadow-md"
             >
               {resource.type === 'video' && (
@@ -305,7 +309,10 @@ export default function ResourcesTabContent({
                   {resource.title}
                 </h3>
                 <p className="line-clamp-2 text-sm text-gray-500">{resource.description}</p>
-                <div className="mt-3 flex items-center text-sm font-medium" style={{ color: primaryColor }}>
+                <div
+                  className="mt-3 flex items-center text-sm font-medium"
+                  style={{ color: primaryColor }}
+                >
                   {resource.type === 'video'
                     ? 'Watch Video'
                     : resource.type === 'pdf'

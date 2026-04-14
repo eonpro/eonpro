@@ -71,7 +71,9 @@ export async function GET(request: NextRequest) {
     const translations = lookupTranslation(language, namespace);
     return NextResponse.json(translations);
   } catch (error) {
-    logger.error('[Translation API] Error:', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('[Translation API] Error:', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json({ error: 'Failed to load translations' }, { status: 500 });
   }
 }
@@ -119,7 +121,9 @@ export async function POST(request: NextRequest) {
       translations,
     });
   } catch (error) {
-    logger.error('[Translation API] Error:', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('[Translation API] Error:', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json({ error: 'Failed to load translations' }, { status: 500 });
   }
 }

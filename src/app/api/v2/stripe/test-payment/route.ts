@@ -113,7 +113,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Payment failed', details: errorMessage }, { status: 400 });
     }
   } catch (error: unknown) {
-
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[STRIPE_TEST] Error:', error);
     return NextResponse.json(

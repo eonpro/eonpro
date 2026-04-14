@@ -98,11 +98,13 @@ function buildMedicationItems(
       quantity: parseInt(rx.quantity || '1') || 1,
     }));
   }
-  return [{
-    name: fallbackName || 'Medication',
-    strength: fallbackStrength || null,
-    quantity: parseInt(fallbackQuantity || '1') || 1,
-  }];
+  return [
+    {
+      name: fallbackName || 'Medication',
+      strength: fallbackStrength || null,
+      quantity: parseInt(fallbackQuantity || '1') || 1,
+    },
+  ];
 }
 
 function safeDate(value: string | number | Date | null | undefined): string | null {
@@ -114,10 +116,7 @@ function safeDate(value: string | number | Date | null | undefined): string | nu
 const TERMINAL_STATUSES: ShippingStatusValue[] = ['DELIVERED', 'CANCELLED', 'RETURNED'];
 const TERMINAL_ORDER_STATUSES = ['DELIVERED', 'CANCELLED', 'RETURNED'];
 
-async function refreshFedExTrackingForPatient(
-  patientId: number,
-  clinicId: number
-): Promise<void> {
+async function refreshFedExTrackingForPatient(patientId: number, clinicId: number): Promise<void> {
   try {
     // --- Source 1: PatientShippingUpdate records with FedEx carrier ---
     const activeUpdates = await basePrisma.patientShippingUpdate.findMany({
@@ -140,11 +139,20 @@ async function refreshFedExTrackingForPatient(
         trackingNumber: { not: null },
         shippingStatus: { notIn: TERMINAL_ORDER_STATUSES },
       },
-      select: { id: true, trackingNumber: true, shippingStatus: true, primaryMedName: true, primaryMedStrength: true },
+      select: {
+        id: true,
+        trackingNumber: true,
+        shippingStatus: true,
+        primaryMedName: true,
+        primaryMedStrength: true,
+      },
     });
 
     const bareOrders = ordersWithTracking.filter(
-      (o) => o.trackingNumber && !coveredTrackingNumbers.has(o.trackingNumber) && isFedExTrackingNumber(o.trackingNumber)
+      (o) =>
+        o.trackingNumber &&
+        !coveredTrackingNumbers.has(o.trackingNumber) &&
+        isFedExTrackingNumber(o.trackingNumber)
     );
 
     const allTrackingNumbers = [
@@ -287,7 +295,10 @@ async function getHandler(req: NextRequest, user: AuthUser) {
     // patientId is resolved by the withAuth middleware (via resolvePatientId)
     // when missing from the JWT. If it's still null here, resolution failed.
     if (!user.patientId) {
-      logger.warn('[Portal Tracking] No patientId after middleware resolution', { userId: user.id, role: user.role });
+      logger.warn('[Portal Tracking] No patientId after middleware resolution', {
+        userId: user.id,
+        role: user.role,
+      });
       return NextResponse.json({ error: 'Patient profile not found' }, { status: 404 });
     }
 
@@ -301,7 +312,10 @@ async function getHandler(req: NextRequest, user: AuthUser) {
         select: { id: true, clinicId: true },
       });
     }).catch((err) => {
-      logger.error('[Tracking] Patient lookup failed', { error: err instanceof Error ? err.message : String(err), patientId });
+      logger.error('[Tracking] Patient lookup failed', {
+        error: err instanceof Error ? err.message : String(err),
+        patientId,
+      });
       return null;
     });
 
@@ -469,13 +483,16 @@ async function getHandler(req: NextRequest, user: AuthUser) {
 
       const existingEntry = shipmentMap.get(key);
       const existingLastUpdate = existingEntry?.lastUpdate as string | undefined;
-      const shouldReplace = !existingEntry ||
-        (update.updatedAt && existingLastUpdate &&
+      const shouldReplace =
+        !existingEntry ||
+        (update.updatedAt &&
+          existingLastUpdate &&
           new Date(update.updatedAt).getTime() > new Date(existingLastUpdate).getTime());
 
       if (shouldReplace) {
         const trackingOrigin = update.shippedAt ?? update.createdAt;
-        const hoursSinceTracking = (Date.now() - new Date(trackingOrigin).getTime()) / (1000 * 60 * 60);
+        const hoursSinceTracking =
+          (Date.now() - new Date(trackingOrigin).getTime()) / (1000 * 60 * 60);
         const blockedStatuses = ['RETURNED', 'EXCEPTION', 'CANCELLED'];
         const canConfirm =
           !update.patientConfirmedAt &&
@@ -524,7 +541,8 @@ async function getHandler(req: NextRequest, user: AuthUser) {
         const statusInfo = mapStatusToDisplay(status.toUpperCase());
         const carrier = detectCarrier(order.trackingNumber);
 
-        const orderHoursSinceTracking = (Date.now() - new Date(order.createdAt).getTime()) / (1000 * 60 * 60);
+        const orderHoursSinceTracking =
+          (Date.now() - new Date(order.createdAt).getTime()) / (1000 * 60 * 60);
 
         shipmentMap.set(key, {
           id: `order-${order.id}`,
@@ -557,7 +575,8 @@ async function getHandler(req: NextRequest, user: AuthUser) {
 
     // Convert to array and sort
     const allShipments = Array.from(shipmentMap.values()).sort(
-      (a, b) => new Date(b.orderedAt as string).getTime() - new Date(a.orderedAt as string).getTime()
+      (a, b) =>
+        new Date(b.orderedAt as string).getTime() - new Date(a.orderedAt as string).getTime()
     );
 
     const TRACKING_VISIBLE_LIMIT_MS = 3 * 24 * 60 * 60 * 1000;
@@ -597,7 +616,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
       result.shippingUpdates.some((u) => u.trackingNumber?.trim()) ||
       result.ordersWithTracking.some((o) => o.trackingNumber?.trim());
     const orderSentNoTracking = result.allRecentOrders.find(
-      (o) => o.lifefileOrderId && !(o.trackingNumber?.trim())
+      (o) => o.lifefileOrderId && !o.trackingNumber?.trim()
     );
     const paidNoRx = result.paidInvoicesAwaitingRx.length > 0;
 
@@ -653,7 +672,10 @@ async function getHandler(req: NextRequest, user: AuthUser) {
         patientId,
         action: 'portal_tracking',
         outcome: 'SUCCESS',
-        metadata: { totalActive: activeShipments.length, totalDelivered: deliveredShipments.length },
+        metadata: {
+          totalActive: activeShipments.length,
+          totalDelivered: deliveredShipments.length,
+        },
       });
     } catch (auditErr: unknown) {
       logger.warn('Failed to create HIPAA audit log for portal tracking', {

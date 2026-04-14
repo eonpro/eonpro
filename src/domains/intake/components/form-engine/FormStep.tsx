@@ -130,7 +130,7 @@ export default function FormStep({
       if (!ls) return '';
       return ls[language] ?? ls.en ?? '';
     },
-    [language],
+    [language]
   );
 
   const getErrorText = useCallback(
@@ -139,43 +139,57 @@ export default function FormStep({
       if (!err) return '';
       return err[language] ?? err.en ?? '';
     },
-    [errors, language],
+    [errors, language]
   );
 
-  const validateField = useCallback((fieldId: string) => {
-    const field = config.fields.find((f) => f.id === fieldId);
-    if (!field?.validation) return;
-    const value = localValues[fieldId];
+  const validateField = useCallback(
+    (fieldId: string) => {
+      const field = config.fields.find((f) => f.id === fieldId);
+      if (!field?.validation) return;
+      const value = localValues[fieldId];
 
-    for (const rule of field.validation) {
-      if (!rule.message) continue;
-      let invalid = false;
-      switch (rule.type) {
-        case 'required':
-          invalid = !value || (Array.isArray(value) && value.length === 0);
-          break;
-        case 'email':
-          invalid = !!value && typeof value === 'string' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-          break;
-        case 'phone':
-          invalid = !!value && typeof value === 'string' && !/^(\+1)?[-.\s]?\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}$/.test(value);
-          break;
-        case 'minLength':
-          invalid = typeof value === 'string' && value.length < (rule.value as number);
-          break;
+      for (const rule of field.validation) {
+        if (!rule.message) continue;
+        let invalid = false;
+        switch (rule.type) {
+          case 'required':
+            invalid = !value || (Array.isArray(value) && value.length === 0);
+            break;
+          case 'email':
+            invalid =
+              !!value && typeof value === 'string' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+            break;
+          case 'phone':
+            invalid =
+              !!value &&
+              typeof value === 'string' &&
+              !/^(\+1)?[-.\s]?\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}$/.test(value);
+            break;
+          case 'minLength':
+            invalid = typeof value === 'string' && value.length < (rule.value as number);
+            break;
+        }
+        if (invalid) {
+          setErrors((prev) => ({ ...prev, [fieldId]: rule.message }));
+          return;
+        }
       }
-      if (invalid) {
-        setErrors((prev) => ({ ...prev, [fieldId]: rule.message }));
-        return;
-      }
-    }
-    setErrors((prev) => { const next = { ...prev }; delete next[fieldId]; return next; });
-  }, [config.fields, localValues]);
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[fieldId];
+        return next;
+      });
+    },
+    [config.fields, localValues]
+  );
 
-  const handleBlur = useCallback((fieldId: string) => {
-    setTouched((prev) => ({ ...prev, [fieldId]: true }));
-    validateField(fieldId);
-  }, [validateField]);
+  const handleBlur = useCallback(
+    (fieldId: string) => {
+      setTouched((prev) => ({ ...prev, [fieldId]: true }));
+      validateField(fieldId);
+    },
+    [validateField]
+  );
 
   // ---- Handlers ----
 
@@ -191,23 +205,16 @@ export default function FormStep({
         if (next) onNavigate(next);
       }
     },
-    [config, responses, onSetResponse, onMarkCompleted, onNavigate],
+    [config, responses, onSetResponse, onMarkCompleted, onNavigate]
   );
 
-  const handleMultiSelect = useCallback(
-    (fieldId: string, value: string) => {
-      setLocalValues((prev) => {
-        const curr = Array.isArray(prev[fieldId])
-          ? (prev[fieldId] as string[])
-          : [];
-        const next = curr.includes(value)
-          ? curr.filter((v) => v !== value)
-          : [...curr, value];
-        return { ...prev, [fieldId]: next };
-      });
-    },
-    [],
-  );
+  const handleMultiSelect = useCallback((fieldId: string, value: string) => {
+    setLocalValues((prev) => {
+      const curr = Array.isArray(prev[fieldId]) ? (prev[fieldId] as string[]) : [];
+      const next = curr.includes(value) ? curr.filter((v) => v !== value) : [...curr, value];
+      return { ...prev, [fieldId]: next };
+    });
+  }, []);
 
   const handleTextChange = useCallback(
     (fieldId: string, value: string) => {
@@ -220,15 +227,12 @@ export default function FormStep({
         });
       }
     },
-    [errors],
+    [errors]
   );
 
-  const handleCheckboxChange = useCallback(
-    (fieldId: string, checked: boolean) => {
-      setLocalValues((prev) => ({ ...prev, [fieldId]: checked }));
-    },
-    [],
-  );
+  const handleCheckboxChange = useCallback((fieldId: string, checked: boolean) => {
+    setLocalValues((prev) => ({ ...prev, [fieldId]: checked }));
+  }, []);
 
   // ---- Validation ----
 
@@ -247,27 +251,17 @@ export default function FormStep({
             }
             break;
           case 'minLength':
-            if (
-              typeof value === 'string' &&
-              value.length < (rule.value as number)
-            ) {
+            if (typeof value === 'string' && value.length < (rule.value as number)) {
               newErrors[field.id] = rule.message;
             }
             break;
           case 'maxLength':
-            if (
-              typeof value === 'string' &&
-              value.length > (rule.value as number)
-            ) {
+            if (typeof value === 'string' && value.length > (rule.value as number)) {
               newErrors[field.id] = rule.message;
             }
             break;
           case 'email':
-            if (
-              value &&
-              typeof value === 'string' &&
-              !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
-            ) {
+            if (value && typeof value === 'string' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
               newErrors[field.id] = rule.message;
             }
             break;
@@ -275,9 +269,7 @@ export default function FormStep({
             if (
               value &&
               typeof value === 'string' &&
-              !/^(\+1)?[-.\s]?\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}$/.test(
-                value,
-              )
+              !/^(\+1)?[-.\s]?\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}$/.test(value)
             ) {
               newErrors[field.id] = rule.message;
             }
@@ -345,7 +337,14 @@ export default function FormStep({
       case 'LanguageSelectStep':
         return <LanguageSelectStep basePath={basePath} nextStep={customProps.nextStep} />;
       case 'InfoImageStep':
-        return <InfoImageStep {...customProps} imageEn={config.props?.imageEn as string} imageEs={config.props?.imageEs as string} autoAdvanceDelay={config.props?.autoAdvanceDelay as number} />;
+        return (
+          <InfoImageStep
+            {...customProps}
+            imageEn={config.props?.imageEn as string}
+            imageEs={config.props?.imageEs as string}
+            autoAdvanceDelay={config.props?.autoAdvanceDelay as number}
+          />
+        );
       case 'TypewriterStep':
         return <TypewriterStep {...customProps} title={config.title} subtitle={config.subtitle} />;
       case 'BMICalculatingStep':
@@ -441,7 +440,9 @@ export default function FormStep({
       case 'WmMotivationRadioStep':
         return (
           <WmMotivationRadioStep
-            {...({ ...customProps, ...config.props } as ComponentProps<typeof WmMotivationRadioStep>)}
+            {...({ ...customProps, ...config.props } as ComponentProps<
+              typeof WmMotivationRadioStep
+            >)}
           />
         );
       case 'WmAnimatedWeightChartStep':
@@ -473,8 +474,11 @@ export default function FormStep({
 
   if (!mounted) {
     return (
-      <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--intake-bg, #ffffff)' }}>
-        <div className="w-full h-1 bg-gray-100">
+      <div
+        className="flex min-h-screen flex-col"
+        style={{ backgroundColor: 'var(--intake-bg, #ffffff)' }}
+      >
+        <div className="h-1 w-full bg-gray-100">
           <div
             className="h-full transition-all duration-300"
             style={{
@@ -484,16 +488,16 @@ export default function FormStep({
           />
         </div>
         {logoElement}
-        <div className="flex-1 flex flex-col px-6 lg:px-8 py-8 max-w-[480px] lg:max-w-[560px] mx-auto w-full">
+        <div className="mx-auto flex w-full max-w-[480px] flex-1 flex-col px-6 py-8 lg:max-w-[560px] lg:px-8">
           <div className="space-y-8">
             <div>
               <h1 className="text-[clamp(1.75rem,5vw,2.5rem)] font-semibold text-[var(--intake-text,#1f2937)]">
                 {getText(config.title)}
               </h1>
             </div>
-            <div className="space-y-4 animate-pulse">
+            <div className="animate-pulse space-y-4">
               {config.fields.map((_, i) => (
-                <div key={i} className="h-14 bg-gray-100 rounded-2xl" />
+                <div key={i} className="h-14 rounded-2xl bg-gray-100" />
               ))}
             </div>
           </div>
@@ -518,9 +522,7 @@ export default function FormStep({
                 label={getText(option.label)}
                 description={getText(option.description)}
                 selected={value === option.value}
-                onClick={() =>
-                  handleSingleSelect(field.id, field.storageKey, option.value)
-                }
+                onClick={() => handleSingleSelect(field.id, field.storageKey, option.value)}
               />
             ))}
             {error && <p className="text-sm text-red-500">{error}</p>}
@@ -536,9 +538,7 @@ export default function FormStep({
                   key={option.id}
                   label={getText(option.label)}
                   description={getText(option.description)}
-                  selected={
-                    Array.isArray(value) && value.includes(option.value)
-                  }
+                  selected={Array.isArray(value) && value.includes(option.value)}
                   onClick={() => handleMultiSelect(field.id, option.value)}
                   showCheckbox
                 />
@@ -662,12 +662,19 @@ export default function FormStep({
   const contentPadding = 'px-6 lg:px-8';
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--intake-bg, #ffffff)' }}>
+    <div
+      className="flex min-h-screen flex-col"
+      style={{ backgroundColor: 'var(--intake-bg, #ffffff)' }}
+    >
       {/* Progress bar */}
-      <div className="w-full h-[5px] bg-gray-100 rounded-full">
+      <div className="h-[5px] w-full rounded-full bg-gray-100">
         <div
           className="h-full rounded-full"
-          style={{ width: `${config.progressPercent}%`, backgroundColor: 'var(--intake-accent, #f0feab)', transition: 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1)' }}
+          style={{
+            width: `${config.progressPercent}%`,
+            backgroundColor: 'var(--intake-accent, #f0feab)',
+            transition: 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+          }}
         />
       </div>
 
@@ -676,11 +683,16 @@ export default function FormStep({
         <div className={`${contentPadding} pt-6 ${contentMaxWidth} mx-auto w-full`}>
           <button
             onClick={handleBack}
-            className="inline-flex items-center justify-center gap-2 py-2 px-4 -ml-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+            className="-ml-2 inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900"
             aria-label={isSpanish ? 'Volver' : 'Go back'}
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
           </button>
         </div>
@@ -690,17 +702,17 @@ export default function FormStep({
       {logoElement}
 
       {/* Main content */}
-      <div className={`flex-1 flex flex-col ${contentPadding} py-8 pb-10 ${contentMaxWidth} mx-auto w-full`}>
+      <div
+        className={`flex flex-1 flex-col ${contentPadding} py-8 pb-10 ${contentMaxWidth} mx-auto w-full`}
+      >
         <div className="space-y-8">
           <div>
             <h1 className="page-title">{getText(config.title)}</h1>
-            {config.subtitle && (
-              <p className="page-subtitle mt-3">{getText(config.subtitle)}</p>
-            )}
+            {config.subtitle && <p className="page-subtitle mt-3">{getText(config.subtitle)}</p>}
           </div>
 
           {/* Fields */}
-          <div className="space-y-4 intake-stagger">{config.fields.map(renderField)}</div>
+          <div className="intake-stagger space-y-4">{config.fields.map(renderField)}</div>
         </div>
 
         {/* Continue button -- 20px below last field */}
@@ -708,15 +720,28 @@ export default function FormStep({
           <div className="mt-5">
             <button onClick={handleContinue} className="continue-button">
               <span>{isSpanish ? 'Continuar' : 'Continue'}</span>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M9 5l7 7-7 7"
+                />
               </svg>
             </button>
-            <p className="copyright-text text-center mt-4">
+            <p className="copyright-text mt-4 text-center">
               {isSpanish ? (
-                <>© 2026 EONPro, LLC. Todos los derechos reservados.<br/>Proceso exclusivo y protegido.</>
+                <>
+                  © 2026 EONPro, LLC. Todos los derechos reservados.
+                  <br />
+                  Proceso exclusivo y protegido.
+                </>
               ) : (
-                <>© 2026 EONPro, LLC. All rights reserved.<br/>Exclusive and protected process.</>
+                <>
+                  © 2026 EONPro, LLC. All rights reserved.
+                  <br />
+                  Exclusive and protected process.
+                </>
               )}
             </p>
           </div>
@@ -727,9 +752,17 @@ export default function FormStep({
           <div className="mt-8">
             <p className="copyright-text text-center">
               {isSpanish ? (
-                <>© 2026 EONPro, LLC. Todos los derechos reservados.<br/>Proceso exclusivo y protegido.</>
+                <>
+                  © 2026 EONPro, LLC. Todos los derechos reservados.
+                  <br />
+                  Proceso exclusivo y protegido.
+                </>
               ) : (
-                <>© 2026 EONPro, LLC. All rights reserved.<br/>Exclusive and protected process.</>
+                <>
+                  © 2026 EONPro, LLC. All rights reserved.
+                  <br />
+                  Exclusive and protected process.
+                </>
               )}
             </p>
           </div>

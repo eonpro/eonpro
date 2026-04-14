@@ -24,13 +24,18 @@ export default function OptionButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`option-button ${selected ? 'selected' : ''} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+      className={`option-button ${selected ? 'selected' : ''} ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
     >
       {showCheckbox && (
         <div
-          className="rounded-[5px] flex items-center justify-center flex-shrink-0 aspect-square transition-all duration-150"
+          className="flex aspect-square flex-shrink-0 items-center justify-center rounded-[5px] transition-all duration-150"
           style={{
-            width: 20, height: 20, minWidth: 20, maxWidth: 20, minHeight: 20, maxHeight: 20,
+            width: 20,
+            height: 20,
+            minWidth: 20,
+            maxWidth: 20,
+            minHeight: 20,
+            maxHeight: 20,
             borderWidth: '2px',
             borderStyle: 'solid',
             borderColor: selected ? 'var(--intake-accent, #413d3d)' : '#d1d5db',
@@ -38,16 +43,26 @@ export default function OptionButton({
           }}
         >
           {selected && (
-            <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+            <svg
+              className="h-3 w-3 text-white"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2.5}
+                d="M5 13l4 4L19 7"
+              />
             </svg>
           )}
         </div>
       )}
-      <div className="flex-1 min-w-0">
-        <span className="leading-tight block">{label}</span>
+      <div className="min-w-0 flex-1">
+        <span className="block leading-tight">{label}</span>
         {description && (
-          <span className="text-[0.875rem] opacity-60 mt-1 block">{description}</span>
+          <span className="mt-1 block text-[0.875rem] opacity-60">{description}</span>
         )}
       </div>
     </button>

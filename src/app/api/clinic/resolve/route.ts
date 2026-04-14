@@ -83,8 +83,7 @@ async function refreshBrandingUrl(url: string | null): Promise<string | null> {
       (host.includes('.s3.') && host.includes('amazonaws.com')) ||
       (host.endsWith('.amazonaws.com') && host.includes(s3Config.bucketName));
     const isCloudFrontUrl =
-      s3Config.cloudFrontUrl &&
-      host === new URL(s3Config.cloudFrontUrl).hostname;
+      s3Config.cloudFrontUrl && host === new URL(s3Config.cloudFrontUrl).hostname;
 
     if (!isS3Url && !isCloudFrontUrl) return url;
 
@@ -234,12 +233,13 @@ async function handler(request: NextRequest) {
 
     // Log full error for debugging (Sentry, Vercel logs)
     const errMessage = error instanceof Error ? error.message : 'Unknown error';
-    const errCode =
-      error instanceof Prisma.PrismaClientKnownRequestError ? error.code : undefined;
+    const errCode = error instanceof Prisma.PrismaClientKnownRequestError ? error.code : undefined;
     logger.error(`[CLINIC_RESOLVE_GET] Error ${errorId} - returning default branding:`, {
       error: errMessage,
       prismaCode: errCode,
-      ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
+      ...(process.env.NODE_ENV === 'development' && {
+        stack: error instanceof Error ? error.stack : undefined,
+      }),
       domain: domainParam,
       url: request.url,
     });

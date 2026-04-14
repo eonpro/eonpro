@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useTransition, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
@@ -49,16 +49,18 @@ export default function InjectionTrackerPage() {
   const [selectedSite, setSelectedSite] = useState<InjectionSite | null>(null);
   const [showTips, setShowTips] = useState(false);
   const [notes, setNotes] = useState('');
+  const [, startTransition] = useTransition();
+  const isInitialLoad = useRef(true);
 
-  // Load history from localStorage (safe parse to avoid crash on malformed data)
   useEffect(() => {
     const saved = localStorage.getItem('injection-history');
     const parsed = safeParseJsonString<InjectionLog[]>(saved);
     if (parsed && Array.isArray(parsed)) setHistory(parsed);
+    isInitialLoad.current = false;
   }, []);
 
-  // Save history to localStorage
   useEffect(() => {
+    if (isInitialLoad.current) return;
     localStorage.setItem('injection-history', JSON.stringify(history));
   }, [history]);
 
@@ -212,12 +214,25 @@ export default function InjectionTrackerPage() {
                     <stop offset="100%" stopColor="#d5d8de" />
                   </linearGradient>
                   <filter id="bodyGlow" x="-2%" y="-1%" width="104%" height="102%">
-                    <feDropShadow dx="0" dy="0.3" stdDeviation="0.6" floodColor="#8a919b" floodOpacity="0.12" />
+                    <feDropShadow
+                      dx="0"
+                      dy="0.3"
+                      stdDeviation="0.6"
+                      floodColor="#8a919b"
+                      floodOpacity="0.12"
+                    />
                   </filter>
                 </defs>
 
                 {/* Head */}
-                <ellipse cx="50" cy="9.5" rx="5.5" ry="6.5" fill="url(#bodyFill)" filter="url(#bodyGlow)" />
+                <ellipse
+                  cx="50"
+                  cy="9.5"
+                  rx="5.5"
+                  ry="6.5"
+                  fill="url(#bodyFill)"
+                  filter="url(#bodyGlow)"
+                />
 
                 {/* Body (single continuous path — neck, shoulders, arms, torso, legs, feet) */}
                 <path

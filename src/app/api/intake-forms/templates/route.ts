@@ -48,25 +48,27 @@ const createTemplateSchema = z.object({
  * GET /api/intake-forms/templates
  * Get all active form templates
  */
-export const GET = withAuth(async (req, user) => {
-  try {
-    const providerId = user.role === 'provider' ? user.providerId : undefined;
-    const templates = await getFormTemplates(providerId);
+export const GET = withAuth(
+  async (req, user) => {
+    try {
+      const providerId = user.role === 'provider' ? user.providerId : undefined;
+      const templates = await getFormTemplates(providerId);
 
-    return NextResponse.json({
-      templates,
-      meta: {
-        count: templates.length,
-        accessedBy: user.email,
-        role: user.role,
-      },
-    });
-  } catch (error: unknown) {
-
-    logger.error('Failed to get form templates', error);
-    return NextResponse.json({ error: 'Failed to get form templates' }, { status: 500 });
-  }
-}, { roles: ['super_admin', 'admin', 'provider', 'sales_rep'] });
+      return NextResponse.json({
+        templates,
+        meta: {
+          count: templates.length,
+          accessedBy: user.email,
+          role: user.role,
+        },
+      });
+    } catch (error: unknown) {
+      logger.error('Failed to get form templates', error);
+      return NextResponse.json({ error: 'Failed to get form templates' }, { status: 500 });
+    }
+  },
+  { roles: ['super_admin', 'admin', 'provider', 'sales_rep'] }
+);
 
 /**
  * POST /api/intake-forms/templates
@@ -98,7 +100,6 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
       message: 'Form template created successfully',
     });
   } catch (error: unknown) {
-
     logger.error('Failed to create form template', error);
     return NextResponse.json({ error: 'Failed to create form template' }, { status: 500 });
   }

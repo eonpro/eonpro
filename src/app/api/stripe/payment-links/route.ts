@@ -82,7 +82,12 @@ async function handleGet(request: NextRequest, user: AuthUser) {
           // Line items might not be accessible
           logger.warn('[STRIPE PAYMENT LINKS] Failed to fetch line items', {
             linkId: link.id,
-            error: error instanceof Error ? error instanceof Error ? error.message : String(error) : 'Unknown error',
+            error:
+              error instanceof Error
+                ? error instanceof Error
+                  ? error.message
+                  : String(error)
+                : 'Unknown error',
           });
         }
 
@@ -137,7 +142,10 @@ async function handleGet(request: NextRequest, user: AuthUser) {
     logger.error('[STRIPE PAYMENT LINKS] Error:', error);
 
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : String(error) || 'Failed to fetch payment links' },
+      {
+        error:
+          error instanceof Error ? error.message : String(error) || 'Failed to fetch payment links',
+      },
       { status: 500 }
     );
   }
@@ -244,7 +252,10 @@ async function handlePost(request: NextRequest, user: AuthUser) {
     }
 
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : String(error) || 'Failed to create payment link' },
+      {
+        error:
+          error instanceof Error ? error.message : String(error) || 'Failed to create payment link',
+      },
       { status: 500 }
     );
   }

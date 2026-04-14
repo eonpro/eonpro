@@ -124,7 +124,10 @@ async function handlePut(req: NextRequest, user: AuthUser, context: RouteContext
           description: validated.description || undefined,
         });
       } catch (stripeError: unknown) {
-        logger.warn('[Products API] Failed to update Stripe product:', (stripeError as any).message);
+        logger.warn(
+          '[Products API] Failed to update Stripe product:',
+          (stripeError as any).message
+        );
       }
     }
 
@@ -235,7 +238,10 @@ async function handleDelete(req: NextRequest, user: AuthUser, context: RouteCont
           await getStripe().prices.update(existingProduct.stripePriceId, { active: false });
         }
       } catch (stripeError: unknown) {
-        logger.warn('[Products API] Failed to archive Stripe product:', (stripeError as any).message);
+        logger.warn(
+          '[Products API] Failed to archive Stripe product:',
+          (stripeError as any).message
+        );
       }
     }
 
@@ -254,6 +260,8 @@ async function handleDelete(req: NextRequest, user: AuthUser, context: RouteCont
   }
 }
 
-export const GET = withAuthParams(handleGet, { roles: ['super_admin', 'admin', 'provider', 'sales_rep'] });
+export const GET = withAuthParams(handleGet, {
+  roles: ['super_admin', 'admin', 'provider', 'sales_rep'],
+});
 export const PUT = withAuthParams(handlePut, { roles: ['super_admin', 'admin'] });
 export const DELETE = withAuthParams(handleDelete, { roles: ['super_admin', 'admin'] });

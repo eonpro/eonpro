@@ -29,7 +29,7 @@ const VerificationCaptureOverlay = dynamic(
         <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/20 border-t-white" />
       </div>
     ),
-  },
+  }
 );
 
 // =============================================================================
@@ -149,7 +149,7 @@ export default function IDVerificationPage() {
     try {
       setLoading(true);
       const response = await portalFetch(
-        '/api/patient-portal/photos?type=ID_FRONT&type=ID_BACK&type=SELFIE',
+        '/api/patient-portal/photos?type=ID_FRONT&type=ID_BACK&type=SELFIE'
       );
       if (!response.ok) throw new Error('Failed to load verification status');
       const data = await safeParseJson(response);
@@ -174,7 +174,8 @@ export default function IDVerificationPage() {
     fetchPhotos();
   }, [fetchPhotos]);
 
-  const getPhoto = (type: PatientPhotoType): Photo | undefined => photos.find((p) => p.type === type);
+  const getPhoto = (type: PatientPhotoType): Photo | undefined =>
+    photos.find((p) => p.type === type);
 
   const getOverallStatus = (): PatientPhotoVerificationStatus => {
     const trio = [getPhoto('ID_FRONT'), getPhoto('ID_BACK'), getPhoto('SELFIE')];
@@ -188,7 +189,9 @@ export default function IDVerificationPage() {
 
   const stepsNeeded = CAPTURE_STEPS.filter((s) => {
     const photo = getPhoto(s.type);
-    return !photo || photo.verificationStatus === 'REJECTED' || photo.verificationStatus === 'EXPIRED';
+    return (
+      !photo || photo.verificationStatus === 'REJECTED' || photo.verificationStatus === 'EXPIRED'
+    );
   });
 
   const overallStatus = getOverallStatus();
@@ -240,7 +243,10 @@ export default function IDVerificationPage() {
         <p className="mb-2 font-medium text-red-600">Error</p>
         <p className="mb-4 text-sm text-gray-500">{error}</p>
         <button
-          onClick={() => { setError(null); fetchPhotos(); }}
+          onClick={() => {
+            setError(null);
+            fetchPhotos();
+          }}
           className="rounded-lg bg-red-100 px-4 py-2 font-medium text-red-700 hover:bg-red-200"
         >
           Try Again
@@ -257,7 +263,10 @@ export default function IDVerificationPage() {
           steps={stepsNeeded}
           primaryColor={primaryColor}
           onComplete={handleCaptureComplete}
-          onCancel={() => { setCaptureActive(false); fetchPhotos(); }}
+          onCancel={() => {
+            setCaptureActive(false);
+            fetchPhotos();
+          }}
         />
       )}
 
@@ -421,15 +430,16 @@ export default function IDVerificationPage() {
       </div>
 
       {/* Refresh button for pending/in-review */}
-      {(overallStatus === 'PENDING' || overallStatus === 'IN_REVIEW') && stepsNeeded.length === 0 && (
-        <button
-          onClick={fetchPhotos}
-          className="mt-4 flex w-full items-center justify-center gap-2 py-3 text-sm font-medium text-gray-500 hover:text-gray-700"
-        >
-          <RefreshCw className="h-4 w-4" />
-          Check verification status
-        </button>
-      )}
+      {(overallStatus === 'PENDING' || overallStatus === 'IN_REVIEW') &&
+        stepsNeeded.length === 0 && (
+          <button
+            onClick={fetchPhotos}
+            className="mt-4 flex w-full items-center justify-center gap-2 py-3 text-sm font-medium text-gray-500 hover:text-gray-700"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Check verification status
+          </button>
+        )}
     </div>
   );
 }

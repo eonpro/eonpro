@@ -36,7 +36,7 @@ export default function CsatPage() {
 
   useEffect(() => {
     fetch(`/api/csat/${token}`)
-      .then((r) => r.ok ? r.json() : Promise.reject('Not found'))
+      .then((r) => (r.ok ? r.json() : Promise.reject('Not found')))
       .then((d) => setSurvey(d.survey))
       .catch(() => setError('Survey not found'))
       .finally(() => setLoading(false));
@@ -102,7 +102,8 @@ export default function CsatPage() {
           <CheckCircle className="mx-auto h-12 w-12 text-green-500" />
           <h1 className="mt-4 text-xl font-semibold text-gray-900">Thank You!</h1>
           <p className="mt-2 text-gray-500">
-            Your feedback helps us improve our support. We appreciate you taking the time to respond.
+            Your feedback helps us improve our support. We appreciate you taking the time to
+            respond.
           </p>
         </div>
       </div>

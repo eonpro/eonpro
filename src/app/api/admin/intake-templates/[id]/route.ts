@@ -43,7 +43,7 @@ export const GET = withAuth<RouteParams>(
       return handleApiError(error, { context: { route: 'GET /api/admin/intake-templates/[id]' } });
     }
   },
-  { roles: ['admin', 'super_admin'] },
+  { roles: ['admin', 'super_admin'] }
 );
 
 const updateSchema = z.object({
@@ -70,7 +70,7 @@ export const PUT = withAuth<RouteParams>(
       if (!parsed.success) {
         return NextResponse.json(
           { error: 'Validation failed', details: parsed.error.flatten() },
-          { status: 400 },
+          { status: 400 }
         );
       }
 
@@ -89,9 +89,7 @@ export const PUT = withAuth<RouteParams>(
         data: {
           ...updateData,
           version: formConfig ? existing.version + 1 : existing.version,
-          metadata: formConfig
-            ? ({ ...currentMetadata, formConfig } as any)
-            : existing.metadata,
+          metadata: formConfig ? ({ ...currentMetadata, formConfig } as any) : existing.metadata,
         },
       });
 
@@ -106,7 +104,7 @@ export const PUT = withAuth<RouteParams>(
       return handleApiError(error, { context: { route: 'PUT /api/admin/intake-templates/[id]' } });
     }
   },
-  { roles: ['admin', 'super_admin'] },
+  { roles: ['admin', 'super_admin'] }
 );
 
 export const DELETE = withAuth<RouteParams>(
@@ -140,8 +138,10 @@ export const DELETE = withAuth<RouteParams>(
 
       return NextResponse.json({ success: true });
     } catch (error) {
-      return handleApiError(error, { context: { route: 'DELETE /api/admin/intake-templates/[id]' } });
+      return handleApiError(error, {
+        context: { route: 'DELETE /api/admin/intake-templates/[id]' },
+      });
     }
   },
-  { roles: ['admin', 'super_admin'] },
+  { roles: ['admin', 'super_admin'] }
 );

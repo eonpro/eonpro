@@ -10,11 +10,7 @@ interface CheckboxFieldProps {
   className?: string;
 }
 
-export default function CheckboxField({
-  name,
-  label,
-  className,
-}: CheckboxFieldProps) {
+export default function CheckboxField({ name, label, className }: CheckboxFieldProps) {
   const {
     control,
     formState: { errors },
@@ -27,21 +23,15 @@ export default function CheckboxField({
         name={name}
         control={control}
         render={({ field: { value, onChange } }) => (
-          <label className="flex gap-4 cursor-pointer transition-all">
+          <label className="flex cursor-pointer gap-4 transition-all">
             <div
               className={cn(
-                'w-6 h-6 rounded border-2 flex items-center justify-center',
-                value
-                  ? 'border-primary bg-primary text-white'
-                  : 'border-border',
+                'flex h-6 w-6 items-center justify-center rounded border-2',
+                value ? 'border-primary bg-primary text-white' : 'border-border'
               )}
             >
               {value ? (
-                <svg
-                  className="w-5 h-5"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
+                <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
                   <path
                     fillRule="evenodd"
                     d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
@@ -49,7 +39,7 @@ export default function CheckboxField({
                   />
                 </svg>
               ) : (
-                <span aria-hidden className="w-5 h-5"></span> // Placeholder to maintain size
+                <span aria-hidden className="h-5 w-5"></span> // Placeholder to maintain size
               )}
             </div>
 
@@ -66,7 +56,7 @@ export default function CheckboxField({
           </label>
         )}
       />
-      {error && <span className="block text-red-500 text-sm">{error}</span>}
+      {error && <span className="block text-sm text-red-500">{error}</span>}
     </div>
   );
 }

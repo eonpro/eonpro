@@ -148,7 +148,6 @@ export function FileUploader({
             });
           }
         } catch (error: unknown) {
-          
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
           logger.error('Upload error:', error);
 
@@ -230,7 +229,6 @@ export function FileUploader({
         removeFile(file.id);
       }
     } catch (error: unknown) {
-      
       logger.error('Delete error:', error);
     }
   };

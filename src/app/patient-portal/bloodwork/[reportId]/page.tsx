@@ -75,9 +75,7 @@ export default function PatientPortalBloodworkReportPage({
         if (cancelled) return;
         if (res.ok) {
           const data = await safeParseJson(res);
-          setReport(
-            data !== null && typeof data === 'object' ? (data as ReportDetail) : null
-          );
+          setReport(data !== null && typeof data === 'object' ? (data as ReportDetail) : null);
         } else {
           setError('Report not found');
         }

@@ -61,11 +61,11 @@ export default function DoseSpotPrescriber({
         type="button"
         onClick={openPrescriber}
         disabled={loading}
-        className="inline-flex items-center gap-2 rounded-lg bg-[#4fa77e] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#3f8660] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4fa77e] disabled:opacity-50 disabled:cursor-not-allowed"
+        className="inline-flex items-center gap-2 rounded-lg bg-[#4fa77e] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#3f8660] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4fa77e] disabled:cursor-not-allowed disabled:opacity-50"
       >
         {loading ? (
           <svg
-            className="animate-spin h-4 w-4 text-white"
+            className="h-4 w-4 animate-spin text-white"
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             viewBox="0 0 24 24"
@@ -102,9 +102,7 @@ export default function DoseSpotPrescriber({
         Prescribe Externally
       </button>
 
-      {error && (
-        <p className="mt-2 text-sm text-red-600">{error}</p>
-      )}
+      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
 
       <Transition appear show={isOpen} as={Fragment}>
         <Dialog as="div" className="relative z-50" onClose={handleClose}>
@@ -136,9 +134,7 @@ export default function DoseSpotPrescriber({
                     <Dialog.Title className="text-lg font-semibold text-gray-900">
                       DoseSpot E-Prescribe
                       {patientName && (
-                        <span className="ml-2 text-gray-500 font-normal">
-                          — {patientName}
-                        </span>
+                        <span className="ml-2 font-normal text-gray-500">— {patientName}</span>
                       )}
                     </Dialog.Title>
                     <button
@@ -167,13 +163,13 @@ export default function DoseSpotPrescriber({
                     {ssoUrl ? (
                       <iframe
                         src={ssoUrl}
-                        className="w-full h-full border-0"
+                        className="h-full w-full border-0"
                         title="DoseSpot E-Prescribing"
                         allow="clipboard-write"
                         sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation"
                       />
                     ) : (
-                      <div className="flex items-center justify-center h-full">
+                      <div className="flex h-full items-center justify-center">
                         <p className="text-gray-500">Loading DoseSpot...</p>
                       </div>
                     )}

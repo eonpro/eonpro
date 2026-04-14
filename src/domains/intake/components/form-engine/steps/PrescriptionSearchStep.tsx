@@ -34,7 +34,12 @@ export default function PrescriptionSearchStep({
 
   const existing = String(responses.prescription_details ?? '');
   const [items, setItems] = useState<string[]>(() =>
-    existing ? existing.split(',').map((s) => s.trim()).filter(Boolean) : [],
+    existing
+      ? existing
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : []
   );
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<DrugResult[]>([]);
@@ -46,7 +51,10 @@ export default function PrescriptionSearchStep({
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const fetchResults = useCallback(async (q: string) => {
-    if (q.length < 2) { setResults([]); return; }
+    if (q.length < 2) {
+      setResults([]);
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch(`/api/intake-forms/drug-search?q=${encodeURIComponent(q)}`);
@@ -54,50 +62,81 @@ export default function PrescriptionSearchStep({
         const data = await res.json();
         setResults(data.results ?? []);
       }
-    } catch { /* ignore */ } finally {
+    } catch {
+      /* ignore */
+    } finally {
       setLoading(false);
     }
   }, []);
 
-  const handleQueryChange = useCallback((text: string) => {
-    setQuery(text);
-    setActiveIndex(-1);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (text.trim().length >= 2) {
-      debounceRef.current = setTimeout(() => fetchResults(text.trim()), 300);
-      setIsOpen(true);
-    } else {
+  const handleQueryChange = useCallback(
+    (text: string) => {
+      setQuery(text);
+      setActiveIndex(-1);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (text.trim().length >= 2) {
+        debounceRef.current = setTimeout(() => fetchResults(text.trim()), 300);
+        setIsOpen(true);
+      } else {
+        setResults([]);
+        setIsOpen(false);
+      }
+    },
+    [fetchResults]
+  );
+
+  const addItem = useCallback(
+    (name: string) => {
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      if (items.some((it) => it.toLowerCase() === trimmed.toLowerCase())) return;
+      setItems((prev) => [...prev, trimmed]);
+      setQuery('');
       setResults([]);
       setIsOpen(false);
-    }
-  }, [fetchResults]);
-
-  const addItem = useCallback((name: string) => {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    if (items.some((it) => it.toLowerCase() === trimmed.toLowerCase())) return;
-    setItems((prev) => [...prev, trimmed]);
-    setQuery('');
-    setResults([]);
-    setIsOpen(false);
-    setActiveIndex(-1);
-    inputRef.current?.focus();
-  }, [items]);
+      setActiveIndex(-1);
+      inputRef.current?.focus();
+    },
+    [items]
+  );
 
   const removeItem = useCallback((index: number) => {
     setItems((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (isOpen && results.length > 0) {
-      if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIndex((i) => (i < results.length - 1 ? i + 1 : 0)); return; }
-      if (e.key === 'ArrowUp') { e.preventDefault(); setActiveIndex((i) => (i > 0 ? i - 1 : results.length - 1)); return; }
-      if (e.key === 'Enter' && activeIndex >= 0) { e.preventDefault(); addItem(results[activeIndex].name); return; }
-      if (e.key === 'Escape') { setIsOpen(false); return; }
-    }
-    if (e.key === 'Enter' && query.trim()) { e.preventDefault(); addItem(query); }
-    if (e.key === 'Backspace' && !query && items.length > 0) { removeItem(items.length - 1); }
-  }, [isOpen, results, activeIndex, query, items, addItem, removeItem]);
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (isOpen && results.length > 0) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          setActiveIndex((i) => (i < results.length - 1 ? i + 1 : 0));
+          return;
+        }
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          setActiveIndex((i) => (i > 0 ? i - 1 : results.length - 1));
+          return;
+        }
+        if (e.key === 'Enter' && activeIndex >= 0) {
+          e.preventDefault();
+          addItem(results[activeIndex].name);
+          return;
+        }
+        if (e.key === 'Escape') {
+          setIsOpen(false);
+          return;
+        }
+      }
+      if (e.key === 'Enter' && query.trim()) {
+        e.preventDefault();
+        addItem(query);
+      }
+      if (e.key === 'Backspace' && !query && items.length > 0) {
+        removeItem(items.length - 1);
+      }
+    },
+    [isOpen, results, activeIndex, query, items, addItem, removeItem]
+  );
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -127,11 +166,13 @@ export default function PrescriptionSearchStep({
   const chipBg = isOt ? 'bg-[#f5ecd8]' : 'bg-emerald-50';
   const chipText = isOt ? 'text-[#413d3d]' : 'text-emerald-800';
   const chipRing = isOt ? 'ring-[#cab172]/30' : 'ring-emerald-200';
-  const chipClose = isOt ? 'text-[#cab172] hover:bg-[#f5ecd8] hover:text-[#413d3d]' : 'text-emerald-500 hover:bg-emerald-100 hover:text-emerald-700';
+  const chipClose = isOt
+    ? 'text-[#cab172] hover:bg-[#f5ecd8] hover:text-[#413d3d]'
+    : 'text-emerald-500 hover:bg-emerald-100 hover:text-emerald-700';
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
-      <div className="w-full h-1 bg-gray-100">
+    <div className="flex min-h-screen flex-col bg-white">
+      <div className="h-1 w-full bg-gray-100">
         <div
           className="h-full bg-[var(--intake-accent,#f0feab)] transition-all duration-300"
           style={{ width: `${progressPercent}%` }}
@@ -139,16 +180,29 @@ export default function PrescriptionSearchStep({
       </div>
 
       {prevStep && (
-        <div className="px-6 lg:px-8 pt-6 max-w-md lg:max-w-2xl mx-auto w-full">
-          <button onClick={handleBack} className="inline-block p-2 -ml-2 hover:bg-gray-100 rounded-lg">
-            <svg className="w-6 h-6 text-[#413d3d]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+        <div className="mx-auto w-full max-w-md px-6 pt-6 lg:max-w-2xl lg:px-8">
+          <button
+            onClick={handleBack}
+            className="-ml-2 inline-block rounded-lg p-2 hover:bg-gray-100"
+          >
+            <svg
+              className="h-6 w-6 text-[#413d3d]"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
           </button>
         </div>
       )}
 
-      <div className="flex-1 px-6 lg:px-8 py-4 pb-48 max-w-md lg:max-w-2xl mx-auto w-full">
+      <div className="mx-auto w-full max-w-md flex-1 px-6 py-4 pb-48 lg:max-w-2xl lg:px-8">
         <div className="space-y-4">
           <div>
             <h1 className="page-title mb-2">
@@ -157,9 +211,7 @@ export default function PrescriptionSearchStep({
                 : 'What prescription medications are you currently taking?'}
             </h1>
             <p className="page-subtitle text-sm">
-              {isSpanish
-                ? 'Busca y agrega cada medicamento.'
-                : 'Search and add each medication.'}
+              {isSpanish ? 'Busca y agrega cada medicamento.' : 'Search and add each medication.'}
             </p>
           </div>
 
@@ -175,7 +227,9 @@ export default function PrescriptionSearchStep({
                 value={query}
                 onChange={(e) => handleQueryChange(e.target.value)}
                 onKeyDown={handleKeyDown}
-                onFocus={() => { if (query.length >= 2 && results.length > 0) setIsOpen(true); }}
+                onFocus={() => {
+                  if (query.length >= 2 && results.length > 0) setIsOpen(true);
+                }}
                 placeholder={isSpanish ? 'Buscar medicamentos...' : 'Search medications...'}
                 className="flex-1 border-none bg-transparent text-sm font-medium text-[#1f2937] outline-none placeholder:text-gray-400"
               />
@@ -195,7 +249,11 @@ export default function PrescriptionSearchStep({
                     type="button"
                     onClick={() => addItem(drug.name)}
                     className={`flex w-full items-start gap-2 px-3 py-2 text-left text-sm transition-colors ${
-                      i === activeIndex ? (isOt ? 'bg-[#f5ecd8]' : 'bg-emerald-50') : 'hover:bg-gray-50'
+                      i === activeIndex
+                        ? isOt
+                          ? 'bg-[#f5ecd8]'
+                          : 'bg-emerald-50'
+                        : 'hover:bg-gray-50'
                     }`}
                   >
                     <div className="min-w-0 flex-1">
@@ -228,8 +286,18 @@ export default function PrescriptionSearchStep({
                     onClick={() => removeItem(i)}
                     className={`ml-0.5 rounded-full p-0.5 ${chipClose}`}
                   >
-                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    <svg
+                      className="h-3.5 w-3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
                     </svg>
                   </button>
                 </span>
@@ -239,14 +307,10 @@ export default function PrescriptionSearchStep({
         </div>
       </div>
 
-      <div className="sticky-bottom-button max-w-md lg:max-w-2xl mx-auto w-full">
-        <button
-          onClick={handleContinue}
-          disabled={items.length === 0}
-          className="continue-button"
-        >
+      <div className="sticky-bottom-button mx-auto w-full max-w-md lg:max-w-2xl">
+        <button onClick={handleContinue} disabled={items.length === 0} className="continue-button">
           <span>{isSpanish ? 'Continuar' : 'Continue'}</span>
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
           </svg>
         </button>

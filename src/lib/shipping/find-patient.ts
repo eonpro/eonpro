@@ -110,7 +110,9 @@ async function findBestOrderForPatient(
   });
 
   if (untrackedOrder) {
-    logger.info(`[${webhookTag}] Found untracked order ${untrackedOrder.id} for patient ${patientId}`);
+    logger.info(
+      `[${webhookTag}] Found untracked order ${untrackedOrder.id} for patient ${patientId}`
+    );
     return untrackedOrder;
   }
 

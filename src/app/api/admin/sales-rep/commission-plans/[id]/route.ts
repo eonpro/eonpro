@@ -165,9 +165,15 @@ export const PATCH = withAuth(
         return null;
       };
       if (multiItemBonusEnabled === true) {
-        if (multiItemBonusType !== undefined && multiItemBonusType !== 'PERCENT' && multiItemBonusType !== 'FLAT') {
+        if (
+          multiItemBonusType !== undefined &&
+          multiItemBonusType !== 'PERCENT' &&
+          multiItemBonusType !== 'FLAT'
+        ) {
           return NextResponse.json(
-            { error: 'multiItemBonusType must be PERCENT or FLAT when multi-item bonus is enabled' },
+            {
+              error: 'multiItemBonusType must be PERCENT or FLAT when multi-item bonus is enabled',
+            },
             { status: 400 }
           );
         }
@@ -179,7 +185,11 @@ export const PATCH = withAuth(
           const err = validateCents(multiItemBonusFlatCents, 'multiItemBonusFlatCents');
           if (err) return NextResponse.json({ error: err }, { status: 400 });
         }
-        if (multiItemMinQuantity !== undefined && multiItemMinQuantity !== null && (multiItemMinQuantity < 2 || multiItemMinQuantity > 99)) {
+        if (
+          multiItemMinQuantity !== undefined &&
+          multiItemMinQuantity !== null &&
+          (multiItemMinQuantity < 2 || multiItemMinQuantity > 99)
+        ) {
           return NextResponse.json(
             { error: 'multiItemMinQuantity must be between 2 and 99' },
             { status: 400 }
@@ -201,11 +211,12 @@ export const PATCH = withAuth(
       }
 
       const effectiveVolumeTierEnabled =
-        volumeTierEnabled !== undefined ? Boolean(volumeTierEnabled) : existingPlan.volumeTierEnabled;
+        volumeTierEnabled !== undefined
+          ? Boolean(volumeTierEnabled)
+          : existingPlan.volumeTierEnabled;
       const effectiveVolumeTierWindow =
         volumeTierWindow !== undefined ? volumeTierWindow : existingPlan.volumeTierWindow;
-      const effectivePlanType =
-        planType !== undefined ? planType : existingPlan.planType;
+      const effectivePlanType = planType !== undefined ? planType : existingPlan.planType;
       const effectiveVolumeTierBasis =
         volumeTierBasis === VOLUME_TIER_BASIS_WEEKLY_REVENUE
           ? VOLUME_TIER_BASIS_WEEKLY_REVENUE
@@ -231,7 +242,8 @@ export const PATCH = withAuth(
       ) {
         return NextResponse.json(
           {
-            error: 'volumeTierWindow must be CALENDAR_WEEK_MON_SUN or REPORT_PERIOD when volume tiers are enabled',
+            error:
+              'volumeTierWindow must be CALENDAR_WEEK_MON_SUN or REPORT_PERIOD when volume tiers are enabled',
           },
           { status: 400 }
         );
@@ -288,9 +300,12 @@ export const PATCH = withAuth(
         }
       }
       if (multiItemBonusType !== undefined) updateData.multiItemBonusType = multiItemBonusType;
-      if (multiItemBonusPercentBps !== undefined) updateData.multiItemBonusPercentBps = multiItemBonusPercentBps;
-      if (multiItemBonusFlatCents !== undefined) updateData.multiItemBonusFlatCents = multiItemBonusFlatCents;
-      if (multiItemMinQuantity !== undefined) updateData.multiItemMinQuantity = multiItemMinQuantity;
+      if (multiItemBonusPercentBps !== undefined)
+        updateData.multiItemBonusPercentBps = multiItemBonusPercentBps;
+      if (multiItemBonusFlatCents !== undefined)
+        updateData.multiItemBonusFlatCents = multiItemBonusFlatCents;
+      if (multiItemMinQuantity !== undefined)
+        updateData.multiItemMinQuantity = multiItemMinQuantity;
       if (volumeTierEnabled !== undefined) {
         updateData.volumeTierEnabled = volumeTierEnabled;
         if (volumeTierEnabled === false) {
@@ -302,7 +317,8 @@ export const PATCH = withAuth(
         updateData.volumeTierBasis = effectiveVolumeTierBasis;
       }
       if (volumeTierWindow !== undefined) updateData.volumeTierWindow = volumeTierWindow;
-      if (volumeTierRetroactive !== undefined) updateData.volumeTierRetroactive = volumeTierRetroactive;
+      if (volumeTierRetroactive !== undefined)
+        updateData.volumeTierRetroactive = volumeTierRetroactive;
 
       const updatedPlan = await runWithClinicContext(existingPlan.clinicId, async () => {
         const plan = await prisma.salesRepCommissionPlan.update({

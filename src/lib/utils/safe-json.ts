@@ -33,10 +33,7 @@ export async function safeParseJson(response: Response): Promise<unknown | null>
 /**
  * Parse response body as JSON, or return a fallback value on parse failure.
  */
-export async function safeParseJsonOr<T>(
-  response: Response,
-  fallback: T
-): Promise<unknown | T> {
+export async function safeParseJsonOr<T>(response: Response, fallback: T): Promise<unknown | T> {
   const result = await safeParseJson(response);
   return result !== null ? result : fallback;
 }

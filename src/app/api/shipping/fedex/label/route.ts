@@ -123,13 +123,23 @@ async function handleCreateLabel(req: NextRequest, user: AuthUser) {
     }
     const parsed = createLabelSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: 'Validation failed' },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: 'Validation failed' }, { status: 400 });
     }
 
-    const { patientId, origin, destination, serviceType, packagingType, weightLbs, length, width, height, oneRate, labelFormat, orderId } = parsed.data;
+    const {
+      patientId,
+      origin,
+      destination,
+      serviceType,
+      packagingType,
+      weightLbs,
+      length,
+      width,
+      height,
+      oneRate,
+      labelFormat,
+      orderId,
+    } = parsed.data;
 
     const validService = FEDEX_SERVICE_TYPES.find((s) => s.code === serviceType);
     if (!validService) {
@@ -181,7 +191,7 @@ async function handleCreateLabel(req: NextRequest, user: AuthUser) {
     } catch {
       return NextResponse.json(
         { error: 'FedEx credentials not configured. Contact your administrator.' },
-        { status: 422 },
+        { status: 422 }
       );
     }
 
@@ -235,86 +245,89 @@ async function handleCreateLabel(req: NextRequest, user: AuthUser) {
 
     let label;
     try {
-    label = await prisma.$transaction(async (tx) => {
-      const shipmentLabel = await tx.shipmentLabel.create({
-        data: {
-          clinicId,
-          patientId,
-          userId: user.id,
-          trackingNumber: result.trackingNumber,
-          shipmentId: result.shipmentId,
-          serviceType: result.serviceType,
-          originAddress: encryptAddressJson(origin as Record<string, unknown>) as any,
-          destinationAddress: encryptAddressJson(destination as Record<string, unknown>) as any,
-          weightLbs,
-          length: length ?? null,
-          width: width ?? null,
-          height: height ?? null,
-          labelS3Key: s3Key,
-          labelPdfBase64: result.labelPdfBase64,
-          labelFormat: result.labelFormat,
-          orderId: orderId ?? null,
-        },
-      });
-
-      let medName: string | undefined;
-      let medStrength: string | undefined;
-
-      if (orderId) {
-        const order = await tx.order.findUnique({
-          where: { id: orderId },
-          select: { id: true, patientId: true, primaryMedName: true, primaryMedStrength: true },
-        });
-
-        if (order && order.patientId === patientId) {
-          await tx.order.update({
-            where: { id: orderId },
+      label = await prisma.$transaction(
+        async (tx) => {
+          const shipmentLabel = await tx.shipmentLabel.create({
             data: {
+              clinicId,
+              patientId,
+              userId: user.id,
               trackingNumber: result.trackingNumber,
-              trackingUrl,
-              shippingStatus: 'LABEL_CREATED',
-              lastWebhookAt: new Date(),
+              shipmentId: result.shipmentId,
+              serviceType: result.serviceType,
+              originAddress: encryptAddressJson(origin as Record<string, unknown>) as any,
+              destinationAddress: encryptAddressJson(destination as Record<string, unknown>) as any,
+              weightLbs,
+              length: length ?? null,
+              width: width ?? null,
+              height: height ?? null,
+              labelS3Key: s3Key,
+              labelPdfBase64: result.labelPdfBase64,
+              labelFormat: result.labelFormat,
+              orderId: orderId ?? null,
             },
           });
-          medName = order.primaryMedName || undefined;
-          medStrength = order.primaryMedStrength || undefined;
-        }
-      }
 
-      await tx.patientShippingUpdate.create({
-        data: {
-          clinicId,
-          patientId,
-          orderId: orderId ?? null,
-          trackingNumber: result.trackingNumber,
-          carrier: 'FedEx',
-          trackingUrl,
-          status: 'LABEL_CREATED',
-          statusNote: `FedEx ${validService.label} label created`,
-          shippedAt: new Date(),
-          medicationName: medName,
-          medicationStrength: medStrength,
-          source: 'fedex_label',
-          matchedAt: orderId ? new Date() : null,
-          matchStrategy: orderId ? 'fedex_label_creation' : null,
-          processedAt: new Date(),
-          rawPayload: {
-            labelId: shipmentLabel.id,
-            serviceType,
-            createdBy: user.id,
-            linkedToOrder: !!orderId,
-            fedexRouting: {
-              credentialSource: resolution.source,
-              fedexEnvironment: resolution.environment,
-              accountFingerprint: resolution.accountFingerprint,
-              usedEnvFallback: resolution.usedEnvFallback,
+          let medName: string | undefined;
+          let medStrength: string | undefined;
+
+          if (orderId) {
+            const order = await tx.order.findUnique({
+              where: { id: orderId },
+              select: { id: true, patientId: true, primaryMedName: true, primaryMedStrength: true },
+            });
+
+            if (order && order.patientId === patientId) {
+              await tx.order.update({
+                where: { id: orderId },
+                data: {
+                  trackingNumber: result.trackingNumber,
+                  trackingUrl,
+                  shippingStatus: 'LABEL_CREATED',
+                  lastWebhookAt: new Date(),
+                },
+              });
+              medName = order.primaryMedName || undefined;
+              medStrength = order.primaryMedStrength || undefined;
+            }
+          }
+
+          await tx.patientShippingUpdate.create({
+            data: {
+              clinicId,
+              patientId,
+              orderId: orderId ?? null,
+              trackingNumber: result.trackingNumber,
+              carrier: 'FedEx',
+              trackingUrl,
+              status: 'LABEL_CREATED',
+              statusNote: `FedEx ${validService.label} label created`,
+              shippedAt: new Date(),
+              medicationName: medName,
+              medicationStrength: medStrength,
+              source: 'fedex_label',
+              matchedAt: orderId ? new Date() : null,
+              matchStrategy: orderId ? 'fedex_label_creation' : null,
+              processedAt: new Date(),
+              rawPayload: {
+                labelId: shipmentLabel.id,
+                serviceType,
+                createdBy: user.id,
+                linkedToOrder: !!orderId,
+                fedexRouting: {
+                  credentialSource: resolution.source,
+                  fedexEnvironment: resolution.environment,
+                  accountFingerprint: resolution.accountFingerprint,
+                  usedEnvFallback: resolution.usedEnvFallback,
+                },
+              } as any,
             },
-          } as any,
-        },
-      });
+          });
 
-      return shipmentLabel;
-    }, { timeout: 15000 });
+          return shipmentLabel;
+        },
+        { timeout: 15000 }
+      );
     } catch (txErr) {
       if (isShippingSchemaMissing(txErr)) {
         logger.warn('[FedExLabel] ShipmentLabel table not available', { clinicId, patientId });
@@ -476,7 +489,7 @@ async function handleGetLabel(req: NextRequest, user: AuthUser) {
     if (!labelPdf) {
       return NextResponse.json(
         { error: 'Label PDF not available. It may not have been stored for this shipment.' },
-        { status: 404 },
+        { status: 404 }
       );
     }
 
@@ -546,16 +559,16 @@ async function handleVoidLabel(req: NextRequest, user: AuthUser) {
 
     let clinic;
     try {
-    clinic = await prisma.clinic.findUnique({
-      where: { id: label.clinicId },
-      select: {
-        id: true,
-        fedexClientId: true,
-        fedexClientSecret: true,
-        fedexAccountNumber: true,
-        fedexEnabled: true,
-      },
-    });
+      clinic = await prisma.clinic.findUnique({
+        where: { id: label.clinicId },
+        select: {
+          id: true,
+          fedexClientId: true,
+          fedexClientSecret: true,
+          fedexAccountNumber: true,
+          fedexEnabled: true,
+        },
+      });
     } catch (dbErr) {
       if (isShippingSchemaMissing(dbErr)) {
         return NextResponse.json({ error: SHIPPING_SCHEMA_ERROR }, { status: 422 });
@@ -570,44 +583,44 @@ async function handleVoidLabel(req: NextRequest, user: AuthUser) {
         allowEnvFallback,
       });
     } catch {
-      return NextResponse.json(
-        { error: 'FedEx credentials not configured' },
-        { status: 422 },
-      );
+      return NextResponse.json({ error: 'FedEx credentials not configured' }, { status: 422 });
     }
 
     await cancelShipment(resolution.credentials, label.trackingNumber);
 
-    await prisma.$transaction(async (tx) => {
-      await tx.shipmentLabel.update({
-        where: { id: label.id },
-        data: {
-          status: 'VOIDED',
-          voidedAt: new Date(),
-          voidedBy: user.id,
-        },
-      });
-
-      if (label.orderId) {
-        await tx.order.update({
-          where: { id: label.orderId },
+    await prisma.$transaction(
+      async (tx) => {
+        await tx.shipmentLabel.update({
+          where: { id: label.id },
           data: {
-            trackingNumber: null,
-            trackingUrl: null,
-            shippingStatus: null,
+            status: 'VOIDED',
+            voidedAt: new Date(),
+            voidedBy: user.id,
           },
         });
 
-        await tx.patientShippingUpdate.updateMany({
-          where: {
-            orderId: label.orderId,
-            trackingNumber: label.trackingNumber,
-            source: 'fedex_label',
-          },
-          data: { status: 'CANCELLED' },
-        });
-      }
-    }, { timeout: 10000 });
+        if (label.orderId) {
+          await tx.order.update({
+            where: { id: label.orderId },
+            data: {
+              trackingNumber: null,
+              trackingUrl: null,
+              shippingStatus: null,
+            },
+          });
+
+          await tx.patientShippingUpdate.updateMany({
+            where: {
+              orderId: label.orderId,
+              trackingNumber: label.trackingNumber,
+              source: 'fedex_label',
+            },
+            data: { status: 'CANCELLED' },
+          });
+        }
+      },
+      { timeout: 10000 }
+    );
 
     logger.info('FedEx label voided', {
       labelId: label.id,

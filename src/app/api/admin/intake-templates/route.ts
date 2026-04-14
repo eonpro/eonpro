@@ -54,7 +54,7 @@ export const GET = withAuth(
       return handleApiError(error, { context: { route: 'GET /api/admin/intake-templates' } });
     }
   },
-  { roles: ['admin', 'super_admin'] },
+  { roles: ['admin', 'super_admin'] }
 );
 
 export const POST = withAuth(
@@ -65,7 +65,7 @@ export const POST = withAuth(
       if (!parsed.success) {
         return NextResponse.json(
           { error: 'Validation failed', details: parsed.error.flatten() },
-          { status: 400 },
+          { status: 400 }
         );
       }
 
@@ -100,5 +100,5 @@ export const POST = withAuth(
       return handleApiError(error, { context: { route: 'POST /api/admin/intake-templates' } });
     }
   },
-  { roles: ['admin', 'super_admin'] },
+  { roles: ['admin', 'super_admin'] }
 );

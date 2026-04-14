@@ -80,7 +80,9 @@ export async function getClinicDoseSpotCredentials(
           if (decrypted) {
             clinicKey = decrypted;
           } else {
-            logger.error(`[CLINIC-DOSESPOT] clinicKey decryption returned empty for clinic ${clinicId}`);
+            logger.error(
+              `[CLINIC-DOSESPOT] clinicKey decryption returned empty for clinic ${clinicId}`
+            );
             return null;
           }
         }
@@ -98,15 +100,16 @@ export async function getClinicDoseSpotCredentials(
           if (decrypted) {
             subscriptionKey = decrypted;
           } else {
-            logger.error(`[CLINIC-DOSESPOT] subscriptionKey decryption returned empty for clinic ${clinicId}`);
+            logger.error(
+              `[CLINIC-DOSESPOT] subscriptionKey decryption returned empty for clinic ${clinicId}`
+            );
             return null;
           }
         }
       } catch (e) {
-        logger.error(
-          `[CLINIC-DOSESPOT] Failed to decrypt subscriptionKey for clinic ${clinicId}`,
-          { error: e instanceof Error ? e.message : String(e) }
-        );
+        logger.error(`[CLINIC-DOSESPOT] Failed to decrypt subscriptionKey for clinic ${clinicId}`, {
+          error: e instanceof Error ? e.message : String(e),
+        });
         return null;
       }
 
@@ -119,7 +122,10 @@ export async function getClinicDoseSpotCredentials(
         adminId: clinic.doseSpotAdminId,
         subscriptionKey,
       };
-      credentialsCache.set(clinicId, { data: result, expiresAt: Date.now() + CREDENTIALS_CACHE_TTL_MS });
+      credentialsCache.set(clinicId, {
+        data: result,
+        expiresAt: Date.now() + CREDENTIALS_CACHE_TTL_MS,
+      });
       return result;
     }
 
@@ -127,7 +133,10 @@ export async function getClinicDoseSpotCredentials(
       `[CLINIC-DOSESPOT] Clinic ${clinicId} doesn't have DoseSpot configured, trying env fallback`
     );
     const envCreds = getEnvCredentials();
-    credentialsCache.set(clinicId, { data: envCreds, expiresAt: Date.now() + CREDENTIALS_CACHE_TTL_MS });
+    credentialsCache.set(clinicId, {
+      data: envCreds,
+      expiresAt: Date.now() + CREDENTIALS_CACHE_TTL_MS,
+    });
     return envCreds;
   } catch (error) {
     logger.error(`[CLINIC-DOSESPOT] Error fetching credentials for clinic ${clinicId}`, {
@@ -145,9 +154,7 @@ export async function getClinicDoseSpotClient(clinicId: number): Promise<DoseSpo
   const credentials = await getClinicDoseSpotCredentials(clinicId);
 
   if (!credentials) {
-    throw new Error(
-      `No DoseSpot credentials configured for clinic ${clinicId} or in environment`
-    );
+    throw new Error(`No DoseSpot credentials configured for clinic ${clinicId} or in environment`);
   }
 
   return createDoseSpotClient(credentials);

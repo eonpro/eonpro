@@ -40,7 +40,6 @@ export default function WebhookStats() {
         const data = await res.json();
         setStats(data.stats);
       } catch (err: unknown) {
-        
         logger.error('Failed to fetch webhook stats:', err);
         setError('Failed to load webhook statistics');
       } finally {

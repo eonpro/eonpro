@@ -166,7 +166,14 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
     if (refCodes.length === 0) {
       return NextResponse.json({
         codes: [],
-        totals: { totalCodes: 0, totalUses: 0, totalClicks: 0, totalConversions: 0, totalRevenue: 0, avgConversionRate: 0 },
+        totals: {
+          totalCodes: 0,
+          totalUses: 0,
+          totalClicks: 0,
+          totalConversions: 0,
+          totalRevenue: 0,
+          avgConversionRate: 0,
+        },
         pagination: { page, limit, total: 0, hasMore: false },
       });
     }
@@ -209,9 +216,7 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
       }),
 
       // Batch: revenue per code via raw SQL (JSONB metadata filtering)
-      prisma.$queryRaw<
-        Array<{ refCode: string; revenueCents: number }>
-      >`
+      prisma.$queryRaw<Array<{ refCode: string; revenueCents: number }>>`
         SELECT
           metadata->>'refCode' as "refCode",
           COALESCE(SUM("eventAmountCents"), 0)::int as "revenueCents"
@@ -225,9 +230,7 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
       `,
 
       // Batch: last use per code
-      prisma.$queryRaw<
-        Array<{ refCode: string; lastUseAt: Date }>
-      >`
+      prisma.$queryRaw<Array<{ refCode: string; lastUseAt: Date }>>`
         SELECT "refCode", MAX("createdAt") as "lastUseAt"
         FROM "AffiliateTouch"
         WHERE "refCode" = ANY(${codeList})
@@ -236,9 +239,7 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
       `,
 
       // Batch: last conversion per code
-      prisma.$queryRaw<
-        Array<{ refCode: string; lastConversionAt: Date }>
-      >`
+      prisma.$queryRaw<Array<{ refCode: string; lastConversionAt: Date }>>`
         SELECT "refCode", MAX("convertedAt") as "lastConversionAt"
         FROM "AffiliateTouch"
         WHERE "refCode" = ANY(${codeList})
@@ -248,9 +249,7 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
       `,
 
       // Batch: tagged profiles per code (patients attributed via ref code)
-      prisma.$queryRaw<
-        Array<{ refCode: string; taggedProfiles: number }>
-      >`
+      prisma.$queryRaw<Array<{ refCode: string; taggedProfiles: number }>>`
         SELECT "attributionRefCode" as "refCode", COUNT(*)::int as "taggedProfiles"
         FROM "Patient"
         WHERE "attributionRefCode" = ANY(${codeList})
@@ -264,8 +263,12 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
     const conversionsMap = new Map(conversionsByCode.map((r) => [r.refCode, r._count]));
     const revenueMap = new Map((revenueByCode || []).map((r) => [r.refCode, r.revenueCents]));
     const lastUseMap = new Map((lastUseByCode || []).map((r) => [r.refCode, r.lastUseAt]));
-    const lastConversionMap = new Map((lastConversionByCode || []).map((r) => [r.refCode, r.lastConversionAt]));
-    const taggedMap = new Map((taggedProfilesByCode || []).map((r) => [r.refCode, r.taggedProfiles]));
+    const lastConversionMap = new Map(
+      (lastConversionByCode || []).map((r) => [r.refCode, r.lastConversionAt])
+    );
+    const taggedMap = new Map(
+      (taggedProfilesByCode || []).map((r) => [r.refCode, r.taggedProfiles])
+    );
 
     // Assemble per-code performance from pre-aggregated data
     const codePerformances: CodePerformance[] = refCodes.map((refCode) => {
@@ -292,9 +295,24 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
         revenue: isSuppressed ? null : revenue,
         conversionRate: isSuppressed ? null : conversionRate,
         taggedProfiles,
-        lastUseAt: lastUseAt instanceof Date ? lastUseAt.toISOString() : lastUseAt ? String(lastUseAt) : null,
-        lastClickAt: lastUseAt instanceof Date ? lastUseAt.toISOString() : lastUseAt ? String(lastUseAt) : null,
-        lastConversionAt: lastConversionAt instanceof Date ? lastConversionAt.toISOString() : lastConversionAt ? String(lastConversionAt) : null,
+        lastUseAt:
+          lastUseAt instanceof Date
+            ? lastUseAt.toISOString()
+            : lastUseAt
+              ? String(lastUseAt)
+              : null,
+        lastClickAt:
+          lastUseAt instanceof Date
+            ? lastUseAt.toISOString()
+            : lastUseAt
+              ? String(lastUseAt)
+              : null,
+        lastConversionAt:
+          lastConversionAt instanceof Date
+            ? lastConversionAt.toISOString()
+            : lastConversionAt
+              ? String(lastConversionAt)
+              : null,
         createdAt: refCode.createdAt.toISOString(),
       };
     });

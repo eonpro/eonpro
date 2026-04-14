@@ -14,9 +14,11 @@ export function getRequestHost(request: { headers: Headers }): string {
  * Host plus fallback from request URL (NextRequest).
  * Use when setting cookies so we get the correct host even if proxy doesn't forward it.
  */
-export function getRequestHostWithUrlFallback(
-  request: { headers: Headers; url?: string; nextUrl?: { hostname: string } }
-): string {
+export function getRequestHostWithUrlFallback(request: {
+  headers: Headers;
+  url?: string;
+  nextUrl?: { hostname: string };
+}): string {
   const fromHeaders = getRequestHost(request);
   if (fromHeaders) return fromHeaders;
   try {

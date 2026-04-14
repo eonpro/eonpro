@@ -33,7 +33,7 @@ export default function TypewriterStep({
   const hasNavigated = useRef(false);
 
   const isSpanish = language === 'es';
-  
+
   const titleText = isSpanish ? title.es : title.en;
   const subtitleText = subtitle ? (isSpanish ? subtitle.es : subtitle.en) : '';
   const fullText = subtitleText ? `${titleText} ${subtitleText}` : titleText;
@@ -41,8 +41,8 @@ export default function TypewriterStep({
   useEffect(() => {
     if (currentIndex < fullText.length) {
       const timer = setTimeout(() => {
-        setDisplayedText(prev => prev + fullText[currentIndex]);
-        setCurrentIndex(prev => prev + 1);
+        setDisplayedText((prev) => prev + fullText[currentIndex]);
+        setCurrentIndex((prev) => prev + 1);
       }, typewriterDelay);
       return () => clearTimeout(timer);
     } else {
@@ -76,50 +76,63 @@ export default function TypewriterStep({
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col" onClick={handleClick}>
+    <div className="flex min-h-screen flex-col bg-white" onClick={handleClick}>
       {/* Progress bar */}
-      <div className="w-full h-1 bg-white/20">
-        <div 
+      <div className="h-1 w-full bg-white/20">
+        <div
           className="h-full bg-[var(--intake-accent,#f0feab)] transition-all duration-300"
           style={{ width: `${progressPercent}%` }}
         />
       </div>
-      
+
       {/* Back button */}
       {prevStep && (
-        <div className="px-6 lg:px-8 pt-8 lg:pt-6">
+        <div className="px-6 pt-8 lg:px-8 lg:pt-6">
           <button
-            onClick={(e) => { e.stopPropagation(); handleBack(); }}
-            className="inline-block p-2 -ml-2 hover:bg-white/10 rounded-lg"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleBack();
+            }}
+            className="-ml-2 inline-block rounded-lg p-2 hover:bg-white/10"
           >
-            <svg className="w-6 h-6 text-[#413d3d]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+            <svg
+              className="h-6 w-6 text-[#413d3d]"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
           </button>
         </div>
       )}
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col px-6 lg:px-8 pt-8 lg:pt-12 max-w-md lg:max-w-2xl mx-auto w-full">
-        <p className="text-[26px] md:text-[32px] font-semibold text-[#413d3d] leading-tight">
+      <div className="mx-auto flex w-full max-w-md flex-1 flex-col px-6 pt-8 lg:max-w-2xl lg:px-8 lg:pt-12">
+        <p className="text-[26px] font-semibold leading-tight text-[#413d3d] md:text-[32px]">
           {displayedText}
-          {!isTypingComplete && (
-            <span className="animate-pulse text-[#4fa87f]">|</span>
-          )}
+          {!isTypingComplete && <span className="animate-pulse text-[#4fa87f]">|</span>}
         </p>
       </div>
 
       {/* Copyright */}
-      <div className="px-6 lg:px-8 pb-8 max-w-md lg:max-w-2xl mx-auto w-full">
+      <div className="mx-auto w-full max-w-md px-6 pb-8 lg:max-w-2xl lg:px-8">
         <p className="copyright-text text-center">
           {isSpanish ? (
             <>
-              © 2026 EONPro, LLC. Todos los derechos reservados.<br/>
+              © 2026 EONPro, LLC. Todos los derechos reservados.
+              <br />
               Proceso exclusivo y protegido.
             </>
           ) : (
             <>
-              © 2026 EONPro, LLC. All rights reserved.<br/>
+              © 2026 EONPro, LLC. All rights reserved.
+              <br />
               Exclusive and protected process.
             </>
           )}

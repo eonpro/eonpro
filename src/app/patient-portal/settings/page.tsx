@@ -17,7 +17,7 @@ import type { AddressData } from '@/components/AddressAutocomplete';
 
 const AddressInput = dynamic(
   () => import('@/components/AddressAutocomplete').then((mod) => mod.AddressInput),
-  { ssr: false, loading: () => <div className="h-10 animate-pulse rounded-lg bg-gray-100" /> },
+  { ssr: false, loading: () => <div className="h-10 animate-pulse rounded-lg bg-gray-100" /> }
 );
 const SettingsAuxPanels = dynamic(
   () => import('@/components/patient-portal/settings/SettingsAuxPanels'),
@@ -33,7 +33,7 @@ const SettingsAuxPanels = dynamic(
         </div>
       </div>
     ),
-  },
+  }
 );
 import {
   User,
@@ -51,10 +51,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { EditableAvatar } from '@/components/UserAvatar';
-import {
-  ACCEPTED_IMAGE_MIME_TYPES,
-  ACCEPTED_IMAGE_LABEL,
-} from '@/lib/config/upload-formats';
+import { ACCEPTED_IMAGE_MIME_TYPES, ACCEPTED_IMAGE_LABEL } from '@/lib/config/upload-formats';
 
 interface UserProfile {
   id: number;
@@ -139,10 +136,10 @@ export default function SettingsPage() {
     if (activeSection !== 'notifications' || notifLoaded) return;
     let cancelled = false;
     portalFetch('/api/patient-portal/notification-preferences')
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
         if (cancelled || !data?.preferences) return;
-        setNotifications(prev => ({ ...prev, ...data.preferences }));
+        setNotifications((prev) => ({ ...prev, ...data.preferences }));
       })
       .catch((err) => {
         logger.warn('Failed to load notification preferences', {
@@ -155,7 +152,9 @@ export default function SettingsPage() {
           setNotifLoaded(true);
         }
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [activeSection, notifLoaded]);
 
   // Debounced save when notifications change (skip while loading)
@@ -167,14 +166,16 @@ export default function SettingsPage() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ preferences: notifications }),
-      }).then((res) => {
-        if (!res.ok) toast.error('Failed to save notification preferences');
-      }).catch((err) => {
-        logger.warn('Failed to save notification preferences', {
-          error: err instanceof Error ? err.message : 'Unknown',
+      })
+        .then((res) => {
+          if (!res.ok) toast.error('Failed to save notification preferences');
+        })
+        .catch((err) => {
+          logger.warn('Failed to save notification preferences', {
+            error: err instanceof Error ? err.message : 'Unknown',
+          });
+          toast.error('Failed to save notification preferences');
         });
-        toast.error('Failed to save notification preferences');
-      });
     }, 1000);
     return () => {
       if (notifSaveTimerRef.current) clearTimeout(notifSaveTimerRef.current);
@@ -198,7 +199,9 @@ export default function SettingsPage() {
         if (!cancelled && data?.avatarUrl) setAvatarUrl(data.avatarUrl);
       })
       .catch(() => {});
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleAvatarSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -231,7 +234,7 @@ export default function SettingsPage() {
         throw new Error(
           body && typeof body === 'object' && 'error' in body
             ? String((body as { error?: unknown }).error)
-            : 'Upload failed',
+            : 'Upload failed'
         );
       }
       const data = await res.json();
@@ -297,14 +300,18 @@ export default function SettingsPage() {
           return;
         }
       } catch (err) {
-        logger.error('[Settings] Profile load failed', { error: err instanceof Error ? err.message : String(err) });
+        logger.error('[Settings] Profile load failed', {
+          error: err instanceof Error ? err.message : String(err),
+        });
         toast.error('Unable to load your profile. Please try again.');
       } finally {
         if (!cancelled) setLoading(false);
       }
     };
     loadProfile();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   const handleSaveProfile = async () => {
@@ -358,8 +365,12 @@ export default function SettingsPage() {
 
       if (profile) {
         const currentUser = localStorage.getItem('user');
-        const userData = safeParseJsonString<{ id?: number; role?: string; patientId?: number }>(currentUser) ?? {};
-        setPortalUserStorage(getMinimalPortalUserPayload({ ...userData, patientId: userData.patientId }));
+        const userData =
+          safeParseJsonString<{ id?: number; role?: string; patientId?: number }>(currentUser) ??
+          {};
+        setPortalUserStorage(
+          getMinimalPortalUserPayload({ ...userData, patientId: userData.patientId })
+        );
       }
 
       setShowSuccess(true);
@@ -493,13 +504,13 @@ export default function SettingsPage() {
         {/* Sidebar Navigation */}
         <div className="lg:col-span-1">
           <div className="rounded-2xl border border-gray-100 bg-white p-2 shadow-sm" role="tablist">
-            {([
+            {[
               { id: 'profile' as const, labelKey: 'settingsProfile', icon: User },
               { id: 'password' as const, labelKey: 'settingsPassword', icon: Lock },
               { id: 'notifications' as const, labelKey: 'settingsNotifications', icon: Bell },
               { id: 'language' as const, labelKey: 'settingsLanguage', icon: Languages },
               { id: 'privacy' as const, labelKey: 'settingsPrivacy', icon: Shield },
-            ]).map((item) => {
+            ].map((item) => {
               const Icon = item.icon;
               const isActive = activeSection === item.id;
               return (
@@ -536,7 +547,10 @@ export default function SettingsPage() {
         <div className="lg:col-span-3">
           {/* Profile Section */}
           {activeSection === 'profile' && profile && (
-            <div role="tabpanel" className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
+            <div
+              role="tabpanel"
+              className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6"
+            >
               <h2 className="mb-6 text-lg font-semibold text-gray-900">{t('personalInfo')}</h2>
 
               {/* Profile Picture */}
@@ -552,7 +566,9 @@ export default function SettingsPage() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept={[...ACCEPTED_IMAGE_MIME_TYPES].map((t) => `.${t.split('/')[1]}`).join(',')}
+                  accept={[...ACCEPTED_IMAGE_MIME_TYPES]
+                    .map((t) => `.${t.split('/')[1]}`)
+                    .join(',')}
                   className="hidden"
                   onChange={handleAvatarSelect}
                 />
@@ -598,11 +614,19 @@ export default function SettingsPage() {
                   <input
                     type="text"
                     value={profile.firstName}
-                    onChange={(e) => { setProfile({ ...profile, firstName: e.target.value }); setValidationErrors((prev) => { const { firstName: _, ...rest } = prev; return rest; }); }}
+                    onChange={(e) => {
+                      setProfile({ ...profile, firstName: e.target.value });
+                      setValidationErrors((prev) => {
+                        const { firstName: _, ...rest } = prev;
+                        return rest;
+                      });
+                    }}
                     className={`w-full rounded-xl border px-4 py-3 focus:outline-none focus:ring-2 focus:ring-opacity-50 ${validationErrors.firstName ? 'border-red-300' : 'border-gray-200'}`}
                     style={ringColorStyle(primaryColor)}
                   />
-                  {validationErrors.firstName && <p className="mt-1 text-sm text-red-600">{validationErrors.firstName}</p>}
+                  {validationErrors.firstName && (
+                    <p className="mt-1 text-sm text-red-600">{validationErrors.firstName}</p>
+                  )}
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700">
@@ -611,42 +635,70 @@ export default function SettingsPage() {
                   <input
                     type="text"
                     value={profile.lastName}
-                    onChange={(e) => { setProfile({ ...profile, lastName: e.target.value }); setValidationErrors((prev) => { const { lastName: _, ...rest } = prev; return rest; }); }}
+                    onChange={(e) => {
+                      setProfile({ ...profile, lastName: e.target.value });
+                      setValidationErrors((prev) => {
+                        const { lastName: _, ...rest } = prev;
+                        return rest;
+                      });
+                    }}
                     className={`w-full rounded-xl border px-4 py-3 focus:outline-none focus:ring-2 focus:ring-opacity-50 ${validationErrors.lastName ? 'border-red-300' : 'border-gray-200'}`}
                     style={ringColorStyle(primaryColor)}
                   />
-                  {validationErrors.lastName && <p className="mt-1 text-sm text-red-600">{validationErrors.lastName}</p>}
+                  {validationErrors.lastName && (
+                    <p className="mt-1 text-sm text-red-600">{validationErrors.lastName}</p>
+                  )}
                 </div>
               </div>
 
               <div className="mb-4">
                 <label className="mb-2 block text-sm font-medium text-gray-700">{t('email')}</label>
                 <div className="relative">
-                  <Mail className={`absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${profile.email ? 'opacity-0' : 'opacity-100'}`} />
+                  <Mail
+                    className={`absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${profile.email ? 'opacity-0' : 'opacity-100'}`}
+                  />
                   <input
                     type="email"
                     value={profile.email}
-                    onChange={(e) => { setProfile({ ...profile, email: e.target.value }); setValidationErrors((prev) => { const { email: _, ...rest } = prev; return rest; }); }}
+                    onChange={(e) => {
+                      setProfile({ ...profile, email: e.target.value });
+                      setValidationErrors((prev) => {
+                        const { email: _, ...rest } = prev;
+                        return rest;
+                      });
+                    }}
                     className={`w-full rounded-xl border py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-opacity-50 ${validationErrors.email ? 'border-red-300' : 'border-gray-200'}`}
                     style={ringColorStyle(primaryColor)}
                   />
                 </div>
-                {validationErrors.email && <p className="mt-1 text-sm text-red-600">{validationErrors.email}</p>}
+                {validationErrors.email && (
+                  <p className="mt-1 text-sm text-red-600">{validationErrors.email}</p>
+                )}
               </div>
 
               <div className="mb-4">
                 <label className="mb-2 block text-sm font-medium text-gray-700">{t('phone')}</label>
                 <div className="relative">
-                  <Phone className={`absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${profile.phone ? 'opacity-0' : 'opacity-100'}`} />
+                  <Phone
+                    className={`absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${profile.phone ? 'opacity-0' : 'opacity-100'}`}
+                  />
                   <input
                     type="tel"
                     value={profile.phone}
-                    onChange={(e) => { setProfile({ ...profile, phone: e.target.value }); setValidationErrors((prev) => { const { phone: _, ...rest } = prev; return rest; }); }}
+                    onChange={(e) => {
+                      setProfile({ ...profile, phone: e.target.value });
+                      setValidationErrors((prev) => {
+                        const { phone: _, ...rest } = prev;
+                        return rest;
+                      });
+                    }}
                     className={`w-full rounded-xl border py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-opacity-50 ${validationErrors.phone ? 'border-red-300' : 'border-gray-200'}`}
                     style={ringColorStyle(primaryColor)}
                   />
                 </div>
-                {validationErrors.phone && <p className="mt-1 text-sm text-red-600">{validationErrors.phone}</p>}
+                {validationErrors.phone && (
+                  <p className="mt-1 text-sm text-red-600">{validationErrors.phone}</p>
+                )}
               </div>
 
               <div className="mb-4">
@@ -656,16 +708,26 @@ export default function SettingsPage() {
                 <input
                   type="date"
                   value={profile.dateOfBirth || ''}
-                  onChange={(e) => { setProfile({ ...profile, dateOfBirth: e.target.value }); setValidationErrors((prev) => { const { dateOfBirth: _, ...rest } = prev; return rest; }); }}
+                  onChange={(e) => {
+                    setProfile({ ...profile, dateOfBirth: e.target.value });
+                    setValidationErrors((prev) => {
+                      const { dateOfBirth: _, ...rest } = prev;
+                      return rest;
+                    });
+                  }}
                   className={`w-full rounded-xl border px-4 py-3 focus:outline-none focus:ring-2 focus:ring-opacity-50 ${validationErrors.dateOfBirth ? 'border-red-300' : 'border-gray-200'}`}
                   style={ringColorStyle(primaryColor)}
                   max={todayET()}
                 />
-                {validationErrors.dateOfBirth && <p className="mt-1 text-sm text-red-600">{validationErrors.dateOfBirth}</p>}
+                {validationErrors.dateOfBirth && (
+                  <p className="mt-1 text-sm text-red-600">{validationErrors.dateOfBirth}</p>
+                )}
               </div>
 
               <div className="mb-6">
-                <h3 className="mb-3 text-sm font-semibold text-gray-700">{t('address') || 'Address'}</h3>
+                <h3 className="mb-3 text-sm font-semibold text-gray-700">
+                  {t('address') || 'Address'}
+                </h3>
                 <div className="space-y-3">
                   <AddressInput
                     value={profile.address?.street || ''}
@@ -697,7 +759,15 @@ export default function SettingsPage() {
                       type="text"
                       placeholder={t('city') || 'City'}
                       value={profile.address?.city || ''}
-                      onChange={(e) => setProfile({ ...profile, address: { ...(profile.address || { street: '', city: '', state: '', zip: '' }), city: e.target.value } })}
+                      onChange={(e) =>
+                        setProfile({
+                          ...profile,
+                          address: {
+                            ...(profile.address || { street: '', city: '', state: '', zip: '' }),
+                            city: e.target.value,
+                          },
+                        })
+                      }
                       className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-opacity-50"
                       style={ringColorStyle(primaryColor)}
                     />
@@ -705,7 +775,15 @@ export default function SettingsPage() {
                       type="text"
                       placeholder={t('state') || 'State'}
                       value={profile.address?.state || ''}
-                      onChange={(e) => setProfile({ ...profile, address: { ...(profile.address || { street: '', city: '', state: '', zip: '' }), state: e.target.value } })}
+                      onChange={(e) =>
+                        setProfile({
+                          ...profile,
+                          address: {
+                            ...(profile.address || { street: '', city: '', state: '', zip: '' }),
+                            state: e.target.value,
+                          },
+                        })
+                      }
                       className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-opacity-50"
                       style={ringColorStyle(primaryColor)}
                     />
@@ -713,7 +791,15 @@ export default function SettingsPage() {
                       type="text"
                       placeholder={t('zip') || 'ZIP Code'}
                       value={profile.address?.zip || ''}
-                      onChange={(e) => setProfile({ ...profile, address: { ...(profile.address || { street: '', city: '', state: '', zip: '' }), zip: e.target.value } })}
+                      onChange={(e) =>
+                        setProfile({
+                          ...profile,
+                          address: {
+                            ...(profile.address || { street: '', city: '', state: '', zip: '' }),
+                            zip: e.target.value,
+                          },
+                        })
+                      }
                       className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-opacity-50"
                       style={ringColorStyle(primaryColor)}
                     />

@@ -67,35 +67,43 @@ export default function BuilderToolbar({
 
   const SaveIcon = () => {
     switch (saveStatus) {
-      case 'saving': return <Loader2 className="w-3.5 h-3.5 animate-spin" />;
-      case 'saved': return <CheckCircle2 className="w-3.5 h-3.5" />;
-      case 'error': return <AlertCircle className="w-3.5 h-3.5" />;
-      default: return <Save className="w-3.5 h-3.5" />;
+      case 'saving':
+        return <Loader2 className="h-3.5 w-3.5 animate-spin" />;
+      case 'saved':
+        return <CheckCircle2 className="h-3.5 w-3.5" />;
+      case 'error':
+        return <AlertCircle className="h-3.5 w-3.5" />;
+      default:
+        return <Save className="h-3.5 w-3.5" />;
     }
   };
 
   const saveLabel = () => {
     switch (saveStatus) {
-      case 'saving': return 'Saving...';
-      case 'saved': return 'Saved';
-      case 'error': return 'Error';
-      default: return 'Save';
+      case 'saving':
+        return 'Saving...';
+      case 'saved':
+        return 'Saved';
+      case 'error':
+        return 'Error';
+      default:
+        return 'Save';
     }
   };
 
   return (
-    <div className="h-14 bg-white border-b border-gray-200 flex items-center px-3 gap-2 shrink-0">
+    <div className="flex h-14 shrink-0 items-center gap-2 border-b border-gray-200 bg-white px-3">
       {/* Back */}
       <button
         onClick={onBack}
-        className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+        className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
         title="Back to templates"
       >
-        <ArrowLeft className="w-4 h-4" />
+        <ArrowLeft className="h-4 w-4" />
       </button>
 
       {/* Separator */}
-      <div className="w-px h-6 bg-gray-200" />
+      <div className="h-6 w-px bg-gray-200" />
 
       {/* Form name */}
       {editingName ? (
@@ -107,12 +115,12 @@ export default function BuilderToolbar({
           onKeyDown={(e) => {
             if (e.key === 'Enter') setEditingName(false);
           }}
-          className="text-sm font-semibold text-gray-900 bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-400 w-64"
+          className="w-64 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-400"
         />
       ) : (
         <button
           onClick={() => setEditingName(true)}
-          className="text-sm font-semibold text-gray-900 hover:bg-gray-50 px-3 py-1.5 rounded-lg transition-colors truncate max-w-[240px]"
+          className="max-w-[240px] truncate rounded-lg px-3 py-1.5 text-sm font-semibold text-gray-900 transition-colors hover:bg-gray-50"
           title="Click to rename"
         >
           {formName || 'Untitled Form'}
@@ -120,55 +128,64 @@ export default function BuilderToolbar({
       )}
 
       {/* Save status */}
-      <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${
-        saveStatus === 'saved' ? 'text-green-600 bg-green-50'
-          : saveStatus === 'saving' ? 'text-amber-600 bg-amber-50'
-          : saveStatus === 'error' ? 'text-red-600 bg-red-50'
-          : 'text-gray-500 bg-gray-100'
-      }`}>
-        <SaveIcon /> 
+      <span
+        className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+          saveStatus === 'saved'
+            ? 'bg-green-50 text-green-600'
+            : saveStatus === 'saving'
+              ? 'bg-amber-50 text-amber-600'
+              : saveStatus === 'error'
+                ? 'bg-red-50 text-red-600'
+                : 'bg-gray-100 text-gray-500'
+        }`}
+      >
+        <SaveIcon />
       </span>
 
       {/* Spacer */}
       <div className="flex-1" />
 
       {/* Undo / Redo */}
-      <div className="flex items-center gap-0.5 bg-gray-50 rounded-lg p-0.5">
+      <div className="flex items-center gap-0.5 rounded-lg bg-gray-50 p-0.5">
         <button
           onClick={onUndo}
           disabled={!canUndo}
           title="Undo (⌘Z)"
-          className="p-1.5 rounded-md text-gray-500 hover:text-gray-900 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          className="rounded-md p-1.5 text-gray-500 transition-colors hover:bg-white hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-30"
         >
-          <Undo2 className="w-4 h-4" />
+          <Undo2 className="h-4 w-4" />
         </button>
         <button
           onClick={onRedo}
           disabled={!canRedo}
           title="Redo (⌘⇧Z)"
-          className="p-1.5 rounded-md text-gray-500 hover:text-gray-900 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          className="rounded-md p-1.5 text-gray-500 transition-colors hover:bg-white hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-30"
         >
-          <Redo2 className="w-4 h-4" />
+          <Redo2 className="h-4 w-4" />
         </button>
       </div>
 
       {/* Separator */}
-      <div className="w-px h-6 bg-gray-200" />
+      <div className="h-6 w-px bg-gray-200" />
 
       {/* Language toggle */}
-      <div className="flex items-center bg-gray-50 rounded-lg p-0.5">
+      <div className="flex items-center rounded-lg bg-gray-50 p-0.5">
         <button
           onClick={() => onLanguageChange('en')}
-          className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
-            language === 'en' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+            language === 'en'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-500 hover:text-gray-700'
           }`}
         >
           EN
         </button>
         <button
           onClick={() => onLanguageChange('es')}
-          className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
-            language === 'es' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+            language === 'es'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-500 hover:text-gray-700'
           }`}
         >
           ES
@@ -176,7 +193,7 @@ export default function BuilderToolbar({
       </div>
 
       {/* Device preview */}
-      <div className="flex items-center bg-gray-50 rounded-lg p-0.5">
+      <div className="flex items-center rounded-lg bg-gray-50 p-0.5">
         {[
           { id: 'mobile' as const, Icon: Smartphone },
           { id: 'tablet' as const, Icon: Tablet },
@@ -185,21 +202,23 @@ export default function BuilderToolbar({
           <button
             key={id}
             onClick={() => onDeviceChange(id)}
-            className={`p-1.5 rounded-md transition-colors ${
-              devicePreview === id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-700'
+            className={`rounded-md p-1.5 transition-colors ${
+              devicePreview === id
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-400 hover:text-gray-700'
             }`}
             title={id.charAt(0).toUpperCase() + id.slice(1)}
           >
-            <Icon className="w-4 h-4" />
+            <Icon className="h-4 w-4" />
           </button>
         ))}
       </div>
 
       {/* Separator */}
-      <div className="w-px h-6 bg-gray-200" />
+      <div className="h-6 w-px bg-gray-200" />
 
       {/* View toggles */}
-      <div className="flex items-center bg-gray-50 rounded-lg p-0.5">
+      <div className="flex items-center rounded-lg bg-gray-50 p-0.5">
         {[
           { id: 'builder' as const, Icon: Workflow, label: 'Builder' },
           { id: 'preview' as const, Icon: Eye, label: 'Preview' },
@@ -208,37 +227,37 @@ export default function BuilderToolbar({
           <button
             key={id}
             onClick={() => onViewChange(id)}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors ${
+            className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
               builderView === id
                 ? 'bg-white text-gray-900 shadow-sm'
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            <Icon className="w-3.5 h-3.5" />
+            <Icon className="h-3.5 w-3.5" />
             {label}
           </button>
         ))}
       </div>
 
       {/* Separator */}
-      <div className="w-px h-6 bg-gray-200" />
+      <div className="h-6 w-px bg-gray-200" />
 
       {/* Send to client */}
       <button
         onClick={onSendToClient}
-        className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors"
+        className="flex items-center gap-1.5 rounded-lg bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700 transition-colors hover:bg-indigo-100"
       >
-        <Send className="w-3.5 h-3.5" />
+        <Send className="h-3.5 w-3.5" />
         Send to Client
       </button>
 
       {/* Separator */}
-      <div className="w-px h-6 bg-gray-200" />
+      <div className="h-6 w-px bg-gray-200" />
 
       {/* Save button */}
       <button
         onClick={onSave}
-        className="flex items-center gap-1.5 px-3.5 py-1.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-50"
+        className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
         disabled={saveStatus === 'saving'}
       >
         <SaveIcon />
@@ -248,7 +267,7 @@ export default function BuilderToolbar({
       {/* Publish toggle */}
       <button
         onClick={onToggleActive}
-        className={`px-3.5 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+        className={`rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors ${
           isActive
             ? 'bg-green-50 text-green-700 hover:bg-green-100'
             : 'bg-gray-100 text-gray-600 hover:bg-gray-200'

@@ -288,7 +288,11 @@ export default function MergePatientModal({
         } catch {
           // e.g. 500 with HTML or empty body
         }
-        throw new Error(data.error || data.message || `Merge failed (${response.status}). Please try again or contact support.`);
+        throw new Error(
+          data.error ||
+            data.message ||
+            `Merge failed (${response.status}). Please try again or contact support.`
+        );
       }
 
       const data = await response.json();
@@ -361,7 +365,8 @@ export default function MergePatientModal({
                   {patient.firstName} {patient.lastName}
                 </p>
                 <p className="truncate text-sm text-gray-500">
-                  {formatValue(patient.email)} | ID: {formatPatientDisplayId(patient.patientId, patient.id)}
+                  {formatValue(patient.email)} | ID:{' '}
+                  {formatPatientDisplayId(patient.patientId, patient.id)}
                 </p>
               </div>
               {selectedTarget?.id === patient.id && (
@@ -466,7 +471,8 @@ export default function MergePatientModal({
                 <span className="text-gray-500">Email:</span> {formatValue(source.email)}
               </p>
               <p>
-                <span className="text-gray-500">Phone:</span> {formatValue(source.phone, { type: 'phone' })}
+                <span className="text-gray-500">Phone:</span>{' '}
+                {formatValue(source.phone, { type: 'phone' })}
               </p>
               <p>
                 <span className="text-gray-500">DOB:</span> {formatDate(source.dob)}
@@ -498,7 +504,8 @@ export default function MergePatientModal({
                 <span className="text-gray-500">Email:</span> {formatValue(target.email)}
               </p>
               <p>
-                <span className="text-gray-500">Phone:</span> {formatValue(target.phone, { type: 'phone' })}
+                <span className="text-gray-500">Phone:</span>{' '}
+                {formatValue(target.phone, { type: 'phone' })}
               </p>
               <p>
                 <span className="text-gray-500">DOB:</span> {formatDate(target.dob)}
@@ -539,7 +546,8 @@ export default function MergePatientModal({
                 <span className="text-gray-500">Email:</span> {formatValue(mergedProfile.email)}
               </p>
               <p>
-                <span className="text-gray-500">Phone:</span> {formatValue(mergedProfile.phone, { type: 'phone' })}
+                <span className="text-gray-500">Phone:</span>{' '}
+                {formatValue(mergedProfile.phone, { type: 'phone' })}
               </p>
             </div>
             <div className="space-y-2">

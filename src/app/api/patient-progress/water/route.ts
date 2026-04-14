@@ -86,7 +86,11 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
       },
     });
 
-    logPHICreate(request, user, 'PatientWaterLog', waterLog.id, patientId).catch((err) => { logger.error('PHI audit log failed', { error: err instanceof Error ? err.message : String(err) }); });
+    logPHICreate(request, user, 'PatientWaterLog', waterLog.id, patientId).catch((err) => {
+      logger.error('PHI audit log failed', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
 
     return NextResponse.json(waterLog, { status: 201 });
   } catch (error) {
@@ -156,7 +160,11 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
       })
       .reduce((sum: number, log: WaterLog) => sum + log.amount, 0);
 
-    logPHIAccess(request, user, 'PatientWaterLog', 'list', patientId).catch((err) => { logger.error('PHI audit log failed', { error: err instanceof Error ? err.message : String(err) }); });
+    logPHIAccess(request, user, 'PatientWaterLog', 'list', patientId).catch((err) => {
+      logger.error('PHI audit log failed', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
 
     return NextResponse.json({
       data: waterLogs,
@@ -188,10 +196,7 @@ const patchHandler = withAuth(async (request: NextRequest, user) => {
     const { id, amount, unit, notes, recordedAt } = parseResult.data;
 
     const hasUpdate =
-      amount !== undefined ||
-      unit !== undefined ||
-      notes !== undefined ||
-      recordedAt !== undefined;
+      amount !== undefined || unit !== undefined || notes !== undefined || recordedAt !== undefined;
     if (!hasUpdate) {
       return NextResponse.json(
         { error: 'At least one of amount, unit, notes, or recordedAt must be provided' },
@@ -235,9 +240,18 @@ const patchHandler = withAuth(async (request: NextRequest, user) => {
       data: updateData,
     });
 
-    logPHIUpdate(request, user, 'PatientWaterLog', id, log.patientId, Object.keys(updateData)).catch(
-      (err) => { logger.error('PHI audit log failed', { error: err instanceof Error ? err.message : String(err) }); }
-    );
+    logPHIUpdate(
+      request,
+      user,
+      'PatientWaterLog',
+      id,
+      log.patientId,
+      Object.keys(updateData)
+    ).catch((err) => {
+      logger.error('PHI audit log failed', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
 
     return NextResponse.json(updated);
   } catch (error) {
@@ -283,7 +297,11 @@ const deleteHandler = withAuth(async (request: NextRequest, user) => {
     });
 
     logPHIDelete(request, user, 'PatientWaterLog', id, log.patientId, 'user_request').catch(
-      (err) => { logger.error('PHI audit log failed', { error: err instanceof Error ? err.message : String(err) }); }
+      (err) => {
+        logger.error('PHI audit log failed', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
     );
 
     return NextResponse.json({ success: true, deletedId: id });

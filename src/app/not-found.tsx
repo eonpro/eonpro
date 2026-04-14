@@ -13,11 +13,7 @@ export default function NotFound() {
         {/* EonPro Logo */}
         <div className="mb-12">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={EONPRO_LOGO}
-            alt="EONPRO"
-            className="mx-auto h-8 w-auto opacity-90"
-          />
+          <img src={EONPRO_LOGO} alt="EONPRO" className="mx-auto h-8 w-auto opacity-90" />
         </div>
 
         {/* 404 Illustration */}
@@ -27,9 +23,7 @@ export default function NotFound() {
             <div className="absolute inset-0 rounded-3xl bg-white/50" />
             {/* Large 404 */}
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-7xl font-bold tracking-tighter text-gray-900/10">
-                404
-              </span>
+              <span className="text-7xl font-bold tracking-tighter text-gray-900/10">404</span>
             </div>
             {/* Foreground icon */}
             <div className="absolute inset-0 flex items-center justify-center">
@@ -53,12 +47,10 @@ export default function NotFound() {
         </div>
 
         {/* Message */}
-        <h1 className="mb-3 text-3xl font-semibold tracking-tight text-gray-900">
-          Page not found
-        </h1>
+        <h1 className="mb-3 text-3xl font-semibold tracking-tight text-gray-900">Page not found</h1>
         <p className="mx-auto mb-10 max-w-sm text-base leading-relaxed text-gray-500">
-          Sorry, we couldn&apos;t find the page you&apos;re looking for. It might have
-          been moved or deleted.
+          Sorry, we couldn&apos;t find the page you&apos;re looking for. It might have been moved or
+          deleted.
         </p>
 
         {/* Action Buttons */}
@@ -131,14 +123,10 @@ export default function NotFound() {
               support@eonpro.io
             </a>
           </p>
-          <div className="flex items-center justify-center gap-1.5 text-xs text-gray-400 whitespace-nowrap">
+          <div className="flex items-center justify-center gap-1.5 whitespace-nowrap text-xs text-gray-400">
             Powered by
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={EONPRO_LOGO}
-              alt="EONPRO"
-              className="h-[18px] w-auto opacity-50"
-            />
+            <img src={EONPRO_LOGO} alt="EONPRO" className="h-[18px] w-auto opacity-50" />
           </div>
         </div>
       </div>

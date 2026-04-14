@@ -11,7 +11,9 @@ import { handleApiError } from '@/domains/shared/errors';
 const schema = z.object({
   dataSource: z.string(),
   columns: z.array(z.string()).optional(),
-  filters: z.array(z.object({ field: z.string(), operator: z.string(), value: z.any() })).optional(),
+  filters: z
+    .array(z.object({ field: z.string(), operator: z.string(), value: z.any() }))
+    .optional(),
   groupBy: z.string().optional(),
   sortBy: z.string().optional(),
   sortDir: z.enum(['asc', 'desc']).optional(),
@@ -27,25 +29,31 @@ async function handler(req: NextRequest, user: AuthUser) {
     const body = await req.json();
     const parsed = schema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Validation failed', details: parsed.error.flatten() }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Validation failed', details: parsed.error.flatten() },
+        { status: 400 }
+      );
     }
 
     const { format, reportName, ...reportConfig } = parsed.data;
     const config = {
       ...reportConfig,
-      filters: reportConfig.filters as any[] || [],
+      filters: (reportConfig.filters as any[]) || [],
       columns: reportConfig.columns || [],
       clinicId: user.role === 'super_admin' ? reportConfig.clinicId : user.clinicId || undefined,
     };
 
-    const result = user.role === 'super_admin'
-      ? await withoutClinicFilter(() => runReport(config))
-      : await runReport(config);
+    const result =
+      user.role === 'super_admin'
+        ? await withoutClinicFilter(() => runReport(config))
+        : await runReport(config);
 
     const ds = getDataSource(config.dataSource);
     const columns = ds?.columns || [];
     const name = reportName || ds?.name || 'Report';
-    const dateSuffix = config.dateRange ? `-${config.dateRange.startDate}-to-${config.dateRange.endDate}` : '';
+    const dateSuffix = config.dateRange
+      ? `-${config.dateRange.startDate}-to-${config.dateRange.endDate}`
+      : '';
 
     if (format === 'csv') {
       const csv = exportToCsv(result, columns, name);

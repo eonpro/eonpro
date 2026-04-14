@@ -42,9 +42,7 @@ function getStripeClientForClinic(clinicSubdomain: string | null): Stripe {
     });
   }
 
-  const secretKey =
-    process.env.EONMEDS_STRIPE_SECRET_KEY ||
-    process.env.STRIPE_SECRET_KEY;
+  const secretKey = process.env.EONMEDS_STRIPE_SECRET_KEY || process.env.STRIPE_SECRET_KEY;
   if (!secretKey) throw new Error('Stripe secret key not configured');
   return new Stripe(secretKey, {
     apiVersion: '2026-03-25.dahlia',
@@ -73,10 +71,7 @@ async function handlePost(request: NextRequest, user: AuthUser) {
     }
     sinceDate = new Date(body.sinceDate + 'T00:00:00Z');
     if (isNaN(sinceDate.getTime())) {
-      return NextResponse.json(
-        { error: 'Invalid date format. Use YYYY-MM-DD' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid date format. Use YYYY-MM-DD' }, { status: 400 });
     }
   } catch {
     return NextResponse.json(
@@ -88,16 +83,15 @@ async function handlePost(request: NextRequest, user: AuthUser) {
   const daysDiff = Math.ceil((Date.now() - sinceDate.getTime()) / (1000 * 60 * 60 * 24));
   if (daysDiff > MAX_SYNC_DAYS) {
     return NextResponse.json(
-      { error: `Cannot sync more than ${MAX_SYNC_DAYS} days at a time. Requested: ${daysDiff} days` },
+      {
+        error: `Cannot sync more than ${MAX_SYNC_DAYS} days at a time. Requested: ${daysDiff} days`,
+      },
       { status: 400 }
     );
   }
 
   if (sinceDate > new Date()) {
-    return NextResponse.json(
-      { error: 'sinceDate cannot be in the future' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: 'sinceDate cannot be in the future' }, { status: 400 });
   }
 
   const results = {
@@ -169,10 +163,8 @@ async function handlePost(request: NextRequest, user: AuthUser) {
       clinicId,
     });
 
-    const {
-      processStripePayment,
-      extractPaymentDataFromPaymentIntent,
-    } = await import('@/services/stripe/paymentMatchingService');
+    const { processStripePayment, extractPaymentDataFromPaymentIntent } =
+      await import('@/services/stripe/paymentMatchingService');
 
     // ========================================================================
     // PHASE 2: For EACH Stripe payment, ensure a PAID Invoice exists
@@ -220,7 +212,13 @@ async function handlePost(request: NextRequest, user: AuthUser) {
         if (existingPayment) {
           // Payment record exists. Check if it has a valid PAID Invoice.
           const inv = existingPayment.invoice;
-          if (inv && inv.status === 'PAID' && inv.amountPaid > 0 && inv.paidAt && inv.clinicId === clinicId) {
+          if (
+            inv &&
+            inv.status === 'PAID' &&
+            inv.amountPaid > 0 &&
+            inv.paidAt &&
+            inv.clinicId === clinicId
+          ) {
             results.alreadyCorrect++;
             continue;
           }
@@ -321,7 +319,12 @@ async function handlePost(request: NextRequest, user: AuthUser) {
               select: { id: true, status: true, amountPaid: true, clinicId: true },
             });
 
-            if (reconInvoice && reconInvoice.status === 'PAID' && reconInvoice.amountPaid > 0 && reconInvoice.clinicId === clinicId) {
+            if (
+              reconInvoice &&
+              reconInvoice.status === 'PAID' &&
+              reconInvoice.amountPaid > 0 &&
+              reconInvoice.clinicId === clinicId
+            ) {
               results.alreadyCorrect++;
               continue;
             }
@@ -505,17 +508,23 @@ async function handlePost(request: NextRequest, user: AuthUser) {
         }
       }
 
-      const { extractPaymentDataFromCharge } = await import(
-        '@/services/stripe/paymentMatchingService'
-      );
+      const { extractPaymentDataFromCharge } =
+        await import('@/services/stripe/paymentMatchingService');
 
       for (const charge of allCharges) {
         const existingByCharge = await prisma.payment.findFirst({
           where: { stripeChargeId: charge.id },
-          select: { id: true, invoiceId: true, invoice: { select: { status: true, amountPaid: true } } },
+          select: {
+            id: true,
+            invoiceId: true,
+            invoice: { select: { status: true, amountPaid: true } },
+          },
         });
 
-        if (existingByCharge?.invoice?.status === 'PAID' && (existingByCharge.invoice.amountPaid || 0) > 0) {
+        if (
+          existingByCharge?.invoice?.status === 'PAID' &&
+          (existingByCharge.invoice.amountPaid || 0) > 0
+        ) {
           continue;
         }
 
@@ -599,7 +608,16 @@ async function handlePost(request: NextRequest, user: AuthUser) {
           status: 'SUCCEEDED',
           createdAt: { gte: sinceDate },
         },
-        select: { id: true, patientId: true, amount: true, stripePaymentIntentId: true, stripeChargeId: true, paidAt: true, description: true, currency: true },
+        select: {
+          id: true,
+          patientId: true,
+          amount: true,
+          stripePaymentIntentId: true,
+          stripeChargeId: true,
+          paidAt: true,
+          description: true,
+          currency: true,
+        },
         take: 500,
       });
 
@@ -643,9 +661,18 @@ async function handlePost(request: NextRequest, user: AuthUser) {
     results.repaired += orphanRepairCount;
     results.durationMs = Date.now() - startTime;
 
-    const totalFixed = results.newlyProcessed + results.repaired + results.invoiceSyncCount + results.directChargeCount;
+    const totalFixed =
+      results.newlyProcessed +
+      results.repaired +
+      results.invoiceSyncCount +
+      results.directChargeCount;
 
-    logger.info('[Payment Sync] Completed v2', { clinicId, ...results, orphanRepairCount, totalFixed });
+    logger.info('[Payment Sync] Completed v2', {
+      clinicId,
+      ...results,
+      orphanRepairCount,
+      totalFixed,
+    });
 
     if (results.errors.length > 10) {
       results.errors = [

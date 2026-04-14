@@ -95,7 +95,7 @@ function PermissionRow({
       className={cn(
         'group flex items-center justify-between rounded-lg px-3 py-2.5 transition-colors',
         isCustom ? 'bg-amber-50/50' : 'hover:bg-gray-50',
-        source === 'custom_revoked' && 'bg-red-50/30',
+        source === 'custom_revoked' && 'bg-red-50/30'
       )}
     >
       <div className="flex min-w-0 flex-1 items-start gap-3">
@@ -114,10 +114,8 @@ function PermissionRow({
               'after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4',
               'after:rounded-full after:bg-white after:shadow-sm after:transition-transform after:duration-200',
               'peer-focus-visible:ring-2 peer-focus-visible:ring-teal-500 peer-focus-visible:ring-offset-2',
-              enabled
-                ? 'bg-teal-600 after:translate-x-full'
-                : 'bg-gray-300 after:translate-x-0',
-              readOnly && 'cursor-not-allowed opacity-60',
+              enabled ? 'bg-teal-600 after:translate-x-full' : 'bg-gray-300 after:translate-x-0',
+              readOnly && 'cursor-not-allowed opacity-60'
             )}
           />
         </label>
@@ -128,7 +126,7 @@ function PermissionRow({
               className={cn(
                 'text-sm font-medium',
                 enabled ? 'text-gray-900' : 'text-gray-500',
-                source === 'custom_revoked' && 'text-red-600 line-through',
+                source === 'custom_revoked' && 'text-red-600 line-through'
               )}
             >
               {label}
@@ -164,7 +162,7 @@ function PermissionCategory({
   const enabledCount = permissionEntries.filter((p) => p.enabled).length;
   const totalCount = permissionEntries.length;
   const hasCustom = permissionEntries.some(
-    (p) => p.source === 'custom_granted' || p.source === 'custom_revoked',
+    (p) => p.source === 'custom_granted' || p.source === 'custom_revoked'
   );
 
   return (
@@ -175,7 +173,7 @@ function PermissionCategory({
         onClick={() => setExpanded(!expanded)}
         className={cn(
           'flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:bg-gray-50',
-          hasCustom && 'border-l-4 border-l-amber-400',
+          hasCustom && 'border-l-4 border-l-amber-400'
         )}
       >
         <div className="flex items-center gap-3">
@@ -191,9 +189,7 @@ function PermissionCategory({
         </div>
 
         <div className="flex items-center gap-2">
-          {hasCustom && (
-            <ShieldAlert className="h-4 w-4 text-amber-500" />
-          )}
+          {hasCustom && <ShieldAlert className="h-4 w-4 text-amber-500" />}
           <span
             className={cn(
               'rounded-full px-2.5 py-0.5 text-xs font-semibold',
@@ -201,7 +197,7 @@ function PermissionCategory({
                 ? 'bg-teal-100 text-teal-800'
                 : enabledCount === 0
                   ? 'bg-gray-100 text-gray-600'
-                  : 'bg-blue-100 text-blue-800',
+                  : 'bg-blue-100 text-blue-800'
             )}
           >
             {enabledCount}/{totalCount}
@@ -213,9 +209,7 @@ function PermissionCategory({
       {expanded && (
         <div className="divide-y divide-gray-100 border-t border-gray-100 px-1 py-1">
           {category.permissions.map((pDef) => {
-            const entry = permissionEntries.find(
-              (e) => e.permission === pDef.value,
-            );
+            const entry = permissionEntries.find((e) => e.permission === pDef.value);
             if (!entry) return null;
 
             return (
@@ -262,7 +256,7 @@ function FeatureToggleRow({
     <div
       className={cn(
         'flex items-center justify-between rounded-lg px-3 py-2.5 transition-colors',
-        isCustom ? 'bg-amber-50/50' : 'hover:bg-gray-50',
+        isCustom ? 'bg-amber-50/50' : 'hover:bg-gray-50'
       )}
     >
       <div className="flex min-w-0 flex-1 items-start gap-3">
@@ -280,20 +274,15 @@ function FeatureToggleRow({
               'after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4',
               'after:rounded-full after:bg-white after:shadow-sm after:transition-transform after:duration-200',
               'peer-focus-visible:ring-2 peer-focus-visible:ring-teal-500 peer-focus-visible:ring-offset-2',
-              enabled
-                ? 'bg-teal-600 after:translate-x-full'
-                : 'bg-gray-300 after:translate-x-0',
-              readOnly && 'cursor-not-allowed opacity-60',
+              enabled ? 'bg-teal-600 after:translate-x-full' : 'bg-gray-300 after:translate-x-0',
+              readOnly && 'cursor-not-allowed opacity-60'
             )}
           />
         </label>
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span
-              className={cn(
-                'text-sm font-medium',
-                enabled ? 'text-gray-900' : 'text-gray-500',
-              )}
+              className={cn('text-sm font-medium', enabled ? 'text-gray-900' : 'text-gray-500')}
             >
               {name}
             </span>
@@ -317,18 +306,10 @@ export function PermissionSummary({
   features: EffectiveFeatureEntry[];
   roleLabel: string;
 }) {
-  const permGranted = permissions.filter(
-    (p) => p.source === 'custom_granted',
-  ).length;
-  const permRevoked = permissions.filter(
-    (p) => p.source === 'custom_revoked',
-  ).length;
-  const featGranted = features.filter(
-    (f) => f.source === 'custom_granted',
-  ).length;
-  const featRevoked = features.filter(
-    (f) => f.source === 'custom_revoked',
-  ).length;
+  const permGranted = permissions.filter((p) => p.source === 'custom_granted').length;
+  const permRevoked = permissions.filter((p) => p.source === 'custom_revoked').length;
+  const featGranted = features.filter((f) => f.source === 'custom_granted').length;
+  const featRevoked = features.filter((f) => f.source === 'custom_revoked').length;
 
   const totalEnabled = permissions.filter((p) => p.enabled).length;
   const totalFeatsEnabled = features.filter((f) => f.enabled).length;
@@ -338,12 +319,9 @@ export function PermissionSummary({
     <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
       <div className="flex items-center justify-between">
         <div>
-          <h4 className="text-sm font-semibold text-gray-900">
-            Access Level Summary
-          </h4>
+          <h4 className="text-sm font-semibold text-gray-900">Access Level Summary</h4>
           <p className="mt-0.5 text-xs text-gray-500">
-            Based on <span className="font-medium capitalize">{roleLabel}</span>{' '}
-            role
+            Based on <span className="font-medium capitalize">{roleLabel}</span> role
             {totalCustom > 0 && (
               <span className="text-amber-600">
                 {' '}
@@ -355,17 +333,11 @@ export function PermissionSummary({
         <div className="flex gap-3">
           <div className="text-center">
             <div className="text-lg font-bold text-teal-700">{totalEnabled}</div>
-            <div className="text-[10px] uppercase tracking-wide text-gray-500">
-              Permissions
-            </div>
+            <div className="text-[10px] uppercase tracking-wide text-gray-500">Permissions</div>
           </div>
           <div className="text-center">
-            <div className="text-lg font-bold text-teal-700">
-              {totalFeatsEnabled}
-            </div>
-            <div className="text-[10px] uppercase tracking-wide text-gray-500">
-              Features
-            </div>
+            <div className="text-lg font-bold text-teal-700">{totalFeatsEnabled}</div>
+            <div className="text-[10px] uppercase tracking-wide text-gray-500">Features</div>
           </div>
         </div>
       </div>
@@ -421,7 +393,7 @@ export default function PermissionMatrix({
           (p) =>
             normalizedIncludes(p.label, searchQuery) ||
             normalizedIncludes(p.description, searchQuery) ||
-            normalizedIncludes(p.value, searchQuery),
+            normalizedIncludes(p.value, searchQuery)
         ),
       }))
       .filter((cat) => cat.permissions.length > 0);
@@ -440,21 +412,14 @@ export default function PermissionMatrix({
   }, [features, searchQuery]);
 
   const totalCustom =
-    permissions.filter(
-      (p) => p.source === 'custom_granted' || p.source === 'custom_revoked',
-    ).length +
-    features.filter(
-      (f) => f.source === 'custom_granted' || f.source === 'custom_revoked',
-    ).length;
+    permissions.filter((p) => p.source === 'custom_granted' || p.source === 'custom_revoked')
+      .length +
+    features.filter((f) => f.source === 'custom_granted' || f.source === 'custom_revoked').length;
 
   return (
     <div className="space-y-6">
       {/* Summary */}
-      <PermissionSummary
-        permissions={permissions}
-        features={features}
-        roleLabel={roleLabel}
-      />
+      <PermissionSummary permissions={permissions} features={features} roleLabel={roleLabel} />
 
       {/* Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -485,10 +450,9 @@ export default function PermissionMatrix({
       <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
         <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-600" />
         <p className="text-xs text-blue-800">
-          Toggles in <span className="font-medium">gray</span> are role defaults
-          for <span className="font-medium capitalize">{roleLabel}</span>.
-          Changing a toggle creates a custom override that persists even if the
-          role defaults change later.
+          Toggles in <span className="font-medium">gray</span> are role defaults for{' '}
+          <span className="font-medium capitalize">{roleLabel}</span>. Changing a toggle creates a
+          custom override that persists even if the role defaults change later.
         </p>
       </div>
 
@@ -507,7 +471,7 @@ export default function PermissionMatrix({
           ) : (
             filteredCategories.map((cat) => {
               const catPerms = permissions.filter((p) =>
-                cat.permissions.some((cp) => cp.value === p.permission),
+                cat.permissions.some((cp) => cp.value === p.permission)
               );
               return (
                 <PermissionCategory
@@ -536,9 +500,7 @@ export default function PermissionMatrix({
                 </p>
               ) : (
                 filteredFeatures.map((f) => {
-                  const meta = Object.values(FEATURES).find(
-                    (feat) => feat.id === f.featureId,
-                  );
+                  const meta = Object.values(FEATURES).find((feat) => feat.id === f.featureId);
                   return (
                     <FeatureToggleRow
                       key={f.featureId}

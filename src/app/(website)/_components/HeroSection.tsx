@@ -32,8 +32,20 @@ function useCountUp(target: number, duration = 2000, trigger = false) {
   return value;
 }
 
-function StatCounter({ label, target, suffix, prefix, index, visible }: {
-  label: string; target: number; suffix: string; prefix: string; index: number; visible: boolean;
+function StatCounter({
+  label,
+  target,
+  suffix,
+  prefix,
+  index,
+  visible,
+}: {
+  label: string;
+  target: number;
+  suffix: string;
+  prefix: string;
+  index: number;
+  visible: boolean;
 }) {
   const count = useCountUp(target, 2200, visible);
   return (
@@ -44,7 +56,9 @@ function StatCounter({ label, target, suffix, prefix, index, visible }: {
       style={{ transitionDelay: `${400 + index * 150}ms` }}
     >
       <p className="text-3xl font-bold text-[#1f2933] sm:text-4xl lg:text-5xl">
-        {prefix}{count.toLocaleString()}{suffix}
+        {prefix}
+        {count.toLocaleString()}
+        {suffix}
       </p>
       <p className="mt-2 text-sm font-medium text-[#1f2933]/50 sm:text-base">{label}</p>
     </div>
@@ -59,8 +73,10 @@ export default function HeroSection() {
     const el = sectionRef.current;
     if (!el) return;
     const obs = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) setVisible(true); },
-      { threshold: 0.2 },
+      ([entry]) => {
+        if (entry.isIntersecting) setVisible(true);
+      },
+      { threshold: 0.2 }
     );
     obs.observe(el);
     return () => obs.disconnect();
@@ -86,11 +102,17 @@ export default function HeroSection() {
       {/* Animated gradient orbs */}
       <div
         className="pointer-events-none absolute -right-40 -top-40 h-[600px] w-[600px] rounded-full bg-[#4fa77e]/10 blur-3xl transition-all duration-[2000ms]"
-        style={{ transform: visible ? 'scale(1) translate(0,0)' : 'scale(0.6) translate(80px,-80px)', opacity: visible ? 1 : 0 }}
+        style={{
+          transform: visible ? 'scale(1) translate(0,0)' : 'scale(0.6) translate(80px,-80px)',
+          opacity: visible ? 1 : 0,
+        }}
       />
       <div
         className="pointer-events-none absolute -bottom-40 -left-40 h-[500px] w-[500px] rounded-full bg-[#4fa77e]/5 blur-3xl transition-all duration-[2500ms]"
-        style={{ transform: visible ? 'scale(1) translate(0,0)' : 'scale(0.6) translate(-60px,60px)', opacity: visible ? 1 : 0 }}
+        style={{
+          transform: visible ? 'scale(1) translate(0,0)' : 'scale(0.6) translate(-60px,60px)',
+          opacity: visible ? 1 : 0,
+        }}
       />
 
       <div className="relative mx-auto max-w-5xl px-6 text-center">
@@ -126,9 +148,8 @@ export default function HeroSection() {
           }`}
           style={{ transitionDelay: '200ms' }}
         >
-          EonPro vertically integrates telehealth, e-prescribing, pharmacy
-          fulfillment, and patient engagement on one platform — so you can
-          focus on delivering quality care at scale.
+          EonPro vertically integrates telehealth, e-prescribing, pharmacy fulfillment, and patient
+          engagement on one platform — so you can focus on delivering quality care at scale.
         </p>
 
         {/* CTAs */}
@@ -140,13 +161,13 @@ export default function HeroSection() {
         >
           <a
             href="/request-demo"
-            className="group relative rounded-full bg-[#4fa77e] px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-[#4fa77e]/25 transition-all hover:bg-[#429b6f] hover:shadow-xl hover:shadow-[#4fa77e]/30 hover:-translate-y-0.5"
+            className="group relative rounded-full bg-[#4fa77e] px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-[#4fa77e]/25 transition-all hover:-translate-y-0.5 hover:bg-[#429b6f] hover:shadow-xl hover:shadow-[#4fa77e]/30"
           >
             <span className="relative z-10">Request a Demo</span>
           </a>
           <a
             href="#platform"
-            className="rounded-full border border-[#1f2933]/15 bg-white/60 px-8 py-3.5 text-base font-semibold text-[#1f2933] backdrop-blur-sm transition-all hover:bg-white hover:shadow-md hover:-translate-y-0.5"
+            className="rounded-full border border-[#1f2933]/15 bg-white/60 px-8 py-3.5 text-base font-semibold text-[#1f2933] backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-md"
           >
             Explore Platform
           </a>

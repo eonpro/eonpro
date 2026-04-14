@@ -13,12 +13,11 @@ export default function GoalsYouWillAccomplishCard({
   const plannedWeightLoss = weight - goalWeight;
 
   return (
-    <div className="card pb-6 flex flex-col sm:flex-row items-center justify-between gap-4 relative">
-      <div className="w-full sm:w-1/2 flex flex-col gap-6">
+    <div className="card relative flex flex-col items-center justify-between gap-4 pb-6 sm:flex-row">
+      <div className="flex w-full flex-col gap-6 sm:w-1/2">
         <div className="flex flex-col gap-4">
-          <h3 className="text-center sm:text-left card-title mb-0">
-            The goals{' '}
-            <span className="italic-primary">you will accomplish</span>
+          <h3 className="card-title mb-0 text-center sm:text-left">
+            The goals <span className="italic-primary">you will accomplish</span>
             <br />
             with your plan
           </h3>
@@ -28,8 +27,8 @@ export default function GoalsYouWillAccomplishCard({
             </li>
             <li>
               <CheckboxWithText>
-                Reset your metabolic “set point” so your body naturally wants to
-                be at {goalWeight} lbs
+                Reset your metabolic “set point” so your body naturally wants to be at {goalWeight}{' '}
+                lbs
               </CheckboxWithText>
             </li>
             <li>
@@ -39,8 +38,7 @@ export default function GoalsYouWillAccomplishCard({
         </div>
 
         <p className="text-center sm:text-left">
-          You will get{' '}
-          <span className="font-semibold">everything you need</span>{' '}
+          You will get <span className="font-semibold">everything you need</span>{' '}
           <span className="inline">
             <br />
           </span>{' '}
@@ -48,13 +46,9 @@ export default function GoalsYouWillAccomplishCard({
         </p>
       </div>
 
-      <div
-        id="placeholder-div"
-        className="w-[112.5px] h-[163.5px]"
-        aria-hidden
-      />
+      <div id="placeholder-div" className="h-[163.5px] w-[112.5px]" aria-hidden />
 
-      <div className="w-[220px] h-[210px] sm:w-[340px] sm:h-[328px] absolute -bottom-4 sm:right-0">
+      <div className="absolute -bottom-4 h-[210px] w-[220px] sm:right-0 sm:h-[328px] sm:w-[340px]">
         <Image
           src="/assets/images/goals-you-will-accomplish.webp"
           alt="Medical equipments"

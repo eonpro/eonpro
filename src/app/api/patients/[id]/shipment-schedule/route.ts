@@ -40,10 +40,7 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
         patientId,
         totalShipments: { gt: 1 },
       },
-      orderBy: [
-        { parentRefillId: 'asc' },
-        { shipmentNumber: 'asc' },
-      ],
+      orderBy: [{ parentRefillId: 'asc' }, { shipmentNumber: 'asc' }],
       select: {
         id: true,
         shipmentNumber: true,
@@ -69,10 +66,7 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
       error: errorMessage,
       userId: user.id,
     });
-    return NextResponse.json(
-      { error: 'Failed to fetch shipment schedule' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch shipment schedule' }, { status: 500 });
   }
 }
 

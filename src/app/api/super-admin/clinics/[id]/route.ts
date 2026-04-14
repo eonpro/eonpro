@@ -226,7 +226,10 @@ export const PUT = withSuperAdminAuth(
           });
         }
       } catch (auditError) {
-        logger.error('Failed to create audit log', auditError instanceof Error ? auditError : undefined);
+        logger.error(
+          'Failed to create audit log',
+          auditError instanceof Error ? auditError : undefined
+        );
       }
 
       return NextResponse.json({
@@ -321,19 +324,35 @@ export const DELETE = withSuperAdminAuth(
             await tx.provider.findMany({ where: { clinicId }, select: { id: true }, take: 10000 })
           ).map((p) => p.id);
           const subscriptionIds = (
-            await tx.subscription.findMany({ where: { clinicId }, select: { id: true }, take: 10000 })
+            await tx.subscription.findMany({
+              where: { clinicId },
+              select: { id: true },
+              take: 10000,
+            })
           ).map((s) => s.id);
           const integrationIds = (
-            await tx.integration.findMany({ where: { clinicId }, select: { id: true }, take: 10000 })
+            await tx.integration.findMany({
+              where: { clinicId },
+              select: { id: true },
+              take: 10000,
+            })
           ).map((i) => i.id);
           const webhookIds = (
-            await tx.webhookConfig.findMany({ where: { clinicId }, select: { id: true }, take: 10000 })
+            await tx.webhookConfig.findMany({
+              where: { clinicId },
+              select: { id: true },
+              take: 10000,
+            })
           ).map((w) => w.id);
           const userIds = (
             await tx.user.findMany({ where: { clinicId }, select: { id: true }, take: 10000 })
           ).map((u) => u.id);
           const templateIds = (
-            await tx.intakeFormTemplate.findMany({ where: { clinicId }, select: { id: true }, take: 10000 })
+            await tx.intakeFormTemplate.findMany({
+              where: { clinicId },
+              select: { id: true },
+              take: 10000,
+            })
           ).map((t) => t.id);
 
           // ===== Phase 2: Deepest leaf tables (no clinicId, no cascade) =====
@@ -409,10 +428,7 @@ export const DELETE = withSuperAdminAuth(
             // TicketMerge references tickets without cascade
             await tx.ticketMerge.deleteMany({
               where: {
-                OR: [
-                  { sourceTicketId: { in: ticketIds } },
-                  { targetTicketId: { in: ticketIds } },
-                ],
+                OR: [{ sourceTicketId: { in: ticketIds } }, { targetTicketId: { in: ticketIds } }],
               },
             });
             await tx.ticketSLA.deleteMany({ where: { ticketId: { in: ticketIds } } });
@@ -502,9 +518,21 @@ export const DELETE = withSuperAdminAuth(
           await tx.calendarSubscription.deleteMany({ where: { clinicId } });
 
           // Financial analytics (tables may not exist in all schemas)
-          try { await (tx as any).financialMetrics.deleteMany({ where: { clinicId } }); } catch { /* table may not exist */ }
-          try { await (tx as any).savedReport.deleteMany({ where: { clinicId } }); } catch { /* table may not exist */ }
-          try { await (tx as any).reportExport.deleteMany({ where: { clinicId } }); } catch { /* table may not exist */ }
+          try {
+            await (tx as any).financialMetrics.deleteMany({ where: { clinicId } });
+          } catch {
+            /* table may not exist */
+          }
+          try {
+            await (tx as any).savedReport.deleteMany({ where: { clinicId } });
+          } catch {
+            /* table may not exist */
+          }
+          try {
+            await (tx as any).reportExport.deleteMany({ where: { clinicId } });
+          } catch {
+            /* table may not exist */
+          }
           await tx.paymentReconciliation.deleteMany({ where: { clinicId } });
 
           // Sales rep assignments

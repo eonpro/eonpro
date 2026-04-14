@@ -50,39 +50,49 @@ export default function SideEffectsStep({
   const text = isSpanish
     ? 'Las náuseas, vómitos, estreñimiento y diarrea son efectos secundarios tempranos comunes de los medicamentos para perder peso.'
     : 'Nausea, vomiting, constipation, and diarrhea are common early side effects of weight loss medication.';
-  
+
   const words = text.split(' ');
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
-      <div className="w-full h-1 bg-gray-100">
-        <div 
+    <div className="flex min-h-screen flex-col bg-white">
+      <div className="h-1 w-full bg-gray-100">
+        <div
           className="h-full bg-[var(--intake-accent,#f0feab)] transition-all duration-300"
           style={{ width: `${progressPercent}%` }}
         />
       </div>
-      
+
       {prevStep && (
-        <div className="px-6 lg:px-8 pt-8 lg:pt-6">
-          <button 
-            onClick={handleBack} 
-            className="inline-block p-2 -ml-2 hover:bg-gray-100 rounded-lg transition-colors"
+        <div className="px-6 pt-8 lg:px-8 lg:pt-6">
+          <button
+            onClick={handleBack}
+            className="-ml-2 inline-block rounded-lg p-2 transition-colors hover:bg-gray-100"
           >
-            <svg className="w-6 h-6 text-[#413d3d]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+            <svg
+              className="h-6 w-6 text-[#413d3d]"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
           </button>
         </div>
       )}
 
-      <div className="flex-1 flex flex-col items-center justify-center px-6 lg:px-8 py-8">
-        <div className="max-w-md lg:max-w-lg w-full">
-          <h1 className="text-3xl lg:text-4xl font-medium text-black leading-tight">
+      <div className="flex flex-1 flex-col items-center justify-center px-6 py-8 lg:px-8">
+        <div className="w-full max-w-md lg:max-w-lg">
+          <h1 className="text-3xl font-medium leading-tight text-black lg:text-4xl">
             {words.map((word, index) => (
               <span
                 key={index}
-                className={`inline-block mr-2 transition-all duration-500 ease-out ${
-                  animate ? 'opacity-100 translate-y-0 blur-0' : 'opacity-0 translate-y-4 blur-sm'
+                className={`mr-2 inline-block transition-all duration-500 ease-out ${
+                  animate ? 'translate-y-0 opacity-100 blur-0' : 'translate-y-4 opacity-0 blur-sm'
                 }`}
                 style={{ transitionDelay: `${index * 40}ms` }}
               >
@@ -93,33 +103,38 @@ export default function SideEffectsStep({
         </div>
       </div>
 
-      <div 
-        className={`px-6 lg:px-8 pb-8 max-w-md lg:max-w-lg mx-auto w-full transition-all duration-700 ease-out ${
-          showButton ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+      <div
+        className={`mx-auto w-full max-w-md px-6 pb-8 transition-all duration-700 ease-out lg:max-w-lg lg:px-8 ${
+          showButton ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
         }`}
       >
         <button
           onClick={handleNext}
-          className="w-full py-4 px-8 rounded-full text-lg font-medium bg-black text-white 
-            hover:bg-gray-900 hover:scale-[1.02] active:scale-[0.98]
-            flex items-center justify-center space-x-3 transition-all duration-200
-            relative overflow-hidden shine-button"
+          className="shine-button relative flex w-full items-center justify-center space-x-3 overflow-hidden rounded-full bg-black px-8 py-4 text-lg font-medium text-white transition-all duration-200 hover:scale-[1.02] hover:bg-gray-900 active:scale-[0.98]"
         >
           <span>{isSpanish ? 'Siguiente' : 'Next'}</span>
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
           </svg>
         </button>
-        
-        <p className="copyright-text text-center mt-4">
+
+        <p className="copyright-text mt-4 text-center">
           {isSpanish ? (
-            <>© 2026 EONPro, LLC. Todos los derechos reservados.<br/>
-            Proceso exclusivo y protegido. Copiar o reproducir<br/>
-            sin autorización está prohibido.</>
+            <>
+              © 2026 EONPro, LLC. Todos los derechos reservados.
+              <br />
+              Proceso exclusivo y protegido. Copiar o reproducir
+              <br />
+              sin autorización está prohibido.
+            </>
           ) : (
-            <>© 2026 EONPro, LLC. All rights reserved.<br/>
-            Exclusive and protected process. Copying or reproduction<br/>
-            without authorization is prohibited.</>
+            <>
+              © 2026 EONPro, LLC. All rights reserved.
+              <br />
+              Exclusive and protected process. Copying or reproduction
+              <br />
+              without authorization is prohibited.
+            </>
           )}
         </p>
       </div>

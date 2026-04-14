@@ -16,9 +16,23 @@ import { z } from 'zod';
 const DRAFT_TTL_DAYS = 30;
 
 const PHI_RESPONSE_KEYS = new Set([
-  'firstName', 'lastName', 'email', 'phone', 'dob', 'dateOfBirth',
-  'street', 'apartment', 'city', 'state', 'zip', 'address',
-  'ssn', 'insurance_id', 'allergies', 'medications', 'medical_conditions',
+  'firstName',
+  'lastName',
+  'email',
+  'phone',
+  'dob',
+  'dateOfBirth',
+  'street',
+  'apartment',
+  'city',
+  'state',
+  'zip',
+  'address',
+  'ssn',
+  'insurance_id',
+  'allergies',
+  'medications',
+  'medical_conditions',
 ]);
 
 function encryptDraftResponses(responses: Record<string, unknown>): Record<string, unknown> {
@@ -67,7 +81,7 @@ export async function POST(req: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json(
         { error: 'Validation failed', details: parsed.error.flatten() },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -97,7 +111,14 @@ export async function POST(req: NextRequest) {
 
       await upsertDraft(sessionId, clinic.id, template.id, currentStep, completedSteps, responses);
     } else {
-      await upsertDraft(sessionId, clinic.id, numericTemplateId, currentStep, completedSteps, responses);
+      await upsertDraft(
+        sessionId,
+        clinic.id,
+        numericTemplateId,
+        currentStep,
+        completedSteps,
+        responses
+      );
     }
 
     return NextResponse.json({ success: true, sessionId });
@@ -110,10 +131,7 @@ export async function GET(req: NextRequest) {
   try {
     const sessionId = req.nextUrl.searchParams.get('sessionId');
     if (!sessionId) {
-      return NextResponse.json(
-        { error: 'sessionId query param required' },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: 'sessionId query param required' }, { status: 400 });
     }
 
     const draft = await prisma.intakeFormDraft.findUnique({
@@ -153,7 +171,7 @@ async function upsertDraft(
   templateId: number,
   currentStep: string,
   completedSteps: string[],
-  responses: Record<string, unknown>,
+  responses: Record<string, unknown>
 ) {
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + DRAFT_TTL_DAYS);

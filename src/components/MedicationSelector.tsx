@@ -103,7 +103,8 @@ function getFriendlyName(name: string): { displayName: string; details: string }
   if (nameLower.includes('semaglutide') && vialSizeMl > 0 && concentrationMgPerMl > 0) {
     const totalMg = vialSizeMl * concentrationMgPerMl;
     const totalMgFormatted = totalMg % 1 === 0 ? totalMg.toFixed(0) : totalMg.toFixed(1);
-    const concFormatted = concentrationMgPerMl % 1 === 0 ? concentrationMgPerMl : concentrationMgPerMl.toFixed(1);
+    const concFormatted =
+      concentrationMgPerMl % 1 === 0 ? concentrationMgPerMl : concentrationMgPerMl.toFixed(1);
     const vialFormatted = vialSizeMl % 1 === 0 ? vialSizeMl : vialSizeMl.toFixed(1);
     const displayName = 'SEMAGLUTIDE/GLYCINE';
     const details = `${concFormatted}mg/${conc2}mg/${vialFormatted}mL (${totalMgFormatted}mg)`;
@@ -369,7 +370,8 @@ export default function MedicationSelector({
                   )}
                 </div>
                 <p className="truncate text-sm text-gray-500">
-                  {(selectedMed.subCategory === 'Tirzepatide' || selectedMed.subCategory === 'Semaglutide')
+                  {selectedMed.subCategory === 'Tirzepatide' ||
+                  selectedMed.subCategory === 'Semaglutide'
                     ? selectedMed.details
                     : selectedMed.strength}
                 </p>

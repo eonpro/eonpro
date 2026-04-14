@@ -14,7 +14,10 @@ const ResourcesTabContent = dynamic(
     loading: () => (
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+          <div
+            key={i}
+            className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm"
+          >
             <div className="aspect-video animate-pulse bg-gray-100" />
             <div className="space-y-2 p-4">
               <div className="h-4 w-20 animate-pulse rounded bg-gray-100" />
@@ -25,7 +28,7 @@ const ResourcesTabContent = dynamic(
         ))}
       </div>
     ),
-  },
+  }
 );
 
 const categories = ['All', 'Tutorials', 'Education', 'Wellness', 'Nutrition', 'Fitness', 'Guides'];
@@ -135,14 +138,11 @@ export default function ResourcesPage() {
             <FileQuestion className="h-6 w-6" style={{ color: primaryColor }} />
           </div>
           <div>
-            <h3 className="font-semibold text-gray-900">Can't find what you're looking for?</h3>
+            <h3 className="font-semibold text-gray-900">Can&apos;t find what you&apos;re looking for?</h3>
             <p className="mt-1 text-sm text-gray-600">
-              Contact our support team and we'll be happy to help with any questions about your
+              Contact our support team and we&apos;ll be happy to help with any questions about your
               treatment or medication.
             </p>
-            <button className="mt-3 text-sm font-medium" style={{ color: primaryColor }}>
-              Contact Support →
-            </button>
           </div>
         </div>
       </div>

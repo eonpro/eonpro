@@ -238,7 +238,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
       }
     } catch (error: unknown) {
-      
       logger.error('Logout error:', error);
     } finally {
       // Clear local state
@@ -277,7 +276,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(userData);
       }
     } catch (error: unknown) {
-      
       logger.error('Token refresh failed:', error);
       await logout();
       throw error;
@@ -322,7 +320,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
           await refreshToken();
         } catch (error: unknown) {
-          
           logger.error('Session refresh failed:', error);
         }
       }
@@ -390,7 +387,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           try {
             await refreshToken();
           } catch (error: unknown) {
-            
             logger.error('Auto refresh failed:', error);
           }
         }

@@ -35,9 +35,10 @@ export const GET = withAuth(
         return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
       }
 
-      const clinicId = user.role === 'super_admin'
-        ? parseInt(new URL(req.url).searchParams.get('clinicId') ?? '0') || user.clinicId
-        : user.clinicId;
+      const clinicId =
+        user.role === 'super_admin'
+          ? parseInt(new URL(req.url).searchParams.get('clinicId') ?? '0') || user.clinicId
+          : user.clinicId;
 
       if (!clinicId) {
         return NextResponse.json({ error: 'clinicId required' }, { status: 400 });

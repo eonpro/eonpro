@@ -73,7 +73,7 @@ function isRxBundleGlpKind(pkg: OtRetailPackage): boolean {
 export function discountPercentForUnit(
   pkg: OtRetailPackage,
   researchIndexBeforeThisUnit: number,
-  disc: OtCalcDiscountState,
+  disc: OtCalcDiscountState
 ): number {
   let pct = 0;
   const isRes = isResearchKind(pkg);
@@ -100,7 +100,7 @@ export function discountPercentForUnit(
 
 export function buildCartLines(
   singleSel: Map<string, OtCalcDuration>,
-  multiQty: Map<string, { dur: OtCalcDuration; qty: number }>,
+  multiQty: Map<string, { dur: OtCalcDuration; qty: number }>
 ): OtCalcCartLine[] {
   const lines: OtCalcCartLine[] = [];
   for (const pkg of OT_RETAIL_PACKAGES) {
@@ -137,7 +137,7 @@ export interface OtCalcTotals {
 
 export function computeCalculatorTotals(
   lines: OtCalcCartLine[],
-  disc: OtCalcDiscountState,
+  disc: OtCalcDiscountState
 ): OtCalcTotals {
   let listTotalCents = 0;
   let discountedTotalCents = 0;
@@ -169,11 +169,7 @@ export function computeCalculatorTotals(
       }
     }
 
-    const pctFirst = discountPercentForUnit(
-      pkg,
-      isResearchKind(pkg) ? resIdxAtLineStart : 0,
-      disc,
-    );
+    const pctFirst = discountPercentForUnit(pkg, isResearchKind(pkg) ? resIdxAtLineStart : 0, disc);
     const label = qty > 1 ? `${pkg.name} ×${qty}` : pkg.name;
     const durLabel = pkg.flatRate ? 'flat' : `${dur}M`;
     rowDetails.push({

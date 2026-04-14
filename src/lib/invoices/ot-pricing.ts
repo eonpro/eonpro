@@ -46,7 +46,7 @@ const MS_PER_DAY = 86_400_000;
 export function findPriorPaidOtPrescriptionInvoice(
   patientInvoices: readonly { id: number; paidAt: Date }[],
   currentInvoiceId: number,
-  currentPaidAt: Date,
+  currentPaidAt: Date
 ): { id: number; paidAt: Date } | null {
   const curMs = currentPaidAt.getTime();
   let best: { id: number; paidAt: Date } | null = null;
@@ -55,11 +55,7 @@ export function findPriorPaidOtPrescriptionInvoice(
     const t = inv.paidAt.getTime();
     if (t > curMs) continue;
     if (t === curMs && inv.id >= currentInvoiceId) continue;
-    if (
-      !best ||
-      t > best.paidAt.getTime() ||
-      (t === best.paidAt.getTime() && inv.id > best.id)
-    ) {
+    if (!best || t > best.paidAt.getTime() || (t === best.paidAt.getTime() && inv.id > best.id)) {
       best = inv;
     }
   }
@@ -97,7 +93,8 @@ export function getOtDoctorRxFeeCentsForSale(params: {
   if (!params.priorPaidPrescriptionInvoice) {
     return { feeCents: rate, waivedReason: null, ...base };
   }
-  const gapMs = params.currentPaidAt.getTime() - params.priorPaidPrescriptionInvoice.paidAt.getTime();
+  const gapMs =
+    params.currentPaidAt.getTime() - params.priorPaidPrescriptionInvoice.paidAt.getTime();
   const daysSince = Math.floor(gapMs / MS_PER_DAY);
   const exemptMs = OT_DOCTOR_RX_FEE_REFILL_EXEMPT_DAYS * MS_PER_DAY;
   if (gapMs >= exemptMs) {
@@ -131,19 +128,91 @@ export interface OtProductPrice {
  * medicationKey on `Rx` is the Lifefile product id string.
  */
 export const OT_PRODUCT_PRICES: OtProductPrice[] = [
-  { productId: 203448972, name: 'TIRZEPATIDE/GLYCINE', strength: '10/20MG/ML', vialSize: '1ML', priceCents: 5200 },
-  { productId: 203448973, name: 'TIRZEPATIDE/GLYCINE', strength: '10/20MG/ML', vialSize: '2ML', priceCents: 6200 },
-  { productId: 203449364, name: 'TIRZEPATIDE/GLYCINE', strength: '10/20MG/ML', vialSize: '3ML', priceCents: 7000 },
-  { productId: 203449500, name: 'TIRZEPATIDE/GLYCINE', strength: '10/20MG/ML', vialSize: '4ML', priceCents: 8000 },
-  { productId: 203418602, name: 'TIRZEPATIDE/GLYCINE', strength: '30/20MG/ML', vialSize: '2ML', priceCents: 10500 },
-  { productId: 203448971, name: 'SEMAGLUTIDE/GLYCINE', strength: '2.5/20MG/ML', vialSize: '1ML', priceCents: 3500 },
-  { productId: 203448947, name: 'SEMAGLUTIDE/GLYCINE', strength: '2.5/20MG/ML', vialSize: '2ML', priceCents: 4000 },
-  { productId: 203449363, name: 'SEMAGLUTIDE/GLYCINE', strength: '2.5/20MG/ML', vialSize: '3ML', priceCents: 4500 },
-  { productId: 202851329, name: 'SEMAGLUTIDE/GLYCINE', strength: '5/20MG/ML', vialSize: '2ML', priceCents: 5000 },
+  {
+    productId: 203448972,
+    name: 'TIRZEPATIDE/GLYCINE',
+    strength: '10/20MG/ML',
+    vialSize: '1ML',
+    priceCents: 5200,
+  },
+  {
+    productId: 203448973,
+    name: 'TIRZEPATIDE/GLYCINE',
+    strength: '10/20MG/ML',
+    vialSize: '2ML',
+    priceCents: 6200,
+  },
+  {
+    productId: 203449364,
+    name: 'TIRZEPATIDE/GLYCINE',
+    strength: '10/20MG/ML',
+    vialSize: '3ML',
+    priceCents: 7000,
+  },
+  {
+    productId: 203449500,
+    name: 'TIRZEPATIDE/GLYCINE',
+    strength: '10/20MG/ML',
+    vialSize: '4ML',
+    priceCents: 8000,
+  },
+  {
+    productId: 203418602,
+    name: 'TIRZEPATIDE/GLYCINE',
+    strength: '30/20MG/ML',
+    vialSize: '2ML',
+    priceCents: 10500,
+  },
+  {
+    productId: 203448971,
+    name: 'SEMAGLUTIDE/GLYCINE',
+    strength: '2.5/20MG/ML',
+    vialSize: '1ML',
+    priceCents: 3500,
+  },
+  {
+    productId: 203448947,
+    name: 'SEMAGLUTIDE/GLYCINE',
+    strength: '2.5/20MG/ML',
+    vialSize: '2ML',
+    priceCents: 4000,
+  },
+  {
+    productId: 203449363,
+    name: 'SEMAGLUTIDE/GLYCINE',
+    strength: '2.5/20MG/ML',
+    vialSize: '3ML',
+    priceCents: 4500,
+  },
+  {
+    productId: 202851329,
+    name: 'SEMAGLUTIDE/GLYCINE',
+    strength: '5/20MG/ML',
+    vialSize: '2ML',
+    priceCents: 5000,
+  },
   /** Enclomiphene capsules — internal COGS per dispensed package (e.g. 90-count fill), not per tablet. */
-  { productId: 203449328, name: 'ENCLOMIPHENE CITRATE', strength: '12.5mg', vialSize: 'CAP', priceCents: 3500 },
-  { productId: 203449329, name: 'ENCLOMIPHENE CITRATE', strength: '25 mg', vialSize: 'CAP', priceCents: 13500 },
-  { productId: 203449330, name: 'ENCLOMIPHENE CITRATE', strength: '50 mg', vialSize: 'CAP', priceCents: 4500 },
+  {
+    productId: 203449328,
+    name: 'ENCLOMIPHENE CITRATE',
+    strength: '12.5mg',
+    vialSize: 'CAP',
+    priceCents: 3500,
+  },
+  {
+    productId: 203449329,
+    name: 'ENCLOMIPHENE CITRATE',
+    strength: '25 mg',
+    vialSize: 'CAP',
+    priceCents: 13500,
+  },
+  {
+    productId: 203449330,
+    name: 'ENCLOMIPHENE CITRATE',
+    strength: '50 mg',
+    vialSize: 'CAP',
+    priceCents: 4500,
+  },
   {
     productId: 203418766,
     name: 'GLUTATHIONE 200MG/ML (10ML VIAL) SOLUTION',
@@ -184,13 +253,16 @@ export function inferOtPharmacyUnitPriceFromRx(rx: {
   strength: string;
   form: string;
 }): OtProductPrice | undefined {
-  const blob = [rx.medName, rx.strength, rx.form, rx.medicationKey].filter(Boolean).join(' ').toLowerCase();
+  const blob = [rx.medName, rx.strength, rx.form, rx.medicationKey]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
 
   const row = (
     priceCents: number,
     name: string,
     strength: string,
-    vialSize: string,
+    vialSize: string
   ): OtProductPrice => ({
     productId: OT_PHARMACY_FALLBACK_PRODUCT_ID,
     name,
@@ -200,15 +272,21 @@ export function inferOtPharmacyUnitPriceFromRx(rx: {
   });
 
   if (blob.includes('tirzepatide')) {
-    if (blob.includes('4ml') || blob.includes('4 ml')) return row(8000, rx.medName, rx.strength, rx.form || '');
-    if (blob.includes('3ml') || blob.includes('3 ml')) return row(7000, rx.medName, rx.strength, rx.form || '');
-    if (blob.includes('2ml') || blob.includes('2 ml')) return row(6200, rx.medName, rx.strength, rx.form || '');
+    if (blob.includes('4ml') || blob.includes('4 ml'))
+      return row(8000, rx.medName, rx.strength, rx.form || '');
+    if (blob.includes('3ml') || blob.includes('3 ml'))
+      return row(7000, rx.medName, rx.strength, rx.form || '');
+    if (blob.includes('2ml') || blob.includes('2 ml'))
+      return row(6200, rx.medName, rx.strength, rx.form || '');
     return row(5200, rx.medName, rx.strength, rx.form || '');
   }
   if (blob.includes('semaglutide')) {
-    if (blob.includes('5/20') || blob.includes('5mg')) return row(5000, rx.medName, rx.strength, rx.form || '');
-    if (blob.includes('3ml') || blob.includes('3 ml')) return row(4500, rx.medName, rx.strength, rx.form || '');
-    if (blob.includes('2ml') || blob.includes('2 ml')) return row(4000, rx.medName, rx.strength, rx.form || '');
+    if (blob.includes('5/20') || blob.includes('5mg'))
+      return row(5000, rx.medName, rx.strength, rx.form || '');
+    if (blob.includes('3ml') || blob.includes('3 ml'))
+      return row(4500, rx.medName, rx.strength, rx.form || '');
+    if (blob.includes('2ml') || blob.includes('2 ml'))
+      return row(4000, rx.medName, rx.strength, rx.form || '');
     return row(3500, rx.medName, rx.strength, rx.form || '');
   }
   if (blob.includes('sermorelin')) return row(12000, rx.medName, rx.strength, rx.form || '');
@@ -232,7 +310,8 @@ export function inferOtPharmacyUnitPriceFromRx(rx: {
   }
   if (blob.includes('tadalafil')) return row(2000, rx.medName, rx.strength, rx.form || '');
   if (blob.includes('anastrozole')) return row(1500, rx.medName, rx.strength, rx.form || '');
-  if (blob.includes('hcg') || blob.includes('gonadotropin')) return row(2500, rx.medName, rx.strength, rx.form || '');
+  if (blob.includes('hcg') || blob.includes('gonadotropin'))
+    return row(2500, rx.medName, rx.strength, rx.form || '');
 
   return undefined;
 }
@@ -326,12 +405,14 @@ export function isOtPremiumShippingMedication(rx: {
  * - **async**: all other prescriptions (GLP-1, peptides, enclomiphene, etc.).
  * Fee *amounts* use {@link OT_RX_ASYNC_APPROVAL_FEE_CENTS} ($30) vs {@link OT_RX_SYNC_APPROVAL_FEE_CENTS} ($50).
  */
-export function getOtDoctorApprovalModeFromRxs(rxs: {
-  medName: string;
-  medicationKey: string;
-  form?: string;
-  strength?: string;
-}[]): 'async' | 'sync' {
+export function getOtDoctorApprovalModeFromRxs(
+  rxs: {
+    medName: string;
+    medicationKey: string;
+    form?: string;
+    strength?: string;
+  }[]
+): 'async' | 'sync' {
   for (const rx of rxs) {
     const blob = [rx.medName, rx.medicationKey, rx.form ?? '', rx.strength ?? '']
       .filter(Boolean)
@@ -344,15 +425,23 @@ export function getOtDoctorApprovalModeFromRxs(rxs: {
   return 'async';
 }
 
-export function isOtTestosteroneReplacementTherapyOrder(rxs: {
-  medName: string;
-  medicationKey: string;
-  form?: string;
-  strength?: string;
-}[]): boolean {
+export function isOtTestosteroneReplacementTherapyOrder(
+  rxs: {
+    medName: string;
+    medicationKey: string;
+    form?: string;
+    strength?: string;
+  }[]
+): boolean {
   for (const rx of rxs) {
     const priced = getOtProductPrice(rx.medicationKey);
-    const blob = [rx.medName, rx.medicationKey, priced?.name ?? '', rx.form ?? '', rx.strength ?? '']
+    const blob = [
+      rx.medName,
+      rx.medicationKey,
+      priced?.name ?? '',
+      rx.form ?? '',
+      rx.strength ?? '',
+    ]
       .filter(Boolean)
       .join(' ')
       .toLowerCase();
@@ -366,12 +455,14 @@ export function isOtTestosteroneReplacementTherapyOrder(rxs: {
 
 /** One shipping charge per order when the order has at least one Rx. */
 export function getOtPrescriptionShippingCentsForOrder(
-  rxs: { medName: string; medicationKey: string; form?: string }[],
+  rxs: { medName: string; medicationKey: string; form?: string }[]
 ): { feeCents: number; tier: 'standard' | 'premium' } {
   if (rxs.length === 0) return { feeCents: 0, tier: 'standard' };
   const premium = rxs.some((rx) => isOtPremiumShippingMedication(rx));
   return {
-    feeCents: premium ? OT_PRESCRIPTION_SHIPPING_PREMIUM_CENTS : OT_PRESCRIPTION_SHIPPING_STANDARD_CENTS,
+    feeCents: premium
+      ? OT_PRESCRIPTION_SHIPPING_PREMIUM_CENTS
+      : OT_PRESCRIPTION_SHIPPING_STANDARD_CENTS,
     tier: premium ? 'premium' : 'standard',
   };
 }
@@ -393,13 +484,13 @@ export type OtNonPharmacyChargeKind = 'bloodwork' | 'consult' | 'other';
  */
 export function classifyOtNonPharmacyChargeLine(
   description: string,
-  amountCents: number,
+  amountCents: number
 ): OtNonPharmacyChargeKind {
   const d = description.toLowerCase();
   if (
     amountCents === OT_BLOODWORK_STANDARD_FEE_CENTS ||
     /\b(blood\s*work|bloodwork|lab\s*panel|quest|labcorp|phlebotom|cmp\b|cbc\b|baseline\s*lab)\b/i.test(
-      description,
+      description
     )
   ) {
     return 'bloodwork';

@@ -177,21 +177,12 @@ export default function AffiliateForgotPasswordPage() {
                   {branding.name}
                 </h1>
               )}
-              <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-gray-500 whitespace-nowrap">
-                Powered by{' '}
-                <img
-                  src={EONPRO_LOGO}
-                  alt="EONPRO"
-                  className="h-[21px] w-auto"
-                />
+              <p className="mt-2 flex items-center justify-center gap-1.5 whitespace-nowrap text-xs text-gray-500">
+                Powered by <img src={EONPRO_LOGO} alt="EONPRO" className="h-[21px] w-auto" />
               </p>
             </>
           ) : (
-            <img
-              src={EONPRO_LOGO}
-              alt="EONPRO"
-              className="h-10 w-auto"
-            />
+            <img src={EONPRO_LOGO} alt="EONPRO" className="h-10 w-auto" />
           )}
         </div>
 
@@ -233,7 +224,9 @@ export default function AffiliateForgotPasswordPage() {
                       Email address
                     </label>
                     <div className="relative">
-                      <div className={`absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${email ? 'opacity-0' : 'opacity-100'}`}>
+                      <div
+                        className={`absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${email ? 'opacity-0' : 'opacity-100'}`}
+                      >
                         <Mail className="h-5 w-5" />
                       </div>
                       <input
@@ -355,9 +348,7 @@ export default function AffiliateForgotPasswordPage() {
               Contact support
             </a>
           </p>
-          <p className="mt-2 text-xs text-gray-400">
-            &copy; 2026 EONPro &bull; Partner Portal
-          </p>
+          <p className="mt-2 text-xs text-gray-400">&copy; 2026 EONPro &bull; Partner Portal</p>
         </footer>
       </div>
     </div>

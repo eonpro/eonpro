@@ -74,10 +74,7 @@ export function withTimeout<T>(
   return Promise.race([
     promise,
     new Promise<T>((_, reject) =>
-      setTimeout(
-        () => reject(new TimeoutError(`${label} timed out after ${ms}ms`, ms)),
-        ms
-      )
+      setTimeout(() => reject(new TimeoutError(`${label} timed out after ${ms}ms`, ms)), ms)
     ),
   ]);
 }

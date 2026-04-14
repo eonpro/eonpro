@@ -228,9 +228,9 @@ export default function AffiliateAnalyticsPage() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [refCodeStats, setRefCodeStats] = useState<RefCodeStats[]>([]);
   const [trafficSources, setTrafficSources] = useState<TrafficSource[]>([]);
-  const [activeChart, setActiveChart] = useState<'clicks' | 'intakes' | 'conversions' | 'revenue' | 'commission'>(
-    'clicks'
-  );
+  const [activeChart, setActiveChart] = useState<
+    'clicks' | 'intakes' | 'conversions' | 'revenue' | 'commission'
+  >('clicks');
 
   // Calculate date range based on preset
   const dateRange = useMemo(() => {
@@ -267,10 +267,16 @@ export default function AffiliateAnalyticsPage() {
             apiFetch(
               `/api/affiliate/trends?from=${dateRange.from}&to=${dateRange.to}&granularity=day`
             ).catch(() => null),
-            apiFetch(`/api/affiliate/summary?from=${dateRange.from}&to=${dateRange.to}`).catch(() => null),
+            apiFetch(`/api/affiliate/summary?from=${dateRange.from}&to=${dateRange.to}`).catch(
+              () => null
+            ),
             apiFetch('/api/affiliate/dashboard').catch(() => null),
-            apiFetch(`/api/affiliate/ref-codes/stats?from=${dateRange.from}&to=${dateRange.to}`).catch(() => null),
-            apiFetch(`/api/affiliate/traffic-sources?from=${dateRange.from}&to=${dateRange.to}`).catch(() => null),
+            apiFetch(
+              `/api/affiliate/ref-codes/stats?from=${dateRange.from}&to=${dateRange.to}`
+            ).catch(() => null),
+            apiFetch(
+              `/api/affiliate/traffic-sources?from=${dateRange.from}&to=${dateRange.to}`
+            ).catch(() => null),
           ]);
 
         if (trendsRes?.ok) {
@@ -454,34 +460,54 @@ export default function AffiliateAnalyticsPage() {
         >
           <div className="mb-4 sm:mb-6">
             <div className="mb-3 flex items-center justify-between sm:mb-4">
-              <h2 className="text-base font-semibold text-gray-900 sm:text-lg">Performance Trends</h2>
+              <h2 className="text-base font-semibold text-gray-900 sm:text-lg">
+                Performance Trends
+              </h2>
             </div>
             <div className="flex flex-wrap gap-1.5 sm:gap-2">
-              {(['clicks', 'intakes', 'conversions', 'revenue', 'commission'] as const).map((chart) => (
-                <button
-                  key={chart}
-                  onClick={() => setActiveChart(chart)}
-                  className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors sm:px-3 sm:text-sm ${
-                    activeChart === chart
-                      ? 'text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                  style={activeChart === chart ? { backgroundColor: 'var(--brand-primary)' } : undefined}
-                >
-                  {chart.charAt(0).toUpperCase() + chart.slice(1)}
-                </button>
-              ))}
+              {(['clicks', 'intakes', 'conversions', 'revenue', 'commission'] as const).map(
+                (chart) => (
+                  <button
+                    key={chart}
+                    onClick={() => setActiveChart(chart)}
+                    className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors sm:px-3 sm:text-sm ${
+                      activeChart === chart
+                        ? 'text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                    style={
+                      activeChart === chart
+                        ? { backgroundColor: 'var(--brand-primary)' }
+                        : undefined
+                    }
+                  >
+                    {chart.charAt(0).toUpperCase() + chart.slice(1)}
+                  </button>
+                )
+              )}
             </div>
           </div>
 
           <div className="h-60 sm:h-80">
             {chartData.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center text-gray-400">
-                <svg className="mb-2 h-10 w-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                <svg
+                  className="mb-2 h-10 w-10 text-gray-300"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                  />
                 </svg>
                 <p className="text-sm">No trend data for this period</p>
-                <p className="mt-1 text-xs text-gray-300">Clicks and intakes will appear here as they come in</p>
+                <p className="mt-1 text-xs text-gray-300">
+                  Clicks and intakes will appear here as they come in
+                </p>
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
@@ -491,12 +517,7 @@ export default function AffiliateAnalyticsPage() {
                     <XAxis dataKey="date" tickFormatter={formatDate} tick={{ fontSize: 12 }} />
                     <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
                     <Tooltip content={<CustomTooltip />} />
-                    <Bar
-                      dataKey="clicks"
-                      name="Clicks"
-                      fill="#3B82F6"
-                      radius={[4, 4, 0, 0]}
-                    />
+                    <Bar dataKey="clicks" name="Clicks" fill="#3B82F6" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 ) : activeChart === 'intakes' ? (
                   <BarChart data={chartData}>
@@ -504,12 +525,7 @@ export default function AffiliateAnalyticsPage() {
                     <XAxis dataKey="date" tickFormatter={formatDate} tick={{ fontSize: 12 }} />
                     <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
                     <Tooltip content={<CustomTooltip />} />
-                    <Bar
-                      dataKey="intakes"
-                      name="Intakes"
-                      fill="#10B981"
-                      radius={[4, 4, 0, 0]}
-                    />
+                    <Bar dataKey="intakes" name="Intakes" fill="#10B981" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 ) : activeChart === 'conversions' ? (
                   <BarChart data={chartData}>

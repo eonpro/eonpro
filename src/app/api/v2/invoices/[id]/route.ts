@@ -69,7 +69,12 @@ export async function GET(
       } catch (decryptErr) {
         logger.warn('[v2 Invoices] Failed to decrypt patient PHI', {
           patientId: invoice.patient?.id,
-          error: decryptErr instanceof Error ? (decryptErr instanceof Error ? decryptErr.message : String(decryptErr)) : String(decryptErr),
+          error:
+            decryptErr instanceof Error
+              ? decryptErr instanceof Error
+                ? decryptErr.message
+                : String(decryptErr)
+              : String(decryptErr),
         });
       }
     }
@@ -82,7 +87,10 @@ export async function GET(
     });
   } catch (error: unknown) {
     logger.error('Failed to get invoice', error);
-    return NextResponse.json({ error: (error as any).message || 'Failed to get invoice' }, { status: 500 });
+    return NextResponse.json(
+      { error: (error as any).message || 'Failed to get invoice' },
+      { status: 500 }
+    );
   }
 }
 
@@ -169,6 +177,9 @@ export async function DELETE(
     });
   } catch (error: unknown) {
     logger.error('Failed to void invoice', error);
-    return NextResponse.json({ error: (error as any).message || 'Failed to void invoice' }, { status: 500 });
+    return NextResponse.json(
+      { error: (error as any).message || 'Failed to void invoice' },
+      { status: 500 }
+    );
   }
 }

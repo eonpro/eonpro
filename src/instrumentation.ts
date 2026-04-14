@@ -38,7 +38,9 @@ export async function register(): Promise<void> {
       const isTransient = transientPatterns.some((p) => combined.includes(p));
 
       if (isTransient) {
-        logger.warn('[instrumentation] Allowing startup despite transient DB error — schema will be validated on first request');
+        logger.warn(
+          '[instrumentation] Allowing startup despite transient DB error — schema will be validated on first request'
+        );
       } else {
         throw err;
       }

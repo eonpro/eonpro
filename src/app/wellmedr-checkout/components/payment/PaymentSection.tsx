@@ -47,10 +47,7 @@ function storeSubscriptionId(subscriptionId: string) {
   if (typeof window === 'undefined') return;
   try {
     sessionStorage.setItem(SUBSCRIPTION_STORAGE_KEY, subscriptionId);
-    console.log(
-      '[Subscription Storage] Stored subscription ID:',
-      subscriptionId,
-    );
+    console.log('[Subscription Storage] Stored subscription ID:', subscriptionId);
   } catch (e) {
     console.error('Failed to store subscription ID:', e);
   }
@@ -110,8 +107,7 @@ export default function PaymentForm({ submissionId }: PaymentFormProps) {
     actualDiscount = ((planDetails?.totalPayToday || 0) * discountPercentage) / 100;
   }
 
-  const finalAmount =
-    actualDiscount > 0 ? baseAmount - actualDiscount : baseAmount;
+  const finalAmount = actualDiscount > 0 ? baseAmount - actualDiscount : baseAmount;
   const amountInCents = Math.round(Math.max(finalAmount, 1) * 100);
 
   // Show user-friendly error if publishable key is not available
@@ -122,12 +118,10 @@ export default function PaymentForm({ submissionId }: PaymentFormProps) {
   // Show message if plan not selected yet
   if (!planDetails || !selectedProduct) {
     return (
-      <div className="w-full flex flex-col gap-6 sm:gap-8">
+      <div className="flex w-full flex-col gap-6 sm:gap-8">
         <h2 className="text-center">Payment method</h2>
-        <div className="flex flex-col gap-4 sm:gap-6 card items-center py-12">
-          <p className="text-lg text-gray-600">
-            Please select a plan to continue.
-          </p>
+        <div className="card flex flex-col items-center gap-4 py-12 sm:gap-6">
+          <p className="text-lg text-gray-600">Please select a plan to continue.</p>
         </div>
       </div>
     );
@@ -269,7 +263,7 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
       }),
     });
     logger.log(
-      `[CLIENT] /api/create-subscription completed in ${(performance.now() - startTime).toFixed(0)}ms`,
+      `[CLIENT] /api/create-subscription completed in ${(performance.now() - startTime).toFixed(0)}ms`
     );
 
     const data = await response.json();
@@ -303,11 +297,8 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
   // Get billing details for payment methods
   const getBillingDetails = useCallback(() => {
     const formData = getValues();
-    const useBillingAddress =
-      !formData.shippingAddress.billingAddressSameAsShipment;
-    const address = useBillingAddress
-      ? formData.billingAddress
-      : formData.shippingAddress;
+    const useBillingAddress = !formData.shippingAddress.billingAddressSameAsShipment;
+    const address = useBillingAddress ? formData.billingAddress : formData.shippingAddress;
 
     return {
       name:
@@ -333,7 +324,7 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
         setExpressCheckoutReady(true);
       }
     },
-    [],
+    []
   );
 
   /** Express Checkout Element confirm handler */
@@ -421,7 +412,7 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
         setProcessingMethod(null);
       }
     },
-    [stripe, elements, submissionId, getValues, createSubscription, router],
+    [stripe, elements, submissionId, getValues, createSubscription, router]
   );
 
   /** Card payment submission handler */
@@ -493,9 +484,7 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
       // Step 1: Create subscription to get clientSecret
       logger.log('[CLIENT] Step 1: Creating subscription...');
       const subscriptionData = await createSubscription();
-      logger.log(
-        `[CLIENT] Step 1 completed in ${(performance.now() - totalStart).toFixed(0)}ms`,
-      );
+      logger.log(`[CLIENT] Step 1 completed in ${(performance.now() - totalStart).toFixed(0)}ms`);
 
       // If subscription is already active (100% discount), redirect to thank you
       if (subscriptionData.status === 'active' && subscriptionData.success) {
@@ -517,19 +506,19 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
       // Step 2: Confirm payment with the clientSecret
       logger.log('[CLIENT] Step 2: Confirming card payment...');
       const confirmStart = performance.now();
-      const { error: confirmError, paymentIntent } =
-        await stripe.confirmCardPayment(subscriptionData.clientSecret, {
+      const { error: confirmError, paymentIntent } = await stripe.confirmCardPayment(
+        subscriptionData.clientSecret,
+        {
           payment_method: {
             card: cardElement,
             billing_details: getBillingDetails(),
           },
-        });
-      logger.log(
-        `[CLIENT] Step 2 (confirmCardPayment) completed in ${(performance.now() - confirmStart).toFixed(0)}ms`,
+        }
       );
       logger.log(
-        `[CLIENT] Total payment flow: ${(performance.now() - totalStart).toFixed(0)}ms`,
+        `[CLIENT] Step 2 (confirmCardPayment) completed in ${(performance.now() - confirmStart).toFixed(0)}ms`
       );
+      logger.log(`[CLIENT] Total payment flow: ${(performance.now() - totalStart).toFixed(0)}ms`);
 
       if (confirmError) {
         throw new Error(confirmError.message);
@@ -540,8 +529,7 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
       }
 
       if (paymentIntent.status === 'succeeded') {
-        const transactionId =
-          subscriptionData.subscriptionId || paymentIntent.id;
+        const transactionId = subscriptionData.subscriptionId || paymentIntent.id;
 
         // Track checkout completed (PostHog)
         trackCheckoutCompleted({
@@ -592,15 +580,11 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
         router.push(`/thank-you?uid=${submissionId}`);
         return;
       } else if (paymentIntent.status === 'requires_payment_method') {
-        throw new Error(
-          'Your card was declined. Please try a different payment method.',
-        );
+        throw new Error('Your card was declined. Please try a different payment method.');
       } else if (paymentIntent.status === 'requires_action') {
         throw new Error('Authentication was not completed. Please try again.');
       } else {
-        throw new Error(
-          `Payment status: ${paymentIntent.status}. Please contact support.`,
-        );
+        throw new Error(`Payment status: ${paymentIntent.status}. Please contact support.`);
       }
     } catch (err: any) {
       logger.error('Payment Error:', err);
@@ -609,9 +593,7 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
         error_message: err?.message || 'Payment failed',
         payment_method_type: 'card',
       });
-      setError(
-        err?.message || 'Payment failed. Please try again or contact support.',
-      );
+      setError(err?.message || 'Payment failed. Please try again or contact support.');
       setIsProcessing(false);
       setProcessingMethod(null);
     }
@@ -670,13 +652,7 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
       klarna: 'pay' as const,
     },
     // Order: Apple Pay, Google Pay, Link, Amazon Pay, Klarna
-    paymentMethodOrder: [
-      'apple_pay',
-      'google_pay',
-      'link',
-      'amazon_pay',
-      'klarna',
-    ],
+    paymentMethodOrder: ['apple_pay', 'google_pay', 'link', 'amazon_pay', 'klarna'],
     layout: {
       maxColumns: 3,
       maxRows: 2,
@@ -687,27 +663,23 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
   // If payment was already completed, show redirect message
   if (paymentCompleted) {
     return (
-      <div className="w-full flex flex-col gap-6 sm:gap-8">
+      <div className="flex w-full flex-col gap-6 sm:gap-8">
         <h2 className="text-center">Payment method</h2>
-        <div className="flex flex-col gap-4 sm:gap-6 card items-center py-12">
-          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-lg text-gray-600">
-            Payment successful! Redirecting...
-          </p>
+        <div className="card flex flex-col items-center gap-4 py-12 sm:gap-6">
+          <div className="border-primary h-12 w-12 animate-spin rounded-full border-4 border-t-transparent" />
+          <p className="text-lg text-gray-600">Payment successful! Redirecting...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full flex flex-col gap-6 sm:gap-8">
+    <div className="flex w-full flex-col gap-6 sm:gap-8">
       <h2 className="text-center">Payment method</h2>
 
       {/* Express Checkout */}
-      <div className="w-full bg-white card sm:p-6">
-        <h3 className="text-base sm:text-xl mb-4 sm:mb-6 text-center">
-          Express Checkout
-        </h3>
+      <div className="card w-full bg-white sm:p-6">
+        <h3 className="mb-4 text-center text-base sm:mb-6 sm:text-xl">Express Checkout</h3>
 
         {/* Stripe Express Checkout Element */}
         <ExpressCheckoutElement
@@ -718,23 +690,23 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
 
         {/* Show loading state while express checkout initializes */}
         {!expressCheckoutReady && (
-          <div className="flex justify-center gap-4 mt-2">
-            <div className="h-10 w-full bg-gray-100 rounded-md animate-pulse" />
-            <div className="h-10 w-full bg-gray-100 rounded-md animate-pulse" />
+          <div className="mt-2 flex justify-center gap-4">
+            <div className="h-10 w-full animate-pulse rounded-md bg-gray-100" />
+            <div className="h-10 w-full animate-pulse rounded-md bg-gray-100" />
           </div>
         )}
       </div>
 
       {/* Divider */}
       <div className="flex items-center gap-4">
-        <div className="flex-1 h-px bg-gray-200" />
+        <div className="h-px flex-1 bg-gray-200" />
         <span className="text-sm opacity-50">OR</span>
-        <div className="flex-1 h-px bg-gray-200" />
+        <div className="h-px flex-1 bg-gray-200" />
       </div>
 
       {/* Card Payment Form */}
       <form
-        className="flex flex-col gap-4 sm:gap-6 card"
+        className="card flex flex-col gap-4 sm:gap-6"
         onSubmit={(e) => {
           e.preventDefault();
           handleCardSubmit();
@@ -749,41 +721,37 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
             <CardNumberElement
               onChange={handleCardNumberChange}
               options={cardNumberOptions}
-              className="py-3 text-foreground"
+              className="text-foreground py-3"
             />
           </div>
         </div>
 
         {/* Expiration and CVV */}
         <div className="flex gap-4">
-          <div className="flex-1 flex flex-col gap-2">
+          <div className="flex flex-1 flex-col gap-2">
             <label className="form-label">Expiration date</label>
             <div className="form-input">
               <CardExpiryElement
                 onChange={handleCardExpiryChange}
                 options={cardElementOptions}
-                className="py-3 text-foreground placeholder:opacity-30"
+                className="text-foreground py-3 placeholder:opacity-30"
               />
             </div>
           </div>
-          <div className="flex-1 flex flex-col gap-2">
+          <div className="flex flex-1 flex-col gap-2">
             <label className="form-label">CVV</label>
             <div className="form-input">
               <CardCvcElement
                 onChange={handleCardCvcChange}
                 options={cardElementOptions}
-                className="py-3 text-foreground"
+                className="text-foreground py-3"
               />
             </div>
           </div>
         </div>
 
         {/* Name on Card */}
-        <InputField
-          name="cardholderName"
-          label="Name on card"
-          placeholder="John Doe"
-        />
+        <InputField name="cardholderName" label="Name on card" placeholder="John Doe" />
 
         {/* Promo Code */}
         <PromoCodeSection />
@@ -792,18 +760,14 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
           {/* Place Order Button */}
           <Button
             onClick={handleCardSubmit}
-            text={
-              processingMethod === 'card' ? 'Processing...' : 'Place my order'
-            }
+            text={processingMethod === 'card' ? 'Processing...' : 'Place my order'}
             disabled={isCardDisabled}
             suffix={processingMethod === 'card' ? null : undefined}
           />
 
           {/* Error Display */}
           {error && (
-            <div className="text-sm text-red-500 mt-2 flex items-center gap-2">
-              {error}
-            </div>
+            <div className="mt-2 flex items-center gap-2 text-sm text-red-500">{error}</div>
           )}
         </div>
 

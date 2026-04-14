@@ -34,7 +34,7 @@ export default function TextField({
   return (
     <div className="w-full">
       {showLabel && label && (
-        <label htmlFor={id} className="block text-sm text-gray-600 mb-2">
+        <label htmlFor={id} className="mb-2 block text-sm text-gray-600">
           {label}
         </label>
       )}
@@ -50,7 +50,7 @@ export default function TextField({
         maxLength={maxLength}
         aria-invalid={!!error}
         aria-describedby={error ? `${id}-error` : undefined}
-        className={`input-field w-full ${error ? 'border-red-500 focus:border-red-500' : ''} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+        className={`input-field w-full ${error ? 'border-red-500 focus:border-red-500' : ''} ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
       />
       {error && (
         <p id={`${id}-error`} className="mt-2 text-sm font-medium text-red-500" role="alert">

@@ -82,7 +82,10 @@ async function handler(req: NextRequest, user: AuthUser) {
     });
   } catch (error: unknown) {
     logger.error('[CONFIGURE] Error configuring EONMEDS:', error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) || 'Configuration failed' }, { status: 500 });
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : String(error) || 'Configuration failed' },
+      { status: 500 }
+    );
   }
 }
 

@@ -71,10 +71,11 @@ export async function recordAuthFailure(
       const blockCountKey = `${ip}:block-count`;
 
       // Track consecutive blocks for exponential backoff
-      const blockCount = (await cache.increment(blockCountKey, 1, {
-        namespace: NAMESPACE,
-        ttl: MAX_BLOCK_SECONDS * 2,
-      })) ?? 1;
+      const blockCount =
+        (await cache.increment(blockCountKey, 1, {
+          namespace: NAMESPACE,
+          ttl: MAX_BLOCK_SECONDS * 2,
+        })) ?? 1;
 
       const blockDuration = Math.min(
         BASE_BLOCK_SECONDS * Math.pow(2, blockCount - 1),

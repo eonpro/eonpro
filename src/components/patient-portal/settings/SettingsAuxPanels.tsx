@@ -57,7 +57,10 @@ export default function SettingsAuxPanels({
   return (
     <>
       {activeSection === 'language' && (
-        <div role="tabpanel" className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
+        <div
+          role="tabpanel"
+          className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6"
+        >
           <h2 className="mb-2 text-lg font-semibold text-gray-900">{t('settingsLanguage')}</h2>
           <p className="mb-6 text-sm text-gray-500">{t('settingsLanguageDesc')}</p>
           <div className="flex flex-wrap gap-3">
@@ -90,7 +93,10 @@ export default function SettingsAuxPanels({
       )}
 
       {activeSection === 'password' && (
-        <div role="tabpanel" className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
+        <div
+          role="tabpanel"
+          className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6"
+        >
           <h2 className="mb-6 text-lg font-semibold text-gray-900">{t('changePassword')}</h2>
 
           <div className="mb-6 space-y-4">
@@ -188,14 +194,23 @@ export default function SettingsAuxPanels({
       )}
 
       {activeSection === 'notifications' && (
-        <div role="tabpanel" className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
-          <h2 className="mb-6 text-lg font-semibold text-gray-900">{t('notificationPreferences')}</h2>
+        <div
+          role="tabpanel"
+          className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6"
+        >
+          <h2 className="mb-6 text-lg font-semibold text-gray-900">
+            {t('notificationPreferences')}
+          </h2>
 
           <div className="space-y-4">
             {[
               { key: 'emailReminders', labelKey: 'emailReminders', descKey: 'emailRemindersDesc' },
               { key: 'smsReminders', labelKey: 'smsReminders', descKey: 'smsRemindersDesc' },
-              { key: 'shipmentUpdates', labelKey: 'shipmentUpdates', descKey: 'shipmentUpdatesDesc' },
+              {
+                key: 'shipmentUpdates',
+                labelKey: 'shipmentUpdates',
+                descKey: 'shipmentUpdatesDesc',
+              },
               {
                 key: 'appointmentReminders',
                 labelKey: 'appointmentReminders',
@@ -246,7 +261,10 @@ export default function SettingsAuxPanels({
       )}
 
       {activeSection === 'privacy' && (
-        <div role="tabpanel" className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
+        <div
+          role="tabpanel"
+          className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6"
+        >
           <h2 className="mb-6 text-lg font-semibold text-gray-900">{t('privacyData')}</h2>
 
           <div className="mb-6 space-y-4">

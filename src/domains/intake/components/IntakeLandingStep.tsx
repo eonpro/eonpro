@@ -21,8 +21,10 @@ const BRAND_ASSETS: Record<IntakeBrand, BrandAssets> = {
   eonmeds: {
     logo: 'https://static.wixstatic.com/shapes/c49a9b_a0bd04a723284392ac265f9e53628dd6.svg',
     lottie: 'https://lottie.host/embed/9c7564a3-b6ee-4e8b-8b5e-14a59b28c515/3Htnjbp08p.lottie',
-    nursePhoto: 'https://static.wixstatic.com/media/c49a9b_3505f05c6c774d748c2e20f178e7c917~mv2.png',
-    patientPhotos: 'https://static.wixstatic.com/media/c49a9b_eb72f3aa74474c7bb2e447a5e852a8f7~mv2.webp',
+    nursePhoto:
+      'https://static.wixstatic.com/media/c49a9b_3505f05c6c774d748c2e20f178e7c917~mv2.png',
+    patientPhotos:
+      'https://static.wixstatic.com/media/c49a9b_eb72f3aa74474c7bb2e447a5e852a8f7~mv2.webp',
     ratingImage: 'https://static.wixstatic.com/shapes/c49a9b_ea75afc771f74c108742b781ab47157d.svg',
     accentColor: '#4fa87f',
     privacyUrl: '#',
@@ -31,18 +33,22 @@ const BRAND_ASSETS: Record<IntakeBrand, BrandAssets> = {
   otmens: {
     logo: 'https://static.wixstatic.com/shapes/c49a9b_5139736743794db7af38c583595f06fb.svg',
     lottie: 'https://lottie.host/embed/34070443-ae33-4f25-b944-452a94704677/Ol2wOdhexp.lottie',
-    nursePhoto: 'https://static.wixstatic.com/media/c49a9b_5b9a0976f96044ccbf05c4d90c382f2d~mv2.webp',
-    patientPhotos: 'https://static.wixstatic.com/media/c49a9b_e11bf27141fa4676b7c9d9f2438b334a~mv2.webp',
+    nursePhoto:
+      'https://static.wixstatic.com/media/c49a9b_5b9a0976f96044ccbf05c4d90c382f2d~mv2.webp',
+    patientPhotos:
+      'https://static.wixstatic.com/media/c49a9b_e11bf27141fa4676b7c9d9f2438b334a~mv2.webp',
     ratingImage: 'https://static.wixstatic.com/shapes/c49a9b_ea75afc771f74c108742b781ab47157d.svg',
     accentColor: '#cab172',
     privacyUrl: 'https://www.otmens.com/privacypolicy',
-    brandName: 'Overtime Men\'s Health',
+    brandName: "Overtime Men's Health",
   },
   wellmedr: {
     logo: '/wellmedr-logo.svg',
     lottie: '',
-    nursePhoto: 'https://static.wixstatic.com/media/c49a9b_3505f05c6c774d748c2e20f178e7c917~mv2.png',
-    patientPhotos: 'https://static.wixstatic.com/media/c49a9b_eb72f3aa74474c7bb2e447a5e852a8f7~mv2.webp',
+    nursePhoto:
+      'https://static.wixstatic.com/media/c49a9b_3505f05c6c774d748c2e20f178e7c917~mv2.png',
+    patientPhotos:
+      'https://static.wixstatic.com/media/c49a9b_eb72f3aa74474c7bb2e447a5e852a8f7~mv2.webp',
     ratingImage: 'https://static.wixstatic.com/shapes/c49a9b_ea75afc771f74c108742b781ab47157d.svg',
     accentColor: '#0C2631',
     privacyUrl: 'https://www.wellmedr.com/privacypolicy',
@@ -70,12 +76,18 @@ function getBrandContent(brand: IntakeBrand) {
       es: 'Descubre soluciones personalizadas basadas en tus objetivos, hábitos e historial médico.',
     },
     trusted: {
-      en: brand === 'otmens' ? 'Trusted by over 10,000+ patients'
-        : brand === 'wellmedr' ? 'Trusted by thousands of patients'
-        : 'Trusted by over 20,000 patients',
-      es: brand === 'otmens' ? 'Confiado por más de 10,000+ pacientes'
-        : brand === 'wellmedr' ? 'Confiado por miles de pacientes'
-        : 'Confiado por más de 20,000 pacientes',
+      en:
+        brand === 'otmens'
+          ? 'Trusted by over 10,000+ patients'
+          : brand === 'wellmedr'
+            ? 'Trusted by thousands of patients'
+            : 'Trusted by over 20,000 patients',
+      es:
+        brand === 'otmens'
+          ? 'Confiado por más de 10,000+ pacientes'
+          : brand === 'wellmedr'
+            ? 'Confiado por miles de pacientes'
+            : 'Confiado por más de 20,000 pacientes',
     },
     privacy: {
       en: `By clicking "Start", you agree that ${assets.brandName} may use your responses to personalize your experience and for other purposes in accordance with our `,
@@ -117,17 +129,23 @@ export default function IntakeLandingStep({
   }, []);
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className="flex min-h-screen flex-col bg-white">
       {/* Progress bar accent */}
-      <div className="w-full h-1" style={{ backgroundColor: brand === 'otmens' ? '#f5ecd8' : brand === 'wellmedr' ? '#e5eaee' : '#f0feab' }} />
+      <div
+        className="h-1 w-full"
+        style={{
+          backgroundColor:
+            brand === 'otmens' ? '#f5ecd8' : brand === 'wellmedr' ? '#e5eaee' : '#f0feab',
+        }}
+      />
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col px-6 lg:px-8 pt-8 lg:pt-12 pb-6 max-w-md lg:max-w-2xl mx-auto w-full">
+      <div className="mx-auto flex w-full max-w-md flex-1 flex-col px-6 pb-6 pt-8 lg:max-w-2xl lg:px-8 lg:pt-12">
         {/* Logo + Lottie */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="mb-4 flex items-center justify-between">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={assets.logo} alt={assets.brandName} className="h-7 w-auto" />
-          <div className="w-[70px] h-[70px] overflow-hidden">
+          <div className="h-[70px] w-[70px] overflow-hidden">
             <iframe
               src={assets.lottie}
               style={{ width: '70px', height: '70px', border: 'none', background: 'transparent' }}
@@ -137,8 +155,10 @@ export default function IntakeLandingStep({
         </div>
 
         {/* Nurse photo */}
-        <div className={`mb-4 transform transition-all duration-700 ease-out ${animate ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-5 scale-95'}`}>
-          <div className="w-32 h-32 rounded-full overflow-hidden relative">
+        <div
+          className={`mb-4 transform transition-all duration-700 ease-out ${animate ? 'translate-y-0 scale-100 opacity-100' : 'translate-y-5 scale-95 opacity-0'}`}
+        >
+          <div className="relative h-32 w-32 overflow-hidden rounded-full">
             <Image
               src={assets.nursePhoto}
               alt="Healthcare professional"
@@ -151,34 +171,57 @@ export default function IntakeLandingStep({
         </div>
 
         {/* Headline */}
-        <div className="text-left mb-6">
+        <div className="mb-6 text-left">
           <h1
-            className={`page-title transform transition-all duration-700 ease-out delay-150 ${animate ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
+            className={`page-title transform transition-all delay-150 duration-700 ease-out ${animate ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}
             style={{ color: assets.accentColor }}
           >
             {isSpanish ? (
-              <>Evaluemos tus<br />opciones de tratamiento.</>
+              <>
+                Evaluemos tus
+                <br />
+                opciones de tratamiento.
+              </>
             ) : (
-              <>Let&apos;s evaluate your<br />treatment options.</>
+              <>
+                Let&apos;s evaluate your
+                <br />
+                treatment options.
+              </>
             )}
           </h1>
-          <p className={`page-subtitle leading-tight transform transition-all duration-700 ease-out delay-300 ${animate ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+          <p
+            className={`page-subtitle transform leading-tight transition-all delay-300 duration-700 ease-out ${animate ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}
+          >
             {isSpanish ? (
-              <>Descubre soluciones personalizadas basadas en<br />tus metas, hábitos e historial de salud.</>
+              <>
+                Descubre soluciones personalizadas basadas en
+                <br />
+                tus metas, hábitos e historial de salud.
+              </>
             ) : (
-              <>Discover personalized solutions based on<br />your goals, habits, and health history.</>
+              <>
+                Discover personalized solutions based on
+                <br />
+                your goals, habits, and health history.
+              </>
             )}
           </p>
         </div>
 
         {/* Trust section */}
         <div className="space-y-3">
-          <p className={`text-[15px] font-medium text-[#413d3d] transform transition-all duration-700 ease-out delay-500 ${animate ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+          <p
+            className={`transform text-[15px] font-medium text-[#413d3d] transition-all delay-500 duration-700 ease-out ${animate ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}
+          >
             {t('trusted')}
           </p>
 
           {/* Patient photos */}
-          <div className={`flex -space-x-3 transform transition-all duration-700 ease-out ${animate ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`} style={{ transitionDelay: '600ms' }}>
+          <div
+            className={`flex transform -space-x-3 transition-all duration-700 ease-out ${animate ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}
+            style={{ transitionDelay: '600ms' }}
+          >
             <Image
               src={assets.patientPhotos}
               alt="Happy patients"
@@ -190,7 +233,10 @@ export default function IntakeLandingStep({
           </div>
 
           {/* Google rating */}
-          <div className={`flex items-center transform transition-all duration-700 ease-out ${animate ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`} style={{ transitionDelay: '700ms' }}>
+          <div
+            className={`flex transform items-center transition-all duration-700 ease-out ${animate ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}
+            style={{ transitionDelay: '700ms' }}
+          >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={assets.ratingImage}
@@ -205,33 +251,42 @@ export default function IntakeLandingStep({
 
       {/* Bottom — privacy + CTA */}
       <div
-        className={`px-6 lg:px-8 pb-8 max-w-md lg:max-w-2xl mx-auto w-full space-y-3 transform transition-all duration-700 ease-out ${animate ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'}`}
+        className={`mx-auto w-full max-w-md transform space-y-3 px-6 pb-8 transition-all duration-700 ease-out lg:max-w-2xl lg:px-8 ${animate ? 'translate-y-0 opacity-100' : 'translate-y-5 opacity-0'}`}
         style={{ transitionDelay: '800ms' }}
       >
         <div className="mb-4">
-          <p className="text-[11px] lg:text-[13px] leading-tight" style={{ fontWeight: 450, color: 'rgba(65, 61, 61, 0.6)' }}>
+          <p
+            className="text-[11px] leading-tight lg:text-[13px]"
+            style={{ fontWeight: 450, color: 'rgba(65, 61, 61, 0.6)' }}
+          >
             {t('privacy')}
-            <a href={assets.privacyUrl} target="_blank" rel="noopener noreferrer" className="underline" style={{ color: 'rgba(65, 61, 61, 0.6)' }}>{t('privacyLink')}</a>
+            <a
+              href={assets.privacyUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline"
+              style={{ color: 'rgba(65, 61, 61, 0.6)' }}
+            >
+              {t('privacyLink')}
+            </a>
             {t('privacyEnd')}
           </p>
         </div>
 
-        <button
-          onClick={onStart}
-          className="continue-button shine-button w-full"
-        >
+        <button onClick={onStart} className="continue-button shine-button w-full">
           <span className="text-white">{t('cta')}</span>
-          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
           </svg>
         </button>
 
         <div className="mt-6 text-center" style={{ lineHeight: '1.2' }}>
-          <p className="text-gray-400 font-medium text-[11px]">{t('hipaa')}</p>
-          <p className="text-gray-400 text-[11px]">
+          <p className="text-[11px] font-medium text-gray-400">{t('hipaa')}</p>
+          <p className="text-[11px] text-gray-400">
             © 2026 EONPro, LLC. All rights reserved.
             <br />
-            Exclusive and protected process. Copying or reproduction without authorization is prohibited.
+            Exclusive and protected process. Copying or reproduction without authorization is
+            prohibited.
           </p>
         </div>
       </div>

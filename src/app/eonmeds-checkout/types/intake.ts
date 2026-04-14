@@ -1,6 +1,6 @@
 /**
  * Intake Prefill Data Types
- * 
+ *
  * Defines the data structure for passing patient information
  * from Heyflow intake (espanol.eonmeds.com) to checkout (checkout.eonmeds.com)
  */
@@ -15,12 +15,62 @@ import { z } from 'zod';
  * US State codes validation
  */
 export const US_STATES = [
-  'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
-  'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
-  'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
-  'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
-  'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY',
-  'DC', 'PR', 'VI', 'GU', 'AS', 'MP'
+  'AL',
+  'AK',
+  'AZ',
+  'AR',
+  'CA',
+  'CO',
+  'CT',
+  'DE',
+  'FL',
+  'GA',
+  'HI',
+  'ID',
+  'IL',
+  'IN',
+  'IA',
+  'KS',
+  'KY',
+  'LA',
+  'ME',
+  'MD',
+  'MA',
+  'MI',
+  'MN',
+  'MS',
+  'MO',
+  'MT',
+  'NE',
+  'NV',
+  'NH',
+  'NJ',
+  'NM',
+  'NY',
+  'NC',
+  'ND',
+  'OH',
+  'OK',
+  'OR',
+  'PA',
+  'RI',
+  'SC',
+  'SD',
+  'TN',
+  'TX',
+  'UT',
+  'VT',
+  'VA',
+  'WA',
+  'WV',
+  'WI',
+  'WY',
+  'DC',
+  'PR',
+  'VI',
+  'GU',
+  'AS',
+  'MP',
 ] as const;
 
 /**
@@ -43,13 +93,15 @@ export const IntakePrefillDataSchema = z.object({
   firstName: z.string().min(1).max(100).trim(),
   lastName: z.string().min(1).max(100).trim(),
   email: z.string().email().max(254).toLowerCase().trim(),
-  phone: z.string()
+  phone: z
+    .string()
     .regex(/^[\d\s\-\(\)\+]+$/, 'Invalid phone format')
-    .transform(val => val.replace(/\D/g, '')) // Strip to digits only
-    .refine(val => val.length >= 10, 'Phone must have at least 10 digits'),
-  dob: z.string()
+    .transform((val) => val.replace(/\D/g, '')) // Strip to digits only
+    .refine((val) => val.length >= 10, 'Phone must have at least 10 digits'),
+  dob: z
+    .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'DOB must be YYYY-MM-DD format')
-    .refine(val => {
+    .refine((val) => {
       const date = new Date(val);
       const now = new Date();
       const age = (now.getTime() - date.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
@@ -127,15 +179,13 @@ export function parseIntakePrefillData(data: unknown): {
   errors?: string[];
 } {
   const result = IntakePrefillDataSchema.safeParse(data);
-  
+
   if (result.success) {
     return { success: true, data: result.data };
   }
-  
-  const errors = result.error.issues.map((issue) => 
-    `${issue.path.join('.')}: ${issue.message}`
-  );
-  
+
+  const errors = result.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`);
+
   return { success: false, errors };
 }
 
@@ -153,17 +203,15 @@ export function parseSignedParams(params: URLSearchParams): {
     sig: params.get('sig'),
     lang: params.get('lang'),
   };
-  
+
   const result = SignedParamsSchema.safeParse(rawParams);
-  
+
   if (result.success) {
     return { success: true, data: result.data };
   }
-  
-  const errors = result.error.issues.map((issue) => 
-    `${issue.path.join('.')}: ${issue.message}`
-  );
-  
+
+  const errors = result.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`);
+
   return { success: false, errors };
 }
 

@@ -24,8 +24,10 @@ export default function PartnersSection() {
     const el = ref.current;
     if (!el) return;
     const obs = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) setVisible(true); },
-      { threshold: 0.15 },
+      ([entry]) => {
+        if (entry.isIntersecting) setVisible(true);
+      },
+      { threshold: 0.15 }
     );
     obs.observe(el);
     return () => obs.disconnect();
@@ -43,7 +45,7 @@ export default function PartnersSection() {
         </p>
 
         <div
-          className={`flex flex-wrap items-center justify-center gap-12 sm:gap-20 lg:gap-28 transition-all duration-700 delay-200 ${
+          className={`flex flex-wrap items-center justify-center gap-12 transition-all delay-200 duration-700 sm:gap-20 lg:gap-28 ${
             visible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
           }`}
         >

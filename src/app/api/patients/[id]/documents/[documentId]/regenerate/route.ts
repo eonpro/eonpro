@@ -45,7 +45,11 @@ export const POST = withAuthParams(
         return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
       }
 
-      if (user.role !== 'super_admin' && user.clinicId != null && patient.clinicId !== user.clinicId) {
+      if (
+        user.role !== 'super_admin' &&
+        user.clinicId != null &&
+        patient.clinicId !== user.clinicId
+      ) {
         logger.security('Cross-clinic document regenerate attempt', {
           userId: user.id,
           userClinicId: user.clinicId,
@@ -142,9 +146,7 @@ export const POST = withAuthParams(
       const intake: NormalizedIntake = {
         submissionId:
           (intakeDataSource?.submissionId as string) ?? doc.sourceSubmissionId ?? `regen-${doc.id}`,
-        submittedAt: new Date(
-          (intakeDataSource?.receivedAt as string) ?? (doc.createdAt as Date)
-        ),
+        submittedAt: new Date((intakeDataSource?.receivedAt as string) ?? (doc.createdAt as Date)),
         patient: {
           firstName: (patientData.firstName as string) ?? doc.patient.firstName,
           lastName: (patientData.lastName as string) ?? doc.patient.lastName,
@@ -153,7 +155,7 @@ export const POST = withAuthParams(
           dob: (patientData.dob as string) ?? doc.patient.dob,
           gender: (patientData.gender as string) ?? doc.patient.gender,
           address1: (patientData.address1 as string) ?? doc.patient.address1,
-          address2: (patientData.address2 as string) ?? (doc.patient.address2 ?? ''),
+          address2: (patientData.address2 as string) ?? doc.patient.address2 ?? '',
           city: (patientData.city as string) ?? doc.patient.city,
           state: (patientData.state as string) ?? doc.patient.state,
           zip: (patientData.zip as string) ?? doc.patient.zip,

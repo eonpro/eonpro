@@ -203,7 +203,9 @@ export const POST = withAuth(
         },
       });
     } catch (error: unknown) {
-      logger.error('[API] Error approving SOAP note:', { error: error instanceof Error ? error.message : String(error) });
+      logger.error('[API] Error approving SOAP note:', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return NextResponse.json({ error: 'Failed to approve SOAP note' }, { status: 500 });
     }
   },
@@ -298,7 +300,9 @@ export const DELETE = withAuth(
         },
       });
     } catch (error: unknown) {
-      logger.error('[API] Error revoking SOAP note approval:', { error: error instanceof Error ? error.message : String(error) });
+      logger.error('[API] Error revoking SOAP note approval:', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return NextResponse.json({ error: 'Failed to revoke approval' }, { status: 500 });
     }
   },

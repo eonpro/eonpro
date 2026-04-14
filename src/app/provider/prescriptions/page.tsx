@@ -156,97 +156,108 @@ export default function ProviderPrescriptionsPage() {
     setCurrentPage(1);
   }, []);
 
-  const fetchPrescriptions = useCallback(async (
-    page: number,
-    search: string,
-    period: DatePeriod,
-    startDate: string,
-    endDate: string,
-  ) => {
-    setLoading(true);
-    try {
-      const offset = (page - 1) * PAGE_SIZE;
-      const params = new URLSearchParams({
-        limit: String(PAGE_SIZE),
-        offset: String(offset),
-        tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      });
-      if (search.trim()) {
-        params.set('search', search.trim());
-      }
-      if (period !== 'all') {
-        params.set('period', period);
-        if (period === 'custom' && startDate) {
-          params.set('startDate', startDate);
-        }
-        if (period === 'custom' && endDate) {
-          params.set('endDate', endDate);
-        }
-      }
-      const response = await apiFetch(`/api/orders?${params.toString()}`);
-
-      if (response.ok) {
-        const data = await response.json();
-        setTotalOrders(data.total || data.count || 0);
-        setHasMore(data.hasMore || false);
-
-        // Transform orders into prescription format
-        const rxList: Prescription[] = (data.orders || []).flatMap((order: Order) => {
-          // If order has rxs, create a prescription entry for each
-          if (order.rxs && order.rxs.length > 0) {
-            return order.rxs.map((rx) => ({
-              id: `RX${String(rx.id).padStart(5, '0')}`,
-              rxId: rx.id,
-              orderId: order.id,
-              patientId: order.patient?.id || 0,
-              patientName: order.patient
-                ? `${order.patient.firstName} ${order.patient.lastName}`
-                : 'Unknown Patient',
-              medication: rx.medName,
-              dosage: rx.strength,
-              frequency: rx.sig,
-              duration: '30 days',
-              prescribedDate: order.createdAt,
-              lifefileOrderId: order.lifefileOrderId,
-              status: mapOrderStatus(order.status),
-              refillsRemaining: rx.refills,
-              lastFilled: order.updatedAt,
-            }));
-          }
-          // Fallback to primary medication if no rxs
-          return [
-            {
-              id: `RX${String(order.id).padStart(5, '0')}`,
-              rxId: order.id,
-              orderId: order.id,
-              patientId: order.patient?.id || 0,
-              patientName: order.patient
-                ? `${order.patient.firstName} ${order.patient.lastName}`
-                : 'Unknown Patient',
-              medication: order.primaryMedName,
-              dosage: order.primaryMedStrength,
-              frequency: '-',
-              duration: '30 days',
-              prescribedDate: order.createdAt,
-              lifefileOrderId: order.lifefileOrderId,
-              status: mapOrderStatus(order.status),
-              refillsRemaining: 0,
-              lastFilled: order.updatedAt,
-            },
-          ];
+  const fetchPrescriptions = useCallback(
+    async (
+      page: number,
+      search: string,
+      period: DatePeriod,
+      startDate: string,
+      endDate: string
+    ) => {
+      setLoading(true);
+      try {
+        const offset = (page - 1) * PAGE_SIZE;
+        const params = new URLSearchParams({
+          limit: String(PAGE_SIZE),
+          offset: String(offset),
+          tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
         });
-        setPrescriptions(rxList);
+        if (search.trim()) {
+          params.set('search', search.trim());
+        }
+        if (period !== 'all') {
+          params.set('period', period);
+          if (period === 'custom' && startDate) {
+            params.set('startDate', startDate);
+          }
+          if (period === 'custom' && endDate) {
+            params.set('endDate', endDate);
+          }
+        }
+        const response = await apiFetch(`/api/orders?${params.toString()}`);
+
+        if (response.ok) {
+          const data = await response.json();
+          setTotalOrders(data.total || data.count || 0);
+          setHasMore(data.hasMore || false);
+
+          // Transform orders into prescription format
+          const rxList: Prescription[] = (data.orders || []).flatMap((order: Order) => {
+            // If order has rxs, create a prescription entry for each
+            if (order.rxs && order.rxs.length > 0) {
+              return order.rxs.map((rx) => ({
+                id: `RX${String(rx.id).padStart(5, '0')}`,
+                rxId: rx.id,
+                orderId: order.id,
+                patientId: order.patient?.id || 0,
+                patientName: order.patient
+                  ? `${order.patient.firstName} ${order.patient.lastName}`
+                  : 'Unknown Patient',
+                medication: rx.medName,
+                dosage: rx.strength,
+                frequency: rx.sig,
+                duration: '30 days',
+                prescribedDate: order.createdAt,
+                lifefileOrderId: order.lifefileOrderId,
+                status: mapOrderStatus(order.status),
+                refillsRemaining: rx.refills,
+                lastFilled: order.updatedAt,
+              }));
+            }
+            // Fallback to primary medication if no rxs
+            return [
+              {
+                id: `RX${String(order.id).padStart(5, '0')}`,
+                rxId: order.id,
+                orderId: order.id,
+                patientId: order.patient?.id || 0,
+                patientName: order.patient
+                  ? `${order.patient.firstName} ${order.patient.lastName}`
+                  : 'Unknown Patient',
+                medication: order.primaryMedName,
+                dosage: order.primaryMedStrength,
+                frequency: '-',
+                duration: '30 days',
+                prescribedDate: order.createdAt,
+                lifefileOrderId: order.lifefileOrderId,
+                status: mapOrderStatus(order.status),
+                refillsRemaining: 0,
+                lastFilled: order.updatedAt,
+              },
+            ];
+          });
+          setPrescriptions(rxList);
+        }
+      } catch (err) {
+        process.env.NODE_ENV === 'development' &&
+          console.error('Error fetching prescriptions:', err);
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      process.env.NODE_ENV === 'development' && console.error('Error fetching prescriptions:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    []
+  );
 
   useEffect(() => {
     fetchPrescriptions(currentPage, debouncedSearch, datePeriod, customStartDate, customEndDate);
-  }, [currentPage, debouncedSearch, datePeriod, customStartDate, customEndDate, fetchPrescriptions]);
+  }, [
+    currentPage,
+    debouncedSearch,
+    datePeriod,
+    customStartDate,
+    customEndDate,
+    fetchPrescriptions,
+  ]);
 
   const mapOrderStatus = (
     status: string
@@ -496,7 +507,9 @@ export default function ProviderPrescriptionsPage() {
         {/* Stats */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="rounded-lg border-l-4 border-[var(--brand-primary)] bg-white p-3 shadow-sm">
-            <div className="text-xl font-bold text-[var(--brand-primary)]">{patientGroups.length}</div>
+            <div className="text-xl font-bold text-[var(--brand-primary)]">
+              {patientGroups.length}
+            </div>
             <div className="text-xs text-gray-500">Patients (this page)</div>
           </div>
           <div className="rounded-lg border-l-4 border-green-500 bg-white p-3 shadow-sm">
@@ -641,7 +654,9 @@ function PatientRow({
       {/* Patient Summary Row */}
       <div
         onClick={onToggle}
-        onKeyDown={(e) => { if (e.key === 'Enter') onToggle(); }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') onToggle();
+        }}
         tabIndex={0}
         role="button"
         className="flex cursor-pointer items-center gap-4 px-4 py-3 transition-colors hover:bg-gray-50 focus:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[var(--brand-primary)]"
@@ -691,7 +706,10 @@ function PatientRow({
 
         {/* Latest Date */}
         <div className="w-36 text-right text-sm text-gray-500">
-          {new Date(group.latestDate).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+          {new Date(group.latestDate).toLocaleString([], {
+            dateStyle: 'short',
+            timeStyle: 'short',
+          })}
         </div>
 
         {/* View Patient Button */}
@@ -724,9 +742,13 @@ function PatientRow({
                   Instructions
                 </th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Status</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Lifefile Order</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">
+                  Lifefile Order
+                </th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Refills</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Date &amp; Time</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">
+                  Date &amp; Time
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -766,7 +788,10 @@ function PatientRow({
                   </td>
                   <td className="px-4 py-2.5 text-gray-700">{rx.refillsRemaining} remaining</td>
                   <td className="px-4 py-2.5 text-gray-500">
-                    {new Date(rx.prescribedDate).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                    {new Date(rx.prescribedDate).toLocaleString([], {
+                      dateStyle: 'short',
+                      timeStyle: 'short',
+                    })}
                   </td>
                 </tr>
               ))}

@@ -14,7 +14,7 @@ const KNOWN_LOGOS: Record<string, string> = {
 
 const FALLBACK_CLINICS: ClinicLogo[] = [
   { name: 'WellMedr', subdomain: 'wellmedr', logoUrl: null },
-  { name: 'OT Men\'s', subdomain: 'ot', logoUrl: KNOWN_LOGOS.ot },
+  { name: "OT Men's", subdomain: 'ot', logoUrl: KNOWN_LOGOS.ot },
   { name: 'EonMeds', subdomain: 'eonmeds', logoUrl: null },
   { name: 'Overnight', subdomain: 'overnight', logoUrl: null },
 ];

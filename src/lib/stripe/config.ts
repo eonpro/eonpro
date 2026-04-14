@@ -242,7 +242,8 @@ export async function validateStripeConfig(forceRefresh = false): Promise<Stripe
       config.isConfigured = true;
       config.error = 'API key has restricted permissions';
     } else {
-      config.error = error instanceof Error ? error.message : String(error) || 'Failed to connect to Stripe';
+      config.error =
+        error instanceof Error ? error.message : String(error) || 'Failed to connect to Stripe';
     }
 
     logger.error('[STRIPE] Configuration validation failed', {

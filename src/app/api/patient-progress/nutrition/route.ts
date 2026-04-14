@@ -175,7 +175,11 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
       },
     });
 
-    logPHICreate(request, user, 'PatientNutritionLog', nutritionLog.id, patientId).catch((err) => { logger.error('PHI audit log failed', { error: err instanceof Error ? err.message : String(err) }); });
+    logPHICreate(request, user, 'PatientNutritionLog', nutritionLog.id, patientId).catch((err) => {
+      logger.error('PHI audit log failed', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
 
     return NextResponse.json(nutritionLog, { status: 201 });
   } catch (error) {
@@ -241,7 +245,11 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
     );
     const todayFat = todayLogs.reduce((sum: number, log: NutritionLog) => sum + (log.fat || 0), 0);
 
-    logPHIAccess(request, user, 'PatientNutritionLog', 'list', patientId).catch((err) => { logger.error('PHI audit log failed', { error: err instanceof Error ? err.message : String(err) }); });
+    logPHIAccess(request, user, 'PatientNutritionLog', 'list', patientId).catch((err) => {
+      logger.error('PHI audit log failed', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
 
     return NextResponse.json({
       data: nutritionLogs,
@@ -276,17 +284,8 @@ const patchHandler = withAuth(async (request: NextRequest, user) => {
       );
     }
 
-    const {
-      id,
-      mealType,
-      description,
-      calories,
-      protein,
-      carbs,
-      fat,
-      notes,
-      recordedAt,
-    } = parseResult.data;
+    const { id, mealType, description, calories, protein, carbs, fat, notes, recordedAt } =
+      parseResult.data;
 
     const hasUpdate =
       mealType !== undefined ||
@@ -358,7 +357,11 @@ const patchHandler = withAuth(async (request: NextRequest, user) => {
       id,
       log.patientId,
       Object.keys(updateData)
-    ).catch((err) => { logger.error('PHI audit log failed', { error: err instanceof Error ? err.message : String(err) }); });
+    ).catch((err) => {
+      logger.error('PHI audit log failed', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
 
     return NextResponse.json(updated);
   } catch (error) {
@@ -402,14 +405,13 @@ const deleteHandler = withAuth(async (request: NextRequest, user) => {
       where: { id },
     });
 
-    logPHIDelete(
-      request,
-      user,
-      'PatientNutritionLog',
-      id,
-      log.patientId,
-      'user_request'
-    ).catch((err) => { logger.error('PHI audit log failed', { error: err instanceof Error ? err.message : String(err) }); });
+    logPHIDelete(request, user, 'PatientNutritionLog', id, log.patientId, 'user_request').catch(
+      (err) => {
+        logger.error('PHI audit log failed', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    );
 
     return NextResponse.json({ success: true, deletedId: id });
   } catch (error) {

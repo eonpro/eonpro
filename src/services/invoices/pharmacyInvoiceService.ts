@@ -123,7 +123,10 @@ export async function uploadAndParseInvoice(
       if (existing) {
         await prisma.pharmacyInvoiceUpload.update({
           where: { id: upload.id },
-          data: { status: 'ERROR', errorMessage: `Duplicate invoice #${parsed.header.invoiceNumber}` },
+          data: {
+            status: 'ERROR',
+            errorMessage: `Duplicate invoice #${parsed.header.invoiceNumber}`,
+          },
         });
         const err = new Error(
           `Invoice #${parsed.header.invoiceNumber} has already been uploaded for this clinic.`
@@ -134,53 +137,56 @@ export async function uploadAndParseInvoice(
     }
 
     // 4. Store line items + update header in a transaction
-    const updated = await prisma.$transaction(async (tx) => {
-      // Insert line items
-      if (parsed.lineItems.length > 0) {
-        await tx.pharmacyInvoiceLineItem.createMany({
-          data: parsed.lineItems.map((li) => ({
-            invoiceUploadId: upload.id,
-            lineNumber: li.lineNumber,
-            lineType: li.lineType,
-            date: li.date,
-            lifefileOrderId: li.lifefileOrderId,
-            rxNumber: li.rxNumber,
-            fillId: li.fillId,
-            patientName: li.patientName,
-            doctorName: li.doctorName,
-            description: li.description,
-            medicationName: li.medicationName,
-            strength: li.strength,
-            form: li.form,
-            vialSize: li.vialSize,
-            shippingMethod: li.shippingMethod,
-            quantity: li.quantity,
-            unitPriceCents: li.unitPriceCents,
-            discountCents: li.discountCents,
-            amountCents: li.amountCents,
-            orderSubtotalCents: li.orderSubtotalCents,
-            matchStatus: 'PENDING',
-          })),
-        });
-      }
+    const updated = await prisma.$transaction(
+      async (tx) => {
+        // Insert line items
+        if (parsed.lineItems.length > 0) {
+          await tx.pharmacyInvoiceLineItem.createMany({
+            data: parsed.lineItems.map((li) => ({
+              invoiceUploadId: upload.id,
+              lineNumber: li.lineNumber,
+              lineType: li.lineType,
+              date: li.date,
+              lifefileOrderId: li.lifefileOrderId,
+              rxNumber: li.rxNumber,
+              fillId: li.fillId,
+              patientName: li.patientName,
+              doctorName: li.doctorName,
+              description: li.description,
+              medicationName: li.medicationName,
+              strength: li.strength,
+              form: li.form,
+              vialSize: li.vialSize,
+              shippingMethod: li.shippingMethod,
+              quantity: li.quantity,
+              unitPriceCents: li.unitPriceCents,
+              discountCents: li.discountCents,
+              amountCents: li.amountCents,
+              orderSubtotalCents: li.orderSubtotalCents,
+              matchStatus: 'PENDING',
+            })),
+          });
+        }
 
-      // Update upload with header info
-      return tx.pharmacyInvoiceUpload.update({
-        where: { id: upload.id },
-        data: {
-          status: 'PARSED',
-          invoiceNumber: parsed.header.invoiceNumber,
-          invoiceDate: parsed.header.invoiceDate,
-          amountDueCents: parsed.header.amountDueCents,
-          payorId: parsed.header.payorId,
-          billingProfileId: parsed.header.billingProfileId,
-          pharmacyName: parsed.header.pharmacyName,
-          totalLineItems: parsed.lineItems.length,
-          invoiceTotalCents: parsed.totalCents,
-          parsedAt: new Date(),
-        },
-      });
-    }, { timeout: 30_000 });
+        // Update upload with header info
+        return tx.pharmacyInvoiceUpload.update({
+          where: { id: upload.id },
+          data: {
+            status: 'PARSED',
+            invoiceNumber: parsed.header.invoiceNumber,
+            invoiceDate: parsed.header.invoiceDate,
+            amountDueCents: parsed.header.amountDueCents,
+            payorId: parsed.header.payorId,
+            billingProfileId: parsed.header.billingProfileId,
+            pharmacyName: parsed.header.pharmacyName,
+            totalLineItems: parsed.lineItems.length,
+            invoiceTotalCents: parsed.totalCents,
+            parsedAt: new Date(),
+          },
+        });
+      },
+      { timeout: 30_000 }
+    );
 
     // 5. Run duplicate check after storing
     await checkDuplicateLineItems(upload.id, clinicId);
@@ -208,7 +214,10 @@ export async function uploadAndParseInvoice(
 // Matching Engine
 // ---------------------------------------------------------------------------
 
-export async function runReconciliation(uploadId: number, clinicId: number): Promise<ReconciliationSummary> {
+export async function runReconciliation(
+  uploadId: number,
+  clinicId: number
+): Promise<ReconciliationSummary> {
   // Mark as matching
   await prisma.pharmacyInvoiceUpload.update({
     where: { id: uploadId },
@@ -244,21 +253,22 @@ export async function runReconciliation(uploadId: number, clinicId: number): Pro
     ] as string[];
 
     // Batch-load matching orders from the database
-    const orders = invoiceOrderIds.length > 0
-      ? await prisma.order.findMany({
-          where: {
-            clinicId,
-            lifefileOrderId: { in: invoiceOrderIds },
-          },
-          include: {
-            patient: { select: { id: true } },
-            provider: { select: { id: true, lastName: true } },
-          },
-        })
-      : [];
+    const orders =
+      invoiceOrderIds.length > 0
+        ? await prisma.order.findMany({
+            where: {
+              clinicId,
+              lifefileOrderId: { in: invoiceOrderIds },
+            },
+            include: {
+              patient: { select: { id: true } },
+              provider: { select: { id: true, lastName: true } },
+            },
+          })
+        : [];
 
     // Build lookup map: lifefileOrderId -> order
-    const orderMap = new Map<string, typeof orders[number]>();
+    const orderMap = new Map<string, (typeof orders)[number]>();
     for (const order of orders) {
       if (order.lifefileOrderId) {
         orderMap.set(order.lifefileOrderId, order);
@@ -274,13 +284,16 @@ export async function runReconciliation(uploadId: number, clinicId: number): Pro
 
     // Collect IDs for each status to do bulk updateMany
     const unmatchedIds: number[] = [];
-    const matchedByOrder: Map<string, {
-      ids: number[];
-      orderId: number;
-      patientId: number | null;
-      providerId: number | null;
-      confidence: number;
-    }> = new Map();
+    const matchedByOrder: Map<
+      string,
+      {
+        ids: number[];
+        orderId: number;
+        patientId: number | null;
+        providerId: number | null;
+        confidence: number;
+      }
+    > = new Map();
 
     for (const li of lineItems) {
       if (!li.lifefileOrderId) {
@@ -437,10 +450,7 @@ export async function getUploadSummary(
     unmatchedCents: upload.unmatchedTotalCents,
     discrepancyCents: 0,
     totalCents: upload.invoiceTotalCents,
-    matchRate:
-      upload.totalLineItems > 0
-        ? upload.matchedCount / upload.totalLineItems
-        : 0,
+    matchRate: upload.totalLineItems > 0 ? upload.matchedCount / upload.totalLineItems : 0,
   };
 }
 
@@ -475,7 +485,13 @@ export async function listLineItems(filters: ListLineItemsFilters) {
 
 export async function getLineItemsGroupedByOrder(
   invoiceUploadId: number,
-  options?: { matchStatus?: string; search?: string; page?: number; limit?: number; duplicatesOnly?: boolean }
+  options?: {
+    matchStatus?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+    duplicatesOnly?: boolean;
+  }
 ) {
   const { matchStatus, search, page = 1, limit = 50, duplicatesOnly } = options ?? {};
 
@@ -555,7 +571,9 @@ export async function getLineItemsGroupedByOrder(
       subtotalCents: lineItems.reduce((sum, li) => sum + li.amountCents, 0),
       matchStatus: lineItems[0]?.matchStatus ?? 'PENDING',
       matchedOrderId,
-      prescriptionDate: matchedOrderId ? (orderDates.get(matchedOrderId)?.toISOString() ?? null) : null,
+      prescriptionDate: matchedOrderId
+        ? (orderDates.get(matchedOrderId)?.toISOString() ?? null)
+        : null,
     };
   });
 
@@ -615,7 +633,9 @@ export async function updateLineItem(
     data: {
       ...(data.adminNotes !== undefined && { adminNotes: data.adminNotes }),
       ...(data.disputed !== undefined && { disputed: data.disputed }),
-      ...(data.adjustedAmountCents !== undefined && { adjustedAmountCents: data.adjustedAmountCents }),
+      ...(data.adjustedAmountCents !== undefined && {
+        adjustedAmountCents: data.adjustedAmountCents,
+      }),
       ...(data.matchStatus !== undefined && { matchStatus: data.matchStatus }),
     },
   });
@@ -741,10 +761,7 @@ export async function searchOrdersForMatch(
       const orders = await prisma.order.findMany({
         where: {
           clinicId,
-          OR: [
-            { lifefileOrderId: { contains: q } },
-            { id: parseInt(q, 10) || 0 },
-          ],
+          OR: [{ lifefileOrderId: { contains: q } }, { id: parseInt(q, 10) || 0 }],
         },
         include: orderInclude,
         take: 20,
@@ -763,7 +780,11 @@ export async function searchOrdersForMatch(
         orderBy: { createdAt: 'desc' },
       });
 
-      logger.info('Manual match search: loaded orders', { query: q, clinicId, count: recentOrders.length });
+      logger.info('Manual match search: loaded orders', {
+        query: q,
+        clinicId,
+        count: recentOrders.length,
+      });
 
       const qLower = q.toLowerCase();
       const results: typeof recentOrders = [];
@@ -830,7 +851,10 @@ export async function searchOrdersForMatch(
       });
       return recent.map(formatOrderForSearch);
     } catch (err) {
-      logger.error('Manual match search failed', { query: q, error: err instanceof Error ? err.message : String(err) });
+      logger.error('Manual match search failed', {
+        query: q,
+        error: err instanceof Error ? err.message : String(err),
+      });
       // On any error, return recent orders as fallback
       const recent = await prisma.order.findMany({
         where: { clinicId },
@@ -859,7 +883,9 @@ function formatOrderForSearch(order: {
     const lastName = decryptPHI(order.patient.lastName) ?? order.patient.lastName;
     const firstName = decryptPHI(order.patient.firstName) ?? order.patient.firstName;
     patientName = `${lastName}, ${firstName}`;
-  } catch { /* use raw values */ }
+  } catch {
+    /* use raw values */
+  }
 
   return {
     id: order.id,
@@ -898,10 +924,12 @@ export async function markInvoicePaid(
     where: { id },
     data: {
       paymentStatus: data.paymentStatus,
-      paidAmountCents: data.paidAmountCents ?? (data.paymentStatus === 'PAID' ? upload.invoiceTotalCents : 0),
+      paidAmountCents:
+        data.paidAmountCents ?? (data.paymentStatus === 'PAID' ? upload.invoiceTotalCents : 0),
       paymentReference: data.paymentReference ?? null,
       paymentNotes: data.paymentNotes ?? null,
-      paidAt: data.paymentStatus !== 'UNPAID' ? (data.paidAt ? new Date(data.paidAt) : new Date()) : null,
+      paidAt:
+        data.paymentStatus !== 'UNPAID' ? (data.paidAt ? new Date(data.paidAt) : new Date()) : null,
       paidBy: data.paymentStatus !== 'UNPAID' ? userId : null,
     },
   });
@@ -999,7 +1027,8 @@ export async function exportStatementCsv(id: number, clinicId: number): Promise<
     },
   });
 
-  const header = 'Invoice ID,Order ID,Patient,Doctor,Type,Medication,Qty,Unit Price,Amount,Match Status';
+  const header =
+    'Invoice ID,Order ID,Patient,Doctor,Type,Medication,Qty,Unit Price,Amount,Match Status';
   const rows = lineItems.map((li) =>
     [
       li.invoiceUploadId,
@@ -1146,7 +1175,16 @@ export async function getUnmatchedOrders(
       include: {
         patient: { select: { id: true, firstName: true, lastName: true } },
         provider: { select: { id: true, firstName: true, lastName: true } },
-        rxs: { select: { id: true, medName: true, strength: true, form: true, quantity: true, sig: true } },
+        rxs: {
+          select: {
+            id: true,
+            medName: true,
+            strength: true,
+            form: true,
+            quantity: true,
+            sig: true,
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
       skip,
@@ -1204,7 +1242,11 @@ export async function getUnmatchedOrders(
 // ---------------------------------------------------------------------------
 
 function normalizeName(name: string): string {
-  return name.replace(/[^a-zA-Z,\s]/g, '').trim().toUpperCase().replace(/\s+/g, ' ');
+  return name
+    .replace(/[^a-zA-Z,\s]/g, '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, ' ');
 }
 
 export interface PatientDiscrepancyResult {
@@ -1302,12 +1344,15 @@ export async function getPatientDiscrepancy(
   };
 
   // Build map of normalized patient name → invoice data
-  const invoicePatientMap = new Map<string, {
-    originalName: string;
-    orderIds: Set<string>;
-    totalAmountCents: number;
-    lineItems: InvoiceLineItemData[];
-  }>();
+  const invoicePatientMap = new Map<
+    string,
+    {
+      originalName: string;
+      orderIds: Set<string>;
+      totalAmountCents: number;
+      lineItems: InvoiceLineItemData[];
+    }
+  >();
 
   for (const li of invoiceLineItems) {
     if (!li.patientName) continue;
@@ -1366,14 +1411,17 @@ export async function getPatientDiscrepancy(
   };
 
   // Build map of normalized patient name → system data
-  const systemPatientMap = new Map<string, {
-    patientId: number;
-    originalName: string;
-    orderIds: Set<string>;
-    medications: Set<string>;
-    latestOrderDate: Date;
-    orders: SystemOrderDetail[];
-  }>();
+  const systemPatientMap = new Map<
+    string,
+    {
+      patientId: number;
+      originalName: string;
+      orderIds: Set<string>;
+      medications: Set<string>;
+      latestOrderDate: Date;
+      orders: SystemOrderDetail[];
+    }
+  >();
 
   for (const order of systemOrders) {
     if (!order.patient) continue;
@@ -1463,20 +1511,21 @@ export async function getPatientDiscrepancy(
   //    (without date range filter) to show when the Rx was actually written
   const invoiceOnlyOrderIds = onInvoiceOnlyRaw.flatMap((p) => p.lifefileOrderIds).filter(Boolean);
 
-  const invoiceOnlySystemOrders = invoiceOnlyOrderIds.length > 0
-    ? await prisma.order.findMany({
-        where: {
-          clinicId,
-          lifefileOrderId: { in: invoiceOnlyOrderIds },
-        },
-        select: {
-          lifefileOrderId: true,
-          createdAt: true,
-          status: true,
-        },
-        orderBy: { createdAt: 'desc' },
-      })
-    : [];
+  const invoiceOnlySystemOrders =
+    invoiceOnlyOrderIds.length > 0
+      ? await prisma.order.findMany({
+          where: {
+            clinicId,
+            lifefileOrderId: { in: invoiceOnlyOrderIds },
+          },
+          select: {
+            lifefileOrderId: true,
+            createdAt: true,
+            status: true,
+          },
+          orderBy: { createdAt: 'desc' },
+        })
+      : [];
 
   const orderDateMap = new Map<string, { createdAt: Date; status: string | null }>();
   for (const o of invoiceOnlySystemOrders) {

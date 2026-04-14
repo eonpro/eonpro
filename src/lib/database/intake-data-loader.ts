@@ -81,14 +81,8 @@ export interface IntakeDataOptions {
  * This encapsulates the depth-3 include chain that was previously duplicated
  * across vitals, weight tracking, and prescription queue routes.
  */
-export async function loadPatientIntakeData(
-  patientId: number,
-  options: IntakeDataOptions = {}
-) {
-  const {
-    includeDocumentData = false,
-    submissionOrder = 'desc',
-  } = options;
+export async function loadPatientIntakeData(patientId: number, options: IntakeDataOptions = {}) {
+  const { includeDocumentData = false, submissionOrder = 'desc' } = options;
 
   return prisma.patient.findUnique({
     where: { id: patientId },
@@ -109,6 +103,4 @@ export async function loadPatientIntakeData(
   });
 }
 
-export type PatientWithIntakeData = NonNullable<
-  Awaited<ReturnType<typeof loadPatientIntakeData>>
->;
+export type PatientWithIntakeData = NonNullable<Awaited<ReturnType<typeof loadPatientIntakeData>>>;

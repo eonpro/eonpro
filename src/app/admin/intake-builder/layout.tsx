@@ -5,10 +5,6 @@
  * Authentication is handled at the page level via API calls.
  */
 
-export default function IntakeBuilderLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function IntakeBuilderLayout({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }

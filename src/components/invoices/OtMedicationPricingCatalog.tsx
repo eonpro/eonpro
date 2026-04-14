@@ -190,7 +190,11 @@ export function OtMedicationPricingCatalog({ embedded = false }: OtMedicationPri
           disabled={selected.size === 0}
           className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-40"
         >
-          {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+          {copied ? (
+            <Check className="h-3.5 w-3.5 text-emerald-600" />
+          ) : (
+            <Copy className="h-3.5 w-3.5" />
+          )}
           Copy selected ({selected.size})
         </button>
         <button
@@ -255,8 +259,12 @@ export function OtMedicationPricingCatalog({ embedded = false }: OtMedicationPri
                 <td className="whitespace-nowrap px-3 py-2 text-right">
                   {formatOtRetailUsd(getOtRetailPackagePriceCents(row, 12))}
                 </td>
-                <td className="whitespace-nowrap px-3 py-2 text-xs text-gray-600">{flagSummary(row)}</td>
-                <td className="max-w-[160px] px-3 py-2 text-xs text-gray-500">{row.notes ?? '—'}</td>
+                <td className="whitespace-nowrap px-3 py-2 text-xs text-gray-600">
+                  {flagSummary(row)}
+                </td>
+                <td className="max-w-[160px] px-3 py-2 text-xs text-gray-500">
+                  {row.notes ?? '—'}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -266,8 +274,9 @@ export function OtMedicationPricingCatalog({ embedded = false }: OtMedicationPri
         )}
       </div>
       <p className="text-xs text-gray-400">
-        Retail packages match the OT Men&apos;s Health pricing calculator (6/12 mo tiers use 3% savings per step).
-        Selections are for quoting and building Stripe lines — they do not change Lifefile COGS. Source:{' '}
+        Retail packages match the OT Men&apos;s Health pricing calculator (6/12 mo tiers use 3%
+        savings per step). Selections are for quoting and building Stripe lines — they do not change
+        Lifefile COGS. Source:{' '}
         <code className="rounded bg-gray-100 px-1">ot-retail-packages.ts</code>.
       </p>
     </div>

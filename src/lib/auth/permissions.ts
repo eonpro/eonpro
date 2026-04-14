@@ -187,7 +187,10 @@ export const PERMISSION_META: Record<string, { label: string; description: strin
 
   'integration:create': { label: 'Create Integrations', description: 'Set up new integrations' },
   'integration:read': { label: 'View Integrations', description: 'View integration status' },
-  'integration:update': { label: 'Update Integrations', description: 'Modify integration settings' },
+  'integration:update': {
+    label: 'Update Integrations',
+    description: 'Modify integration settings',
+  },
   'integration:delete': { label: 'Delete Integrations', description: 'Remove integrations' },
 
   'report:generate': { label: 'Generate Reports', description: 'Create reports' },
@@ -694,11 +697,7 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.BILLING_VIEW,
     PERMISSIONS.SYSTEM_LOGS,
   ],
-  affiliate: [
-    PERMISSIONS.AFFILIATE_READ,
-    PERMISSIONS.BILLING_VIEW,
-    PERMISSIONS.REPORT_GENERATE,
-  ],
+  affiliate: [PERMISSIONS.AFFILIATE_READ, PERMISSIONS.BILLING_VIEW, PERMISSIONS.REPORT_GENERATE],
   patient: [PERMISSIONS.ORDER_READ, PERMISSIONS.BILLING_VIEW],
   sales_rep: [
     PERMISSIONS.PATIENT_CREATE,
@@ -722,11 +721,7 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.REPORT_GENERATE,
     PERMISSIONS.REPORT_EXPORT,
   ],
-  pharmacy_rep: [
-    PERMISSIONS.PATIENT_READ,
-    PERMISSIONS.PATIENT_VIEW_PHI,
-    PERMISSIONS.ORDER_READ,
-  ],
+  pharmacy_rep: [PERMISSIONS.PATIENT_READ, PERMISSIONS.PATIENT_VIEW_PHI, PERMISSIONS.ORDER_READ],
 } as const;
 
 // Role-based feature access
@@ -829,11 +824,7 @@ export const ROLE_FEATURES = {
     'secure_messaging',
   ],
 
-  PHARMACY_REP: [
-    'dashboard_operations',
-    'secure_messaging',
-    'lifefile_integration',
-  ],
+  PHARMACY_REP: ['dashboard_operations', 'secure_messaging', 'lifefile_integration'],
 } as const;
 
 // Type for role keys as stored in database/auth (lowercase)
@@ -896,7 +887,7 @@ export function parseOverrides(raw: unknown): UserPermissionOverrides {
 export function hasPermission(
   userRole: string,
   permission: string,
-  userOverrides?: UserPermissionOverrides | null,
+  userOverrides?: UserPermissionOverrides | null
 ): boolean {
   const overrides = userOverrides ? parseOverrides(userOverrides) : null;
 
@@ -922,7 +913,7 @@ export function hasPermission(
 export function hasFeature(
   userRole: string,
   featureId: string,
-  userOverrides?: UserPermissionOverrides | null,
+  userOverrides?: UserPermissionOverrides | null
 ): boolean {
   const overrides = userOverrides ? parseOverrides(userOverrides) : null;
 
@@ -970,7 +961,7 @@ export function getRoleFeatures(userRole: string): string[] {
  */
 export function getEffectivePermissions(
   userRole: string,
-  userOverrides?: UserPermissionOverrides | null,
+  userOverrides?: UserPermissionOverrides | null
 ): EffectivePermissionEntry[] {
   const rolePerms = getRolePermissions(userRole);
   const overrides = userOverrides ? parseOverrides(userOverrides) : { granted: [], revoked: [] };
@@ -1000,7 +991,7 @@ export function getEffectivePermissions(
  */
 export function getEffectiveFeatures(
   userRole: string,
-  userOverrides?: UserPermissionOverrides | null,
+  userOverrides?: UserPermissionOverrides | null
 ): EffectiveFeatureEntry[] {
   const roleFeats = getRoleFeatures(userRole);
   const overrides = userOverrides ? parseOverrides(userOverrides) : { granted: [], revoked: [] };
@@ -1029,7 +1020,7 @@ export function getEffectiveFeatures(
  */
 export function getEffectivePermissionStrings(
   userRole: string,
-  userOverrides?: UserPermissionOverrides | null,
+  userOverrides?: UserPermissionOverrides | null
 ): string[] {
   return getEffectivePermissions(userRole, userOverrides)
     .filter((e) => e.enabled)
@@ -1041,7 +1032,7 @@ export function getEffectivePermissionStrings(
  */
 export function getEffectiveFeatureStrings(
   userRole: string,
-  userOverrides?: UserPermissionOverrides | null,
+  userOverrides?: UserPermissionOverrides | null
 ): string[] {
   return getEffectiveFeatures(userRole, userOverrides)
     .filter((e) => e.enabled)
@@ -1056,7 +1047,7 @@ export function getEffectiveFeatureStrings(
 export function hasAllPermissions(
   userRole: string,
   permissions: string[],
-  userOverrides?: UserPermissionOverrides | null,
+  userOverrides?: UserPermissionOverrides | null
 ): boolean {
   return permissions.every((permission) => hasPermission(userRole, permission, userOverrides));
 }
@@ -1067,7 +1058,7 @@ export function hasAllPermissions(
 export function hasAnyPermission(
   userRole: string,
   permissions: string[],
-  userOverrides?: UserPermissionOverrides | null,
+  userOverrides?: UserPermissionOverrides | null
 ): boolean {
   return permissions.some((permission) => hasPermission(userRole, permission, userOverrides));
 }
@@ -1086,7 +1077,7 @@ export function isValidRole(role: string): role is UserRole {
 export function buildOverridesFromDesired(
   userRole: string,
   desiredPermissions: string[],
-  desiredFeatures: string[],
+  desiredFeatures: string[]
 ): { permissionOverrides: UserPermissionOverrides; featureOverrides: UserPermissionOverrides } {
   const rolePerms = getRolePermissions(userRole);
   const roleFeats = getRoleFeatures(userRole);

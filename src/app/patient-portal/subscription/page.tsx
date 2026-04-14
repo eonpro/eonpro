@@ -5,7 +5,8 @@
  * Shows card(s) on file with ability to add new cards (no delete).
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { getCardNetworkLogo } from '@/lib/constants/brand-assets';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
@@ -15,9 +16,16 @@ import { safeParseJson } from '@/lib/utils/safe-json';
 import { logger } from '@/lib/logger';
 import { SubscriptionPageSkeleton } from '@/components/patient-portal/PortalSkeletons';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
-import { loadStripe } from '@stripe/stripe-js';
-import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { usePatientId } from '@/hooks/usePatientId';
+const LazyAddCardStripeElements = dynamic(() => import('./AddCardStripeElements'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center gap-2 py-8 text-sm text-gray-500">
+      <Loader2 className="h-5 w-5 animate-spin" />
+      Loading secure payment form…
+    </div>
+  ),
+});
 import {
   CreditCard,
   Calendar,
@@ -128,9 +136,10 @@ export default function SubscriptionPage() {
           setSubscription({
             id: sub.id || '',
             planName: sub.planName || 'Subscription',
-            status: (
-              sub.status === 'ACTIVE' ? 'active' : sub.status?.toLowerCase() || 'active'
-            ) as 'active' | 'cancelled' | 'paused',
+            status: (sub.status === 'ACTIVE' ? 'active' : sub.status?.toLowerCase() || 'active') as
+              | 'active'
+              | 'cancelled'
+              | 'paused',
             amount: amountCents / 100,
             interval: (sub.interval === 'year' ? 'year' : 'month') as 'month' | 'year',
             nextBillingDate: sub.currentPeriodEnd || sub.nextBillingDate || '',
@@ -159,7 +168,10 @@ export default function SubscriptionPage() {
       }
 
       const invList =
-        data !== null && typeof data === 'object' && 'invoices' in data && Array.isArray((data as { invoices?: unknown[] }).invoices)
+        data !== null &&
+        typeof data === 'object' &&
+        'invoices' in data &&
+        Array.isArray((data as { invoices?: unknown[] }).invoices)
           ? (data as { invoices: unknown[] }).invoices
           : [];
       setInvoices(
@@ -221,7 +233,9 @@ export default function SubscriptionPage() {
   }
 
   if (billingError) {
-    const isSessionError = billingError.toLowerCase().includes('session') || billingError.toLowerCase().includes('log in');
+    const isSessionError =
+      billingError.toLowerCase().includes('session') ||
+      billingError.toLowerCase().includes('log in');
     return (
       <div className="min-h-screen p-4 md:p-6 lg:p-8">
         <div className="mx-auto max-w-md rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center">
@@ -275,9 +289,7 @@ export default function SubscriptionPage() {
         <div className="mx-auto mt-6 max-w-md rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm">
           <CreditCard className="mx-auto h-12 w-12 text-gray-300" />
           <h2 className="mt-4 text-lg font-semibold text-gray-900">{t('subscriptionNoActive')}</h2>
-          <p className="mt-2 text-sm text-gray-500">
-            {t('subscriptionNoActiveDesc')}
-          </p>
+          <p className="mt-2 text-sm text-gray-500">{t('subscriptionNoActiveDesc')}</p>
           <button
             onClick={handleManageBilling}
             disabled={managingBilling}
@@ -360,7 +372,9 @@ export default function SubscriptionPage() {
 
                 {/* Plan Features */}
                 <div className="space-y-2">
-                  <p className="text-sm font-medium text-gray-700">{t('subscriptionPlanIncludes')}</p>
+                  <p className="text-sm font-medium text-gray-700">
+                    {t('subscriptionPlanIncludes')}
+                  </p>
                   {[
                     'Monthly medication supply',
                     'Provider consultations',
@@ -461,7 +475,9 @@ export default function SubscriptionPage() {
               >
                 <div className="flex items-center gap-3">
                   <CreditCard className="h-5 w-5 text-gray-400" />
-                  <span className="font-medium text-gray-700">{t('subscriptionManageBilling')}</span>
+                  <span className="font-medium text-gray-700">
+                    {t('subscriptionManageBilling')}
+                  </span>
                 </div>
                 <ExternalLink className="h-4 w-4 text-gray-400" />
               </button>
@@ -484,11 +500,9 @@ export default function SubscriptionPage() {
           <div className="rounded-2xl border border-blue-100 bg-blue-50 p-6">
             <AlertCircle className="mb-3 h-6 w-6 text-blue-600" />
             <h3 className="mb-2 font-semibold text-blue-900">{t('subscriptionNeedHelp')}</h3>
-            <p className="mb-4 text-sm text-blue-800">
-              {t('subscriptionSupportDesc')}
-            </p>
+            <p className="mb-4 text-sm text-blue-800">{t('subscriptionSupportDesc')}</p>
             <a
-              href={`${PATIENT_PORTAL_PATH}/support/new`}
+              href={`${PATIENT_PORTAL_PATH}/support`}
               className="block w-full rounded-xl bg-blue-600 py-2.5 text-center font-medium text-white transition-colors hover:bg-blue-700"
             >
               {t('subscriptionContactSupport')}
@@ -497,9 +511,7 @@ export default function SubscriptionPage() {
 
           {/* Cancellation Notice */}
           <div className="rounded-2xl border border-gray-200 bg-gray-50 p-6">
-            <p className="text-sm text-gray-600">
-              {t('subscriptionCancelNotice')}
-            </p>
+            <p className="text-sm text-gray-600">{t('subscriptionCancelNotice')}</p>
           </div>
         </div>
       </div>
@@ -507,270 +519,7 @@ export default function SubscriptionPage() {
   );
 }
 
-/* ─── Add card: PaymentElement + SetupIntent ─── */
-
-function AddCardPaymentFormInner({
-  paymentMethodsLength,
-  primaryColor,
-  setShowAddCard,
-  setAddCardError,
-  onCardSaved,
-}: {
-  paymentMethodsLength: number;
-  primaryColor: string;
-  setShowAddCard: (v: boolean) => void;
-  setAddCardError: (v: string | null) => void;
-  onCardSaved: () => Promise<void>;
-}) {
-  const stripe = useStripe();
-  const elements = useElements();
-  const [submitting, setSubmitting] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAddCardError(null);
-    if (!stripe || !elements) {
-      setAddCardError('Payment form not ready. Please try again.');
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const { error, setupIntent } = await stripe.confirmSetup({
-        elements,
-        confirmParams: { return_url: window.location.href },
-        redirect: 'if_required',
-      });
-      if (error) {
-        throw new Error(error.message || 'Card verification failed');
-      }
-      const rawPm = setupIntent?.payment_method;
-      const stripePaymentMethodId =
-        typeof rawPm === 'string'
-          ? rawPm
-          : rawPm && typeof rawPm === 'object' && 'id' in rawPm
-            ? String((rawPm as { id: string }).id)
-            : '';
-      if (!stripePaymentMethodId) {
-        throw new Error('No payment method returned');
-      }
-
-      const saveRes = await portalFetch('/api/patient-portal/billing/save-card', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          stripePaymentMethodId,
-          setAsDefault: paymentMethodsLength === 0,
-        }),
-      });
-      const saveData = await safeParseJson(saveRes);
-      if (!saveRes.ok) {
-        throw new Error(
-          saveData && typeof saveData === 'object' && 'error' in saveData
-            ? String((saveData as { error?: unknown }).error)
-            : 'Failed to save card'
-        );
-      }
-
-      setShowAddCard(false);
-      toast.success('Payment method added successfully');
-      await onCardSaved();
-    } catch (err: unknown) {
-      setAddCardError(err instanceof Error ? err.message : 'Failed to add payment method');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="rounded-xl border border-gray-200 bg-gray-50 p-1">
-        <div className="flex items-center gap-2 px-3 pb-1 pt-2">
-          <Shield className="h-3.5 w-3.5 text-green-600" />
-          <span className="text-xs font-medium text-gray-500">
-            Secure payment powered by Stripe
-          </span>
-        </div>
-        <div className="rounded-lg bg-white p-3">
-          <PaymentElement />
-        </div>
-      </div>
-
-      <div className="flex gap-3">
-        <button
-          type="submit"
-          disabled={submitting || !stripe}
-          className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
-          style={{ backgroundColor: primaryColor }}
-        >
-          {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-          {submitting ? 'Adding…' : 'Add Card'}
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setShowAddCard(false);
-            setAddCardError(null);
-          }}
-          disabled={submitting}
-          className="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
-        >
-          Cancel
-        </button>
-      </div>
-    </form>
-  );
-}
-
-function AddCardStripeElements({
-  patientId,
-  paymentMethodsLength,
-  primaryColor,
-  setShowAddCard,
-  setAddCardError,
-  onCardSaved,
-}: {
-  patientId: number;
-  paymentMethodsLength: number;
-  primaryColor: string;
-  setShowAddCard: (v: boolean) => void;
-  setAddCardError: (v: string | null) => void;
-  onCardSaved: () => Promise<void>;
-}) {
-  const [publishableKey, setPublishableKey] = useState<string | null>(null);
-  const [stripeAccountId, setStripeAccountId] = useState<string | null>(null);
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const [booting, setBooting] = useState(true);
-  const [bootError, setBootError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setAddCardError(null);
-    (async () => {
-      setBooting(true);
-      setBootError(null);
-      try {
-        const keyRes = await portalFetch(`/api/stripe/publishable-key?patientId=${patientId}`);
-        const keySessionErr = getPortalResponseError(keyRes);
-        if (keySessionErr) {
-          if (!cancelled) setBootError(keySessionErr);
-          return;
-        }
-
-        const setupRes = await portalFetch('/api/patient-portal/billing/setup-intent', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-        });
-        const setupSessionErr = getPortalResponseError(setupRes);
-        if (setupSessionErr) {
-          if (!cancelled) setBootError(setupSessionErr);
-          return;
-        }
-
-        const keyData = await safeParseJson(keyRes);
-        const setupData = await safeParseJson(setupRes);
-
-        if (!keyRes.ok) {
-          const msg =
-            keyData && typeof keyData === 'object' && 'error' in keyData
-              ? String((keyData as { error?: unknown }).error)
-              : 'Failed to load payment configuration';
-          if (!cancelled) setBootError(msg);
-          return;
-        }
-        if (!setupRes.ok) {
-          const msg =
-            setupData && typeof setupData === 'object' && 'error' in setupData
-              ? String((setupData as { error?: unknown }).error)
-              : 'Failed to initialize card setup';
-          if (!cancelled) setBootError(msg);
-          return;
-        }
-
-        const pk =
-          keyData && typeof keyData === 'object' && 'publishableKey' in keyData
-            ? (keyData as { publishableKey?: string }).publishableKey
-            : undefined;
-        const acctRaw =
-          keyData && typeof keyData === 'object' && 'connectedAccountId' in keyData
-            ? (keyData as { connectedAccountId?: string | null }).connectedAccountId
-            : null;
-        const cs =
-          setupData && typeof setupData === 'object' && 'clientSecret' in setupData
-            ? (setupData as { clientSecret?: string }).clientSecret
-            : undefined;
-
-        if (!pk || !cs) {
-          if (!cancelled) {
-            setBootError('Payment system is not configured. Please contact support.');
-          }
-          return;
-        }
-        if (!cancelled) {
-          setPublishableKey(pk);
-          setStripeAccountId(typeof acctRaw === 'string' && acctRaw.length > 0 ? acctRaw : null);
-          setClientSecret(cs);
-        }
-      } catch {
-        if (!cancelled) setBootError('Failed to load payment form');
-      } finally {
-        if (!cancelled) setBooting(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [patientId, setAddCardError]);
-
-  const stripePromise = useMemo(() => {
-    if (!publishableKey) return null;
-    return loadStripe(
-      publishableKey,
-      stripeAccountId ? { stripeAccount: stripeAccountId } : undefined
-    );
-  }, [publishableKey, stripeAccountId]);
-
-  if (booting) {
-    return (
-      <div className="flex items-center gap-2 py-8 text-sm text-gray-500">
-        <Loader2 className="h-5 w-5 animate-spin" />
-        Loading secure payment form…
-      </div>
-    );
-  }
-
-  const displayError = bootError;
-  if (displayError || !stripePromise || !clientSecret) {
-    return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-        {displayError || 'Payment form could not be loaded. Please try again.'}
-      </div>
-    );
-  }
-
-  return (
-    <Elements
-      stripe={stripePromise}
-      options={{
-        clientSecret,
-        appearance: {
-          theme: 'stripe',
-          variables: {
-            colorPrimary: primaryColor,
-            fontSizeBase: '16px',
-          },
-        },
-      }}
-    >
-      <AddCardPaymentFormInner
-        paymentMethodsLength={paymentMethodsLength}
-        primaryColor={primaryColor}
-        setShowAddCard={setShowAddCard}
-        setAddCardError={setAddCardError}
-        onCardSaved={onCardSaved}
-      />
-    </Elements>
-  );
-}
+/* ─── Add card: Stripe Elements (lazy-loaded) ─── */
 
 /* ─── Payment Methods Section ─── */
 
@@ -813,7 +562,10 @@ function PaymentMethodsSection({
         </div>
         {!showAddCard && (
           <button
-            onClick={() => { setAddCardError(null); setShowAddCard(true); }}
+            onClick={() => {
+              setAddCardError(null);
+              setShowAddCard(true);
+            }}
             className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium text-white transition-colors hover:opacity-90"
             style={{ backgroundColor: primaryColor }}
           >
@@ -830,9 +582,7 @@ function PaymentMethodsSection({
             <div
               key={pm.id}
               className={`flex items-center gap-4 rounded-xl p-4 ${
-                pm.isDefault
-                  ? 'border border-green-200 bg-green-50/50'
-                  : 'bg-gray-50'
+                pm.isDefault ? 'border border-green-200 bg-green-50/50' : 'bg-gray-50'
               }`}
             >
               <div className="rounded-lg p-2" style={{ backgroundColor: `${primaryColor}12` }}>
@@ -851,9 +601,7 @@ function PaymentMethodsSection({
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <p className="font-semibold capitalize text-gray-900">
-                    •••• {pm.last4}
-                  </p>
+                  <p className="font-semibold capitalize text-gray-900">•••• {pm.last4}</p>
                   {pm.isDefault && (
                     <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-green-700">
                       Default
@@ -872,7 +620,10 @@ function PaymentMethodsSection({
           <CreditCard className="mx-auto mb-2 h-10 w-10 text-gray-300" />
           <p className="text-sm text-gray-500">No payment methods on file</p>
           <button
-            onClick={() => { setAddCardError(null); setShowAddCard(true); }}
+            onClick={() => {
+              setAddCardError(null);
+              setShowAddCard(true);
+            }}
             className="mt-2 text-sm font-medium hover:underline"
             style={{ color: primaryColor }}
           >
@@ -926,7 +677,7 @@ function PaymentMethodsSection({
               </button>
             </>
           ) : (
-            <AddCardStripeElements
+            <LazyAddCardStripeElements
               patientId={patientId}
               paymentMethodsLength={paymentMethods.length}
               primaryColor={primaryColor}

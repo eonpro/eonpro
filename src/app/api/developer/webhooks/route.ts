@@ -146,7 +146,6 @@ export const GET = withAuth(
         },
       });
     } catch (error: unknown) {
-
       logger.error('Error fetching webhooks:', error);
       return NextResponse.json({ error: 'Failed to fetch webhooks' }, { status: 500 });
     }
@@ -256,7 +255,9 @@ export const POST = withAuth(
           },
         })
         .catch((error: Error) => {
-          logger.warn('Failed to create audit log:', { error: error instanceof Error ? error.message : String(error) });
+          logger.warn('Failed to create audit log:', {
+            error: error instanceof Error ? error.message : String(error),
+          });
         });
 
       logger.info('Webhook created', { webhookName: validated.name, userId: user.id });

@@ -17,7 +17,12 @@ import { PERMISSIONS, hasPermission as hasRolePermission } from '@/lib/auth/perm
 import { prisma, basePrisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { decryptPHI } from '@/lib/security/phi-encryption';
-import { splitSearchTerms, buildPatientSearchWhere, buildPatientSearchIndex, buildIncompleteSearchIndexWhere } from '@/lib/utils/search';
+import {
+  splitSearchTerms,
+  buildPatientSearchWhere,
+  buildPatientSearchIndex,
+  buildIncompleteSearchIndexWhere,
+} from '@/lib/utils/search';
 import { Prisma, PrismaClient } from '@prisma/client';
 
 const PAGE_SIZE = 25;
@@ -88,7 +93,11 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     if (search) {
       const searchFilter = buildPatientSearchWhere(search);
       whereClause.AND = [
-        ...(Array.isArray(whereClause.AND) ? whereClause.AND : whereClause.AND ? [whereClause.AND] : []),
+        ...(Array.isArray(whereClause.AND)
+          ? whereClause.AND
+          : whereClause.AND
+            ? [whereClause.AND]
+            : []),
         searchFilter,
       ];
     }
@@ -210,11 +219,14 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         }
 
         if (totalScanned >= FALLBACK_MAX_SCAN && totalScanned < unindexedCount) {
-          logger.warn('[ADMIN-INTAKES] Fallback scan cap reached — run backfill for full coverage', {
-            unindexedCount,
-            scanned: totalScanned,
-            recommendation: 'POST /api/admin/backfill-search-index',
-          });
+          logger.warn(
+            '[ADMIN-INTAKES] Fallback scan cap reached — run backfill for full coverage',
+            {
+              unindexedCount,
+              scanned: totalScanned,
+              recommendation: 'POST /api/admin/backfill-search-index',
+            }
+          );
         }
 
         fallbackIntakes = matches;
@@ -223,7 +235,10 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           Promise.all(
             selfHealUpdates.map(({ id, searchIndex }) =>
               db.patient.update({ where: { id }, data: { searchIndex } }).catch((err) => {
-                logger.warn('[ADMIN-INTAKES] Self-heal searchIndex failed', { patientId: id, error: String(err) });
+                logger.warn('[ADMIN-INTAKES] Self-heal searchIndex failed', {
+                  patientId: id,
+                  error: String(err),
+                });
               })
             )
           ).then(() => {

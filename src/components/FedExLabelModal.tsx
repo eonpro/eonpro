@@ -1,7 +1,17 @@
 'use client';
 
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { X, Loader2, Printer, Package, Truck, AlertCircle, Zap, DollarSign, Download } from 'lucide-react';
+import {
+  X,
+  Loader2,
+  Printer,
+  Package,
+  Truck,
+  AlertCircle,
+  Zap,
+  DollarSign,
+  Download,
+} from 'lucide-react';
 import { AddressInput, type AddressData } from '@/components/AddressAutocomplete';
 import { apiFetch } from '@/lib/api/fetch';
 import { FEDEX_SERVICE_TYPES, FEDEX_PACKAGING_TYPES } from '@/lib/fedex-services';
@@ -77,13 +87,15 @@ export default function FedExLabelModal({
 
   const untrackedOrders = useMemo(
     () => orders.filter((o) => !o.trackingNumber && o.status !== 'cancelled'),
-    [orders],
+    [orders]
   );
 
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(() => {
     const untracked = orders.filter((o) => !o.trackingNumber && o.status !== 'cancelled');
     if (untracked.length === 0) return null;
-    return [...untracked].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0].id;
+    return [...untracked].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )[0].id;
   });
 
   const [origin, setOrigin] = useState<Address>({
@@ -116,7 +128,11 @@ export default function FedExLabelModal({
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<{ trackingNumber: string; labelId: number; popupBlocked: boolean } | null>(null);
+  const [success, setSuccess] = useState<{
+    trackingNumber: string;
+    labelId: number;
+    popupBlocked: boolean;
+  } | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [redownloading, setRedownloading] = useState(false);
 
@@ -126,12 +142,14 @@ export default function FedExLabelModal({
   );
 
   const availablePackaging = useMemo(
-    () => (oneRate ? FEDEX_PACKAGING_TYPES.filter((p) => p.oneRateEligible) : FEDEX_PACKAGING_TYPES),
+    () =>
+      oneRate ? FEDEX_PACKAGING_TYPES.filter((p) => p.oneRateEligible) : FEDEX_PACKAGING_TYPES,
     [oneRate]
   );
 
   const selectedPackaging = FEDEX_PACKAGING_TYPES.find((p) => p.code === packagingType);
-  const maxWeight = oneRate && selectedPackaging?.oneRateMaxLbs ? selectedPackaging.oneRateMaxLbs : 150;
+  const maxWeight =
+    oneRate && selectedPackaging?.oneRateMaxLbs ? selectedPackaging.oneRateMaxLbs : 150;
 
   const handleOneRateToggle = (enabled: boolean) => {
     setOneRate(enabled);
@@ -198,10 +216,14 @@ export default function FedExLabelModal({
       autoFetched.current = true;
       handleGetRate();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const printLabel4x6 = (base64: string, _format: string = 'PDF', _trackingNum?: string): boolean => {
+  const printLabel4x6 = (
+    base64: string,
+    _format: string = 'PDF',
+    _trackingNum?: string
+  ): boolean => {
     const pdfBytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
     const blob = new Blob([pdfBytes], { type: 'application/pdf' });
     const pdfUrl = URL.createObjectURL(blob);
@@ -277,7 +299,12 @@ export default function FedExLabelModal({
   const selectedService = FEDEX_SERVICE_TYPES.find((s) => s.code === serviceType);
 
   const isOriginValid =
-    origin.personName && origin.address1 && origin.city && origin.state && origin.zip && origin.phoneNumber;
+    origin.personName &&
+    origin.address1 &&
+    origin.city &&
+    origin.state &&
+    origin.zip &&
+    origin.phoneNumber;
   const isDestValid =
     destination.personName &&
     destination.address1 &&
@@ -311,61 +338,65 @@ export default function FedExLabelModal({
 
         <div className="space-y-6 p-6">
           {/* Success state */}
-          {success && (() => {
-            const linkedOrder = selectedOrderId ? orders.find((o) => o.id === selectedOrderId) : null;
-            return (
-              <div className="rounded-lg border border-green-200 bg-green-50 p-4">
-                <p className="font-medium text-green-800">Label created successfully!</p>
-                <p className="mt-1 text-sm text-green-700">
-                  Tracking: <span className="font-mono font-semibold">{success.trackingNumber}</span>
-                </p>
-                {linkedOrder && (
+          {success &&
+            (() => {
+              const linkedOrder = selectedOrderId
+                ? orders.find((o) => o.id === selectedOrderId)
+                : null;
+              return (
+                <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+                  <p className="font-medium text-green-800">Label created successfully!</p>
                   <p className="mt-1 text-sm text-green-700">
-                    Linked to prescription:{' '}
-                    <span className="font-semibold">
-                      {linkedOrder.primaryMedName || linkedOrder.rxs?.[0]?.medName || 'Order'}
-                      {(linkedOrder.primaryMedStrength || linkedOrder.rxs?.[0]?.strength) &&
-                        ` ${linkedOrder.primaryMedStrength || linkedOrder.rxs?.[0]?.strength}`}
-                    </span>
+                    Tracking:{' '}
+                    <span className="font-mono font-semibold">{success.trackingNumber}</span>
                   </p>
-                )}
-                {success.popupBlocked ? (
-                  <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 p-3">
-                    <p className="text-sm font-medium text-amber-800">
-                      Popup was blocked by your browser.
+                  {linkedOrder && (
+                    <p className="mt-1 text-sm text-green-700">
+                      Linked to prescription:{' '}
+                      <span className="font-semibold">
+                        {linkedOrder.primaryMedName || linkedOrder.rxs?.[0]?.medName || 'Order'}
+                        {(linkedOrder.primaryMedStrength || linkedOrder.rxs?.[0]?.strength) &&
+                          ` ${linkedOrder.primaryMedStrength || linkedOrder.rxs?.[0]?.strength}`}
+                      </span>
                     </p>
-                    <p className="mt-0.5 text-xs text-amber-700">
-                      Click the button below to download your label.
+                  )}
+                  {success.popupBlocked ? (
+                    <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 p-3">
+                      <p className="text-sm font-medium text-amber-800">
+                        Popup was blocked by your browser.
+                      </p>
+                      <p className="mt-0.5 text-xs text-amber-700">
+                        Click the button below to download your label.
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="mt-1 text-xs text-green-600">
+                      The label has been opened in a new tab for printing.
                     </p>
+                  )}
+                  <div className="mt-3 flex items-center gap-2">
+                    <button
+                      onClick={handleRedownload}
+                      disabled={redownloading}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-[#4D148C] px-4 py-2 text-sm font-medium text-[#4D148C] transition hover:bg-purple-50 disabled:opacity-50"
+                    >
+                      {redownloading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4" />
+                      )}
+                      Re-download Label
+                    </button>
+                    <button
+                      onClick={onClose}
+                      className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+                    >
+                      Done
+                    </button>
                   </div>
-                ) : (
-                  <p className="mt-1 text-xs text-green-600">
-                    The label has been opened in a new tab for printing.
-                  </p>
-                )}
-                <div className="mt-3 flex items-center gap-2">
-                  <button
-                    onClick={handleRedownload}
-                    disabled={redownloading}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-[#4D148C] px-4 py-2 text-sm font-medium text-[#4D148C] transition hover:bg-purple-50 disabled:opacity-50"
-                  >
-                    {redownloading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Download className="h-4 w-4" />
-                    )}
-                    Re-download Label
-                  </button>
-                  <button
-                    onClick={onClose}
-                    className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
-                  >
-                    Done
-                  </button>
                 </div>
-              </div>
-            );
-          })()}
+              );
+            })()}
 
           {/* Error */}
           {error && (
@@ -386,17 +417,24 @@ export default function FedExLabelModal({
                   </legend>
                   <select
                     value={selectedOrderId ?? ''}
-                    onChange={(e) => setSelectedOrderId(e.target.value ? parseInt(e.target.value, 10) : null)}
+                    onChange={(e) =>
+                      setSelectedOrderId(e.target.value ? parseInt(e.target.value, 10) : null)
+                    }
                     className={`w-full ${inputCls}`}
                   >
                     <option value="">No prescription — ship without linking</option>
                     {untrackedOrders.map((o) => {
                       const med = o.primaryMedName || o.rxs?.[0]?.medName || 'Unknown';
                       const str = o.primaryMedStrength || o.rxs?.[0]?.strength || '';
-                      const date = new Date(o.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                      const date = new Date(o.createdAt).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      });
                       return (
                         <option key={o.id} value={o.id}>
-                          {med}{str ? ` ${str}` : ''} — {date}
+                          {med}
+                          {str ? ` ${str}` : ''} — {date}
                           {o.status ? ` (${o.status})` : ''}
                         </option>
                       );
@@ -408,7 +446,6 @@ export default function FedExLabelModal({
                 </fieldset>
               )}
 
-
               {/* Origin Address */}
               <fieldset className="space-y-3">
                 <legend className="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
@@ -418,13 +455,19 @@ export default function FedExLabelModal({
                 <div className="grid gap-3 sm:grid-cols-2">
                   <input
                     value={origin.personName}
-                    onChange={(e) => { setOrigin({ ...origin, personName: e.target.value }); clearRate(); }}
+                    onChange={(e) => {
+                      setOrigin({ ...origin, personName: e.target.value });
+                      clearRate();
+                    }}
                     placeholder="Name / Company"
                     className={inputCls}
                   />
                   <input
                     value={origin.phoneNumber}
-                    onChange={(e) => { setOrigin({ ...origin, phoneNumber: e.target.value }); clearRate(); }}
+                    onChange={(e) => {
+                      setOrigin({ ...origin, phoneNumber: e.target.value });
+                      clearRate();
+                    }}
                     placeholder="Phone"
                     className={inputCls}
                   />
@@ -451,27 +494,39 @@ export default function FedExLabelModal({
                 />
                 <input
                   value={origin.address2 || ''}
-                  onChange={(e) => { setOrigin({ ...origin, address2: e.target.value }); clearRate(); }}
+                  onChange={(e) => {
+                    setOrigin({ ...origin, address2: e.target.value });
+                    clearRate();
+                  }}
                   placeholder="Address Line 2 (optional)"
                   className={`w-full ${inputCls}`}
                 />
                 <div className="grid gap-3 sm:grid-cols-3">
                   <input
                     value={origin.city}
-                    onChange={(e) => { setOrigin({ ...origin, city: e.target.value }); clearRate(); }}
+                    onChange={(e) => {
+                      setOrigin({ ...origin, city: e.target.value });
+                      clearRate();
+                    }}
                     placeholder="City"
                     className={inputCls}
                   />
                   <input
                     value={origin.state}
-                    onChange={(e) => { setOrigin({ ...origin, state: e.target.value }); clearRate(); }}
+                    onChange={(e) => {
+                      setOrigin({ ...origin, state: e.target.value });
+                      clearRate();
+                    }}
                     placeholder="State"
                     maxLength={2}
                     className={`uppercase ${inputCls}`}
                   />
                   <input
                     value={origin.zip}
-                    onChange={(e) => { setOrigin({ ...origin, zip: e.target.value }); clearRate(); }}
+                    onChange={(e) => {
+                      setOrigin({ ...origin, zip: e.target.value });
+                      clearRate();
+                    }}
                     placeholder="ZIP"
                     className={inputCls}
                   />
@@ -487,13 +542,19 @@ export default function FedExLabelModal({
                 <div className="grid gap-3 sm:grid-cols-2">
                   <input
                     value={destination.personName}
-                    onChange={(e) => { setDestination({ ...destination, personName: e.target.value }); clearRate(); }}
+                    onChange={(e) => {
+                      setDestination({ ...destination, personName: e.target.value });
+                      clearRate();
+                    }}
                     placeholder="Recipient Name"
                     className={inputCls}
                   />
                   <input
                     value={destination.phoneNumber}
-                    onChange={(e) => { setDestination({ ...destination, phoneNumber: e.target.value }); clearRate(); }}
+                    onChange={(e) => {
+                      setDestination({ ...destination, phoneNumber: e.target.value });
+                      clearRate();
+                    }}
                     placeholder="Phone"
                     className={inputCls}
                   />
@@ -520,27 +581,39 @@ export default function FedExLabelModal({
                 />
                 <input
                   value={destination.address2 || ''}
-                  onChange={(e) => { setDestination({ ...destination, address2: e.target.value }); clearRate(); }}
+                  onChange={(e) => {
+                    setDestination({ ...destination, address2: e.target.value });
+                    clearRate();
+                  }}
                   placeholder="Address Line 2 (optional)"
                   className={`w-full ${inputCls}`}
                 />
                 <div className="grid gap-3 sm:grid-cols-3">
                   <input
                     value={destination.city}
-                    onChange={(e) => { setDestination({ ...destination, city: e.target.value }); clearRate(); }}
+                    onChange={(e) => {
+                      setDestination({ ...destination, city: e.target.value });
+                      clearRate();
+                    }}
                     placeholder="City"
                     className={inputCls}
                   />
                   <input
                     value={destination.state}
-                    onChange={(e) => { setDestination({ ...destination, state: e.target.value }); clearRate(); }}
+                    onChange={(e) => {
+                      setDestination({ ...destination, state: e.target.value });
+                      clearRate();
+                    }}
                     placeholder="State"
                     maxLength={2}
                     className={`uppercase ${inputCls}`}
                   />
                   <input
                     value={destination.zip}
-                    onChange={(e) => { setDestination({ ...destination, zip: e.target.value }); clearRate(); }}
+                    onChange={(e) => {
+                      setDestination({ ...destination, zip: e.target.value });
+                      clearRate();
+                    }}
                     placeholder="ZIP"
                     className={inputCls}
                   />
@@ -587,10 +660,15 @@ export default function FedExLabelModal({
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-500">Service Type</label>
+                  <label className="mb-1 block text-xs font-medium text-gray-500">
+                    Service Type
+                  </label>
                   <select
                     value={serviceType}
-                    onChange={(e) => { setServiceType(e.target.value); clearRate(); }}
+                    onChange={(e) => {
+                      setServiceType(e.target.value);
+                      clearRate();
+                    }}
                     className={`w-full ${inputCls}`}
                   >
                     {availableServices.map((s) => (
@@ -608,7 +686,10 @@ export default function FedExLabelModal({
                     </label>
                     <select
                       value={packagingType}
-                      onChange={(e) => { setPackagingType(e.target.value); clearRate(); }}
+                      onChange={(e) => {
+                        setPackagingType(e.target.value);
+                        clearRate();
+                      }}
                       className={`w-full ${inputCls}`}
                     >
                       {availablePackaging.map((p) => (
@@ -620,14 +701,19 @@ export default function FedExLabelModal({
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Weight (lbs)</label>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">
+                      Weight (lbs)
+                    </label>
                     <input
                       type="number"
                       min={0.1}
                       max={maxWeight}
                       step={0.1}
                       value={weightLbs}
-                      onChange={(e) => { setWeightLbs(parseFloat(e.target.value) || 1); clearRate(); }}
+                      onChange={(e) => {
+                        setWeightLbs(parseFloat(e.target.value) || 1);
+                        clearRate();
+                      }}
                       className={`w-full ${inputCls}`}
                     />
                   </div>
@@ -653,7 +739,9 @@ export default function FedExLabelModal({
                     </p>
                   </div>
                   {rateQuote.transitDays && (
-                    <p className="mt-1 text-xs text-blue-600">Transit time: {rateQuote.transitDays}</p>
+                    <p className="mt-1 text-xs text-blue-600">
+                      Transit time: {rateQuote.transitDays}
+                    </p>
                   )}
                   {rateQuote.surcharges.length > 0 && (
                     <div className="mt-2 space-y-0.5">
@@ -681,7 +769,13 @@ export default function FedExLabelModal({
                 {!rateQuote ? (
                   <button
                     onClick={handleGetRate}
-                    disabled={rateLoading || !origin.address1 || !origin.zip || !destination.address1 || !destination.zip}
+                    disabled={
+                      rateLoading ||
+                      !origin.address1 ||
+                      !origin.zip ||
+                      !destination.address1 ||
+                      !destination.zip
+                    }
                     className="inline-flex items-center gap-2 rounded-lg border-2 border-[#4D148C] px-5 py-2 text-sm font-medium text-[#4D148C] transition hover:bg-purple-50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {rateLoading ? (
@@ -710,7 +804,8 @@ export default function FedExLabelModal({
                     ) : (
                       <>
                         <Printer className="h-4 w-4" />
-                        Confirm & Print Label — {formatCurrency(rateQuote.totalCharge, rateQuote.currency)}
+                        Confirm & Print Label —{' '}
+                        {formatCurrency(rateQuote.totalCharge, rateQuote.currency)}
                       </>
                     )}
                   </button>

@@ -135,11 +135,15 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<Response> {
           invoiceId: row.id,
           patientId: row.patient.patientId || null,
           paidAt: row.paidAt ? row.paidAt.toISOString() : null,
-          processedAt: row.prescriptionProcessedAt ? row.prescriptionProcessedAt.toISOString() : null,
+          processedAt: row.prescriptionProcessedAt
+            ? row.prescriptionProcessedAt.toISOString()
+            : null,
           product: typeof metadata.product === 'string' ? metadata.product : null,
           source: typeof metadata.source === 'string' ? metadata.source : null,
           stripeSubscriptionId:
-            typeof metadata.stripeSubscriptionId === 'string' ? metadata.stripeSubscriptionId : null,
+            typeof metadata.stripeSubscriptionId === 'string'
+              ? metadata.stripeSubscriptionId
+              : null,
         };
       });
 

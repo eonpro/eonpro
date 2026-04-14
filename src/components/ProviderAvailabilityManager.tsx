@@ -217,7 +217,8 @@ export default function ProviderAvailabilityManager({
           <div>
             <h3 className="text-base font-semibold text-gray-900">Weekly Availability</h3>
             <p className="mt-0.5 text-xs text-gray-500">
-              {providerName ? `${providerName}'s` : 'Provider'} recurring schedule for telehealth appointments
+              {providerName ? `${providerName}'s` : 'Provider'} recurring schedule for telehealth
+              appointments
             </p>
           </div>
           {!readOnly && (
@@ -243,7 +244,9 @@ export default function ProviderAvailabilityManager({
                   className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
                 >
                   {DAY_NAMES.map((name, i) => (
-                    <option key={i} value={i}>{name}</option>
+                    <option key={i} value={i}>
+                      {name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -271,7 +274,11 @@ export default function ProviderAvailabilityManager({
                   disabled={isSaving}
                   className="flex items-center gap-1.5 rounded-lg bg-[#4fa77e] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#3f8660] disabled:opacity-50"
                 >
-                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  {isSaving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
                   Save
                 </button>
                 <button
@@ -293,7 +300,9 @@ export default function ProviderAvailabilityManager({
             return (
               <div key={dayIdx} className="flex items-start gap-4 px-5 py-3">
                 <div className="w-24 flex-shrink-0 pt-1">
-                  <span className={`text-sm font-medium ${isActive ? 'text-gray-900' : 'text-gray-400'}`}>
+                  <span
+                    className={`text-sm font-medium ${isActive ? 'text-gray-900' : 'text-gray-400'}`}
+                  >
                     {dayName}
                   </span>
                 </div>
@@ -336,7 +345,9 @@ export default function ProviderAvailabilityManager({
             <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-6 text-center">
               <Calendar className="mx-auto mb-2 h-8 w-8 text-gray-400" />
               <p className="text-sm font-medium text-gray-600">No availability configured</p>
-              <p className="mt-1 text-xs text-gray-400">Add availability blocks to allow telehealth scheduling</p>
+              <p className="mt-1 text-xs text-gray-400">
+                Add availability blocks to allow telehealth scheduling
+              </p>
             </div>
           </div>
         )}
@@ -387,7 +398,9 @@ export default function ProviderAvailabilityManager({
                 />
               </div>
               <div className="flex-1">
-                <label className="mb-1 block text-xs font-medium text-gray-600">Reason (optional)</label>
+                <label className="mb-1 block text-xs font-medium text-gray-600">
+                  Reason (optional)
+                </label>
                 <input
                   type="text"
                   value={newTimeOff.reason}
@@ -402,7 +415,11 @@ export default function ProviderAvailabilityManager({
                   disabled={isSaving}
                   className="flex items-center gap-1.5 rounded-lg bg-[#4fa77e] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#3f8660] disabled:opacity-50"
                 >
-                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  {isSaving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
                   Save
                 </button>
                 <button
@@ -437,18 +454,25 @@ export default function ProviderAvailabilityManager({
                     <div>
                       <div className="text-sm font-medium text-gray-900">
                         {isSameDay
-                          ? start.toLocaleDateString('en-US', { timeZone: EASTERN_TZ, weekday: 'short', month: 'short', day: 'numeric' })
+                          ? start.toLocaleDateString('en-US', {
+                              timeZone: EASTERN_TZ,
+                              weekday: 'short',
+                              month: 'short',
+                              day: 'numeric',
+                            })
                           : `${start.toLocaleDateString('en-US', { timeZone: EASTERN_TZ, month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', { timeZone: EASTERN_TZ, month: 'short', day: 'numeric', year: 'numeric' })}`}
                       </div>
-                      {entry.reason && (
-                        <div className="text-xs text-gray-500">{entry.reason}</div>
-                      )}
+                      {entry.reason && <div className="text-xs text-gray-500">{entry.reason}</div>}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                      entry.isApproved ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                    }`}>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                        entry.isApproved
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-yellow-100 text-yellow-700'
+                      }`}
+                    >
                       {entry.isApproved ? 'Approved' : 'Pending'}
                     </span>
                   </div>

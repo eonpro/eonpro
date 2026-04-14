@@ -126,7 +126,10 @@ async function handler(req: NextRequest, user: AuthUser) {
     } else if (prescriberIdParam) {
       const parsed = parseInt(prescriberIdParam, 10);
       if (Number.isNaN(parsed) || parsed <= 0) {
-        return NextResponse.json({ error: 'prescriberId must be a positive integer' }, { status: 400 });
+        return NextResponse.json(
+          { error: 'prescriberId must be a positive integer' },
+          { status: 400 }
+        );
       }
       prescriberId = parsed;
     } else if (linkedProviderId) {
@@ -185,10 +188,16 @@ async function handler(req: NextRequest, user: AuthUser) {
 
     let result;
     try {
-      result = await doseSpotSSOService.getPatientSSOUrl(patientId, prescriberId, clinicId, user.id);
+      result = await doseSpotSSOService.getPatientSSOUrl(
+        patientId,
+        prescriberId,
+        clinicId,
+        user.id
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      const providerNotFound = message.toLowerCase().includes('provider') && message.toLowerCase().includes('not found');
+      const providerNotFound =
+        message.toLowerCase().includes('provider') && message.toLowerCase().includes('not found');
       if (providerNotFound && linkedProviderId && linkedProviderId !== prescriberId) {
         // If UI sends stale prescriberId, retry with provider linked to current user.
         result = await doseSpotSSOService.getPatientSSOUrl(
@@ -216,23 +225,23 @@ async function handler(req: NextRequest, user: AuthUser) {
               user.id
             );
           } else {
-          const singleClinicProviderId = await resolveSingleClinicProviderId();
-          if (singleClinicProviderId && singleClinicProviderId !== prescriberId) {
-            result = await doseSpotSSOService.getPatientSSOUrl(
-              patientId,
-              singleClinicProviderId,
-              clinicId,
-              user.id
-            );
-          } else {
-            return NextResponse.json(
-              {
-                error:
-                  'Selected provider is invalid for this clinic. Link your user to the correct provider in Super Admin > Providers.',
-              },
-              { status: 404 }
-            );
-          }
+            const singleClinicProviderId = await resolveSingleClinicProviderId();
+            if (singleClinicProviderId && singleClinicProviderId !== prescriberId) {
+              result = await doseSpotSSOService.getPatientSSOUrl(
+                patientId,
+                singleClinicProviderId,
+                clinicId,
+                user.id
+              );
+            } else {
+              return NextResponse.json(
+                {
+                  error:
+                    'Selected provider is invalid for this clinic. Link your user to the correct provider in Super Admin > Providers.',
+                },
+                { status: 404 }
+              );
+            }
           }
         }
       } else {

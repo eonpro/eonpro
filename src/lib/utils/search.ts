@@ -366,7 +366,7 @@ export interface SmartSearchResult<T> {
 export function smartSearch<T>(
   items: T[],
   query: string,
-  getFields: (item: T) => string[],
+  getFields: (item: T) => string[]
 ): SmartSearchResult<T> {
   const normalized = normalizeSearch(query);
   if (!normalized) {
@@ -597,7 +597,7 @@ export function buildPatientSearchWhere(rawSearch: string): PatientSearchFilter 
 export function sortBySearchRelevance<T>(
   items: T[],
   search: string,
-  getFields: (item: T) => string[],
+  getFields: (item: T) => string[]
 ): T[] {
   const normalized = normalizeSearch(search);
   if (!normalized || items.length <= 1) return items;
@@ -637,7 +637,7 @@ export function sortBySearchRelevance<T>(
 export function buildFuzzySearchOr(
   search: string,
   exactFields: string[],
-  fuzzyFields: string[],
+  fuzzyFields: string[]
 ): Array<Record<string, unknown>> {
   const terms = splitSearchTerms(search);
   if (terms.length === 0) return [];

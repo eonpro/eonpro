@@ -110,13 +110,11 @@ export const POST = withAuth(
                 firstName: targetUser.firstName,
                 lastName: targetUser.lastName,
               },
-              potentialMatches: potentialMatches.map(
-                (p: any) => ({
-                  id: p.id,
-                  name: `${p.firstName} ${p.lastName}`,
-                  email: p.email,
-                })
-              ),
+              potentialMatches: potentialMatches.map((p: any) => ({
+                id: p.id,
+                name: `${p.firstName} ${p.lastName}`,
+                email: p.email,
+              })),
               hint: 'Specify providerId to link manually',
             },
             { status: 400 }
@@ -159,7 +157,9 @@ export const POST = withAuth(
         },
       });
     } catch (error: unknown) {
-      logger.error('[Admin] Error linking user to provider:', { error: error instanceof Error ? error.message : String(error) });
+      logger.error('[Admin] Error linking user to provider:', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return NextResponse.json({ error: 'Failed to link user to provider' }, { status: 500 });
     }
   },
@@ -210,7 +210,9 @@ export const GET = withAuth(
         isLinked: !!targetUser.provider,
       });
     } catch (error: unknown) {
-      logger.error('[Admin] Error checking user-provider link:', { error: error instanceof Error ? error.message : String(error) });
+      logger.error('[Admin] Error checking user-provider link:', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return NextResponse.json({ error: 'Failed to check user-provider link' }, { status: 500 });
     }
   },

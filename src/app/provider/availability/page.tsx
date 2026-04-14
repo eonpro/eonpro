@@ -20,9 +20,7 @@ export default function ProviderAvailabilityPage() {
           const data = await res.json();
           const p = data.provider || data;
           setProviderId(p.id);
-          setProviderName(
-            [p.firstName, p.lastName].filter(Boolean).join(' ') || 'Provider'
-          );
+          setProviderName([p.firstName, p.lastName].filter(Boolean).join(' ') || 'Provider');
         }
       } catch {
         // best-effort
@@ -104,22 +102,16 @@ export default function ProviderAvailabilityPage() {
       <div className="p-6">
         <div className="mx-auto max-w-5xl">
           {activeTab === 'weekly' ? (
-            <ProviderWeeklyAvailabilityEditor
-              providerId={providerId}
-              providerName={providerName}
-            />
+            <ProviderWeeklyAvailabilityEditor providerId={providerId} providerName={providerName} />
           ) : (
             <div>
               <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3">
                 <p className="text-sm text-blue-700">
-                  <strong>Recurring template</strong> is your default weekly schedule. It applies
-                  to any day that doesn't have a custom override set in the "Upcoming Weeks" tab.
+                  <strong>Recurring template</strong> is your default weekly schedule. It applies to
+                  any day that doesn't have a custom override set in the "Upcoming Weeks" tab.
                 </p>
               </div>
-              <ProviderAvailabilityManager
-                providerId={providerId}
-                providerName={providerName}
-              />
+              <ProviderAvailabilityManager providerId={providerId} providerName={providerName} />
             </div>
           )}
         </div>

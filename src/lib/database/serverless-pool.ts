@@ -105,7 +105,7 @@ export function getServerlessConfig(): ServerlessPoolConfig {
 
   return {
     connectionLimit,
-    poolTimeout: explicitPoolTimeout || (hasExternalPooler ? 30 : (isVercel ? 20 : 30)),
+    poolTimeout: explicitPoolTimeout || (hasExternalPooler ? 30 : isVercel ? 20 : 30),
     connectTimeout: 10,
     idleTimeout: explicitIdleTimeout || (isVercel ? 20 : 60),
     statementTimeout: 30000,

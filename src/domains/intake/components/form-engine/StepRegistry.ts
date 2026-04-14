@@ -6,16 +6,11 @@
  * looks up custom step components here when `step.type === 'custom'`.
  */
 
-import type {
-  CustomStepComponent,
-  StepComponentRegistration,
-} from '../../types/form-engine';
+import type { CustomStepComponent, StepComponentRegistration } from '../../types/form-engine';
 
 const registry = new Map<string, StepComponentRegistration>();
 
-export function registerStepComponent(
-  registration: StepComponentRegistration,
-): void {
+export function registerStepComponent(registration: StepComponentRegistration): void {
   registry.set(registration.name, registration);
 }
 
@@ -35,9 +30,7 @@ export function hasStepComponent(name: string): boolean {
  * Register multiple step components at once.
  * Typically called in a setup module per treatment type.
  */
-export function registerStepComponents(
-  registrations: StepComponentRegistration[],
-): void {
+export function registerStepComponents(registrations: StepComponentRegistration[]): void {
   for (const reg of registrations) {
     registerStepComponent(reg);
   }

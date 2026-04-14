@@ -18,55 +18,50 @@ export default function StartYourJourneyTodayCard() {
   const product = products[selectedProduct.name] || products['semaglutide'];
 
   return (
-    <div className="flex flex-col sm:flex-row gap-4 w-full">
-      <div className="rounded-smooth w-full h-auto aspect-square sm:aspect-auto sm:min-w-[360px] sm:min-h-[360px] relative">
+    <div className="flex w-full flex-col gap-4 sm:flex-row">
+      <div className="rounded-smooth relative aspect-square h-auto w-full sm:aspect-auto sm:min-h-[360px] sm:min-w-[360px]">
         <Image
           fill
           src={product.pricing[selectedProduct.medicationType].image}
           alt={`Selected product`}
           sizes="(max-width: 640px) 100vw, 360px"
-          className="object-cover object-center rounded-smooth"
+          className="rounded-smooth object-cover object-center"
           loading="lazy"
           placeholder="blur"
         />
       </div>
 
-      <div className="card flex flex-col gap-4 justify-between">
+      <div className="card flex flex-col justify-between gap-4">
         <div>
-          <p className="text-base sm:text-lg mb-2">
-            You are approved for{' '}
-            <span className="font-medium text-primary">{timer}</span>
+          <p className="mb-2 text-base sm:text-lg">
+            You are approved for <span className="text-primary font-medium">{timer}</span>
           </p>
 
           <h3 className="checkout-title mb-0">Start your journey today!</h3>
         </div>
 
         <div className="flex flex-col gap-3 sm:gap-4">
-          <div className="flex gap-4 items-start">
+          <div className="flex items-start gap-4">
             <Linear width={24} height={24} className="mt-0.5" />
             <span className="label text-base sm:text-[1.125rem]">
               Lose up to 24% of your weight
             </span>
           </div>
-          <div className="flex gap-4 items-start">
+          <div className="flex items-start gap-4">
             <UserSquare width={24} height={24} className="mt-0.5" />
-            <span className="label text-base sm:text-[1.125rem]">
-              Physician guide
-            </span>
+            <span className="label text-base sm:text-[1.125rem]">Physician guide</span>
           </div>
-          <div className="flex gap-4 items-start">
+          <div className="flex items-start gap-4">
             <Note width={24} height={24} className="mt-0.5" />
-            <span className="label text-base sm:text-[1.125rem]">
-              No insurance necessary
-            </span>
+            <span className="label text-base sm:text-[1.125rem]">No insurance necessary</span>
           </div>
-          <div className="flex gap-4 items-start">
+          <div className="flex items-start gap-4">
             <Glass width={24} height={24} className="mt-0.5" />
             <span className="label text-base sm:text-[1.125rem]">
               Lab tested for quality to promote patient safety
             </span>
           </div>
-          <div className="flex gap-4 items-start">
+          <div className="flex items-start gap-4">
             <Shipment width={24} height={24} className="mt-0.5" />
             <span className="label text-base sm:text-[1.125rem]">
               Free 2-day shipping, if prescribed

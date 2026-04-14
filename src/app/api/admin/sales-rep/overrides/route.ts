@@ -28,9 +28,12 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<Response> {
     const activeOnly = searchParams.get('activeOnly') !== 'false';
     const clinicFilter = searchParams.get('clinicId');
 
-    const clinicId = user.role === 'super_admin'
-      ? (clinicFilter ? parseInt(clinicFilter, 10) : undefined)
-      : user.clinicId;
+    const clinicId =
+      user.role === 'super_admin'
+        ? clinicFilter
+          ? parseInt(clinicFilter, 10)
+          : undefined
+        : user.clinicId;
 
     const where: Record<string, any> = {};
     if (clinicId) where.clinicId = clinicId;
@@ -51,8 +54,12 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<Response> {
       return NextResponse.json({
         assignments: assignments.map((a) => ({
           ...a,
-          overrideRepName: `${a.overrideRep?.firstName || ''} ${a.overrideRep?.lastName || ''}`.trim() || a.overrideRep?.email,
-          subordinateRepName: `${a.subordinateRep?.firstName || ''} ${a.subordinateRep?.lastName || ''}`.trim() || a.subordinateRep?.email,
+          overrideRepName:
+            `${a.overrideRep?.firstName || ''} ${a.overrideRep?.lastName || ''}`.trim() ||
+            a.overrideRep?.email,
+          subordinateRepName:
+            `${a.subordinateRep?.firstName || ''} ${a.subordinateRep?.lastName || ''}`.trim() ||
+            a.subordinateRep?.email,
           overridePercentDisplay: `${(a.overridePercentBps / 100).toFixed(2)}%`,
         })),
         total: assignments.length,
@@ -107,10 +114,16 @@ async function handlePost(req: NextRequest, user: AuthUser): Promise<Response> {
     ]);
 
     if (!overrideRep) {
-      return NextResponse.json({ error: 'Override manager not found or not active' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Override manager not found or not active' },
+        { status: 404 }
+      );
     }
     if (!subordinateRep) {
-      return NextResponse.json({ error: 'Subordinate rep not found or not active' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Subordinate rep not found or not active' },
+        { status: 404 }
+      );
     }
 
     const targetClinicId = clinicId || overrideRep.clinicId;
@@ -130,7 +143,9 @@ async function handlePost(req: NextRequest, user: AuthUser): Promise<Response> {
 
     if (circular) {
       return NextResponse.json(
-        { error: 'Circular override detected: subordinate is already a manager of the override rep' },
+        {
+          error: 'Circular override detected: subordinate is already a manager of the override rep',
+        },
         { status: 400 }
       );
     }
@@ -154,9 +169,10 @@ async function handlePost(req: NextRequest, user: AuthUser): Promise<Response> {
 
     let assignment;
     try {
-      assignment = user.role === 'super_admin'
-        ? await withoutClinicFilter(createFn)
-        : await runWithClinicContext(targetClinicId, createFn);
+      assignment =
+        user.role === 'super_admin'
+          ? await withoutClinicFilter(createFn)
+          : await runWithClinicContext(targetClinicId, createFn);
     } catch (err: unknown) {
       if (
         err &&

@@ -35,7 +35,7 @@ function generateSecureFilename(originalName: string): string {
  */
 export function isAllowedFileType(mimeType: string): boolean {
   return (ACCEPTED_DOCUMENT_UPLOAD_MIME_TYPES as readonly string[]).includes(
-    mimeType.toLowerCase(),
+    mimeType.toLowerCase()
   );
 }
 

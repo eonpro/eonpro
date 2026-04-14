@@ -505,7 +505,11 @@ class NotificationService {
   /**
    * Mark all notifications as read for a user
    */
-  async markAllAsRead(userId: number, category?: NotificationCategory, clinicId?: number): Promise<number> {
+  async markAllAsRead(
+    userId: number,
+    category?: NotificationCategory,
+    clinicId?: number
+  ): Promise<number> {
     const result = await prisma.notification.updateMany({
       where: {
         userId,

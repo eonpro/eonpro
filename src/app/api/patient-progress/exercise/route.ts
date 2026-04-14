@@ -132,7 +132,11 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
       },
     });
 
-    logPHICreate(request, user, 'PatientExerciseLog', exerciseLog.id, patientId).catch((err) => { logger.error('PHI audit log failed', { error: err instanceof Error ? err.message : String(err) }); });
+    logPHICreate(request, user, 'PatientExerciseLog', exerciseLog.id, patientId).catch((err) => {
+      logger.error('PHI audit log failed', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
 
     return NextResponse.json(exerciseLog, { status: 201 });
   } catch (error) {
@@ -188,7 +192,11 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
       0
     );
 
-    logPHIAccess(request, user, 'PatientExerciseLog', 'list', patientId).catch((err) => { logger.error('PHI audit log failed', { error: err instanceof Error ? err.message : String(err) }); });
+    logPHIAccess(request, user, 'PatientExerciseLog', 'list', patientId).catch((err) => {
+      logger.error('PHI audit log failed', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
 
     return NextResponse.json({
       data: exerciseLogs,
@@ -221,8 +229,7 @@ const patchHandler = withAuth(async (request: NextRequest, user) => {
       );
     }
 
-    const { id, activityType, duration, intensity, calories, notes, recordedAt } =
-      parseResult.data;
+    const { id, activityType, duration, intensity, calories, notes, recordedAt } = parseResult.data;
 
     const log = await prisma.patientExerciseLog.findUnique({
       where: { id },
@@ -272,9 +279,18 @@ const patchHandler = withAuth(async (request: NextRequest, user) => {
       data: updateData,
     });
 
-    logPHIUpdate(request, user, 'PatientExerciseLog', id, log.patientId, Object.keys(updateData)).catch(
-      (err) => { logger.error('PHI audit log failed', { error: err instanceof Error ? err.message : String(err) }); }
-    );
+    logPHIUpdate(
+      request,
+      user,
+      'PatientExerciseLog',
+      id,
+      log.patientId,
+      Object.keys(updateData)
+    ).catch((err) => {
+      logger.error('PHI audit log failed', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
 
     return NextResponse.json(updated);
   } catch (error) {
@@ -319,7 +335,11 @@ const deleteHandler = withAuth(async (request: NextRequest, user) => {
     });
 
     logPHIDelete(request, user, 'PatientExerciseLog', id, log.patientId, 'user_request').catch(
-      (err) => { logger.error('PHI audit log failed', { error: err instanceof Error ? err.message : String(err) }); }
+      (err) => {
+        logger.error('PHI audit log failed', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
     );
 
     return NextResponse.json({ success: true, deletedId: id });

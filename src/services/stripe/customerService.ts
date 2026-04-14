@@ -65,7 +65,7 @@ export class StripeCustomerService {
   static async getOrCreateCustomerForContext(
     patientId: number,
     stripeClient: Stripe,
-    connectOpts?: { stripeAccount: string },
+    connectOpts?: { stripeAccount: string }
   ): Promise<Stripe.Customer> {
     const patient = await prisma.patient.findUnique({
       where: { id: patientId },
@@ -95,7 +95,7 @@ export class StripeCustomerService {
     try {
       decryptedPatient = decryptPatientPHI(
         patient as Record<string, unknown>,
-        DEFAULT_PHI_FIELDS as unknown as string[],
+        DEFAULT_PHI_FIELDS as unknown as string[]
       );
     } catch {
       logger.debug('Patient data not encrypted, using raw values');
@@ -184,13 +184,13 @@ export class StripeCustomerService {
   private static async createNewCustomerOnAccount(
     patient: Patient,
     stripeClient: Stripe,
-    connectOpts?: { stripeAccount: string },
+    connectOpts?: { stripeAccount: string }
   ): Promise<Stripe.Customer> {
     let decryptedPatient = patient as Record<string, unknown>;
     try {
       decryptedPatient = decryptPatientPHI(
         patient as Record<string, unknown>,
-        DEFAULT_PHI_FIELDS as unknown as string[],
+        DEFAULT_PHI_FIELDS as unknown as string[]
       );
     } catch {
       logger.debug('Patient data not encrypted, using raw values');
@@ -219,7 +219,9 @@ export class StripeCustomerService {
       ? await stripeClient.customers.create(createParams, connectOpts)
       : await stripeClient.customers.create(createParams);
 
-    logger.info(`[STRIPE] Created customer ${customer.id} on target account for patient ${patient.id}`);
+    logger.info(
+      `[STRIPE] Created customer ${customer.id} on target account for patient ${patient.id}`
+    );
 
     return customer;
   }
@@ -297,7 +299,10 @@ export class StripeCustomerService {
       return session.url;
     } catch (err: unknown) {
       const stripeErr = err as { type?: string; message?: string };
-      if (stripeErr.type === 'StripeInvalidRequestError' && stripeErr.message?.includes('configuration')) {
+      if (
+        stripeErr.type === 'StripeInvalidRequestError' &&
+        stripeErr.message?.includes('configuration')
+      ) {
         throw new Error(
           'Stripe billing portal is not configured. Set it up at https://dashboard.stripe.com/settings/billing/portal'
         );

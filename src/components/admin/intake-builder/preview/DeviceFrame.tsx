@@ -47,7 +47,7 @@ export default function DeviceFrame({ device, children }: DeviceFrameProps) {
   return (
     <div
       ref={containerRef}
-      className="flex items-center justify-center min-h-0 w-full"
+      className="flex min-h-0 w-full items-center justify-center"
       style={{ transform: `scale(${scale})`, transformOrigin: 'top center' }}
     >
       <div
@@ -61,14 +61,14 @@ export default function DeviceFrame({ device, children }: DeviceFrameProps) {
       >
         {/* Browser-like top bar for desktop */}
         {isDesktop && (
-          <div className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 bg-gray-200 border-b border-gray-300">
+          <div className="flex flex-shrink-0 items-center gap-2 border-b border-gray-300 bg-gray-200 px-4 py-2.5">
             <div className="flex gap-1.5">
-              <div className="w-3 h-3 rounded-full bg-red-400" />
-              <div className="w-3 h-3 rounded-full bg-amber-400" />
-              <div className="w-3 h-3 rounded-full bg-green-400" />
+              <div className="h-3 w-3 rounded-full bg-red-400" />
+              <div className="h-3 w-3 rounded-full bg-amber-400" />
+              <div className="h-3 w-3 rounded-full bg-green-400" />
             </div>
-            <div className="flex-1 mx-4 flex items-center justify-center">
-              <div className="flex-1 max-w-[400px] px-4 py-1.5 bg-white rounded-lg border border-gray-300 text-xs text-gray-500 truncate">
+            <div className="mx-4 flex flex-1 items-center justify-center">
+              <div className="max-w-[400px] flex-1 truncate rounded-lg border border-gray-300 bg-white px-4 py-1.5 text-xs text-gray-500">
                 /intake/form
               </div>
             </div>
@@ -77,11 +77,11 @@ export default function DeviceFrame({ device, children }: DeviceFrameProps) {
 
         {/* Mobile notch */}
         {isMobile && (
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-black rounded-b-2xl z-10" />
+          <div className="absolute left-1/2 top-0 z-10 h-6 w-32 -translate-x-1/2 rounded-b-2xl bg-black" />
         )}
 
         {/* Scrollable content area */}
-        <div className="w-full h-full overflow-auto bg-white">
+        <div className="h-full w-full overflow-auto bg-white">
           {isMobile && <div className="h-6 flex-shrink-0" />}
           {children}
           {isMobile && <div className="h-8 flex-shrink-0" />}
@@ -89,7 +89,7 @@ export default function DeviceFrame({ device, children }: DeviceFrameProps) {
 
         {/* Mobile home indicator */}
         {isMobile && (
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-32 h-1 bg-gray-400 rounded-full" />
+          <div className="absolute bottom-2 left-1/2 h-1 w-32 -translate-x-1/2 rounded-full bg-gray-400" />
         )}
       </div>
     </div>

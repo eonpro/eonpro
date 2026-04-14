@@ -129,9 +129,12 @@ const accentStyles: Record<string, string> = {
     'from-emerald-500/10 to-emerald-600/5 border-emerald-200/60 text-emerald-700 hover:border-emerald-300',
   teal: 'from-teal-500/10 to-teal-600/5 border-teal-200/60 text-teal-700 hover:border-teal-300',
   blue: 'from-blue-500/10 to-blue-600/5 border-blue-200/60 text-blue-700 hover:border-blue-300',
-  amber: 'from-amber-500/10 to-amber-600/5 border-amber-200/60 text-amber-700 hover:border-amber-300',
-  purple: 'from-[var(--brand-primary-light)] to-[var(--brand-primary-light)] border-[var(--brand-primary-medium)] text-[var(--brand-primary)] hover:border-[var(--brand-primary)]',
-  slate: 'from-slate-500/10 to-slate-600/5 border-slate-200/60 text-slate-700 hover:border-slate-300',
+  amber:
+    'from-amber-500/10 to-amber-600/5 border-amber-200/60 text-amber-700 hover:border-amber-300',
+  purple:
+    'from-[var(--brand-primary-light)] to-[var(--brand-primary-light)] border-[var(--brand-primary-medium)] text-[var(--brand-primary)] hover:border-[var(--brand-primary)]',
+  slate:
+    'from-slate-500/10 to-slate-600/5 border-slate-200/60 text-slate-700 hover:border-slate-300',
 };
 
 const iconBgStyles: Record<string, string> = {
@@ -158,9 +161,7 @@ export default function ReportsPage() {
               <Sparkles className="h-4 w-4" />
               Report Center
             </div>
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-              Insights at a glance
-            </h1>
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Insights at a glance</h1>
             <p className="mt-2 max-w-xl text-base text-gray-300">
               One-click access to revenue, demographics, payments & custom reports. Export anytime.
             </p>
@@ -190,7 +191,9 @@ export default function ReportsPage() {
                 className={`group relative flex cursor-pointer flex-col gap-4 rounded-xl border bg-gradient-to-br p-6 transition-all duration-200 ${accent} hover:shadow-lg`}
               >
                 <div className="flex items-start justify-between">
-                  <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${iconBg}`}>
+                  <div
+                    className={`flex h-12 w-12 items-center justify-center rounded-xl ${iconBg}`}
+                  >
                     <Icon className="h-6 w-6" />
                   </div>
                   <ArrowRight className="h-5 w-5 text-gray-400 opacity-0 transition-all group-hover:translate-x-1 group-hover:opacity-100" />
@@ -226,7 +229,9 @@ export default function ReportsPage() {
                 href={report.href}
                 className={`group relative flex cursor-pointer items-center gap-4 rounded-xl border bg-white p-5 transition-all duration-200 ${accent} hover:shadow-md`}
               >
-                <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${iconBg}`}>
+                <div
+                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${iconBg}`}
+                >
                   <Icon className="h-5 w-5" />
                 </div>
                 <div className="min-w-0 flex-1">

@@ -7,7 +7,9 @@ import { prisma } from '@/lib/db';
 import { withAuth } from '@/lib/auth/middleware';
 import { handleApiError } from '@/domains/shared/errors';
 
-interface RouteParams { params: Promise<{ id: string }>; }
+interface RouteParams {
+  params: Promise<{ id: string }>;
+}
 
 export const GET = withAuth<RouteParams>(async (request, user, { params } = {} as RouteParams) => {
   try {
@@ -44,7 +46,10 @@ export const GET = withAuth<RouteParams>(async (request, user, { params } = {} a
     if (role === 'patient') {
       let patientId = (user as any).patientId;
       if (!patientId) {
-        const userRecord = await prisma.user.findUnique({ where: { id: user.id }, select: { patientId: true } });
+        const userRecord = await prisma.user.findUnique({
+          where: { id: user.id },
+          select: { patientId: true },
+        });
         const patient = userRecord?.patientId ? { id: userRecord.patientId } : null;
         patientId = patient?.id;
       }

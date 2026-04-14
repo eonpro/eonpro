@@ -2,13 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import {
-  FileText,
-  Loader2,
-  CheckCircle,
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react';
+import { FileText, Loader2, CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 
 interface InvoiceUpload {

@@ -34,9 +34,10 @@ export const GET = withAuth(
         return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
       }
 
-      const clinicId = user.role === 'super_admin'
-        ? parseInt(new URL(req.url).searchParams.get('clinicId') ?? '0') || user.clinicId
-        : user.clinicId;
+      const clinicId =
+        user.role === 'super_admin'
+          ? parseInt(new URL(req.url).searchParams.get('clinicId') ?? '0') || user.clinicId
+          : user.clinicId;
 
       if (!clinicId) {
         return NextResponse.json({ error: 'clinicId required' }, { status: 400 });
@@ -120,10 +121,17 @@ export const DELETE = withAuth(
 
       // Require password confirmation
       let body: { password?: string } = {};
-      try { body = await req.json(); } catch { /* empty body */ }
+      try {
+        body = await req.json();
+      } catch {
+        /* empty body */
+      }
 
       if (!body.password) {
-        return NextResponse.json({ error: 'Password required to delete invoices' }, { status: 400 });
+        return NextResponse.json(
+          { error: 'Password required to delete invoices' },
+          { status: 400 }
+        );
       }
 
       const bcrypt = await import('bcryptjs');
@@ -151,7 +159,9 @@ export const DELETE = withAuth(
       logger.info('Pharmacy invoice deleted', { uploadId, userId: user.id, userRole: user.role });
       return NextResponse.json({ success: true });
     } catch (error) {
-      return handleApiError(error, { context: { route: 'DELETE /api/admin/pharmacy-invoices/[id]' } });
+      return handleApiError(error, {
+        context: { route: 'DELETE /api/admin/pharmacy-invoices/[id]' },
+      });
     }
   },
   { roles: ['admin', 'super_admin'] }

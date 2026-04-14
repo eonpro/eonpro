@@ -18,7 +18,13 @@ async function handler(_req: NextRequest, user: AuthUser) {
 
   const otClinic = await prisma.clinic.findFirst({
     where: { subdomain: 'ot' },
-    select: { id: true, name: true, subdomain: true, stripeAccountId: true, stripePlatformAccount: true },
+    select: {
+      id: true,
+      name: true,
+      subdomain: true,
+      stripeAccountId: true,
+      stripePlatformAccount: true,
+    },
   });
 
   if (!otClinic) {

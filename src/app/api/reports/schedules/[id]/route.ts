@@ -8,7 +8,10 @@ const patchSchema = z.object({
   frequency: z.enum(['daily', 'weekly', 'biweekly', 'monthly']).optional(),
   dayOfWeek: z.number().min(0).max(6).optional(),
   dayOfMonth: z.number().min(1).max(28).optional(),
-  timeUtc: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  timeUtc: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/)
+    .optional(),
   exportFormat: z.enum(['csv', 'pdf', 'xlsx']).optional(),
   recipients: z.array(z.string().email()).optional(),
   isActive: z.boolean().optional(),
@@ -41,7 +44,11 @@ async function handlePatch(req: NextRequest, user: AuthUser, params: { id: strin
 
     const body = await req.json();
     const parsed = patchSchema.safeParse(body);
-    if (!parsed.success) return NextResponse.json({ error: 'Validation failed', details: parsed.error.flatten() }, { status: 400 });
+    if (!parsed.success)
+      return NextResponse.json(
+        { error: 'Validation failed', details: parsed.error.flatten() },
+        { status: 400 }
+      );
 
     const updated = await prisma.reportSchedule.update({
       where: { id },
@@ -50,7 +57,9 @@ async function handlePatch(req: NextRequest, user: AuthUser, params: { id: strin
 
     return NextResponse.json({ success: true, schedule: updated });
   } catch (error) {
-    return handleApiError(error, { context: { route: `PATCH /api/reports/schedules/${params.id}` } });
+    return handleApiError(error, {
+      context: { route: `PATCH /api/reports/schedules/${params.id}` },
+    });
   }
 }
 
@@ -68,7 +77,9 @@ async function handleDelete(_req: NextRequest, user: AuthUser, params: { id: str
     await prisma.reportSchedule.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error) {
-    return handleApiError(error, { context: { route: `DELETE /api/reports/schedules/${params.id}` } });
+    return handleApiError(error, {
+      context: { route: `DELETE /api/reports/schedules/${params.id}` },
+    });
   }
 }
 

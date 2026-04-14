@@ -61,7 +61,9 @@ async function handler(request: NextRequest, user: AuthUser): Promise<Response> 
       joinedAt: affiliate.createdAt,
     });
   } catch (error) {
-    logger.error('[Affiliate Auth] Me error', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('[Affiliate Auth] Me error', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json({ error: 'Authentication failed' }, { status: 500 });
   }
 }

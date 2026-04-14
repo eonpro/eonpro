@@ -465,7 +465,9 @@ export async function POST(req: NextRequest) {
   } catch (error: unknown) {
     logger.error('[SEED PRODUCTS] Error:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : String(error) || 'Failed to seed products' },
+      {
+        error: error instanceof Error ? error.message : String(error) || 'Failed to seed products',
+      },
       { status: 500 }
     );
   }

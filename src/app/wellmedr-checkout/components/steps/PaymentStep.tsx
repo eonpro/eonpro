@@ -23,11 +23,11 @@ export default function PaymentStep({ uid }: PaymentStepProps) {
   // Validate required data before rendering payment form
   if (!planDetails || !selectedProduct) {
     return (
-      <div className="w-full flex flex-col gap-8 max-w-3xl mx-auto pt-2 sm:pt-8 pb-6">
-        <div className="w-full flex flex-col gap-6 sm:gap-8">
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 pb-6 pt-2 sm:pt-8">
+        <div className="flex w-full flex-col gap-6 sm:gap-8">
           <h3 className="text-center">Payment method</h3>
-          <div className="flex flex-col gap-4 sm:gap-6 card items-center py-8">
-            <div className="text-amber-600 text-center">
+          <div className="card flex flex-col items-center gap-4 py-8 sm:gap-6">
+            <div className="text-center text-amber-600">
               Please select a plan before proceeding to payment.
             </div>
           </div>
@@ -37,7 +37,7 @@ export default function PaymentStep({ uid }: PaymentStepProps) {
   }
 
   return (
-    <div className="w-full flex flex-col gap-8 max-w-3xl mx-auto pt-2 sm:pt-8 pb-6">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 pb-6 pt-2 sm:pt-8">
       <PaymentSection submissionId={uid} />
     </div>
   );

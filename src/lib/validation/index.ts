@@ -216,7 +216,7 @@ export const fileUploadSchema = z.object({
     .refine(
       (type) =>
         (ACCEPTED_DOCUMENT_UPLOAD_MIME_TYPES as readonly string[]).includes(type.toLowerCase()),
-      `Unsupported file type. Accepted: ${ACCEPTED_DOCUMENT_UPLOAD_LABEL}`,
+      `Unsupported file type. Accepted: ${ACCEPTED_DOCUMENT_UPLOAD_LABEL}`
     ),
   size: z.number().max(10 * 1024 * 1024, 'File size must be less than 10MB'),
 });

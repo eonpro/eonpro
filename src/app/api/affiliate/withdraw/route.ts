@@ -20,7 +20,11 @@ export const runtime = 'nodejs';
 const MIN_WITHDRAWAL_CENTS = 5000; // $50 minimum
 
 const withdrawSchema = z.object({
-  amountCents: z.number().int('Amount must be a whole number').positive().min(MIN_WITHDRAWAL_CENTS, `Minimum withdrawal is $${MIN_WITHDRAWAL_CENTS / 100}`),
+  amountCents: z
+    .number()
+    .int('Amount must be a whole number')
+    .positive()
+    .min(MIN_WITHDRAWAL_CENTS, `Minimum withdrawal is $${MIN_WITHDRAWAL_CENTS / 100}`),
 });
 
 async function handleGet(request: NextRequest, user: AuthUser) {

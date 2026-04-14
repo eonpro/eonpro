@@ -149,7 +149,7 @@ export const GET = withAuth(
                   userActivity,
                 };
               }),
-            'adminClinicStats:allReads',
+            'adminClinicStats:allReads'
           );
           if (!clinicStatsReadResult.success || !clinicStatsReadResult.data) {
             throw new Error(clinicStatsReadResult.error?.message ?? 'Failed to load clinic stats');
@@ -172,58 +172,60 @@ export const GET = withAuth(
             userActivity,
           } = clinicStatsReadResult.data;
 
-        if (!clinic) {
-          return NextResponse.json({ error: 'Clinic not found' }, { status: 404 });
-        }
+          if (!clinic) {
+            return NextResponse.json({ error: 'Clinic not found' }, { status: 404 });
+          }
 
-        // Calculate usage percentages
-        const patientUsage =
-          clinic.patientLimit > 0 ? Math.round((totalPatients / clinic.patientLimit) * 100) : 0;
-        const providerUsage =
-          clinic.providerLimit > 0 ? Math.round((totalProviders / clinic.providerLimit) * 100) : 0;
+          // Calculate usage percentages
+          const patientUsage =
+            clinic.patientLimit > 0 ? Math.round((totalPatients / clinic.patientLimit) * 100) : 0;
+          const providerUsage =
+            clinic.providerLimit > 0
+              ? Math.round((totalProviders / clinic.providerLimit) * 100)
+              : 0;
 
-        return NextResponse.json({
-          clinic: {
-            id: clinic.id,
-            name: clinic.name,
-            billingPlan: clinic.billingPlan,
-            createdAt: clinic.createdAt,
-          },
-          patients: {
-            total: totalPatients,
-            active: activePatients,
-            newThisMonth: newPatientsThisMonth,
-            limit: clinic.patientLimit,
-            usagePercent: patientUsage,
-          },
-          users: {
-            total: totalUsers,
-            active: activeUsers,
-            providers: totalProviders,
-            providerLimit: clinic.providerLimit,
-            providerUsagePercent: providerUsage,
-          },
-          orders: {
-            total: totalOrders,
-            thisMonth: ordersThisMonth,
-            pending: pendingOrders,
-            completed: completedOrders,
-          },
-          support: {
-            totalTickets,
-            openTickets,
-          },
-          activity: {
-            auditLogsThisWeek: recentAuditLogs,
-            recentUsers: userActivity,
-          },
-          storage: {
-            limit: clinic.storageLimit,
-            // TODO: Calculate actual storage usage
-            used: 0,
-            usagePercent: 0,
-          },
-        });
+          return NextResponse.json({
+            clinic: {
+              id: clinic.id,
+              name: clinic.name,
+              billingPlan: clinic.billingPlan,
+              createdAt: clinic.createdAt,
+            },
+            patients: {
+              total: totalPatients,
+              active: activePatients,
+              newThisMonth: newPatientsThisMonth,
+              limit: clinic.patientLimit,
+              usagePercent: patientUsage,
+            },
+            users: {
+              total: totalUsers,
+              active: activeUsers,
+              providers: totalProviders,
+              providerLimit: clinic.providerLimit,
+              providerUsagePercent: providerUsage,
+            },
+            orders: {
+              total: totalOrders,
+              thisMonth: ordersThisMonth,
+              pending: pendingOrders,
+              completed: completedOrders,
+            },
+            support: {
+              totalTickets,
+              openTickets,
+            },
+            activity: {
+              auditLogsThisWeek: recentAuditLogs,
+              recentUsers: userActivity,
+            },
+            storage: {
+              limit: clinic.storageLimit,
+              // TODO: Calculate actual storage usage
+              used: 0,
+              usagePercent: 0,
+            },
+          });
         } catch (innerError) {
           logger.error('Error inside clinic stats context:', {
             error: innerError instanceof Error ? innerError.message : String(innerError),
@@ -236,11 +238,14 @@ export const GET = withAuth(
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      const code = error instanceof Error && 'code' in error ? (error as { code?: string }).code : undefined;
+      const code =
+        error instanceof Error && 'code' in error ? (error as { code?: string }).code : undefined;
       logger.error('Error fetching clinic stats:', {
         error: message,
         code,
-        ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
+        ...(process.env.NODE_ENV === 'development' && {
+          stack: error instanceof Error ? error.stack : undefined,
+        }),
         userId: user.id,
         clinicId: user.clinicId,
       });

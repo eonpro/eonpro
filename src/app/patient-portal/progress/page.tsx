@@ -181,19 +181,34 @@ export default function ProgressPage() {
         let userData: { role?: string; patientId?: number; [k: string]: unknown } | null = null;
         const userJson = localStorage.getItem('user');
         if (userJson) {
-          userData = safeParseJsonString<{ role?: string; patientId?: number; [k: string]: unknown }>(userJson);
+          userData = safeParseJsonString<{
+            role?: string;
+            patientId?: number;
+            [k: string]: unknown;
+          }>(userJson);
         }
 
         let pid: number | null = userData?.patientId ?? null;
 
         // If we're a patient and missing patientId, or we have no user at all, call /api/auth/me (token may be in cookie or localStorage)
-        if ((!userData || (userData.role?.toLowerCase() === 'patient' && pid == null))) {
+        if (!userData || (userData.role?.toLowerCase() === 'patient' && pid == null)) {
           const meRes = await portalFetch('/api/auth/me', { cache: 'no-store' });
           if (meRes.ok) {
             const meData = await safeParseJson(meRes);
-            const me = (meData as { user?: { id?: number; role?: string; patientId?: number; email?: string; [k: string]: unknown } } | null)?.user;
+            const me = (
+              meData as {
+                user?: {
+                  id?: number;
+                  role?: string;
+                  patientId?: number;
+                  email?: string;
+                  [k: string]: unknown;
+                };
+              } | null
+            )?.user;
             if (me && !cancelled) {
-              const fromMePid = typeof me.patientId === 'number' && me.patientId > 0 ? me.patientId : null;
+              const fromMePid =
+                typeof me.patientId === 'number' && me.patientId > 0 ? me.patientId : null;
               pid = fromMePid;
               const toStore: { id?: number; role?: string; patientId?: number } = userData
                 ? { ...userData, patientId: fromMePid ?? userData.patientId }
@@ -242,24 +257,37 @@ export default function ProgressPage() {
       setError(null);
       const opts = { cache: 'no-store' as RequestCache };
       if (activeTab === 'weight') {
-        const response = await portalFetch(`/api/patient-progress/weight?patientId=${patientId}`, opts);
+        const response = await portalFetch(
+          `/api/patient-progress/weight?patientId=${patientId}`,
+          opts
+        );
         if (response.status === 401) {
           setError('Your session has expired. Please log in again.');
           return;
         }
         if (response.ok) {
           const result = await safeParseJson(response);
-          const logs = Array.isArray(result) ? result : (result && typeof result === 'object' && 'data' in result ? (result as { data?: WeightLog[] }).data : null) || [];
+          const logs = Array.isArray(result)
+            ? result
+            : (result && typeof result === 'object' && 'data' in result
+                ? (result as { data?: WeightLog[] }).data
+                : null) || [];
           setWeightLogs(logs);
         }
       } else if (activeTab === 'water') {
-        const response = await portalFetch(`/api/patient-progress/water?patientId=${patientId}`, opts);
+        const response = await portalFetch(
+          `/api/patient-progress/water?patientId=${patientId}`,
+          opts
+        );
         if (response.status === 401) {
           setError('Your session has expired. Please log in again.');
           return;
         }
         if (response.ok) {
-          const result = await safeParseJson(response) as { data?: BaseLogEntry[]; meta?: { todayTotal?: number } } | null;
+          const result = (await safeParseJson(response)) as {
+            data?: BaseLogEntry[];
+            meta?: { todayTotal?: number };
+          } | null;
           setTodayWater(result?.meta?.todayTotal || 0);
           setWaterLogs(Array.isArray(result?.data) ? result.data : []);
         } else {
@@ -267,13 +295,19 @@ export default function ProgressPage() {
           setError('Could not load water data. Please try again.');
         }
       } else if (activeTab === 'exercise') {
-        const response = await portalFetch(`/api/patient-progress/exercise?patientId=${patientId}`, opts);
+        const response = await portalFetch(
+          `/api/patient-progress/exercise?patientId=${patientId}`,
+          opts
+        );
         if (response.status === 401) {
           setError('Your session has expired. Please log in again.');
           return;
         }
         if (response.ok) {
-          const result = await safeParseJson(response) as { data?: BaseLogEntry[]; meta?: { weeklyMinutes?: number } } | null;
+          const result = (await safeParseJson(response)) as {
+            data?: BaseLogEntry[];
+            meta?: { weeklyMinutes?: number };
+          } | null;
           setWeeklyMinutes(result?.meta?.weeklyMinutes || 0);
           setExerciseLogs(Array.isArray(result?.data) ? result.data : []);
         } else {
@@ -281,13 +315,19 @@ export default function ProgressPage() {
           setError('Could not load exercise data. Please try again.');
         }
       } else if (activeTab === 'sleep') {
-        const response = await portalFetch(`/api/patient-progress/sleep?patientId=${patientId}`, opts);
+        const response = await portalFetch(
+          `/api/patient-progress/sleep?patientId=${patientId}`,
+          opts
+        );
         if (response.status === 401) {
           setError('Your session has expired. Please log in again.');
           return;
         }
         if (response.ok) {
-          const result = await safeParseJson(response) as { data?: BaseLogEntry[]; meta?: { avgSleepHours?: number } } | null;
+          const result = (await safeParseJson(response)) as {
+            data?: BaseLogEntry[];
+            meta?: { avgSleepHours?: number };
+          } | null;
           setAvgSleepHours(result?.meta?.avgSleepHours || 0);
           setSleepLogs(Array.isArray(result?.data) ? result.data : []);
         } else {
@@ -295,13 +335,19 @@ export default function ProgressPage() {
           setError('Could not load sleep data. Please try again.');
         }
       } else if (activeTab === 'nutrition') {
-        const response = await portalFetch(`/api/patient-progress/nutrition?patientId=${patientId}`, opts);
+        const response = await portalFetch(
+          `/api/patient-progress/nutrition?patientId=${patientId}`,
+          opts
+        );
         if (response.status === 401) {
           setError('Your session has expired. Please log in again.');
           return;
         }
         if (response.ok) {
-          const result = await safeParseJson(response) as { data?: BaseLogEntry[]; meta?: { todayCalories?: number } } | null;
+          const result = (await safeParseJson(response)) as {
+            data?: BaseLogEntry[];
+            meta?: { todayCalories?: number };
+          } | null;
           setTodayCalories(result?.meta?.todayCalories || 0);
           setNutritionLogs(Array.isArray(result?.data) ? result.data : []);
         } else {
@@ -340,7 +386,10 @@ export default function ProgressPage() {
       } else {
         const errBody = await safeParseJson(response);
         const errMessage =
-          (errBody && typeof errBody === 'object' && 'error' in errBody && (errBody as { error?: string }).error) ||
+          (errBody &&
+            typeof errBody === 'object' &&
+            'error' in errBody &&
+            (errBody as { error?: string }).error) ||
           `Could not save water (${response.status}). Please try again.`;
         setError(String(errMessage));
         toast.error(String(errMessage));
@@ -387,9 +436,10 @@ export default function ProgressPage() {
         fetchData();
       } else {
         const errBody = await safeParseJson(response);
-        const errMsg = (errBody && typeof errBody === 'object' && 'error' in errBody
+        const errMsg =
+          errBody && typeof errBody === 'object' && 'error' in errBody
             ? String((errBody as { error?: string }).error)
-            : 'Failed to save exercise');
+            : 'Failed to save exercise';
         setError(errMsg);
         toast.error(errMsg);
       }
@@ -456,9 +506,10 @@ export default function ProgressPage() {
         setTimeout(() => setShowSuccess(''), 2000);
       } else {
         const errBody = await safeParseJson(response);
-        const errMsg = (errBody && typeof errBody === 'object' && 'error' in errBody
+        const errMsg =
+          errBody && typeof errBody === 'object' && 'error' in errBody
             ? String((errBody as { error?: string }).error)
-            : 'Failed to save sleep data');
+            : 'Failed to save sleep data';
         setError(errMsg);
         toast.error(errMsg);
       }
@@ -512,9 +563,10 @@ export default function ProgressPage() {
         fetchData();
       } else {
         const errBody = await safeParseJson(response);
-        const errMsg = (errBody && typeof errBody === 'object' && 'error' in errBody
+        const errMsg =
+          errBody && typeof errBody === 'object' && 'error' in errBody
             ? String((errBody as { error?: string }).error)
-            : 'Failed to save meal');
+            : 'Failed to save meal';
         setError(errMsg);
         toast.error(errMsg);
       }
@@ -529,7 +581,11 @@ export default function ProgressPage() {
     }
   };
 
-  const handleEditLog = async (type: TabType, id: number, data: Record<string, unknown>): Promise<boolean> => {
+  const handleEditLog = async (
+    type: TabType,
+    id: number,
+    data: Record<string, unknown>
+  ): Promise<boolean> => {
     try {
       const response = await portalFetch(`/api/patient-progress/${type}`, {
         method: 'PATCH',
@@ -542,7 +598,10 @@ export default function ProgressPage() {
         return true;
       }
       const errBody = await safeParseJson(response);
-      const msg = (errBody && typeof errBody === 'object' && 'error' in errBody ? String((errBody as { error?: string }).error) : 'Failed to update entry');
+      const msg =
+        errBody && typeof errBody === 'object' && 'error' in errBody
+          ? String((errBody as { error?: string }).error)
+          : 'Failed to update entry';
       toast.error(msg);
       return false;
     } catch {
@@ -562,7 +621,10 @@ export default function ProgressPage() {
         return true;
       }
       const errBody = await safeParseJson(response);
-      const msg = (errBody && typeof errBody === 'object' && 'error' in errBody ? String((errBody as { error?: string }).error) : 'Failed to delete entry');
+      const msg =
+        errBody && typeof errBody === 'object' && 'error' in errBody
+          ? String((errBody as { error?: string }).error)
+          : 'Failed to delete entry';
       toast.error(msg);
       return false;
     } catch {
@@ -621,7 +683,8 @@ export default function ProgressPage() {
   }
 
   if (error) {
-    const isSessionError = error.toLowerCase().includes('session') || error.toLowerCase().includes('log in');
+    const isSessionError =
+      error.toLowerCase().includes('session') || error.toLowerCase().includes('log in');
     return (
       <div className="safe-left safe-right flex min-h-[50vh] items-center justify-center p-4">
         <div className="max-w-md rounded-2xl border border-red-200 bg-red-50 p-4 text-center text-red-700">
@@ -808,8 +871,24 @@ export default function ProgressPage() {
               </div>
               <div className="relative h-20 w-20 shrink-0 sm:h-24 sm:w-24">
                 <svg className="h-20 w-20 -rotate-90 transform sm:h-24 sm:w-24" viewBox="0 0 96 96">
-                  <circle cx="48" cy="48" r="40" stroke="rgba(255,255,255,0.2)" strokeWidth="8" fill="none" />
-                  <circle cx="48" cy="48" r="40" stroke="white" strokeWidth="8" fill="none" strokeDasharray={`${(todayWater / waterGoal) * 251.2} 251.2`} strokeLinecap="round" />
+                  <circle
+                    cx="48"
+                    cy="48"
+                    r="40"
+                    stroke="rgba(255,255,255,0.2)"
+                    strokeWidth="8"
+                    fill="none"
+                  />
+                  <circle
+                    cx="48"
+                    cy="48"
+                    r="40"
+                    stroke="white"
+                    strokeWidth="8"
+                    fill="none"
+                    strokeDasharray={`${(todayWater / waterGoal) * 251.2} 251.2`}
+                    strokeLinecap="round"
+                  />
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center">
                   <Droplets className="h-6 w-6 text-white sm:h-8 sm:w-8" />
@@ -1014,7 +1093,9 @@ export default function ProgressPage() {
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-sm font-medium text-white/80">Weekly Average</p>
-                <p className="text-3xl font-semibold text-white sm:text-5xl">{avgSleepHours || '--'}</p>
+                <p className="text-3xl font-semibold text-white sm:text-5xl">
+                  {avgSleepHours || '--'}
+                </p>
                 <p className="text-base text-white/80 sm:text-lg">hours / night</p>
               </div>
               <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white/20 sm:h-20 sm:w-20">
@@ -1208,15 +1289,24 @@ export default function ProgressPage() {
         </div>
         <ul className="space-y-1.5 text-xs text-gray-600 md:space-y-2 md:text-sm">
           <li className="flex items-start gap-2">
-            <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full" style={{ backgroundColor: primaryColor }} />
+            <span
+              className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full"
+              style={{ backgroundColor: primaryColor }}
+            />
             {t('progressTipConsistent')}
           </li>
           <li className="flex items-start gap-2">
-            <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full" style={{ backgroundColor: primaryColor }} />
+            <span
+              className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full"
+              style={{ backgroundColor: primaryColor }}
+            />
             {t('progressTipHabits')}
           </li>
           <li className="flex items-start gap-2">
-            <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full" style={{ backgroundColor: primaryColor }} />
+            <span
+              className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full"
+              style={{ backgroundColor: primaryColor }}
+            />
             {t('progressTipCelebrate')}
           </li>
         </ul>

@@ -172,8 +172,18 @@ const RESOLVE_DISPOSITIONS = [
 ];
 
 const TICKET_STATUSES = [
-  'NEW', 'OPEN', 'IN_PROGRESS', 'PENDING', 'PENDING_CUSTOMER', 'PENDING_INTERNAL',
-  'ON_HOLD', 'ESCALATED', 'RESOLVED', 'CLOSED', 'CANCELLED', 'REOPENED',
+  'NEW',
+  'OPEN',
+  'IN_PROGRESS',
+  'PENDING',
+  'PENDING_CUSTOMER',
+  'PENDING_INTERNAL',
+  'ON_HOLD',
+  'ESCALATED',
+  'RESOLVED',
+  'CLOSED',
+  'CANCELLED',
+  'REOPENED',
 ];
 
 export default function TicketDetailPage() {
@@ -207,9 +217,14 @@ export default function TicketDetailPage() {
       if (stored) {
         const u = safeParseJsonString<Record<string, unknown>>(stored);
         if (!u) return;
-        setCurrentUser({ id: Number(u.id), name: `${String(u.firstName ?? '')} ${String(u.lastName ?? '')}`.trim() });
+        setCurrentUser({
+          id: Number(u.id),
+          name: `${String(u.firstName ?? '')} ${String(u.lastName ?? '')}`.trim(),
+        });
       }
-    } catch { /* */ }
+    } catch {
+      /* */
+    }
   }, []);
 
   const triggerRefresh = useCallback(() => {
@@ -379,7 +394,9 @@ export default function TicketDetailPage() {
         <ExclamationTriangleIcon className="h-12 w-12 text-red-400" />
         <p className="mt-2 text-gray-500">{error || 'Ticket not found'}</p>
         <button
-          onClick={() => { window.location.href = '/tickets'; }}
+          onClick={() => {
+            window.location.href = '/tickets';
+          }}
           className="mt-4 text-blue-600 hover:text-blue-700"
         >
           Back to Tickets
@@ -389,7 +406,13 @@ export default function TicketDetailPage() {
   }
 
   const isResolvable = [
-    'NEW', 'OPEN', 'IN_PROGRESS', 'PENDING_CUSTOMER', 'PENDING_INTERNAL', 'ON_HOLD', 'ESCALATED',
+    'NEW',
+    'OPEN',
+    'IN_PROGRESS',
+    'PENDING_CUSTOMER',
+    'PENDING_INTERNAL',
+    'ON_HOLD',
+    'ESCALATED',
   ].includes(ticket.status);
 
   const assigneeName = ticket.assignedTo
@@ -402,19 +425,21 @@ export default function TicketDetailPage() {
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-4">
           <button
-            onClick={() => { window.location.href = '/tickets'; }}
+            onClick={() => {
+              window.location.href = '/tickets';
+            }}
             className="mt-1 rounded-lg p-1 hover:bg-gray-100"
           >
             <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
           </button>
           <div>
-            <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex flex-wrap items-center gap-3">
               <span className="text-sm font-medium text-gray-500">{ticket.ticketNumber}</span>
               <select
                 value={ticket.status}
                 onChange={(e) => handleStatusChange(e.target.value)}
                 disabled={updatingStatus}
-                className={`rounded-full border px-3 py-1 text-sm font-medium cursor-pointer disabled:opacity-50 ${
+                className={`cursor-pointer rounded-full border px-3 py-1 text-sm font-medium disabled:opacity-50 ${
                   STATUS_COLORS[ticket.status] || 'border-gray-300 bg-gray-100 text-gray-800'
                 }`}
               >
@@ -441,7 +466,8 @@ export default function TicketDetailPage() {
             <h1 className="mt-1 text-2xl font-bold text-gray-900">{ticket.title}</h1>
             <div className="mt-1 flex items-center gap-4">
               <p className="text-sm text-gray-500">
-                Created {formatRelativeTime(ticket.createdAt)} by {ticket.createdBy.firstName} {ticket.createdBy.lastName}
+                Created {formatRelativeTime(ticket.createdAt)} by {ticket.createdBy.firstName}{' '}
+                {ticket.createdBy.lastName}
               </p>
               <TicketPresence
                 ticketId={ticketId}
@@ -455,7 +481,10 @@ export default function TicketDetailPage() {
         <div className="flex items-center gap-2">
           <MacroDropdown
             ticketId={ticketId}
-            onApplied={() => { fetchTicket(); triggerRefresh(); }}
+            onApplied={() => {
+              fetchTicket();
+              triggerRefresh();
+            }}
           />
           <button
             onClick={() => {
@@ -493,12 +522,18 @@ export default function TicketDetailPage() {
           <QuickActions
             ticketId={ticketId}
             currentStatus={ticket.status}
-            onActionComplete={() => { fetchTicket(); triggerRefresh(); }}
+            onActionComplete={() => {
+              fetchTicket();
+              triggerRefresh();
+            }}
           />
 
           {/* Edit Form or Description */}
           {isEditMode ? (
-            <form onSubmit={handleSaveEdit} className="rounded-lg border border-gray-200 bg-white p-6 space-y-4">
+            <form
+              onSubmit={handleSaveEdit}
+              className="space-y-4 rounded-lg border border-gray-200 bg-white p-6"
+            >
               <h2 className="text-sm font-medium text-gray-900">Edit ticket</h2>
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-500">Title</label>
@@ -528,10 +563,26 @@ export default function TicketDetailPage() {
                     onChange={(e) => setEditCategory(e.target.value)}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
                   >
-                    {['GENERAL', 'PATIENT_ISSUE', 'PATIENT_COMPLAINT', 'ORDER_ISSUE', 'SHIPPING_ISSUE',
-                      'BILLING', 'BILLING_ISSUE', 'REFUND_REQUEST', 'PRESCRIPTION', 'PRESCRIPTION_ISSUE',
-                      'TECHNICAL_ISSUE', 'SYSTEM_BUG', 'FEATURE_REQUEST', 'ACCESS_ISSUE', 'OTHER'].map((c) => (
-                      <option key={c} value={c}>{c.replace(/_/g, ' ')}</option>
+                    {[
+                      'GENERAL',
+                      'PATIENT_ISSUE',
+                      'PATIENT_COMPLAINT',
+                      'ORDER_ISSUE',
+                      'SHIPPING_ISSUE',
+                      'BILLING',
+                      'BILLING_ISSUE',
+                      'REFUND_REQUEST',
+                      'PRESCRIPTION',
+                      'PRESCRIPTION_ISSUE',
+                      'TECHNICAL_ISSUE',
+                      'SYSTEM_BUG',
+                      'FEATURE_REQUEST',
+                      'ACCESS_ISSUE',
+                      'OTHER',
+                    ].map((c) => (
+                      <option key={c} value={c}>
+                        {c.replace(/_/g, ' ')}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -542,8 +593,17 @@ export default function TicketDetailPage() {
                     onChange={(e) => setEditPriority(e.target.value)}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
                   >
-                    {['P0_CRITICAL', 'P1_URGENT', 'P2_HIGH', 'P3_MEDIUM', 'P4_LOW', 'P5_PLANNING'].map((p) => (
-                      <option key={p} value={p}>{p.replace(/_/g, ' ')}</option>
+                    {[
+                      'P0_CRITICAL',
+                      'P1_URGENT',
+                      'P2_HIGH',
+                      'P3_MEDIUM',
+                      'P4_LOW',
+                      'P5_PLANNING',
+                    ].map((p) => (
+                      <option key={p} value={p}>
+                        {p.replace(/_/g, ' ')}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -558,7 +618,9 @@ export default function TicketDetailPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => { window.location.href = `/tickets/${ticketId}`; }}
+                  onClick={() => {
+                    window.location.href = `/tickets/${ticketId}`;
+                  }}
                   className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
                 >
                   Cancel
@@ -606,14 +668,23 @@ export default function TicketDetailPage() {
 
           {/* Work Log + Progress Update */}
           <div className="flex items-center gap-4">
-            <WorkLogForm ticketId={ticketId} onSubmit={() => { fetchTicket(); triggerRefresh(); }} />
+            <WorkLogForm
+              ticketId={ticketId}
+              onSubmit={() => {
+                fetchTicket();
+                triggerRefresh();
+              }}
+            />
           </div>
 
           {/* Progress Update Form */}
           <ProgressUpdateForm
             ticketId={ticketId}
             currentStatus={ticket.status}
-            onSubmit={() => { fetchTicket(); triggerRefresh(); }}
+            onSubmit={() => {
+              fetchTicket();
+              triggerRefresh();
+            }}
           />
 
           {/* Unified Timeline */}
@@ -643,14 +714,18 @@ export default function TicketDetailPage() {
               </div>
               <div>
                 <dt className="text-xs font-medium text-gray-500">Last Activity</dt>
-                <dd className="mt-1 text-sm text-gray-900">{formatRelativeTime(ticket.lastActivityAt)}</dd>
+                <dd className="mt-1 text-sm text-gray-900">
+                  {formatRelativeTime(ticket.lastActivityAt)}
+                </dd>
               </div>
               {ticket.dueDate && (
                 <div>
                   <dt className="text-xs font-medium text-gray-500">Due Date</dt>
-                  <dd className={`mt-1 text-sm font-medium ${
-                    new Date(ticket.dueDate) < new Date() ? 'text-red-600' : 'text-gray-900'
-                  }`}>
+                  <dd
+                    className={`mt-1 text-sm font-medium ${
+                      new Date(ticket.dueDate) < new Date() ? 'text-red-600' : 'text-gray-900'
+                    }`}
+                  >
                     {formatDate(ticket.dueDate)}
                   </dd>
                 </div>
@@ -717,7 +792,8 @@ export default function TicketDetailPage() {
                       >
                         {ticket.patient.firstName} {ticket.patient.lastName}
                         <span className="text-gray-400">
-                          {' '}({formatPatientDisplayId(ticket.patient.patientId, ticket.patient.id)})
+                          {' '}
+                          ({formatPatientDisplayId(ticket.patient.patientId, ticket.patient.id)})
                         </span>
                       </a>
                     </dd>
@@ -727,10 +803,7 @@ export default function TicketDetailPage() {
                   <div>
                     <dt className="text-xs font-medium text-gray-500">Order</dt>
                     <dd className="mt-1">
-                      <a
-                        href="/admin/orders"
-                        className="text-sm text-blue-600 hover:text-blue-700"
-                      >
+                      <a href="/admin/orders" className="text-sm text-blue-600 hover:text-blue-700">
                         {ticket.order.referenceId}
                       </a>
                     </dd>
@@ -754,7 +827,8 @@ export default function TicketDetailPage() {
                     className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-xs font-medium text-gray-600"
                     title={`${watcher.user.firstName} ${watcher.user.lastName}`}
                   >
-                    {watcher.user.firstName[0]}{watcher.user.lastName[0]}
+                    {watcher.user.firstName[0]}
+                    {watcher.user.lastName[0]}
                   </div>
                 ))}
               </div>
@@ -793,14 +867,17 @@ export default function TicketDetailPage() {
                 Set disposition and resolution notes. This will mark the ticket as resolved.
               </p>
             </div>
-            <form onSubmit={handleResolveSubmit} className="p-4 space-y-4">
+            <form onSubmit={handleResolveSubmit} className="space-y-4 p-4">
               {resolveError && (
                 <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
                   {resolveError}
                 </div>
               )}
               <div>
-                <label htmlFor="resolve-disposition" className="mb-1 block text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="resolve-disposition"
+                  className="mb-1 block text-sm font-medium text-gray-700"
+                >
                   Disposition <span className="text-red-500">*</span>
                 </label>
                 <select
@@ -810,12 +887,17 @@ export default function TicketDetailPage() {
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
                   {RESOLVE_DISPOSITIONS.map((d) => (
-                    <option key={d.value} value={d.value}>{d.label}</option>
+                    <option key={d.value} value={d.value}>
+                      {d.label}
+                    </option>
                   ))}
                 </select>
               </div>
               <div>
-                <label htmlFor="resolve-notes" className="mb-1 block text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="resolve-notes"
+                  className="mb-1 block text-sm font-medium text-gray-700"
+                >
                   Resolution notes <span className="text-red-500">*</span>
                 </label>
                 <textarea
@@ -829,7 +911,10 @@ export default function TicketDetailPage() {
                 />
               </div>
               <div>
-                <label htmlFor="resolve-rootcause" className="mb-1 block text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="resolve-rootcause"
+                  className="mb-1 block text-sm font-medium text-gray-700"
+                >
                   Root cause (optional)
                 </label>
                 <input

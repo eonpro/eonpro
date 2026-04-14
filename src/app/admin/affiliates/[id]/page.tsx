@@ -33,7 +33,9 @@ import { apiFetch } from '@/lib/api/fetch';
 
 function useLandingPageUrl() {
   const [origin, setOrigin] = useState('');
-  useEffect(() => { setOrigin(window.location.origin); }, []);
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
   return (refCode: string) => `${origin}/affiliate/${encodeURIComponent(refCode)}`;
 }
 
@@ -514,7 +516,9 @@ export default function AffiliateDetailPage() {
               <FileText className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{affiliate.stats.totalIntakes ?? 0}</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {affiliate.stats.totalIntakes ?? 0}
+              </p>
               <p className="text-sm text-gray-500">Intakes</p>
             </div>
           </div>
@@ -526,7 +530,9 @@ export default function AffiliateDetailPage() {
               <CreditCard className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{affiliate.stats.totalPaymentConversions ?? 0}</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {affiliate.stats.totalPaymentConversions ?? 0}
+              </p>
               <p className="text-sm text-gray-500">Conversions</p>
             </div>
           </div>
@@ -540,8 +546,13 @@ export default function AffiliateDetailPage() {
             <div>
               <p className="text-2xl font-bold text-gray-900">
                 {(affiliate.stats.totalIntakes ?? 0) > 0
-                  ? (((affiliate.stats.totalPaymentConversions ?? 0) / affiliate.stats.totalIntakes) * 100).toFixed(1)
-                  : '0.0'}%
+                  ? (
+                      ((affiliate.stats.totalPaymentConversions ?? 0) /
+                        affiliate.stats.totalIntakes) *
+                      100
+                    ).toFixed(1)
+                  : '0.0'}
+                %
               </p>
               <p className="text-sm text-gray-500">Conv. Rate</p>
             </div>
@@ -599,7 +610,9 @@ export default function AffiliateDetailPage() {
                 onSubmit={handleAddRefCode}
                 className="mb-5 rounded-lg border border-[var(--brand-primary-medium)] bg-[var(--brand-primary-light)] p-4"
               >
-                <p className="mb-3 text-sm font-medium text-gray-700">Create New Landing Page URL</p>
+                <p className="mb-3 text-sm font-medium text-gray-700">
+                  Create New Landing Page URL
+                </p>
                 <div className="space-y-3">
                   <div>
                     <label className="block text-xs font-medium text-gray-600">URL Slug *</label>
@@ -767,7 +780,8 @@ export default function AffiliateDetailPage() {
                 {affiliate.stats.totalIntakes ?? 0}
               </span>
             </div>
-            {(!affiliate.recentAttributedPatients || affiliate.recentAttributedPatients.length === 0) ? (
+            {!affiliate.recentAttributedPatients ||
+            affiliate.recentAttributedPatients.length === 0 ? (
               <p className="text-gray-500">No patients attributed yet</p>
             ) : (
               <div className="space-y-3">

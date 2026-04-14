@@ -67,7 +67,9 @@ export const GET = withAuth(
 
       return NextResponse.json({ plan });
     } catch (error) {
-      logger.error('Failed to fetch commission plan', { error: error instanceof Error ? error.message : String(error) });
+      logger.error('Failed to fetch commission plan', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return NextResponse.json({ error: 'Failed to fetch commission plan' }, { status: 500 });
     }
   },
@@ -159,7 +161,9 @@ export const PUT = withAuth(
         plan,
       });
     } catch (error) {
-      logger.error('Failed to update commission plan', { error: error instanceof Error ? error.message : String(error) });
+      logger.error('Failed to update commission plan', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return NextResponse.json({ error: 'Failed to update commission plan' }, { status: 500 });
     }
   },
@@ -224,7 +228,9 @@ export const PATCH = withAuth(
         plan,
       });
     } catch (error) {
-      logger.error('Failed to update commission plan', { error: error instanceof Error ? error.message : String(error) });
+      logger.error('Failed to update commission plan', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return NextResponse.json({ error: 'Failed to update commission plan' }, { status: 500 });
     }
   },
@@ -281,7 +287,9 @@ export const DELETE = withAuth(
         message: 'Plan deleted successfully',
       });
     } catch (error) {
-      logger.error('Failed to delete commission plan', { error: error instanceof Error ? error.message : String(error) });
+      logger.error('Failed to delete commission plan', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return NextResponse.json({ error: 'Failed to delete commission plan' }, { status: 500 });
     }
   },

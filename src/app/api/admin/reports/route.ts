@@ -15,7 +15,9 @@ import { z } from 'zod';
 const createReportSchema = z.object({
   name: z.string().min(1).max(200),
   description: z.string().max(1000).optional(),
-  type: z.enum(['REVENUE', 'PATIENTS', 'PAYOUTS', 'RECONCILIATION', 'SUBSCRIPTIONS', 'CUSTOM']).default('CUSTOM'),
+  type: z
+    .enum(['REVENUE', 'PATIENTS', 'PAYOUTS', 'RECONCILIATION', 'SUBSCRIPTIONS', 'CUSTOM'])
+    .default('CUSTOM'),
   config: z.object({
     metrics: z.array(z.string()).min(1),
     chartType: z.string().optional(),
@@ -36,10 +38,7 @@ async function handleGet(req: NextRequest, user: any): Promise<Response> {
     const reports = await (prisma as any).savedReport.findMany({
       where: {
         ...clinicFilter,
-        OR: [
-          { createdBy: user.id },
-          { isPublic: true },
-        ],
+        OR: [{ createdBy: user.id }, { isPublic: true }],
       },
       orderBy: { createdAt: 'desc' },
       select: {
@@ -109,7 +108,10 @@ async function handlePost(req: NextRequest, user: any): Promise<Response> {
       userId: user.id,
     });
 
-    return NextResponse.json({ success: true, report: { id: report.id, name: report.name } }, { status: 201 });
+    return NextResponse.json(
+      { success: true, report: { id: report.id, name: report.name } },
+      { status: 201 }
+    );
   } catch (error) {
     logger.error('[Reports] Failed to create report', {
       userId: user.id,

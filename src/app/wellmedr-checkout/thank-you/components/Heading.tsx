@@ -1,12 +1,8 @@
-export default function ThankYouHeading({
-  firstName = 'Amanda',
-}: {
-  firstName: string | null;
-}) {
+export default function ThankYouHeading({ firstName = 'Amanda' }: { firstName: string | null }) {
   return (
-    <h2 className="leading-[32px] md:leading-[48px] -tracking-[0.01em] md:-tracking-[0.04em] text-[1.75rem] md:text-[3rem] font-normal max-w-[200px] sm:max-w-none">
+    <h2 className="max-w-[200px] text-[1.75rem] font-normal leading-[32px] -tracking-[0.01em] sm:max-w-none md:text-[3rem] md:leading-[48px] md:-tracking-[0.04em]">
       {firstName ? (
-        <span className="italic-primary -tracking-[0.02em] leading-[40px] md:leading-[48px] text-[2rem] md:text-[2.75rem] capitalize">
+        <span className="italic-primary text-[2rem] capitalize leading-[40px] -tracking-[0.02em] md:text-[2.75rem] md:leading-[48px]">
           {firstName},
         </span>
       ) : null}{' '}

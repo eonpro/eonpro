@@ -104,8 +104,7 @@ export function BrandingImageUploader({
         // Upload to S3
         const response = await apiFetch('/api/v2/aws/s3/upload', {
           method: 'POST',
-          headers: {
-          },
+          headers: {},
           body: formData,
         });
 

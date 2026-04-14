@@ -202,7 +202,6 @@ export default function EmailCommunicationsPage() {
         setCustomText('');
       }
     } catch (error: unknown) {
-      
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       setSendResult({ error: errorMessage });
     } finally {
@@ -231,7 +230,6 @@ export default function EmailCommunicationsPage() {
         setSubject(preview.subject);
       }
     } catch (error: unknown) {
-      
       logger.error('Preview error:', error);
     }
   };

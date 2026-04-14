@@ -2,14 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 
-import {
-  Users,
-  Sparkles,
-  Copy,
-  CheckCircle,
-  Shield,
-  PhoneOff,
-} from 'lucide-react';
+import { Users, Sparkles, Copy, CheckCircle, Shield, PhoneOff } from 'lucide-react';
 
 import { safeParseJsonString } from '@/lib/utils/safe-json';
 import CallTimer from './CallTimer';
@@ -49,7 +42,9 @@ export default function ActiveCallView({
         if (parsed?.providerId) setProviderId(Number(parsed.providerId));
         else if (parsed?.id) setProviderId(Number(parsed.id));
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, []);
 
   const handleMeetingStart = useCallback(() => {
@@ -59,22 +54,17 @@ export default function ActiveCallView({
     setCallStartTime(now);
   }, []);
 
-  const handleMeetingEnd = useCallback(
-    () => {
-      setCallActive(false);
-      const start = callStartRef.current;
-      const duration = start
-        ? Math.floor((Date.now() - start.getTime()) / 1000)
-        : 0;
+  const handleMeetingEnd = useCallback(() => {
+    setCallActive(false);
+    const start = callStartRef.current;
+    const duration = start ? Math.floor((Date.now() - start.getTime()) / 1000) : 0;
 
-      onCallEndRef.current({
-        session,
-        duration,
-        transcript: transcriptRef.current ?? undefined,
-      });
-    },
-    [session]
-  );
+    onCallEndRef.current({
+      session,
+      duration,
+      transcript: transcriptRef.current ?? undefined,
+    });
+  }, [session]);
 
   const handleTranscriptUpdate = useCallback((transcript: string) => {
     transcriptRef.current = transcript;
@@ -107,7 +97,7 @@ export default function ActiveCallView({
       {/* Top Bar */}
       <div className="flex items-center justify-between border-b border-gray-800 bg-gray-900 px-3 py-2 sm:px-4">
         <div className="flex min-w-0 items-center gap-2 sm:gap-4">
-          <div className="hidden sm:flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-600/20">
+          <div className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-600/20 sm:flex">
             <Users className="h-4 w-4 text-blue-400" />
           </div>
           <div className="min-w-0">
@@ -123,7 +113,7 @@ export default function ActiveCallView({
             <CallTimer
               startTime={callStartTime}
               scheduledDuration={session.duration}
-              className="text-white [&_svg]:text-gray-400 [&_span]:text-gray-200"
+              className="text-white [&_span]:text-gray-200 [&_svg]:text-gray-400"
             />
           )}
         </div>

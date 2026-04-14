@@ -420,7 +420,7 @@ Macronutrient Targets (${effectiveCalories} cal):
               {macros && (
                 <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
                   <h3 className="mb-3 font-semibold text-gray-900">
-                    <Target className="mr-2 inline h-5 w-5 text-[var(--brand-primary)]0" />
+                    <Target className="text-[var(--brand-primary)]0 mr-2 inline h-5 w-5" />
                     Macro Targets
                   </h3>
                   <div className="space-y-3">

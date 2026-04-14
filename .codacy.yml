@@ -1,0 +1,8 @@
+---
+exclude_paths:
+  - "scripts/**"
+  - "tests/**"
+  - "coverage/**"
+  - "dist/**"
+  - "build/**"
+  - ".next/**"

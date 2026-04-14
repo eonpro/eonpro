@@ -25,7 +25,10 @@ export default function WmPatternInfoStep({
   const fadeStyle: CSSProperties = {};
 
   const handleBack = () => {
-    if (prevStep) { setCurrentStep(prevStep); router.push(`${basePath}/${prevStep}`); }
+    if (prevStep) {
+      setCurrentStep(prevStep);
+      router.push(`${basePath}/${prevStep}`);
+    }
   };
 
   const weight = Number(responses.current_weight) || 200;
@@ -47,16 +50,40 @@ export default function WmPatternInfoStep({
   };
 
   return (
-    <div className="min-h-[100dvh] flex flex-col" style={{ backgroundColor: '#F7F7F9' }}>
-      <div className="w-full h-[3px]" style={{ backgroundColor: '#e5e0d8' }}>
-        <div className="h-full" style={{ width: `${progressPercent}%`, backgroundColor: '#c3b29e', transition: 'width 0.8s cubic-bezier(0.4,0,0.2,1)' }} />
+    <div className="flex min-h-[100dvh] flex-col" style={{ backgroundColor: '#F7F7F9' }}>
+      <div className="h-[3px] w-full" style={{ backgroundColor: '#e5e0d8' }}>
+        <div
+          className="h-full"
+          style={{
+            width: `${progressPercent}%`,
+            backgroundColor: '#c3b29e',
+            transition: 'width 0.8s cubic-bezier(0.4,0,0.2,1)',
+          }}
+        />
       </div>
 
-      <div className="w-full max-w-[48rem] mx-auto px-6 pt-4 grid grid-cols-3 items-center">
+      <div className="mx-auto grid w-full max-w-[48rem] grid-cols-3 items-center px-6 pt-4">
         <div>
           {prevStep && (
-            <button onClick={handleBack} className="p-2.5 rounded-lg hover:bg-black/5 active:scale-95 transition-all" aria-label="Go back">
-              <svg className="w-5 h-5" style={{ color: '#101010' }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+            <button
+              onClick={handleBack}
+              className="rounded-lg p-2.5 transition-all hover:bg-black/5 active:scale-95"
+              aria-label="Go back"
+            >
+              <svg
+                className="h-5 w-5"
+                style={{ color: '#101010' }}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M15 19l-7-7 7-7"
+                />
+              </svg>
             </button>
           )}
         </div>
@@ -67,29 +94,44 @@ export default function WmPatternInfoStep({
         <div />
       </div>
 
-      <div className="flex-1 flex flex-col justify-center w-full max-w-[600px] mx-auto px-6 sm:px-8 pb-6">
-        <div className="w-full rounded-2xl p-8 sm:p-12 flex flex-col items-center justify-center text-white text-center min-h-[50vh]" style={{ backgroundColor: '#8a7d6e', backgroundImage: 'url(/assets/patterns/bg-pattern.webp)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
-          <p className="text-lg sm:text-xl mb-1">
+      <div className="mx-auto flex w-full max-w-[600px] flex-1 flex-col justify-center px-6 pb-6 sm:px-8">
+        <div
+          className="flex min-h-[50vh] w-full flex-col items-center justify-center rounded-2xl p-8 text-center text-white sm:p-12"
+          style={{
+            backgroundColor: '#8a7d6e',
+            backgroundImage: 'url(/assets/patterns/bg-pattern.webp)',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        >
+          <p className="mb-1 text-lg sm:text-xl">
             Perfect! Losing <strong>{lbsToLose} lbs</strong> is easier
           </p>
-          <p className="text-lg sm:text-xl mb-4">
+          <p className="mb-4 text-lg sm:text-xl">
             than you think - and it <em>doesn&apos;t</em>
           </p>
-          <p className="text-lg sm:text-xl italic mb-6">involve restrictive diets.</p>
+          <p className="mb-6 text-lg italic sm:text-xl">involve restrictive diets.</p>
 
-          <p className="text-base sm:text-lg opacity-90">
-            Now, let&apos;s analyze your<br />metabolism and discover how well<br />your body processes macronutrients.
+          <p className="text-base opacity-90 sm:text-lg">
+            Now, let&apos;s analyze your
+            <br />
+            metabolism and discover how well
+            <br />
+            your body processes macronutrients.
           </p>
         </div>
       </div>
 
-      <div className="w-full max-w-[600px] sm:max-w-[31rem] sm:mx-auto mx-auto px-6 sm:px-8 pb-8">
+      <div className="mx-auto w-full max-w-[600px] px-6 pb-8 sm:mx-auto sm:max-w-[31rem] sm:px-8">
         <button
           onClick={handleContinue}
-          className="w-full wm-next-btn flex items-center justify-center gap-4 py-[18px] text-white font-normal text-base sm:text-[1.125rem] rounded-full active:scale-[0.98]"
+          className="wm-next-btn flex w-full items-center justify-center gap-4 rounded-full py-[18px] text-base font-normal text-white active:scale-[0.98] sm:text-[1.125rem]"
           style={{ height: 56, backgroundColor: '#0C2631', cursor: 'pointer' }}
         >
-          Next <span className="text-base" aria-hidden>&#10132;</span>
+          Next{' '}
+          <span className="text-base" aria-hidden>
+            &#10132;
+          </span>
         </button>
       </div>
     </div>

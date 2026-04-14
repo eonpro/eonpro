@@ -2,8 +2,16 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import {
-  ChevronLeft, Plus, Pencil, Trash2, X, Users, Percent,
-  Save, Loader2, AlertTriangle,
+  ChevronLeft,
+  Plus,
+  Pencil,
+  Trash2,
+  X,
+  Users,
+  Percent,
+  Save,
+  Loader2,
+  AlertTriangle,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 
@@ -24,8 +32,17 @@ interface OverrideAssignment {
   overridePercentDisplay: string;
 }
 
-interface Clinic { id: number; name: string; }
-interface Rep { id: number; firstName: string; lastName: string; email: string; role?: string; }
+interface Clinic {
+  id: number;
+  name: string;
+}
+interface Rep {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role?: string;
+}
 
 function repName(r: Rep) {
   const name = `${r.firstName || ''} ${r.lastName || ''}`.trim() || r.email;
@@ -60,20 +77,27 @@ export default function OverrideManagersPage() {
         setClinics(list);
         if (list.length > 0 && !clinicId) setClinicId(String(list[0].id));
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, []);
 
   const fetchAssignments = useCallback(async () => {
     if (!clinicId) return;
     setLoading(true);
     try {
-      const res = await apiFetch(`/api/admin/sales-rep/overrides?clinicId=${clinicId}&activeOnly=true`);
+      const res = await apiFetch(
+        `/api/admin/sales-rep/overrides?clinicId=${clinicId}&activeOnly=true`
+      );
       if (res.ok) {
         const json = await res.json();
         setAssignments(json.assignments || []);
       }
-    } catch { /* ignore */ }
-    finally { setLoading(false); }
+    } catch {
+      /* ignore */
+    } finally {
+      setLoading(false);
+    }
   }, [clinicId]);
 
   const fetchReps = useCallback(async () => {
@@ -85,28 +109,43 @@ export default function OverrideManagersPage() {
       if (repRes.ok) {
         const json = await repRes.json();
         repList = (json.salesReps || []).map((r: any) => ({
-          id: r.id, firstName: r.firstName || '', lastName: r.lastName || '',
-          email: r.email, role: r.role || 'SALES_REP',
+          id: r.id,
+          firstName: r.firstName || '',
+          lastName: r.lastName || '',
+          email: r.email,
+          role: r.role || 'SALES_REP',
         }));
       }
       setReps(repList);
 
       // Fetch admins + sales reps (eligible as override managers)
-      const mgrRes = await apiFetch(`/api/admin/sales-reps?clinicId=${clinicId}&roles=SALES_REP,ADMIN`);
+      const mgrRes = await apiFetch(
+        `/api/admin/sales-reps?clinicId=${clinicId}&roles=SALES_REP,ADMIN`
+      );
       let mgrList: Rep[] = [];
       if (mgrRes.ok) {
         const json = await mgrRes.json();
         mgrList = (json.salesReps || []).map((r: any) => ({
-          id: r.id, firstName: r.firstName || '', lastName: r.lastName || '',
-          email: r.email, role: r.role || 'SALES_REP',
+          id: r.id,
+          firstName: r.firstName || '',
+          lastName: r.lastName || '',
+          email: r.email,
+          role: r.role || 'SALES_REP',
         }));
       }
       setManagers(mgrList);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, [clinicId]);
 
-  useEffect(() => { fetchClinics(); }, [fetchClinics]);
-  useEffect(() => { fetchAssignments(); fetchReps(); }, [fetchAssignments, fetchReps]);
+  useEffect(() => {
+    fetchClinics();
+  }, [fetchClinics]);
+  useEffect(() => {
+    fetchAssignments();
+    fetchReps();
+  }, [fetchAssignments, fetchReps]);
 
   const openCreate = async () => {
     setEditAssignment(null);
@@ -176,11 +215,14 @@ export default function OverrideManagersPage() {
       fetchAssignments();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to save');
-    } finally { setSaving(false); }
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDeactivate = async (a: OverrideAssignment) => {
-    if (!confirm(`Remove ${a.overrideRepName} as override manager of ${a.subordinateRepName}?`)) return;
+    if (!confirm(`Remove ${a.overrideRepName} as override manager of ${a.subordinateRepName}?`))
+      return;
     try {
       const res = await apiFetch(`/api/admin/sales-rep/overrides/${a.id}`, { method: 'DELETE' });
       if (!res.ok) {
@@ -189,7 +231,9 @@ export default function OverrideManagersPage() {
         return;
       }
       fetchAssignments();
-    } catch { alert('Failed to remove override assignment'); }
+    } catch {
+      alert('Failed to remove override assignment');
+    }
   };
 
   const managerGroups = assignments.reduce<Record<number, OverrideAssignment[]>>((acc, a) => {
@@ -199,33 +243,62 @@ export default function OverrideManagersPage() {
 
   return (
     <div className="p-6">
-      <a href="/super-admin/sales-reps" className="mb-4 flex items-center gap-1 text-gray-600 hover:text-gray-900">
-        <ChevronLeft className="h-5 w-5" />Back to Sales Reps
+      <a
+        href="/super-admin/sales-reps"
+        className="mb-4 flex items-center gap-1 text-gray-600 hover:text-gray-900"
+      >
+        <ChevronLeft className="h-5 w-5" />
+        Back to Sales Reps
       </a>
 
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Override Managers</h1>
-          <p className="text-gray-500">Senior reps earn a % of gross revenue from their subordinate reps</p>
+          <p className="text-gray-500">
+            Senior reps earn a % of gross revenue from their subordinate reps
+          </p>
         </div>
         <div className="flex items-center gap-3">
-          <select value={clinicId} onChange={(e) => setClinicId(e.target.value)} className="rounded-lg border border-gray-200 px-3 py-2 text-sm">
-            {clinics.map((c) => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
+          <select
+            value={clinicId}
+            onChange={(e) => setClinicId(e.target.value)}
+            className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
+          >
+            {clinics.map((c) => (
+              <option key={c.id} value={String(c.id)}>
+                {c.name}
+              </option>
+            ))}
           </select>
-          <button onClick={openCreate} disabled={!clinicId} className="flex items-center gap-2 rounded-lg bg-[var(--brand-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[#3d8a66] disabled:opacity-50">
-            <Plus className="h-4 w-4" />Add Override
+          <button
+            onClick={openCreate}
+            disabled={!clinicId}
+            className="flex items-center gap-2 rounded-lg bg-[var(--brand-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[#3d8a66] disabled:opacity-50"
+          >
+            <Plus className="h-4 w-4" />
+            Add Override
           </button>
         </div>
       </div>
 
       {loading ? (
-        <div className="flex h-48 items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--brand-primary)] border-t-transparent" /></div>
+        <div className="flex h-48 items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--brand-primary)] border-t-transparent" />
+        </div>
       ) : assignments.length === 0 ? (
         <div className="rounded-xl bg-white py-16 text-center shadow-sm">
           <Users className="mx-auto h-12 w-12 text-gray-300" />
           <p className="mt-2 text-gray-500">No override managers configured for this clinic</p>
-          <p className="mt-1 text-sm text-gray-400">Override managers earn a commission on gross revenue generated by reps assigned under them</p>
-          <button onClick={openCreate} className="mt-4 text-sm font-medium text-[var(--brand-primary)] hover:underline">Add your first override</button>
+          <p className="mt-1 text-sm text-gray-400">
+            Override managers earn a commission on gross revenue generated by reps assigned under
+            them
+          </p>
+          <button
+            onClick={openCreate}
+            className="mt-4 text-sm font-medium text-[var(--brand-primary)] hover:underline"
+          >
+            Add your first override
+          </button>
         </div>
       ) : (
         <div className="space-y-6">
@@ -240,7 +313,9 @@ export default function OverrideManagersPage() {
                     </div>
                     <div>
                       <p className="font-semibold text-gray-900">{manager.overrideRepName}</p>
-                      <p className="text-xs text-gray-500">{manager.overrideRep.email} &middot; Override Manager</p>
+                      <p className="text-xs text-gray-500">
+                        {manager.overrideRep.email} &middot; Override Manager
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -252,18 +327,38 @@ export default function OverrideManagersPage() {
                           {(a.subordinateRep.firstName?.[0] || '?').toUpperCase()}
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-900">{a.subordinateRepName}</p>
+                          <p className="text-sm font-medium text-gray-900">
+                            {a.subordinateRepName}
+                          </p>
                           <p className="text-xs text-gray-500">{a.subordinateRep.email}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-4">
                         <span className="flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700">
-                          <Percent className="h-3.5 w-3.5" />{(a.overridePercentBps / 100).toFixed(2)}%
+                          <Percent className="h-3.5 w-3.5" />
+                          {(a.overridePercentBps / 100).toFixed(2)}%
                         </span>
-                        {a.notes && <span className="max-w-[200px] truncate text-xs text-gray-400" title={a.notes}>{a.notes}</span>}
+                        {a.notes && (
+                          <span
+                            className="max-w-[200px] truncate text-xs text-gray-400"
+                            title={a.notes}
+                          >
+                            {a.notes}
+                          </span>
+                        )}
                         <div className="flex items-center gap-1">
-                          <button onClick={() => openEdit(a)} className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-blue-600"><Pencil className="h-3.5 w-3.5" /></button>
-                          <button onClick={() => handleDeactivate(a)} className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button>
+                          <button
+                            onClick={() => openEdit(a)}
+                            className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-blue-600"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeactivate(a)}
+                            className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-red-600"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -280,26 +375,52 @@ export default function OverrideManagersPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-900">{editAssignment ? 'Edit Override' : 'Add Override Manager'}</h2>
-              <button onClick={() => setShowModal(false)} className="rounded p-1 hover:bg-gray-100"><X className="h-5 w-5" /></button>
+              <h2 className="text-xl font-bold text-gray-900">
+                {editAssignment ? 'Edit Override' : 'Add Override Manager'}
+              </h2>
+              <button onClick={() => setShowModal(false)} className="rounded p-1 hover:bg-gray-100">
+                <X className="h-5 w-5" />
+              </button>
             </div>
 
             <div className="space-y-4">
               {!editAssignment && (
                 <>
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Override Manager (senior rep or admin) *</label>
-                    <select value={form.overrideRepId} onChange={(e) => setForm((f) => ({ ...f, overrideRepId: e.target.value }))} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                      Override Manager (senior rep or admin) *
+                    </label>
+                    <select
+                      value={form.overrideRepId}
+                      onChange={(e) => setForm((f) => ({ ...f, overrideRepId: e.target.value }))}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                    >
                       <option value="">Select manager...</option>
-                      {managers.map((r) => <option key={r.id} value={String(r.id)}>{repName(r)} ({r.email})</option>)}
+                      {managers.map((r) => (
+                        <option key={r.id} value={String(r.id)}>
+                          {repName(r)} ({r.email})
+                        </option>
+                      ))}
                     </select>
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Subordinate Rep (earns revenue) *</label>
-                    <select value={form.subordinateRepId} onChange={(e) => setForm((f) => ({ ...f, subordinateRepId: e.target.value }))} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                      Subordinate Rep (earns revenue) *
+                    </label>
+                    <select
+                      value={form.subordinateRepId}
+                      onChange={(e) => setForm((f) => ({ ...f, subordinateRepId: e.target.value }))}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                    >
                       <option value="">Select subordinate rep...</option>
-                      {reps.filter((r) => String(r.id) !== form.overrideRepId).map((r) => <option key={r.id} value={String(r.id)}>{repName(r)} ({r.email})</option>)}
+                      {reps
+                        .filter((r) => String(r.id) !== form.overrideRepId)
+                        .map((r) => (
+                          <option key={r.id} value={String(r.id)}>
+                            {repName(r)} ({r.email})
+                          </option>
+                        ))}
                     </select>
                   </div>
                 </>
@@ -307,32 +428,68 @@ export default function OverrideManagersPage() {
 
               {editAssignment && (
                 <div className="rounded-lg bg-gray-50 p-3 text-sm">
-                  <p><span className="font-medium">Manager:</span> {editAssignment.overrideRepName}</p>
-                  <p><span className="font-medium">Subordinate:</span> {editAssignment.subordinateRepName}</p>
+                  <p>
+                    <span className="font-medium">Manager:</span> {editAssignment.overrideRepName}
+                  </p>
+                  <p>
+                    <span className="font-medium">Subordinate:</span>{' '}
+                    {editAssignment.subordinateRepName}
+                  </p>
                 </div>
               )}
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Override Percentage (%) *</label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Override Percentage (%) *
+                </label>
                 <div className="relative">
-                  <input type="number" step="0.01" min="0.01" max="100" value={form.overridePercent} onChange={(e) => setForm((f) => ({ ...f, overridePercent: e.target.value }))} placeholder="e.g. 1.5" className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-8 text-sm" />
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    max="100"
+                    value={form.overridePercent}
+                    onChange={(e) => setForm((f) => ({ ...f, overridePercent: e.target.value }))}
+                    placeholder="e.g. 1.5"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-8 text-sm"
+                  />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">%</span>
                 </div>
-                <p className="mt-1 text-xs text-gray-500">The manager earns this % of gross revenue from the subordinate rep's patients</p>
+                <p className="mt-1 text-xs text-gray-500">
+                  The manager earns this % of gross revenue from the subordinate rep's patients
+                </p>
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Notes (optional)</label>
-                <input type="text" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} placeholder="e.g. Team lead bonus" maxLength={500} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Notes (optional)
+                </label>
+                <input
+                  type="text"
+                  value={form.notes}
+                  onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                  placeholder="e.g. Team lead bonus"
+                  maxLength={500}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                />
               </div>
 
               {form.overrideRepId && form.subordinateRepId && form.overridePercent && (
                 <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
                   <p className="font-medium">Preview</p>
                   <p className="mt-1">
-                    When {reps.find((r) => String(r.id) === form.subordinateRepId)?.firstName || 'the subordinate'}'s patients generate revenue, {managers.find((r) => String(r.id) === form.overrideRepId)?.firstName || 'the manager'} will earn <strong>{form.overridePercent}%</strong> of the gross payment amount.
+                    When{' '}
+                    {reps.find((r) => String(r.id) === form.subordinateRepId)?.firstName ||
+                      'the subordinate'}
+                    's patients generate revenue,{' '}
+                    {managers.find((r) => String(r.id) === form.overrideRepId)?.firstName ||
+                      'the manager'}{' '}
+                    will earn <strong>{form.overridePercent}%</strong> of the gross payment amount.
                   </p>
-                  <p className="mt-1 text-xs text-blue-600">Example: $1,000 payment = ${(parseFloat(form.overridePercent || '0') * 10).toFixed(2)} override commission</p>
+                  <p className="mt-1 text-xs text-blue-600">
+                    Example: $1,000 payment = $
+                    {(parseFloat(form.overridePercent || '0') * 10).toFixed(2)} override commission
+                  </p>
                 </div>
               )}
 
@@ -344,9 +501,30 @@ export default function OverrideManagersPage() {
               )}
 
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowModal(false)} className="flex-1 rounded-lg border border-gray-300 py-2 font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
-                <button type="button" onClick={handleSave} disabled={saving || !form.overridePercent} className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[var(--brand-primary)] py-2 font-medium text-white hover:bg-[#3d8a66] disabled:opacity-50">
-                  {saving ? <><Loader2 className="h-4 w-4 animate-spin" />Saving...</> : <><Save className="h-4 w-4" />{editAssignment ? 'Update' : 'Create'}</>}
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="flex-1 rounded-lg border border-gray-300 py-2 font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={saving || !form.overridePercent}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[var(--brand-primary)] py-2 font-medium text-white hover:bg-[#3d8a66] disabled:opacity-50"
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4" />
+                      {editAssignment ? 'Update' : 'Create'}
+                    </>
+                  )}
                 </button>
               </div>
             </div>

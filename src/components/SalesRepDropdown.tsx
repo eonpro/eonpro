@@ -54,7 +54,8 @@ export default function SalesRepDropdown({
   const normalizedRole = userRole?.toLowerCase();
   const canEdit = ['admin', 'super_admin', 'provider'].includes(normalizedRole);
   const isSalesRep = normalizedRole === 'sales_rep';
-  const isAlreadyAssignedToMe = isSalesRep && currentUserId != null && selectedRep?.id === currentUserId;
+  const isAlreadyAssignedToMe =
+    isSalesRep && currentUserId != null && selectedRep?.id === currentUserId;
   const [selfAssigning, setSelfAssigning] = useState(false);
   const [selfAssignError, setSelfAssignError] = useState<string | null>(null);
 
@@ -175,9 +176,7 @@ export default function SalesRepDropdown({
 
   const filteredReps = searchQuery
     ? salesReps.filter((r) =>
-        `${r.firstName} ${r.lastName} ${r.email}`
-          .toLowerCase()
-          .includes(searchQuery.toLowerCase())
+        `${r.firstName} ${r.lastName} ${r.email}`.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : salesReps;
 
@@ -190,7 +189,9 @@ export default function SalesRepDropdown({
             <UserCheck className="h-4 w-4" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold uppercase tracking-wider text-emerald-500">Sales Rep</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-emerald-500">
+              Sales Rep
+            </p>
             <p className="truncate text-sm font-bold text-emerald-900">
               {selectedRep.firstName} {selectedRep.lastName}
             </p>
@@ -223,9 +224,7 @@ export default function SalesRepDropdown({
             Assign myself
           </button>
         )}
-        {selfAssignError && (
-          <p className="mt-1 text-xs text-red-600">{selfAssignError}</p>
-        )}
+        {selfAssignError && <p className="mt-1 text-xs text-red-600">{selfAssignError}</p>}
       </div>
     );
   }
@@ -278,7 +277,11 @@ export default function SalesRepDropdown({
                   disabled={saving}
                   className="flex w-full items-center gap-2 border-b border-gray-100 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
                 >
-                  {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+                  {saving ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <X className="h-3.5 w-3.5" />
+                  )}
                   Remove assignment
                 </button>
               )}
@@ -298,7 +301,9 @@ export default function SalesRepDropdown({
                         : 'text-gray-900'
                     }`}
                   >
-                    <span>{rep.firstName} {rep.lastName}</span>
+                    <span>
+                      {rep.firstName} {rep.lastName}
+                    </span>
                     {selectedRep?.id === rep.id && (
                       <span className="text-emerald-600">&#10003;</span>
                     )}
@@ -309,9 +314,7 @@ export default function SalesRepDropdown({
           )}
         </div>
 
-        {error && !loading && (
-          <p className="mt-1.5 text-xs text-red-600">{error}</p>
-        )}
+        {error && !loading && <p className="mt-1.5 text-xs text-red-600">{error}</p>}
       </div>
     );
   }
@@ -356,9 +359,7 @@ export default function SalesRepDropdown({
           Assign myself
         </button>
       )}
-      {selfAssignError && (
-        <p className="mt-1 text-xs text-red-600">{selfAssignError}</p>
-      )}
+      {selfAssignError && <p className="mt-1 text-xs text-red-600">{selfAssignError}</p>}
     </div>
   );
 }

@@ -116,7 +116,9 @@ export interface FilloutWebhookPayload {
 /**
  * Returns true if the payload looks like a Fillout webhook (has questions array and submission id/time).
  */
-export function isFilloutPayload(payload: Record<string, unknown>): payload is FilloutWebhookPayload {
+export function isFilloutPayload(
+  payload: Record<string, unknown>
+): payload is FilloutWebhookPayload {
   const p = payload as FilloutWebhookPayload;
   return (
     Array.isArray(p.questions) &&
@@ -176,11 +178,15 @@ export function filloutToWellmedrPayload(fillout: FilloutWebhookPayload): Wellme
     if (v === undefined || v === null) continue;
     const idStr = String(q.id).trim();
     const nameStr = q.name != null ? String(q.name).trim() : '';
-    let key = FILLOUT_KEY_TO_WELLMEDR[idStr] ?? (nameStr ? FILLOUT_KEY_TO_WELLMEDR[nameStr] : undefined);
+    let key =
+      FILLOUT_KEY_TO_WELLMEDR[idStr] ?? (nameStr ? FILLOUT_KEY_TO_WELLMEDR[nameStr] : undefined);
     if (!key) {
       const idLower = idStr.toLowerCase();
       const nameLower = nameStr.toLowerCase();
-      if (/phone|mobile|cell|tel(ephone)?/.test(idLower) || /phone|mobile|cell|tel(ephone)?/.test(nameLower)) {
+      if (
+        /phone|mobile|cell|tel(ephone)?/.test(idLower) ||
+        /phone|mobile|cell|tel(ephone)?/.test(nameLower)
+      ) {
         key = 'phone';
       } else {
         key = idStr;

@@ -277,8 +277,7 @@ export default function WellmedrInvoicesPage() {
     const combinedCents = pharmacy.totalCents + rxServices.totalCents;
     const orderCount = pharmacy.orderCount;
 
-    const avgPerPatientCents =
-      uniquePatients > 0 ? combinedCents / uniquePatients : null;
+    const avgPerPatientCents = uniquePatients > 0 ? combinedCents / uniquePatients : null;
     const avgPerOrderCents = orderCount > 0 ? combinedCents / orderCount : null;
 
     const medBuckets = new Map<string, number>();
@@ -379,7 +378,11 @@ export default function WellmedrInvoicesPage() {
             disabled={loading}
             className="flex items-center gap-2 rounded-lg bg-[#4fa77e] px-5 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#3d8a65] disabled:opacity-50"
           >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <FileText className="h-4 w-4" />
+            )}
             Generate Invoices
           </button>
         </div>
@@ -518,11 +521,7 @@ export default function WellmedrInvoicesPage() {
               <SummaryCard
                 icon={<Sparkles className="h-5 w-5 text-rose-600" />}
                 label="Rx services mix"
-                value={
-                  insights.newRxSharePct != null
-                    ? `${insights.newRxSharePct}% new`
-                    : '—'
-                }
+                value={insights.newRxSharePct != null ? `${insights.newRxSharePct}% new` : '—'}
                 subvalue={
                   insights.rxTotal > 0
                     ? `${insights.rxNew} new · ${insights.rxRefill} refill · ${insights.rxTotal} total`
@@ -580,9 +579,7 @@ export default function WellmedrInvoicesPage() {
           </div>
 
           {/* Invoice Content */}
-          {activeTab === 'pharmacy' && pharmacy && (
-            <PharmacyInvoiceView invoice={pharmacy} />
-          )}
+          {activeTab === 'pharmacy' && pharmacy && <PharmacyInvoiceView invoice={pharmacy} />}
 
           {activeTab === 'prescription_services' && rxServices && (
             <PrescriptionServicesView invoice={rxServices} />
@@ -801,10 +798,10 @@ function PharmacyInvoiceView({ invoice }: { invoice: PharmacyInvoice }) {
                   return (
                     <tr key={group.orderId} className="border-b border-gray-100 hover:bg-gray-50">
                       <td className="px-2 py-2.5" />
-                      <td className="whitespace-nowrap px-4 py-2.5 text-xs text-emerald-700 font-medium">
+                      <td className="whitespace-nowrap px-4 py-2.5 text-xs font-medium text-emerald-700">
                         {first.paidAt ? formatDateTime(first.paidAt) : '-'}
                       </td>
-                      <td className="whitespace-nowrap px-4 py-2.5 text-gray-600 text-xs">
+                      <td className="whitespace-nowrap px-4 py-2.5 text-xs text-gray-600">
                         {formatDateTime(first.orderDate)}
                       </td>
                       <td className="whitespace-nowrap px-4 py-2.5 font-mono text-xs text-gray-500">
@@ -853,7 +850,7 @@ function PharmacyInvoiceView({ invoice }: { invoice: PharmacyInvoice }) {
                 return (
                   <React.Fragment key={group.orderId}>
                     <tr
-                      className="border-b border-gray-200 bg-[#4fa77e]/5 cursor-pointer hover:bg-[#4fa77e]/10 transition-colors"
+                      className="cursor-pointer border-b border-gray-200 bg-[#4fa77e]/5 transition-colors hover:bg-[#4fa77e]/10"
                       onClick={() => toggle(group.orderId)}
                     >
                       <td className="px-2 py-2.5 text-center">
@@ -863,10 +860,10 @@ function PharmacyInvoiceView({ invoice }: { invoice: PharmacyInvoice }) {
                           <ChevronRight className="mx-auto h-4 w-4 text-gray-400" />
                         )}
                       </td>
-                      <td className="whitespace-nowrap px-4 py-2.5 text-xs text-emerald-700 font-medium">
+                      <td className="whitespace-nowrap px-4 py-2.5 text-xs font-medium text-emerald-700">
                         {first.paidAt ? formatDateTime(first.paidAt) : '-'}
                       </td>
-                      <td className="whitespace-nowrap px-4 py-2.5 text-gray-600 text-xs">
+                      <td className="whitespace-nowrap px-4 py-2.5 text-xs text-gray-600">
                         {formatDateTime(first.orderDate)}
                       </td>
                       <td className="whitespace-nowrap px-4 py-2.5 font-mono text-xs text-gray-500">
@@ -1055,10 +1052,10 @@ function PrescriptionServicesView({ invoice }: { invoice: PrescriptionServicesIn
             <tbody className="divide-y divide-gray-50">
               {invoice.lineItems.map((li, idx) => (
                 <tr key={idx} className="hover:bg-gray-50">
-                  <td className="whitespace-nowrap px-4 py-2.5 text-xs text-emerald-700 font-medium">
+                  <td className="whitespace-nowrap px-4 py-2.5 text-xs font-medium text-emerald-700">
                     {li.paidAt ? formatDateTime(li.paidAt) : '-'}
                   </td>
-                  <td className="whitespace-nowrap px-4 py-2.5 text-gray-600 text-xs">
+                  <td className="whitespace-nowrap px-4 py-2.5 text-xs text-gray-600">
                     {formatDateTime(li.orderDate)}
                   </td>
                   <td className="whitespace-nowrap px-4 py-2.5 font-mono text-xs text-gray-500">
@@ -1068,7 +1065,10 @@ function PrescriptionServicesView({ invoice }: { invoice: PrescriptionServicesIn
                   <td className="whitespace-nowrap px-4 py-2.5 font-mono text-xs text-gray-400">
                     {li.lifefileOrderId ?? '-'}
                   </td>
-                  <td className="max-w-xs truncate px-4 py-2.5 text-gray-600" title={li.medications}>
+                  <td
+                    className="max-w-xs truncate px-4 py-2.5 text-gray-600"
+                    title={li.medications}
+                  >
                     {li.medications}
                   </td>
                   <td className="px-4 py-2.5">
@@ -1124,7 +1124,11 @@ function PrescriptionServicesView({ invoice }: { invoice: PrescriptionServicesIn
             <p className="text-xs text-gray-400">
               {invoice.newPrescriptionCount} new x {centsToDisplay(invoice.newFeeCents)}
               {invoice.refillPrescriptionCount > 0 && (
-                <> + {invoice.refillPrescriptionCount} refill x {centsToDisplay(invoice.refillFeeCents)}</>
+                <>
+                  {' '}
+                  + {invoice.refillPrescriptionCount} refill x{' '}
+                  {centsToDisplay(invoice.refillFeeCents)}
+                </>
               )}
               {invoice.cancelledPrescriptionCount > 0 && (
                 <> + {invoice.cancelledPrescriptionCount} cancelled @ $0.00</>

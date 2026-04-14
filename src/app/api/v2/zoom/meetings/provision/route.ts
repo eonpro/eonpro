@@ -9,10 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import {
-  createClinicZoomMeeting,
-  isClinicZoomConfigured,
-} from '@/lib/clinic-zoom';
+import { createClinicZoomMeeting, isClinicZoomConfigured } from '@/lib/clinic-zoom';
 import { createZoomMeeting } from '@/lib/integrations/zoom/meetingService';
 import { isZoomConfigured } from '@/lib/integrations/zoom/config';
 
@@ -62,7 +59,8 @@ export const POST = withProviderAuth(async (req: NextRequest, user: AuthUser) =>
           accessToken = await getToken(existingSession.clinicId);
         }
         if (!accessToken && isZoomConfigured()) {
-          const { getZoomAccessToken: getPlatformToken } = await import('@/lib/integrations/zoom/meetingService');
+          const { getZoomAccessToken: getPlatformToken } =
+            await import('@/lib/integrations/zoom/meetingService');
           accessToken = await getPlatformToken();
         }
         if (accessToken) {
@@ -84,7 +82,9 @@ export const POST = withProviderAuth(async (req: NextRequest, user: AuthUser) =>
             }
           }
         }
-      } catch { /* non-blocking — fall back to stored URLs */ }
+      } catch {
+        /* non-blocking — fall back to stored URLs */
+      }
 
       return NextResponse.json({
         success: true,
@@ -166,7 +166,9 @@ export const POST = withProviderAuth(async (req: NextRequest, user: AuthUser) =>
 
     if (!meetingCreated) {
       return NextResponse.json(
-        { error: 'Zoom is not configured. Please set up Zoom credentials in Admin > Integrations.' },
+        {
+          error: 'Zoom is not configured. Please set up Zoom credentials in Admin > Integrations.',
+        },
         { status: 503 }
       );
     }

@@ -49,7 +49,6 @@ async function getHandler(request: NextRequest, user: AuthUser, context?: RouteC
       data: soapNote,
     });
   } catch (error: unknown) {
-
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[API] Error fetching SOAP note:', error);
     return NextResponse.json(
@@ -114,7 +113,13 @@ async function patchHandler(request: NextRequest, user: AuthUser, context?: Rout
       });
     } else if (!body.action) {
       // Direct content update (save draft) — no action specified
-      const allowedFields = ['subjective', 'objective', 'assessment', 'plan', 'medicalNecessity'] as const;
+      const allowedFields = [
+        'subjective',
+        'objective',
+        'assessment',
+        'plan',
+        'medicalNecessity',
+      ] as const;
       const updateData: Record<string, string> = {};
       for (const field of allowedFields) {
         if (typeof body[field] === 'string') {

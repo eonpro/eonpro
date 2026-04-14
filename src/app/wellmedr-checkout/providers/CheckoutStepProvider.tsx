@@ -1,13 +1,6 @@
 'use client';
 
-import {
-  createContext,
-  useContext,
-  useState,
-  useCallback,
-  useEffect,
-  ReactNode,
-} from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 
 type CheckoutStep = 'approval' | 'shipping' | 'payment';
 
@@ -37,9 +30,7 @@ function getStoredStep(): CheckoutStep {
   return 'approval';
 }
 
-const CheckoutStepContext = createContext<CheckoutStepContextValue | null>(
-  null,
-);
+const CheckoutStepContext = createContext<CheckoutStepContextValue | null>(null);
 
 export function CheckoutStepProvider({ children }: { children: ReactNode }) {
   const [currentStep, setCurrentStep] = useState<CheckoutStep>('approval');
@@ -88,9 +79,7 @@ export function CheckoutStepProvider({ children }: { children: ReactNode }) {
   }, [currentStep]);
 
   return (
-    <CheckoutStepContext.Provider
-      value={{ currentStep, goToStep, goToNextStep, goToPreviousStep }}
-    >
+    <CheckoutStepContext.Provider value={{ currentStep, goToStep, goToNextStep, goToPreviousStep }}>
       {children}
     </CheckoutStepContext.Provider>
   );
@@ -99,9 +88,7 @@ export function CheckoutStepProvider({ children }: { children: ReactNode }) {
 export function useCheckoutStep() {
   const context = useContext(CheckoutStepContext);
   if (!context) {
-    throw new Error(
-      'useCheckoutStep must be used within a CheckoutStepProvider',
-    );
+    throw new Error('useCheckoutStep must be used within a CheckoutStepProvider');
   }
   return context;
 }

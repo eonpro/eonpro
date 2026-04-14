@@ -10,7 +10,10 @@ import { logger } from '@/lib/logger';
 export interface AffiliateService {
   getById(id: number): Promise<Record<string, unknown> | null>;
   getByUserId(userId: number): Promise<Record<string, unknown> | null>;
-  listCommissions(affiliateId: number, options?: { limit?: number; offset?: number }): Promise<Record<string, unknown>[]>;
+  listCommissions(
+    affiliateId: number,
+    options?: { limit?: number; offset?: number }
+  ): Promise<Record<string, unknown>[]>;
   getDashboardStats(affiliateId: number): Promise<Record<string, unknown>>;
 }
 

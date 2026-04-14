@@ -117,8 +117,7 @@ const semaglutideConfig: ProductConfig = {
       basePrice: 39,
       icon: 'pill',
       hasDuration: true,
-      stripePriceId:
-        process.env.NEXT_PUBLIC_STRIPE_PRICE_NAUSEA || 'price_nausea_relief',
+      stripePriceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_NAUSEA || 'price_nausea_relief',
       stripePriceIdTest: 'price_test_nausea_relief',
     },
     {
@@ -130,8 +129,7 @@ const semaglutideConfig: ProductConfig = {
       basePrice: 99,
       icon: 'flame',
       hasDuration: true,
-      stripePriceId:
-        process.env.NEXT_PUBLIC_STRIPE_PRICE_FATBURNER || 'price_fat_burner',
+      stripePriceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_FATBURNER || 'price_fat_burner',
       stripePriceIdTest: 'price_test_fat_burner',
     },
   ],

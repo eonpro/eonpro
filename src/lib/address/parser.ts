@@ -336,18 +336,18 @@ export function extractAddressFromPayload(
   const cityLooksLikeApt = city ? isApartmentString(city) : false;
   const zipLooksLikeState = zip ? isStateName(zip) && !isZipCode(zip) : false;
   const stateLooksLikeZip = state ? isZipCode(state) : false;
-  const stateLooksLikeCity = state ? (!isStateName(state) && !isZipCode(state) && state.length > 2) : false;
-  const zipNotValid = zip ? (!isZipCode(zip) && zip.length > 0) : false;
+  const stateLooksLikeCity = state
+    ? !isStateName(state) && !isZipCode(state) && state.length > 2
+    : false;
+  const zipNotValid = zip ? !isZipCode(zip) && zip.length > 0 : false;
   const individualComponentsLookCorrupted =
-    cityLooksLikeApt || zipLooksLikeState || stateLooksLikeZip ||
+    cityLooksLikeApt ||
+    zipLooksLikeState ||
+    stateLooksLikeZip ||
     (stateLooksLikeCity && zipNotValid);
 
   // If we have a parseable combined address and individual fields look wrong, prefer parsing
-  if (
-    combinedAddress &&
-    combinedAddress.includes(',') &&
-    individualComponentsLookCorrupted
-  ) {
+  if (combinedAddress && combinedAddress.includes(',') && individualComponentsLookCorrupted) {
     const parsed = parseAddressString(combinedAddress, opts);
     return {
       ...parsed,

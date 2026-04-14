@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     // 1. List ALL cookies present in the request (names + lengths only — no values)
     // ──────────────────────────────────────────────────────────────────────
     const allCookies: Record<string, number> = {};
-    for (const [name, value] of request.cookies.getAll().map(c => [c.name, c.value] as const)) {
+    for (const [name, value] of request.cookies.getAll().map((c) => [c.name, c.value] as const)) {
       allCookies[name] = value.length;
     }
     diag.cookiesPresent = allCookies;
@@ -44,9 +44,15 @@ export async function GET(request: NextRequest) {
 
     if (!token) {
       const cookiePriority = [
-        'affiliate_session', 'affiliate-token', 'auth-token',
-        'super_admin-token', 'admin-token', 'provider-token',
-        'patient-token', 'staff-token', 'support-token',
+        'affiliate_session',
+        'affiliate-token',
+        'auth-token',
+        'super_admin-token',
+        'admin-token',
+        'provider-token',
+        'patient-token',
+        'staff-token',
+        'support-token',
       ];
       for (const name of cookiePriority) {
         const val = request.cookies.get(name)?.value;
@@ -77,14 +83,24 @@ export async function GET(request: NextRequest) {
         diag.rawClaimKeys = Object.keys(rawPayload).sort();
         diag.rawClaims = {
           id: typeof rawPayload.id === 'number' ? rawPayload.id : `(${typeof rawPayload.id})`,
-          userId: typeof rawPayload.userId === 'number' ? rawPayload.userId : rawPayload.userId === undefined ? '(missing)' : `(${typeof rawPayload.userId})`,
+          userId:
+            typeof rawPayload.userId === 'number'
+              ? rawPayload.userId
+              : rawPayload.userId === undefined
+                ? '(missing)'
+                : `(${typeof rawPayload.userId})`,
           role: rawPayload.role ?? '(missing)',
           clinicId: rawPayload.clinicId ?? '(missing)',
-          sessionId: rawPayload.sessionId ? `(present, len=${String(rawPayload.sessionId).length})` : '(MISSING)',
+          sessionId: rawPayload.sessionId
+            ? `(present, len=${String(rawPayload.sessionId).length})`
+            : '(MISSING)',
           hasSessionId: !!rawPayload.sessionId,
           exp: rawPayload.exp,
           iat: rawPayload.iat,
-          email: typeof rawPayload.email === 'string' ? rawPayload.email.substring(0, 3) + '***' : '(missing)',
+          email:
+            typeof rawPayload.email === 'string'
+              ? rawPayload.email.substring(0, 3) + '***'
+              : '(missing)',
         };
       } else {
         diag.rawDecode = { error: `Token has ${parts.length} parts, expected 3` };
@@ -102,18 +118,19 @@ export async function GET(request: NextRequest) {
 
     if (secret) {
       try {
-        const { payload } = await jose.jwtVerify(
-          token,
-          new TextEncoder().encode(secret),
-          { algorithms: ['HS256'], clockTolerance: 30 }
-        );
+        const { payload } = await jose.jwtVerify(token, new TextEncoder().encode(secret), {
+          algorithms: ['HS256'],
+          clockTolerance: 30,
+        });
         diag.verified = {
           valid: true,
           claimKeys: Object.keys(payload).sort(),
           id: payload.id,
           role: payload.role,
           clinicId: payload.clinicId,
-          sessionId: payload.sessionId ? `(present, len=${String(payload.sessionId).length})` : '(MISSING)',
+          sessionId: payload.sessionId
+            ? `(present, len=${String(payload.sessionId).length})`
+            : '(MISSING)',
           hasSessionId: !!payload.sessionId,
           exp: payload.exp,
           iat: payload.iat,
@@ -164,7 +181,6 @@ export async function GET(request: NextRequest) {
     } catch (err: unknown) {
       diag.fullAuthFlow = { error: err instanceof Error ? err.message : String(err) };
     }
-
   } catch (err: unknown) {
     diag.topLevelError = {
       error: err instanceof Error ? err.message : String(err),

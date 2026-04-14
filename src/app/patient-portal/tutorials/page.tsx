@@ -9,12 +9,14 @@ import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageCo
 const INJECTION_VIDEO = {
   en: {
     id: 'RUxd5uk_lAc',
-    thumbnail: 'https://static.wixstatic.com/media/c49a9b_c5588b4357604ce39ae7ba80c6f83edd~mv2.webp',
+    thumbnail:
+      'https://static.wixstatic.com/media/c49a9b_c5588b4357604ce39ae7ba80c6f83edd~mv2.webp',
     title: 'How to Safely Apply a Semaglutide Injection at Home',
   },
   es: {
     id: 'ETqz2fmh5ww',
-    thumbnail: 'https://static.wixstatic.com/media/c49a9b_bd7ba147288b4395a7a43faa4f0dd4d4~mv2.webp',
+    thumbnail:
+      'https://static.wixstatic.com/media/c49a9b_bd7ba147288b4395a7a43faa4f0dd4d4~mv2.webp',
     title: 'Cómo aplicar una inyección de Semaglutida en casa de forma segura',
   },
 } as const;
@@ -196,7 +198,8 @@ export default function TutorialVideosPage() {
                 height={378}
                 className="aspect-video w-full object-cover opacity-80"
                 onError={(e) => {
-                  (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${injVid.id}/hqdefault.jpg`;
+                  (e.target as HTMLImageElement).src =
+                    `https://img.youtube.com/vi/${injVid.id}/hqdefault.jpg`;
                 }}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
@@ -215,11 +218,11 @@ export default function TutorialVideosPage() {
                     2:32
                   </span>
                 </div>
-                <h2 className="text-lg font-semibold leading-tight">
-                  {injVid.title}
-                </h2>
+                <h2 className="text-lg font-semibold leading-tight">{injVid.title}</h2>
                 <p className="mt-1 text-sm text-white/80">
-                  {language === 'es' ? 'Guía paso a paso de EONPro' : 'Step-by-step guide from EONPro'}
+                  {language === 'es'
+                    ? 'Guía paso a paso de EONPro'
+                    : 'Step-by-step guide from EONPro'}
                 </p>
               </div>
             </div>

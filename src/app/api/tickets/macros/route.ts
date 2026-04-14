@@ -23,10 +23,7 @@ export const GET = withAuth(async (request, user) => {
       where: {
         ...(clinicId ? { clinicId } : {}),
         isActive: true,
-        OR: [
-          { isPersonal: false },
-          { createdById: user.id },
-        ],
+        OR: [{ isPersonal: false }, { createdById: user.id }],
       },
       orderBy: [{ usageCount: 'desc' }, { name: 'asc' }],
       take: 200,

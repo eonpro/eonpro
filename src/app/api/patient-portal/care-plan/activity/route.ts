@@ -20,72 +20,85 @@ const activitySchema = z.object({
  * POST /api/patient-portal/care-plan/activity
  * Mark an activity as complete/incomplete
  */
-export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
-  try {
-    if (!user.patientId) {
-      return NextResponse.json(
-        { error: 'Patient ID required', code: 'PATIENT_ID_REQUIRED' },
-        { status: 400 }
-      );
-    }
+export const POST = withAuth(
+  async (req: NextRequest, user: AuthUser) => {
+    try {
+      if (!user.patientId) {
+        return NextResponse.json(
+          { error: 'Patient ID required', code: 'PATIENT_ID_REQUIRED' },
+          { status: 400 }
+        );
+      }
 
-    const body = await req.json();
-    const parsed = activitySchema.safeParse(body);
+      const body = await req.json();
+      const parsed = activitySchema.safeParse(body);
 
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: 'Invalid request', details: parsed.error.flatten() },
-        { status: 400 }
-      );
-    }
+      if (!parsed.success) {
+        return NextResponse.json(
+          { error: 'Invalid request', details: parsed.error.flatten() },
+          { status: 400 }
+        );
+      }
 
-    const { activityId, action } = parsed.data;
+      const { activityId, action } = parsed.data;
 
-    // Verify the activity belongs to patient's care plan
-    const activity = await prisma.carePlanActivity.findFirst({
-      where: {
-        id: activityId,
-        carePlan: {
-          patientId: user.patientId,
+      // Verify the activity belongs to patient's care plan
+      const activity = await prisma.carePlanActivity.findFirst({
+        where: {
+          id: activityId,
+          carePlan: {
+            patientId: user.patientId,
+          },
         },
-      },
-    });
+      });
 
-    if (!activity) {
-      return NextResponse.json(
-        { error: 'Activity not found', code: 'ACTIVITY_NOT_FOUND' },
-        { status: 404 }
+      if (!activity) {
+        return NextResponse.json(
+          { error: 'Activity not found', code: 'ACTIVITY_NOT_FOUND' },
+          { status: 404 }
+        );
+      }
+
+      // Update activity status
+      const updated = await prisma.carePlanActivity.update({
+        where: { id: activityId },
+        data: {
+          status: action === 'complete' ? 'COMPLETED' : 'PENDING',
+          completedAt: action === 'complete' ? new Date() : null,
+        } as any,
+      });
+
+      logger.info('Care plan activity updated', {
+        patientId: user.patientId,
+        activityId,
+        action,
+      });
+
+      await logPHIUpdate(
+        req,
+        user,
+        'CarePlanActivity',
+        String(activityId),
+        user.patientId,
+        ['status', 'completedAt'],
+        {
+          action,
+        }
       );
+
+      return NextResponse.json({
+        success: true,
+        activity: {
+          id: updated.id,
+          status: (updated as any).status,
+          completedAt: (updated as any).completedAt,
+        },
+      });
+    } catch (error) {
+      return handleApiError(error, {
+        context: { route: 'POST /api/patient-portal/care-plan/activity' },
+      });
     }
-
-    // Update activity status
-    const updated = await prisma.carePlanActivity.update({
-      where: { id: activityId },
-      data: {
-        status: action === 'complete' ? 'COMPLETED' : 'PENDING',
-        completedAt: action === 'complete' ? new Date() : null,
-      } as any,
-    });
-
-    logger.info('Care plan activity updated', {
-      patientId: user.patientId,
-      activityId,
-      action,
-    });
-
-    await logPHIUpdate(req, user, 'CarePlanActivity', String(activityId), user.patientId, ['status', 'completedAt'], {
-      action,
-    });
-
-    return NextResponse.json({
-      success: true,
-      activity: {
-        id: updated.id,
-        status: (updated as any).status,
-        completedAt: (updated as any).completedAt,
-      },
-    });
-  } catch (error) {
-    return handleApiError(error, { context: { route: 'POST /api/patient-portal/care-plan/activity' } });
-  }
-}, { roles: ['patient'] });
+  },
+  { roles: ['patient'] }
+);

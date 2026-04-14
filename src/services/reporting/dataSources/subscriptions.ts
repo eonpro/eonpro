@@ -1,5 +1,11 @@
 import { prisma } from '@/lib/db';
-import type { DataSourceAdapter, ReportConfig, ReportResult, DataSourceDef, ReportRow } from '../types';
+import type {
+  DataSourceAdapter,
+  ReportConfig,
+  ReportResult,
+  DataSourceDef,
+  ReportRow,
+} from '../types';
 
 const definition: DataSourceDef = {
   id: 'subscriptions',
@@ -7,10 +13,24 @@ const definition: DataSourceDef = {
   description: 'Active subscriptions, churn, MRR, and billing cycles',
   icon: 'Repeat',
   columns: [
-    { id: 'date', label: 'Start Date', type: 'date', sortable: true, filterable: true, groupable: true },
+    {
+      id: 'date',
+      label: 'Start Date',
+      type: 'date',
+      sortable: true,
+      filterable: true,
+      groupable: true,
+    },
     { id: 'patientId', label: 'Patient ID', type: 'number', sortable: true },
     { id: 'clinicName', label: 'Clinic', type: 'string', sortable: true, groupable: true },
-    { id: 'status', label: 'Status', type: 'string', sortable: true, filterable: true, groupable: true },
+    {
+      id: 'status',
+      label: 'Status',
+      type: 'string',
+      sortable: true,
+      filterable: true,
+      groupable: true,
+    },
     { id: 'amount', label: 'Amount', type: 'currency', sortable: true },
     { id: 'interval', label: 'Interval', type: 'string', groupable: true },
     { id: 'currentPeriodEnd', label: 'Period End', type: 'date' },
@@ -19,17 +39,26 @@ const definition: DataSourceDef = {
     { id: 'daysSinceStart', label: 'Age (Days)', type: 'number', sortable: true },
   ],
   filters: [
-    { field: 'status', label: 'Status', type: 'multi_select', options: [
-      { value: 'ACTIVE', label: 'Active' }, { value: 'PAUSED', label: 'Paused' },
-      { value: 'CANCELED', label: 'Canceled' }, { value: 'PAST_DUE', label: 'Past Due' },
-      { value: 'EXPIRED', label: 'Expired' },
-    ]},
+    {
+      field: 'status',
+      label: 'Status',
+      type: 'multi_select',
+      options: [
+        { value: 'ACTIVE', label: 'Active' },
+        { value: 'PAUSED', label: 'Paused' },
+        { value: 'CANCELED', label: 'Canceled' },
+        { value: 'PAST_DUE', label: 'Past Due' },
+        { value: 'EXPIRED', label: 'Expired' },
+      ],
+    },
     { field: 'clinicId', label: 'Clinic', type: 'select' },
     { field: 'dateRange', label: 'Date Range', type: 'date_range' },
   ],
   groupByOptions: [
-    { id: 'clinicName', label: 'By Clinic' }, { id: 'status', label: 'By Status' },
-    { id: 'interval', label: 'By Interval' }, { id: 'month', label: 'By Start Month' },
+    { id: 'clinicName', label: 'By Clinic' },
+    { id: 'status', label: 'By Status' },
+    { id: 'interval', label: 'By Interval' },
+    { id: 'month', label: 'By Start Month' },
   ],
 };
 
@@ -37,7 +66,10 @@ async function execute(config: ReportConfig): Promise<ReportResult> {
   const where: Record<string, any> = {};
   if (config.clinicId) where.clinicId = config.clinicId;
   if (config.dateRange) {
-    where.startDate = { gte: new Date(config.dateRange.startDate), lte: new Date(config.dateRange.endDate + 'T23:59:59.999Z') };
+    where.startDate = {
+      gte: new Date(config.dateRange.startDate),
+      lte: new Date(config.dateRange.endDate + 'T23:59:59.999Z'),
+    };
   }
   for (const f of config.filters) {
     if (f.field === 'status' && f.operator === 'in') where.status = { in: f.value };
@@ -52,8 +84,12 @@ async function execute(config: ReportConfig): Promise<ReportResult> {
 
   const now = Date.now();
   const rows: ReportRow[] = subs.map((s) => ({
-    id: s.id, date: s.startDate.toISOString(), patientId: s.patientId,
-    clinicName: s.clinic?.name || '', status: s.status, amount: s.amount,
+    id: s.id,
+    date: s.startDate.toISOString(),
+    patientId: s.patientId,
+    clinicName: s.clinic?.name || '',
+    status: s.status,
+    amount: s.amount,
     interval: s.interval || 'month',
     currentPeriodEnd: s.currentPeriodEnd?.toISOString() || null,
     canceledAt: s.canceledAt?.toISOString() || null,
@@ -70,10 +106,24 @@ async function execute(config: ReportConfig): Promise<ReportResult> {
     canceled: subs.filter((s) => s.status === 'CANCELED').length,
     pastDue: subs.filter((s) => s.status === 'PAST_DUE').length,
     mrr: activeSubs.reduce((a, s) => a + s.amount, 0),
-    churnRate: subs.length > 0 ? Math.round((subs.filter((s) => s.status === 'CANCELED').length / subs.length) * 10000) / 100 : 0,
+    churnRate:
+      subs.length > 0
+        ? Math.round((subs.filter((s) => s.status === 'CANCELED').length / subs.length) * 10000) /
+          100
+        : 0,
   };
 
-  return { rows: grouped, summary, meta: { totalRows: grouped.length, executedAt: new Date().toISOString(), dataSource: 'subscriptions', dateRange: config.dateRange, groupBy: config.groupBy } };
+  return {
+    rows: grouped,
+    summary,
+    meta: {
+      totalRows: grouped.length,
+      executedAt: new Date().toISOString(),
+      dataSource: 'subscriptions',
+      dateRange: config.dateRange,
+      groupBy: config.groupBy,
+    },
+  };
 }
 
 function groupRows(rows: ReportRow[], groupBy: string): ReportRow[] {

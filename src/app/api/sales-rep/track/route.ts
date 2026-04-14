@@ -35,7 +35,8 @@ function hashIp(ip: string): string {
 export async function POST(request: NextRequest) {
   try {
     const forwardedFor = request.headers.get('x-forwarded-for');
-    const clientIp = forwardedFor?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'unknown';
+    const clientIp =
+      forwardedFor?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'unknown';
     const ipAddressHash = hashIp(clientIp);
 
     const rawBody = await request.json();

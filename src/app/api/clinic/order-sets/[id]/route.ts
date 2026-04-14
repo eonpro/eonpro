@@ -11,9 +11,21 @@ const updateOrderSetSchema = z.object({
     .array(
       z.object({
         medicationKey: z.union([z.string(), z.number()]).transform(String).pipe(z.string().min(1)),
-        sig: z.union([z.string(), z.number()]).optional().default('').transform((v) => (v == null || v === '' ? '' : String(v))),
-        quantity: z.union([z.string(), z.number()]).optional().default('1').transform((v) => String(v ?? '1')),
-        refills: z.union([z.string(), z.number()]).optional().default('0').transform((v) => String(v ?? '0')),
+        sig: z
+          .union([z.string(), z.number()])
+          .optional()
+          .default('')
+          .transform((v) => (v == null || v === '' ? '' : String(v))),
+        quantity: z
+          .union([z.string(), z.number()])
+          .optional()
+          .default('1')
+          .transform((v) => String(v ?? '1')),
+        refills: z
+          .union([z.string(), z.number()])
+          .optional()
+          .default('0')
+          .transform((v) => String(v ?? '0')),
         daysSupply: z.coerce.number().int().min(1).max(365).default(30),
         sortOrder: z.coerce.number().int().min(0).default(0),
       })
@@ -49,7 +61,9 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
     return NextResponse.json({ orderSet });
   } catch (err) {
-    logger.error('[ORDER_SETS/GET_ONE] Failed', { error: err instanceof Error ? err.message : String(err) });
+    logger.error('[ORDER_SETS/GET_ONE] Failed', {
+      error: err instanceof Error ? err.message : String(err),
+    });
     return NextResponse.json({ error: 'Failed to fetch order set' }, { status: 500 });
   }
 }
@@ -78,10 +92,7 @@ async function handlePut(req: NextRequest, user: AuthUser) {
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Invalid JSON body';
       logger.error('[ORDER_SETS/PUT] Invalid body', { error: msg });
-      return NextResponse.json(
-        { error: 'Invalid request body', details: msg },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid request body', details: msg }, { status: 400 });
     }
 
     const result = updateOrderSetSchema.safeParse(body);
@@ -110,7 +121,10 @@ async function handlePut(req: NextRequest, user: AuthUser) {
           await tx.rxOrderSetItem.createMany({ data: rows });
         } catch (createErr) {
           const createMsg = createErr instanceof Error ? createErr.message : String(createErr);
-          logger.error('[ORDER_SETS/PUT] createMany failed', { error: createMsg, rowCount: rows.length });
+          logger.error('[ORDER_SETS/PUT] createMany failed', {
+            error: createMsg,
+            rowCount: rows.length,
+          });
           throw createErr;
         }
       }
@@ -166,7 +180,9 @@ async function handleDelete(req: NextRequest, user: AuthUser) {
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    logger.error('[ORDER_SETS/DELETE] Failed', { error: err instanceof Error ? err.message : String(err) });
+    logger.error('[ORDER_SETS/DELETE] Failed', {
+      error: err instanceof Error ? err.message : String(err),
+    });
     return NextResponse.json({ error: 'Failed to delete order set' }, { status: 500 });
   }
 }

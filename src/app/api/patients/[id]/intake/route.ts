@@ -136,7 +136,7 @@ export const PUT = withAuthParams(
       // Merge with existing data if present
       if (intakeDoc) {
         try {
-          const existingData = (await readIntakeData(intakeDoc) as Record<string, any>) || {};
+          const existingData = ((await readIntakeData(intakeDoc)) as Record<string, any>) || {};
 
           // Preserve original submission info
           if (existingData.submissionId) {
@@ -165,10 +165,11 @@ export const PUT = withAuthParams(
       }
 
       // Dual-write: S3 + DB `data` column (Phase 3.3)
-      const { s3DataKey, dataBuffer } = await storeIntakeData(
-        intakeDataToStore,
-        { documentId: intakeDoc?.id, patientId, clinicId: user.clinicId }
-      );
+      const { s3DataKey, dataBuffer } = await storeIntakeData(intakeDataToStore, {
+        documentId: intakeDoc?.id,
+        patientId,
+        clinicId: user.clinicId,
+      });
 
       if (intakeDoc) {
         // Update existing document

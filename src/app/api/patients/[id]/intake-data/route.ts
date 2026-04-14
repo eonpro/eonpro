@@ -56,15 +56,17 @@ const getIntakeDataHandler = withAuthParams(
             },
           })
         ),
-        prisma.invoice.findFirst({
-          where: {
-            patientId,
-            status: 'PAID',
-            ...(clinicId ? { clinicId } : {}),
-          },
-          orderBy: { createdAt: 'desc' },
-          select: { metadata: true },
-        }).catch(() => null),
+        prisma.invoice
+          .findFirst({
+            where: {
+              patientId,
+              status: 'PAID',
+              ...(clinicId ? { clinicId } : {}),
+            },
+            orderBy: { createdAt: 'desc' },
+            select: { metadata: true },
+          })
+          .catch(() => null),
       ]);
 
       // Fetch binary data + S3 key for intake form documents and parse to JSON
@@ -98,8 +100,8 @@ const getIntakeDataHandler = withAuthParams(
       }
 
       const invoiceMeta = latestInvoice?.metadata as Record<string, unknown> | null;
-      const previousGlp1Details =
-        (invoiceMeta?.previousGlp1Details || invoiceMeta?.previous_glp1_details) as string | undefined;
+      const previousGlp1Details = (invoiceMeta?.previousGlp1Details ||
+        invoiceMeta?.previous_glp1_details) as string | undefined;
 
       return NextResponse.json({
         documents: documentsWithData,

@@ -67,13 +67,7 @@ export default function GlobalError({
                   boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
                 }}
               >
-                <svg
-                  width="48"
-                  height="48"
-                  fill="none"
-                  stroke="#B8544F"
-                  viewBox="0 0 24 24"
-                >
+                <svg width="48" height="48" fill="none" stroke="#B8544F" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -105,8 +99,7 @@ export default function GlobalError({
                 color: '#6B7280',
               }}
             >
-              An unexpected error occurred. Our team has been notified and is
-              looking into it.
+              An unexpected error occurred. Our team has been notified and is looking into it.
             </p>
 
             {error.digest && (

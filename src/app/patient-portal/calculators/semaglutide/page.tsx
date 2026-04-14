@@ -22,12 +22,24 @@ const SemaglutideSupportPanels = dynamic(
         ))}
       </div>
     ),
-  },
+  }
 );
 
 const concentrations = [
-  { value: 2.5, label: '2.5 mg/mL', color: '#3B82F6', tag: 'Most Popular', tagColor: 'bg-amber-100 text-amber-700' },
-  { value: 5, label: '5 mg/mL', color: '#10B981', tag: 'Highest Dose/mL', tagColor: 'bg-blue-100 text-blue-700' },
+  {
+    value: 2.5,
+    label: '2.5 mg/mL',
+    color: '#3B82F6',
+    tag: 'Most Popular',
+    tagColor: 'bg-amber-100 text-amber-700',
+  },
+  {
+    value: 5,
+    label: '5 mg/mL',
+    color: '#10B981',
+    tag: 'Highest Dose/mL',
+    tagColor: 'bg-blue-100 text-blue-700',
+  },
 ];
 
 const dosingSchedule = [
@@ -48,12 +60,15 @@ export default function SemaglutideDoseCalculatorPage() {
   const [selectedWeek, setSelectedWeek] = useState<(typeof dosingSchedule)[0] | null>(null);
   const [, startTransition] = useTransition();
 
-  const handleUnitsChange = useCallback((value: string) => {
-    startTransition(() => {
-      setUnits(value);
-      setSelectedWeek(null);
-    });
-  }, [startTransition]);
+  const handleUnitsChange = useCallback(
+    (value: string) => {
+      startTransition(() => {
+        setUnits(value);
+        setSelectedWeek(null);
+      });
+    },
+    [startTransition]
+  );
 
   const result = useMemo(() => {
     const unitsNum = parseFloat(units || '0');
@@ -65,7 +80,7 @@ export default function SemaglutideDoseCalculatorPage() {
 
   const fillPercentage = useMemo(
     () => Math.min(100, (parseFloat(units || '0') / 100) * 100),
-    [units],
+    [units]
   );
 
   return (
@@ -112,9 +127,7 @@ export default function SemaglutideDoseCalculatorPage() {
                   >
                     <span
                       className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                        concentration === c.value
-                          ? 'bg-white/20 text-white'
-                          : c.tagColor
+                        concentration === c.value ? 'bg-white/20 text-white' : c.tagColor
                       }`}
                     >
                       {c.tag}
@@ -216,7 +229,13 @@ export default function SemaglutideDoseCalculatorPage() {
                       <rect x="74" y="34" width="236" height="16" rx="3" />
                     </clipPath>
                     <filter id="syrShadow" x="-2%" y="-12%" width="104%" height="135%">
-                      <feDropShadow dx="0" dy="1" stdDeviation="1.5" floodColor="#000" floodOpacity="0.06" />
+                      <feDropShadow
+                        dx="0"
+                        dy="1"
+                        stdDeviation="1.5"
+                        floodColor="#000"
+                        floodOpacity="0.06"
+                      />
                     </filter>
                   </defs>
 
@@ -246,8 +265,26 @@ export default function SemaglutideDoseCalculatorPage() {
                   ))}
 
                   {/* Thumb rest */}
-                  <rect x="346" y="37.5" width="6" height="10" rx="2" fill="url(#syrMetal)" stroke="#b0b6be" strokeWidth="0.5" />
-                  <rect x="350" y="35" width="5" height="15" rx="2.5" fill="url(#syrMetal)" stroke="#b0b6be" strokeWidth="0.5" />
+                  <rect
+                    x="346"
+                    y="37.5"
+                    width="6"
+                    height="10"
+                    rx="2"
+                    fill="url(#syrMetal)"
+                    stroke="#b0b6be"
+                    strokeWidth="0.5"
+                  />
+                  <rect
+                    x="350"
+                    y="35"
+                    width="5"
+                    height="15"
+                    rx="2.5"
+                    fill="url(#syrMetal)"
+                    stroke="#b0b6be"
+                    strokeWidth="0.5"
+                  />
 
                   {/* Barrel body */}
                   <rect
@@ -263,7 +300,15 @@ export default function SemaglutideDoseCalculatorPage() {
                   />
 
                   {/* Glass highlight streak */}
-                  <rect x="80" y="34" width="224" height="2.5" rx="1.25" fill="white" opacity="0.5" />
+                  <rect
+                    x="80"
+                    y="34"
+                    width="224"
+                    height="2.5"
+                    rx="1.25"
+                    fill="white"
+                    opacity="0.5"
+                  />
 
                   {/* Liquid fill */}
                   <g clipPath="url(#syrClip)">
@@ -291,8 +336,24 @@ export default function SemaglutideDoseCalculatorPage() {
                     }}
                   >
                     <rect x="74" y="33" width="6" height="18" rx="1.5" fill="url(#syrRubber)" />
-                    <line x1="76" y1="35" x2="76" y2="49" stroke="#6b7280" strokeWidth="0.3" opacity="0.3" />
-                    <line x1="78" y1="35" x2="78" y2="49" stroke="#6b7280" strokeWidth="0.3" opacity="0.3" />
+                    <line
+                      x1="76"
+                      y1="35"
+                      x2="76"
+                      y2="49"
+                      stroke="#6b7280"
+                      strokeWidth="0.3"
+                      opacity="0.3"
+                    />
+                    <line
+                      x1="78"
+                      y1="35"
+                      x2="78"
+                      y2="49"
+                      stroke="#6b7280"
+                      strokeWidth="0.3"
+                      opacity="0.3"
+                    />
                   </g>
 
                   {/* mg indicator above fill level */}
@@ -303,10 +364,28 @@ export default function SemaglutideDoseCalculatorPage() {
                         transition: 'transform 700ms ease-out',
                       }}
                     >
-                      <line x1="77" y1="24" x2="77" y2="32" stroke="#c9a84c" strokeWidth="0.6" opacity="0.5" />
-                      <rect x="58" y="11" width="38" height="14" rx="4" fill="#fef9eb" stroke="#e8c766" strokeWidth="0.6" />
+                      <line
+                        x1="77"
+                        y1="24"
+                        x2="77"
+                        y2="32"
+                        stroke="#c9a84c"
+                        strokeWidth="0.6"
+                        opacity="0.5"
+                      />
+                      <rect
+                        x="58"
+                        y="11"
+                        width="38"
+                        height="14"
+                        rx="4"
+                        fill="#fef9eb"
+                        stroke="#e8c766"
+                        strokeWidth="0.6"
+                      />
                       <text
-                        x="77" y="21"
+                        x="77"
+                        y="21"
                         textAnchor="middle"
                         fill="#a8861e"
                         fontSize="7"
@@ -327,20 +406,27 @@ export default function SemaglutideDoseCalculatorPage() {
                     return (
                       <g key={mark}>
                         <line
-                          x1={x} y1={32} x2={x} y2={32 + tickLen}
+                          x1={x}
+                          y1={32}
+                          x2={x}
+                          y2={32 + tickLen}
                           stroke={isMajor ? '#6b7280' : '#b0b6be'}
                           strokeWidth={isMajor ? 0.8 : 0.5}
                           strokeLinecap="round"
                         />
                         <line
-                          x1={x} y1={52} x2={x} y2={52 - tickLen}
+                          x1={x}
+                          y1={52}
+                          x2={x}
+                          y2={52 - tickLen}
                           stroke={isMajor ? '#6b7280' : '#b0b6be'}
                           strokeWidth={isMajor ? 0.8 : 0.5}
                           strokeLinecap="round"
                         />
                         {mark > 0 && (
                           <text
-                            x={x} y={64}
+                            x={x}
+                            y={64}
                             textAnchor="middle"
                             fill={isMajor ? '#6b7280' : '#9ca3af'}
                             fontSize={isMajor ? '9' : '7.5'}
@@ -363,7 +449,15 @@ export default function SemaglutideDoseCalculatorPage() {
                     strokeWidth="0.5"
                     strokeLinejoin="round"
                   />
-                  <line x1="67" y1="38" x2="67" y2="46" stroke="#b8bfc8" strokeWidth="0.4" opacity="0.4" />
+                  <line
+                    x1="67"
+                    y1="38"
+                    x2="67"
+                    y2="46"
+                    stroke="#b8bfc8"
+                    strokeWidth="0.4"
+                    opacity="0.4"
+                  />
 
                   {/* Needle shaft */}
                   <rect x="42" y="41.2" width="22" height="1.6" rx="0.8" fill="url(#syrNeedle)" />
@@ -384,7 +478,8 @@ export default function SemaglutideDoseCalculatorPage() {
 
                   {/* "UNITS" label */}
                   <text
-                    x="190" y="77"
+                    x="190"
+                    y="77"
                     textAnchor="middle"
                     fill="#b0b6be"
                     fontSize="7"

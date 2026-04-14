@@ -133,7 +133,7 @@ function extractRequestContext(request: NextRequest | Headers): RequestContext {
     method: isFullRequest ? (request as NextRequest).method : 'GET',
     path: isFullRequest
       ? new URL((request as NextRequest).url).pathname
-      : (hdrs.get('x-invoke-path') || hdrs.get('x-matched-path') || 'server-component'),
+      : hdrs.get('x-invoke-path') || hdrs.get('x-matched-path') || 'server-component',
     timestamp: new Date(),
   };
 }
@@ -262,7 +262,10 @@ export async function auditLog(request: AuditRequestSource, context: AuditContex
     } catch (fallbackError) {
       // HIPAA §164.312(b): audit controls are mandatory.
       // If both DB and fallback fail, the operation MUST NOT proceed silently.
-      logger.error('CRITICAL: All audit channels failed — re-throwing to block operation', fallbackError);
+      logger.error(
+        'CRITICAL: All audit channels failed — re-throwing to block operation',
+        fallbackError
+      );
       throw new Error(
         'Audit logging failed on all channels. Operation blocked for HIPAA compliance.'
       );
@@ -520,9 +523,7 @@ export async function generateAuditReport(
         : sanitized;
     };
     const headers = Object.keys(logs[0] || {}).join(',');
-    const rows = logs.map((log) =>
-      Object.values(log).map(sanitizeCsvValue).join(',')
-    );
+    const rows = logs.map((log) => Object.values(log).map(sanitizeCsvValue).join(','));
     return [headers, ...rows].join('\n');
   } else {
     // Generate PDF report (would use a PDF library)
@@ -710,7 +711,9 @@ export interface AuditPhiAccessOptions {
  * Sanitize metadata: remove any key that could hold PHI content.
  * Only identifiers and non-PHI metadata are allowed.
  */
-function sanitizeAuditMetadata(metadata: Record<string, unknown> | undefined): Record<string, unknown> {
+function sanitizeAuditMetadata(
+  metadata: Record<string, unknown> | undefined
+): Record<string, unknown> {
   if (!metadata || typeof metadata !== 'object') return {};
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(metadata)) {
@@ -727,8 +730,10 @@ function sanitizeAuditMetadata(metadata: Record<string, unknown> | undefined): R
  * Map action string to HIPAA event type for storage
  */
 function eventTypeFromAction(action: string): string {
-  if (action.includes('view') || action === 'invoice:view' || action === 'message:view') return 'PHI_VIEW';
-  if (action.includes('edit') || action.includes('create') || action === 'message:send') return 'PHI_UPDATE';
+  if (action.includes('view') || action === 'invoice:view' || action === 'message:view')
+    return 'PHI_VIEW';
+  if (action.includes('edit') || action.includes('create') || action === 'message:send')
+    return 'PHI_UPDATE';
   if (action.includes('export')) return 'PHI_EXPORT';
   return 'PHI_VIEW';
 }

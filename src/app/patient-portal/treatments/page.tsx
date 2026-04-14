@@ -2,8 +2,6 @@
 
 import React from 'react';
 
-
-
 const TREATMENT_CARDS = [
   {
     id: 'weight-loss',
@@ -33,36 +31,27 @@ const TREATMENT_CARDS = [
 
 export default function TreatmentsPage() {
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8 space-y-8">
+    <div className="mx-auto max-w-2xl space-y-8 px-4 py-8">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Our Treatments</h1>
-        <p className="text-gray-500 mt-1">
-          Explore the programs available to you
-        </p>
+        <p className="mt-1 text-gray-500">Explore the programs available to you</p>
       </div>
 
       <div className="space-y-4">
         {TREATMENT_CARDS.map((treatment) => (
           <div
             key={treatment.id}
-            className="rounded-xl border border-gray-100 p-6 hover:border-gray-200 transition-colors"
+            className="rounded-xl border border-gray-100 p-6 transition-colors hover:border-gray-200"
           >
             <div className="flex items-start gap-4">
               <span className="text-3xl">{treatment.icon}</span>
               <div className="flex-1">
-                <h2 className="text-lg font-semibold text-gray-900">
-                  {treatment.title}
-                </h2>
-                <p className="text-sm text-gray-500 mt-1">
-                  {treatment.description}
-                </p>
+                <h2 className="text-lg font-semibold text-gray-900">{treatment.title}</h2>
+                <p className="mt-1 text-sm text-gray-500">{treatment.description}</p>
                 <ul className="mt-3 space-y-1.5">
                   {treatment.highlights.map((h) => (
-                    <li
-                      key={h}
-                      className="flex items-center gap-2 text-sm text-gray-600"
-                    >
-                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 flex-shrink-0" />
+                    <li key={h} className="flex items-center gap-2 text-sm text-gray-600">
+                      <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-indigo-400" />
                       {h}
                     </li>
                   ))}
@@ -74,12 +63,9 @@ export default function TreatmentsPage() {
       </div>
 
       <div className="rounded-xl bg-indigo-50 p-6 text-center">
-        <h3 className="text-base font-semibold text-gray-900">
-          Interested in a treatment?
-        </h3>
-        <p className="text-sm text-gray-500 mt-1">
-          Contact your provider to discuss which treatment plan is right for
-          you.
+        <h3 className="text-base font-semibold text-gray-900">Interested in a treatment?</h3>
+        <p className="mt-1 text-sm text-gray-500">
+          Contact your provider to discuss which treatment plan is right for you.
         </p>
       </div>
     </div>

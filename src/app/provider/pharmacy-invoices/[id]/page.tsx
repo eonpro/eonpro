@@ -74,11 +74,34 @@ interface OrderGroup {
 const formatCurrency = (cents: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
 
-const MATCH_STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; border: string }> = {
-  MATCHED: { label: 'Matched', color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' },
-  UNMATCHED: { label: 'Unmatched', color: 'text-red-700', bg: 'bg-red-50', border: 'border-red-200' },
-  DISCREPANCY: { label: 'Discrepancy', color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-200' },
-  PENDING: { label: 'Pending', color: 'text-gray-500', bg: 'bg-gray-50', border: 'border-gray-200' },
+const MATCH_STATUS_CONFIG: Record<
+  string,
+  { label: string; color: string; bg: string; border: string }
+> = {
+  MATCHED: {
+    label: 'Matched',
+    color: 'text-emerald-700',
+    bg: 'bg-emerald-50',
+    border: 'border-emerald-200',
+  },
+  UNMATCHED: {
+    label: 'Unmatched',
+    color: 'text-red-700',
+    bg: 'bg-red-50',
+    border: 'border-red-200',
+  },
+  DISCREPANCY: {
+    label: 'Discrepancy',
+    color: 'text-amber-700',
+    bg: 'bg-amber-50',
+    border: 'border-amber-200',
+  },
+  PENDING: {
+    label: 'Pending',
+    color: 'text-gray-500',
+    bg: 'bg-gray-50',
+    border: 'border-gray-200',
+  },
 };
 
 const LINE_TYPE_ICON: Record<string, React.ElementType> = {
@@ -108,7 +131,9 @@ export default function ProviderPharmacyInvoiceDetailPage() {
         setSummary(json.data.summary);
         setOrderGroups(json.data.orderGroups ?? []);
         // Expand all by default for provider view (typically fewer orders)
-        setExpandedOrders(new Set((json.data.orderGroups ?? []).map((g: OrderGroup) => g.lifefileOrderId)));
+        setExpandedOrders(
+          new Set((json.data.orderGroups ?? []).map((g: OrderGroup) => g.lifefileOrderId))
+        );
       }
     } catch {
       // handled
@@ -135,10 +160,11 @@ export default function ProviderPharmacyInvoiceDetailPage() {
     const q = search.toLowerCase();
     return (
       g.lifefileOrderId?.toLowerCase().includes(q) ||
-      g.lineItems.some((li) =>
-        li.patientName?.toLowerCase().includes(q) ||
-        li.rxNumber?.toLowerCase().includes(q) ||
-        li.medicationName?.toLowerCase().includes(q)
+      g.lineItems.some(
+        (li) =>
+          li.patientName?.toLowerCase().includes(q) ||
+          li.rxNumber?.toLowerCase().includes(q) ||
+          li.medicationName?.toLowerCase().includes(q)
       )
     );
   });
@@ -153,7 +179,7 @@ export default function ProviderPharmacyInvoiceDetailPage() {
 
   if (!summary) {
     return (
-      <div className="flex flex-col items-center justify-center py-24 gap-4">
+      <div className="flex flex-col items-center justify-center gap-4 py-24">
         <p className="text-gray-500">Invoice not found.</p>
         <button onClick={() => router.back()} className="text-emerald-600 hover:underline">
           Go back
@@ -193,9 +219,7 @@ export default function ProviderPharmacyInvoiceDetailPage() {
           <span className="text-xs font-medium uppercase tracking-wider text-gray-400">
             Your Orders
           </span>
-          <div className="mt-2 text-lg font-bold text-gray-900">
-            {orderGroups.length} orders
-          </div>
+          <div className="mt-2 text-lg font-bold text-gray-900">{orderGroups.length} orders</div>
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-5">
           <span className="text-xs font-medium uppercase tracking-wider text-gray-400">
@@ -219,7 +243,7 @@ export default function ProviderPharmacyInvoiceDetailPage() {
       </div>
 
       {/* Search */}
-      <div className="mb-4 relative">
+      <div className="relative mb-4">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
         <input
           type="text"
@@ -253,7 +277,9 @@ export default function ProviderPharmacyInvoiceDetailPage() {
                 className={`flex w-full items-center justify-between px-6 py-4 text-left hover:bg-gray-50 ${cfg.bg}`}
               >
                 <div className="flex items-center gap-4">
-                  <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${cfg.color} ${cfg.bg}`}>
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${cfg.color} ${cfg.bg}`}
+                  >
                     {cfg.label}
                   </span>
                   <div>
@@ -291,7 +317,8 @@ export default function ProviderPharmacyInvoiceDetailPage() {
                     <tbody className="divide-y divide-gray-50">
                       {group.lineItems.map((li) => {
                         const Icon = LINE_TYPE_ICON[li.lineType] ?? FileText;
-                        const liCfg = MATCH_STATUS_CONFIG[li.matchStatus] ?? MATCH_STATUS_CONFIG.PENDING;
+                        const liCfg =
+                          MATCH_STATUS_CONFIG[li.matchStatus] ?? MATCH_STATUS_CONFIG.PENDING;
 
                         return (
                           <tr key={li.id} className="hover:bg-gray-50">

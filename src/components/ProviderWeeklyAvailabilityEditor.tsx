@@ -89,7 +89,9 @@ export default function ProviderWeeklyAvailabilityEditor({
     setIsLoading(true);
     setError(null);
     try {
-      const y = weekStart.getFullYear(), m = String(weekStart.getMonth() + 1).padStart(2, '0'), dd = String(weekStart.getDate()).padStart(2, '0');
+      const y = weekStart.getFullYear(),
+        m = String(weekStart.getMonth() + 1).padStart(2, '0'),
+        dd = String(weekStart.getDate()).padStart(2, '0');
       const startStr = `${y}-${m}-${dd}`;
       const res = await apiFetch(
         `/api/scheduling/availability/weekly?providerId=${providerId}&startDate=${startStr}&weeks=4`
@@ -357,9 +359,7 @@ export default function ProviderWeeklyAvailabilityEditor({
             <input
               type="checkbox"
               checked={editingDay.isUnavailable}
-              onChange={(e) =>
-                setEditingDay({ ...editingDay, isUnavailable: e.target.checked })
-              }
+              onChange={(e) => setEditingDay({ ...editingDay, isUnavailable: e.target.checked })}
               className="h-4 w-4 rounded border-gray-300 text-red-500 focus:ring-red-500"
             />
             <span className="text-sm text-gray-700">Mark as unavailable this day</span>
@@ -445,14 +445,9 @@ export default function ProviderWeeklyAvailabilityEditor({
         const wStart = new Date(weekStartDate + 'T00:00:00');
 
         return (
-          <div
-            key={weekIdx}
-            className="rounded-xl border border-gray-200 bg-white shadow-sm"
-          >
+          <div key={weekIdx} className="rounded-xl border border-gray-200 bg-white shadow-sm">
             <div className="flex items-center justify-between border-b px-4 py-3">
-              <span className="text-sm font-semibold text-gray-900">
-                {formatWeekRange(wStart)}
-              </span>
+              <span className="text-sm font-semibold text-gray-900">{formatWeekRange(wStart)}</span>
               {!readOnly && weekIdx < weeks.length - 1 && (
                 <button
                   onClick={() => handleCopyWeek(weekIdx)}
@@ -495,7 +490,9 @@ export default function ProviderWeeklyAvailabilityEditor({
                       </span>
                       <span
                         className={`text-xs font-medium ${
-                          isToday ? 'rounded-full bg-[#4fa77e] px-1.5 py-0.5 text-white' : 'text-gray-500'
+                          isToday
+                            ? 'rounded-full bg-[#4fa77e] px-1.5 py-0.5 text-white'
+                            : 'text-gray-500'
                         }`}
                       >
                         {new Date(day.date + 'T00:00:00').getDate()}
@@ -532,9 +529,7 @@ export default function ProviderWeeklyAvailabilityEditor({
                     ) : day.source === 'unavailable' ? (
                       <div className="flex items-center gap-1">
                         <X className="h-3 w-3 text-red-400" />
-                        <span className="text-[10px] font-medium text-red-500">
-                          Unavailable
-                        </span>
+                        <span className="text-[10px] font-medium text-red-500">Unavailable</span>
                       </div>
                     ) : day.blocks.length === 0 ? (
                       <span className="text-[10px] text-gray-300">No hours</span>
@@ -568,7 +563,10 @@ export default function ProviderWeeklyAvailabilityEditor({
                     )}
 
                     {day.notes && (
-                      <p className="mt-0.5 truncate text-[9px] italic text-gray-400" title={day.notes}>
+                      <p
+                        className="mt-0.5 truncate text-[9px] italic text-gray-400"
+                        title={day.notes}
+                      >
                         {day.notes}
                       </p>
                     )}

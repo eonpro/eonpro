@@ -2,15 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 
-import {
-  Video,
-  VideoOff,
-  ExternalLink,
-  PhoneOff,
-  Mic,
-  AlertTriangle,
-  Loader2,
-} from 'lucide-react';
+import { Video, VideoOff, ExternalLink, PhoneOff, Mic, AlertTriangle, Loader2 } from 'lucide-react';
 
 export interface ZoomEmbeddedMeetingProps {
   meetingNumber: string;
@@ -33,21 +25,21 @@ type MeetingStatus = 'ready' | 'loading' | 'active' | 'ended';
 async function fetchFreshHostUrl(
   meetingNumber: string,
   sessionId?: number,
-  fallbackUrl?: string,
+  fallbackUrl?: string
 ): Promise<string | null> {
   try {
     const res = await fetch('/api/v2/zoom/meetings/host-url', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(
-        sessionId ? { sessionId } : { meetingId: meetingNumber },
-      ),
+      body: JSON.stringify(sessionId ? { sessionId } : { meetingId: meetingNumber }),
     });
     if (res.ok) {
       const data = await res.json();
       if (data.hostUrl) return data.hostUrl;
     }
-  } catch { /* fall through */ }
+  } catch {
+    /* fall through */
+  }
   return fallbackUrl || null;
 }
 
@@ -72,7 +64,7 @@ export default function ZoomEmbeddedMeeting({
       setStatus('ended');
       onMeetingEnd?.(reason);
     },
-    [onMeetingEnd],
+    [onMeetingEnd]
   );
 
   useEffect(() => {
@@ -84,7 +76,9 @@ export default function ZoomEmbeddedMeeting({
 
   useEffect(() => {
     mountedRef.current = true;
-    return () => { mountedRef.current = false; };
+    return () => {
+      mountedRef.current = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -131,7 +125,7 @@ export default function ZoomEmbeddedMeeting({
           <button
             ref={joinBtnRef}
             onClick={handleStartMeeting}
-            className="group flex flex-col items-center gap-6 rounded-3xl bg-blue-600 px-16 py-10 shadow-2xl transition-all hover:bg-blue-700 hover:shadow-blue-900/30 active:scale-[0.97] focus:outline-none focus:ring-4 focus:ring-blue-400/50"
+            className="group flex flex-col items-center gap-6 rounded-3xl bg-blue-600 px-16 py-10 shadow-2xl transition-all hover:bg-blue-700 hover:shadow-blue-900/30 focus:outline-none focus:ring-4 focus:ring-blue-400/50 active:scale-[0.97]"
           >
             <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/20 transition-transform group-hover:scale-110">
               <Video className="h-10 w-10 text-white" />
@@ -147,9 +141,7 @@ export default function ZoomEmbeddedMeeting({
               <AlertTriangle className="h-10 w-10 text-red-400" />
             </div>
             <p className="text-lg font-semibold text-white">No meeting link available</p>
-            <p className="mt-1 text-sm text-gray-400">
-              Go back and generate the video link first
-            </p>
+            <p className="mt-1 text-sm text-gray-400">Go back and generate the video link first</p>
           </div>
         )}
       </div>
@@ -162,9 +154,7 @@ export default function ZoomEmbeddedMeeting({
       <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 p-8">
         <Loader2 className="mb-4 h-12 w-12 animate-spin text-blue-400" />
         <p className="text-lg font-semibold text-white">Starting meeting as host...</p>
-        <p className="mt-1 text-sm text-gray-400">
-          Getting your host credentials from Zoom
-        </p>
+        <p className="mt-1 text-sm text-gray-400">Getting your host credentials from Zoom</p>
       </div>
     );
   }

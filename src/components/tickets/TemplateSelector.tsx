@@ -34,7 +34,7 @@ export default function TemplateSelector({ onSelect }: TemplateSelectorProps) {
 
   useEffect(() => {
     apiFetch('/api/tickets/templates')
-      .then((r) => r.ok ? r.json() : { templates: [] })
+      .then((r) => (r.ok ? r.json() : { templates: [] }))
       .then((d) => setTemplates(d.templates || []))
       .catch(() => setTemplates([]))
       .finally(() => setLoading(false));
@@ -62,7 +62,9 @@ export default function TemplateSelector({ onSelect }: TemplateSelectorProps) {
           <FileText className="h-4 w-4 text-gray-400" />
           Start from a template ({templates.length} available)
         </span>
-        <ChevronRight className={`h-4 w-4 text-gray-400 transition-transform ${expanded ? 'rotate-90' : ''}`} />
+        <ChevronRight
+          className={`h-4 w-4 text-gray-400 transition-transform ${expanded ? 'rotate-90' : ''}`}
+        />
       </button>
 
       {expanded && (
@@ -85,9 +87,7 @@ export default function TemplateSelector({ onSelect }: TemplateSelectorProps) {
               className="rounded-lg border border-gray-200 bg-white p-3 text-left transition-colors hover:border-blue-300 hover:bg-blue-50"
             >
               <div className="text-sm font-medium text-gray-900">{t.name}</div>
-              {t.description && (
-                <div className="mt-0.5 text-xs text-gray-500">{t.description}</div>
-              )}
+              {t.description && <div className="mt-0.5 text-xs text-gray-500">{t.description}</div>}
               <div className="mt-1.5 flex gap-1">
                 <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-600">
                   {t.category.replace(/_/g, ' ')}

@@ -9,10 +9,21 @@ import { ShippingStatus } from '@prisma/client';
 
 function safeDecrypt(val: string | null | undefined): string | null {
   if (!val) return null;
-  try { return decryptPHI(val) || val; } catch { return val; }
+  try {
+    return decryptPHI(val) || val;
+  } catch {
+    return val;
+  }
 }
 
-const TABS = ['label_created', 'shipped', 'in_transit', 'out_for_delivery', 'delivered', 'issues'] as const;
+const TABS = [
+  'label_created',
+  'shipped',
+  'in_transit',
+  'out_for_delivery',
+  'delivered',
+  'issues',
+] as const;
 type Tab = (typeof TABS)[number];
 
 const TAB_STATUS_MAP: Record<Tab, ShippingStatus[]> = {
@@ -28,9 +39,12 @@ function parseDateRange(range: string | undefined): Date | undefined {
   if (!range) return undefined;
   const now = new Date();
   switch (range) {
-    case '7d': return new Date(now.getTime() - 7 * 86400000);
-    case '30d': return new Date(now.getTime() - 30 * 86400000);
-    case '90d': return new Date(now.getTime() - 90 * 86400000);
+    case '7d':
+      return new Date(now.getTime() - 7 * 86400000);
+    case '30d':
+      return new Date(now.getTime() - 30 * 86400000);
+    case '90d':
+      return new Date(now.getTime() - 90 * 86400000);
     default: {
       const d = new Date(range);
       return isNaN(d.getTime()) ? undefined : d;
@@ -107,13 +121,25 @@ async function handleExport(req: NextRequest, _user: AuthUser) {
     });
 
     const header = [
-      'Lifefile ID', 'Tracking Number', 'Status', 'Status Note', 'Carrier',
-      'Patient Name', 'Clinic', 'Shipped', 'Est. Delivery', 'Actual Delivery',
-      'Signed By', 'Source', 'Created',
+      'Lifefile ID',
+      'Tracking Number',
+      'Status',
+      'Status Note',
+      'Carrier',
+      'Patient Name',
+      'Clinic',
+      'Shipped',
+      'Est. Delivery',
+      'Actual Delivery',
+      'Signed By',
+      'Source',
+      'Created',
     ].join(',');
 
     const rows = records.map((r: any) => {
-      const patientName = [safeDecrypt(r.patient?.firstName), safeDecrypt(r.patient?.lastName)].filter(Boolean).join(' ');
+      const patientName = [safeDecrypt(r.patient?.firstName), safeDecrypt(r.patient?.lastName)]
+        .filter(Boolean)
+        .join(' ');
       return [
         escapeCsv(r.lifefileOrderId || r.order?.lifefileOrderId),
         escapeCsv(r.trackingNumber),

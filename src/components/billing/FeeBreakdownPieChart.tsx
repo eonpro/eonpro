@@ -4,7 +4,11 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recha
 import type { FeeBreakdown } from '@/services/billing/billingAnalyticsService';
 
 const formatCurrency = (cents: number) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(cents / 100);
+  new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  }).format(cents / 100);
 
 const COLORS = ['#4fa77e', '#3b82f6', '#f59e0b'];
 
@@ -45,8 +49,10 @@ export default function FeeBreakdownPieChart({ data }: Props) {
           ))}
         </Pie>
         <Tooltip
-          formatter={((value: number | undefined, _name: string, props: { payload: { count: number } }) =>
-            `${formatCurrency(value ?? 0)} (${props.payload.count} events)`) as any}
+          formatter={
+            ((value: number | undefined, _name: string, props: { payload: { count: number } }) =>
+              `${formatCurrency(value ?? 0)} (${props.payload.count} events)`) as any
+          }
           contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb' }}
         />
         <Legend />

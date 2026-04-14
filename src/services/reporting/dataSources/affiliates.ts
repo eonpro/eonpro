@@ -1,5 +1,11 @@
 import { prisma } from '@/lib/db';
-import type { DataSourceAdapter, ReportConfig, ReportResult, DataSourceDef, ReportRow } from '../types';
+import type {
+  DataSourceAdapter,
+  ReportConfig,
+  ReportResult,
+  DataSourceDef,
+  ReportRow,
+} from '../types';
 
 const definition: DataSourceDef = {
   id: 'affiliates',
@@ -12,21 +18,37 @@ const definition: DataSourceDef = {
     { id: 'clinicName', label: 'Clinic', type: 'string', sortable: true, groupable: true },
     { id: 'revenue', label: 'Revenue', type: 'currency', sortable: true },
     { id: 'commission', label: 'Commission', type: 'currency', sortable: true },
-    { id: 'status', label: 'Status', type: 'string', sortable: true, filterable: true, groupable: true },
+    {
+      id: 'status',
+      label: 'Status',
+      type: 'string',
+      sortable: true,
+      filterable: true,
+      groupable: true,
+    },
     { id: 'isRecurring', label: 'Recurring', type: 'boolean', filterable: true, groupable: true },
     { id: 'recurringMonth', label: 'Month #', type: 'number' },
   ],
   filters: [
-    { field: 'status', label: 'Status', type: 'multi_select', options: [
-      { value: 'PENDING', label: 'Pending' }, { value: 'APPROVED', label: 'Approved' },
-      { value: 'PAID', label: 'Paid' }, { value: 'REVERSED', label: 'Reversed' },
-    ]},
+    {
+      field: 'status',
+      label: 'Status',
+      type: 'multi_select',
+      options: [
+        { value: 'PENDING', label: 'Pending' },
+        { value: 'APPROVED', label: 'Approved' },
+        { value: 'PAID', label: 'Paid' },
+        { value: 'REVERSED', label: 'Reversed' },
+      ],
+    },
     { field: 'clinicId', label: 'Clinic', type: 'select' },
     { field: 'dateRange', label: 'Date Range', type: 'date_range' },
   ],
   groupByOptions: [
-    { id: 'affiliateId', label: 'By Affiliate' }, { id: 'clinicName', label: 'By Clinic' },
-    { id: 'status', label: 'By Status' }, { id: 'isRecurring', label: 'New vs Recurring' },
+    { id: 'affiliateId', label: 'By Affiliate' },
+    { id: 'clinicName', label: 'By Clinic' },
+    { id: 'status', label: 'By Status' },
+    { id: 'isRecurring', label: 'New vs Recurring' },
     { id: 'month', label: 'By Month' },
   ],
 };
@@ -35,7 +57,10 @@ async function execute(config: ReportConfig): Promise<ReportResult> {
   const where: Record<string, any> = {};
   if (config.clinicId) where.clinicId = config.clinicId;
   if (config.dateRange) {
-    where.occurredAt = { gte: new Date(config.dateRange.startDate), lte: new Date(config.dateRange.endDate + 'T23:59:59.999Z') };
+    where.occurredAt = {
+      gte: new Date(config.dateRange.startDate),
+      lte: new Date(config.dateRange.endDate + 'T23:59:59.999Z'),
+    };
   }
   for (const f of config.filters) {
     if (f.field === 'status' && f.operator === 'in') where.status = { in: f.value };
@@ -50,10 +75,15 @@ async function execute(config: ReportConfig): Promise<ReportResult> {
   });
 
   const rows: ReportRow[] = events.map((e) => ({
-    id: e.id, date: e.occurredAt.toISOString(), affiliateId: e.affiliateId,
-    clinicName: e.clinic?.name || '', revenue: e.eventAmountCents,
-    commission: e.commissionAmountCents, status: e.status,
-    isRecurring: e.isRecurring, recurringMonth: e.recurringMonth,
+    id: e.id,
+    date: e.occurredAt.toISOString(),
+    affiliateId: e.affiliateId,
+    clinicName: e.clinic?.name || '',
+    revenue: e.eventAmountCents,
+    commission: e.commissionAmountCents,
+    status: e.status,
+    isRecurring: e.isRecurring,
+    recurringMonth: e.recurringMonth,
     month: e.occurredAt.toISOString().slice(0, 7),
   }));
 
@@ -64,14 +94,25 @@ async function execute(config: ReportConfig): Promise<ReportResult> {
     totalEvents: events.length,
   };
 
-  return { rows: grouped, summary, meta: { totalRows: grouped.length, executedAt: new Date().toISOString(), dataSource: 'affiliates', dateRange: config.dateRange, groupBy: config.groupBy } };
+  return {
+    rows: grouped,
+    summary,
+    meta: {
+      totalRows: grouped.length,
+      executedAt: new Date().toISOString(),
+      dataSource: 'affiliates',
+      dateRange: config.dateRange,
+      groupBy: config.groupBy,
+    },
+  };
 }
 
 function groupRows(rows: ReportRow[], groupBy: string): ReportRow[] {
   const groups = new Map<string, ReportRow>();
   for (const row of rows) {
     const key = String(row[groupBy] ?? 'Unknown');
-    if (!groups.has(key)) groups.set(key, { [groupBy]: key, count: 0, totalRevenue: 0, totalCommission: 0 });
+    if (!groups.has(key))
+      groups.set(key, { [groupBy]: key, count: 0, totalRevenue: 0, totalCommission: 0 });
     const g = groups.get(key)!;
     g.count++;
     g.totalRevenue += row.revenue || 0;

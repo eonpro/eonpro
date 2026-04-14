@@ -138,92 +138,95 @@ export const POST = withAuth(
         : defaultFeatures;
 
       // Create user in transaction
-      const newUser = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-        // Determine clinicId - super admin can specify, others inherit from creator
-        const assignedClinicId = validated.clinicId || user.clinicId;
+      const newUser = await prisma.$transaction(
+        async (tx: Prisma.TransactionClient) => {
+          // Determine clinicId - super admin can specify, others inherit from creator
+          const assignedClinicId = validated.clinicId || user.clinicId;
 
-        // Convert role to uppercase for Prisma enum
-        const prismaRole = validated.role.toUpperCase() as any;
+          // Convert role to uppercase for Prisma enum
+          const prismaRole = validated.role.toUpperCase() as any;
 
-        // Create the user
-        const createdUser = await tx.user.create({
-          data: {
-            email: validated.email.toLowerCase(),
-            passwordHash,
-            firstName: validated.firstName,
-            lastName: validated.lastName,
-            role: prismaRole,
-            permissions: finalPermissions,
-            features: finalFeatures,
-            metadata: (validated.metadata || {}) as any,
-            createdById: user.id > 0 ? user.id : undefined, // Handle admin with ID 0
-            clinicId: assignedClinicId, // Assign to clinic
-            providerId: validated.providerId,
-            influencerId: validated.influencerId,
-            patientId: validated.patientId,
-          },
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-            role: true,
-            status: true,
-            permissions: true,
-            features: true,
-            createdAt: true,
-            clinicId: true,
-            clinic: {
-              select: {
-                id: true,
-                name: true,
+          // Create the user
+          const createdUser = await tx.user.create({
+            data: {
+              email: validated.email.toLowerCase(),
+              passwordHash,
+              firstName: validated.firstName,
+              lastName: validated.lastName,
+              role: prismaRole,
+              permissions: finalPermissions,
+              features: finalFeatures,
+              metadata: (validated.metadata || {}) as any,
+              createdById: user.id > 0 ? user.id : undefined, // Handle admin with ID 0
+              clinicId: assignedClinicId, // Assign to clinic
+              providerId: validated.providerId,
+              influencerId: validated.influencerId,
+              patientId: validated.patientId,
+            },
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+              role: true,
+              status: true,
+              permissions: true,
+              features: true,
+              createdAt: true,
+              clinicId: true,
+              clinic: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+              provider: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  npi: true,
+                },
+              },
+              influencer: {
+                select: {
+                  id: true,
+                  name: true,
+                  promoCode: true,
+                },
+              },
+              patient: {
+                select: {
+                  id: true,
+                  patientId: true,
+                  firstName: true,
+                  lastName: true,
+                },
               },
             },
-            provider: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                npi: true,
-              },
-            },
-            influencer: {
-              select: {
-                id: true,
-                name: true,
-                promoCode: true,
-              },
-            },
-            patient: {
-              select: {
-                id: true,
-                patientId: true,
-                firstName: true,
-                lastName: true,
-              },
-            },
-          },
-        });
+          });
 
-        // Create audit log
-        await tx.userAuditLog.create({
-          data: {
-            userId: createdUser.id,
-            action: 'USER_CREATED',
-            details: {
-              createdBy: user.email,
-              createdByRole: user.role,
-              role: validated.role,
-              hasCustomPermissions: !!validated.permissions,
-              hasCustomFeatures: !!validated.features,
+          // Create audit log
+          await tx.userAuditLog.create({
+            data: {
+              userId: createdUser.id,
+              action: 'USER_CREATED',
+              details: {
+                createdBy: user.email,
+                createdByRole: user.role,
+                role: validated.role,
+                hasCustomPermissions: !!validated.permissions,
+                hasCustomFeatures: !!validated.features,
+              },
+              ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
+              userAgent: req.headers.get('user-agent'),
             },
-            ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
-            userAgent: req.headers.get('user-agent'),
-          },
-        });
+          });
 
-        return createdUser;
-      }, { timeout: 15000 });
+          return createdUser;
+        },
+        { timeout: 15000 }
+      );
 
       logger.info('User created', { newUserId: newUser.id, createdByUserId: user.id });
 

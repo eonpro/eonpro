@@ -79,12 +79,22 @@ async function handlePost(req: NextRequest, user: AuthUser) {
     });
 
     if (unmatched.length === 0) {
-      return NextResponse.json({ message: 'No unmatched records to process', matched: 0, failed: 0 });
+      return NextResponse.json({
+        message: 'No unmatched records to process',
+        matched: 0,
+        failed: 0,
+      });
     }
 
     let matchedCount = 0;
     let failedCount = 0;
-    const results: Array<{ id: number; trackingNumber: string; status: string; patientId?: number; orderId?: number }> = [];
+    const results: Array<{
+      id: number;
+      trackingNumber: string;
+      status: string;
+      patientId?: number;
+      orderId?: number;
+    }> = [];
 
     for (const record of unmatched) {
       try {
@@ -93,7 +103,9 @@ async function handlePost(req: NextRequest, user: AuthUser) {
         let patientId: string | undefined;
 
         if (record.rawPayload) {
-          const payload = Array.isArray(record.rawPayload) ? record.rawPayload[0] : record.rawPayload;
+          const payload = Array.isArray(record.rawPayload)
+            ? record.rawPayload[0]
+            : record.rawPayload;
           if (payload && typeof payload === 'object') {
             const p = payload as Record<string, any>;
             patientEmail = p.patientEmail?.trim() || undefined;
@@ -122,14 +134,16 @@ async function handlePost(req: NextRequest, user: AuthUser) {
 
           // Update the order with tracking info if we have one
           if (result.order) {
-            await prisma.order.update({
-              where: { id: result.order.id },
-              data: {
-                trackingNumber: record.trackingNumber,
-                shippingStatus: 'shipped',
-                lastWebhookAt: new Date(),
-              },
-            }).catch(() => {});
+            await prisma.order
+              .update({
+                where: { id: result.order.id },
+                data: {
+                  trackingNumber: record.trackingNumber,
+                  shippingStatus: 'shipped',
+                  lastWebhookAt: new Date(),
+                },
+              })
+              .catch(() => {});
           }
 
           // Send tracking SMS (fire-and-forget) since this was previously missed
@@ -160,7 +174,9 @@ async function handlePost(req: NextRequest, user: AuthUser) {
             orderId: result.order?.id,
           });
 
-          logger.info(`[REMATCH] Matched record ${record.id} → patient ${result.patient.id}, order ${result.order?.id}`);
+          logger.info(
+            `[REMATCH] Matched record ${record.id} → patient ${result.patient.id}, order ${result.order?.id}`
+          );
         } else {
           failedCount++;
           results.push({

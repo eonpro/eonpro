@@ -114,7 +114,8 @@ export default function NewTicketPage() {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const activeClinicId = typeof window !== 'undefined' ? localStorage.getItem('activeClinicId') : null;
+        const activeClinicId =
+          typeof window !== 'undefined' ? localStorage.getItem('activeClinicId') : null;
         const userJson = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
         let clinicId = activeClinicId;
         if (!clinicId && userJson) {
@@ -221,12 +222,14 @@ export default function NewTicketPage() {
     <div className="mx-auto max-w-3xl space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-          <button
-            onClick={() => { window.location.href = '/tickets'; }}
-            className="rounded-lg p-1 hover:bg-gray-100"
-          >
-            <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
-          </button>
+        <button
+          onClick={() => {
+            window.location.href = '/tickets';
+          }}
+          className="rounded-lg p-1 hover:bg-gray-100"
+        >
+          <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
+        </button>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">New Ticket</h1>
           <p className="text-sm text-gray-500">Create a new support ticket</p>
@@ -409,7 +412,10 @@ export default function NewTicketPage() {
                       className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50"
                     >
                       {patient.firstName} {patient.lastName}
-                      <span className="text-gray-400"> ({formatPatientDisplayId(patient.patientId, patient.id)})</span>
+                      <span className="text-gray-400">
+                        {' '}
+                        ({formatPatientDisplayId(patient.patientId, patient.id)})
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -459,7 +465,9 @@ export default function NewTicketPage() {
         <div className="flex justify-end gap-3">
           <button
             type="button"
-            onClick={() => { window.location.href = '/tickets'; }}
+            onClick={() => {
+              window.location.href = '/tickets';
+            }}
             className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
             Cancel

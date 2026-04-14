@@ -50,13 +50,13 @@ function pruneCache() {
 }
 
 export const allToolDefinitions: ChatCompletionTool[] = Object.values(toolModules).map(
-  (m) => m.definition,
+  (m) => m.definition
 );
 
 export async function routeToolCall(
   name: string,
   args: Record<string, unknown>,
-  clinicId: number,
+  clinicId: number
 ): Promise<string> {
   const tool = toolModules[name];
   if (!tool) {
@@ -98,7 +98,9 @@ export async function routeToolCall(
       elapsed,
       error: err instanceof Error ? err.message : String(err),
     });
-    return JSON.stringify({ error: `Tool "${name}" failed: ${err instanceof Error ? err.message : 'Unknown error'}` });
+    return JSON.stringify({
+      error: `Tool "${name}" failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
+    });
   }
 }
 

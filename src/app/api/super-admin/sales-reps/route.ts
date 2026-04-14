@@ -128,140 +128,155 @@ async function handler(req: NextRequest): Promise<Response> {
 
   try {
     return await withoutClinicFilter(async () => {
-    const parsedClinicId = clinicIdParam ? parseInt(clinicIdParam, 10) : null;
-    const clinicFilter = parsedClinicId && !Number.isNaN(parsedClinicId) ? { clinicId: parsedClinicId } : {};
+      const parsedClinicId = clinicIdParam ? parseInt(clinicIdParam, 10) : null;
+      const clinicFilter =
+        parsedClinicId && !Number.isNaN(parsedClinicId) ? { clinicId: parsedClinicId } : {};
 
-    const salesReps = await prisma.user.findMany({
-      where: {
-        role: { in: [...COMMISSION_ELIGIBLE_ROLES] },
-        ...clinicFilter,
-      },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        status: true,
-        clinicId: true,
-        lastLogin: true,
-        clinic: { select: { name: true } },
-        salesRepRefCodes: {
-          where: { isActive: true },
-          select: { refCode: true },
+      const salesReps = await prisma.user.findMany({
+        where: {
+          role: { in: [...COMMISSION_ELIGIBLE_ROLES] },
+          ...clinicFilter,
         },
-      },
-    });
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          status: true,
+          clinicId: true,
+          lastLogin: true,
+          clinic: { select: { name: true } },
+          salesRepRefCodes: {
+            where: { isActive: true },
+            select: { refCode: true },
+          },
+        },
+      });
 
-    if (salesReps.length === 0) {
+      if (salesReps.length === 0) {
+        return NextResponse.json({
+          summary: {
+            totalReps: 0,
+            activeReps: 0,
+            totalPatients: 0,
+            totalClicks: 0,
+            totalConversions: 0,
+            totalCommissionCents: 0,
+            totalRevenueCents: 0,
+            avgConversionRate: 0,
+          },
+          reps: [],
+          dateRange: { startDate: startDate.toISOString(), endDate: endDate.toISOString() },
+        });
+      }
+
+      const repIds = salesReps.map((r) => r.id);
+
+      // Parallel: clicks, conversions, patient assignments, commissions in the period
+      const [clicksByRep, conversionsByRep, patientsByRep, commissionsByRep] = await Promise.all([
+        prisma.salesRepTouch.groupBy({
+          by: ['salesRepId'],
+          where: {
+            salesRepId: { in: repIds },
+            touchType: 'CLICK',
+            createdAt: { gte: startDate, lte: endDate },
+          },
+          _count: true,
+        }),
+        prisma.salesRepTouch.groupBy({
+          by: ['salesRepId'],
+          where: {
+            salesRepId: { in: repIds },
+            convertedAt: { not: null, gte: startDate, lte: endDate },
+          },
+          _count: true,
+        }),
+        prisma.patientSalesRepAssignment.groupBy({
+          by: ['salesRepId'],
+          where: {
+            salesRepId: { in: repIds },
+            isActive: true,
+            assignedAt: { gte: startDate, lte: endDate },
+          },
+          _count: true,
+        }),
+        prisma.salesRepCommissionEvent
+          .groupBy({
+            by: ['salesRepId'],
+            where: {
+              salesRepId: { in: repIds },
+              occurredAt: { gte: startDate, lte: endDate },
+              status: { in: ['PENDING', 'APPROVED', 'PAID'] },
+            },
+            _sum: { commissionAmountCents: true, eventAmountCents: true },
+          })
+          .catch((err) => {
+            logger.warn('[SalesReps] Commission groupBy failed', {
+              error: err instanceof Error ? err.message : 'Unknown',
+            });
+            return [] as any[];
+          }),
+      ]);
+
+      const clicksMap = new Map(clicksByRep.map((r) => [r.salesRepId, r._count]));
+      const conversionsMap = new Map(conversionsByRep.map((r) => [r.salesRepId, r._count]));
+      const patientsMap = new Map(patientsByRep.map((r) => [r.salesRepId, r._count]));
+      const commissionMap = new Map(
+        commissionsByRep.map((r) => [
+          r.salesRepId,
+          {
+            commissionCents: r._sum?.commissionAmountCents || 0,
+            revenueCents: r._sum?.eventAmountCents || 0,
+          },
+        ])
+      );
+
+      type RepRow = (typeof salesReps)[number];
+
+      const reps = salesReps.map((r: RepRow) => {
+        const clicks = clicksMap.get(r.id) || 0;
+        const conversions = conversionsMap.get(r.id) || 0;
+        const comm = commissionMap.get(r.id) || { commissionCents: 0, revenueCents: 0 };
+        return {
+          id: r.id,
+          name: `${r.firstName || ''} ${r.lastName || ''}`.trim() || r.email,
+          email: r.email,
+          status: r.status,
+          clinicId: r.clinicId,
+          clinicName: r.clinic?.name || null,
+          lastLogin: r.lastLogin,
+          totalClicks: clicks,
+          totalConversions: conversions,
+          patientsAssigned: patientsMap.get(r.id) || 0,
+          conversionRate: clicks > 0 ? (conversions / clicks) * 100 : 0,
+          commissionEarnedCents: comm.commissionCents,
+          revenueCents: comm.revenueCents,
+          refCodes: r.salesRepRefCodes.map((c) => c.refCode),
+        };
+      });
+
+      reps.sort((a, b) => b.totalConversions - a.totalConversions);
+
+      const activeReps = reps.filter((r) => r.status === 'ACTIVE').length;
+      const totalClicks = reps.reduce((s, r) => s + r.totalClicks, 0);
+      const totalConversions = reps.reduce((s, r) => s + r.totalConversions, 0);
+      const totalCommissionCents = reps.reduce((s, r) => s + r.commissionEarnedCents, 0);
+      const totalRevenueCents = reps.reduce((s, r) => s + r.revenueCents, 0);
+
       return NextResponse.json({
         summary: {
-          totalReps: 0, activeReps: 0, totalPatients: 0,
-          totalClicks: 0, totalConversions: 0, totalCommissionCents: 0,
-          totalRevenueCents: 0, avgConversionRate: 0,
+          totalReps: reps.length,
+          activeReps,
+          totalPatients: reps.reduce((s, r) => s + r.patientsAssigned, 0),
+          totalClicks,
+          totalConversions,
+          totalCommissionCents,
+          totalRevenueCents,
+          avgConversionRate: totalClicks > 0 ? (totalConversions / totalClicks) * 100 : 0,
         },
-        reps: [],
+        reps,
         dateRange: { startDate: startDate.toISOString(), endDate: endDate.toISOString() },
       });
-    }
-
-    const repIds = salesReps.map((r) => r.id);
-
-    // Parallel: clicks, conversions, patient assignments, commissions in the period
-    const [clicksByRep, conversionsByRep, patientsByRep, commissionsByRep] = await Promise.all([
-      prisma.salesRepTouch.groupBy({
-        by: ['salesRepId'],
-        where: {
-          salesRepId: { in: repIds },
-          touchType: 'CLICK',
-          createdAt: { gte: startDate, lte: endDate },
-        },
-        _count: true,
-      }),
-      prisma.salesRepTouch.groupBy({
-        by: ['salesRepId'],
-        where: {
-          salesRepId: { in: repIds },
-          convertedAt: { not: null, gte: startDate, lte: endDate },
-        },
-        _count: true,
-      }),
-      prisma.patientSalesRepAssignment.groupBy({
-        by: ['salesRepId'],
-        where: {
-          salesRepId: { in: repIds },
-          isActive: true,
-          assignedAt: { gte: startDate, lte: endDate },
-        },
-        _count: true,
-      }),
-      prisma.salesRepCommissionEvent.groupBy({
-        by: ['salesRepId'],
-        where: {
-          salesRepId: { in: repIds },
-          occurredAt: { gte: startDate, lte: endDate },
-          status: { in: ['PENDING', 'APPROVED', 'PAID'] },
-        },
-        _sum: { commissionAmountCents: true, eventAmountCents: true },
-      }).catch((err) => {
-        logger.warn('[SalesReps] Commission groupBy failed', { error: err instanceof Error ? err.message : 'Unknown' });
-        return [] as any[];
-      }),
-    ]);
-
-    const clicksMap = new Map(clicksByRep.map((r) => [r.salesRepId, r._count]));
-    const conversionsMap = new Map(conversionsByRep.map((r) => [r.salesRepId, r._count]));
-    const patientsMap = new Map(patientsByRep.map((r) => [r.salesRepId, r._count]));
-    const commissionMap = new Map(commissionsByRep.map((r) => [r.salesRepId, {
-      commissionCents: r._sum?.commissionAmountCents || 0,
-      revenueCents: r._sum?.eventAmountCents || 0,
-    }]));
-
-    type RepRow = (typeof salesReps)[number];
-
-    const reps = salesReps.map((r: RepRow) => {
-      const clicks = clicksMap.get(r.id) || 0;
-      const conversions = conversionsMap.get(r.id) || 0;
-      const comm = commissionMap.get(r.id) || { commissionCents: 0, revenueCents: 0 };
-      return {
-        id: r.id,
-        name: `${r.firstName || ''} ${r.lastName || ''}`.trim() || r.email,
-        email: r.email,
-        status: r.status,
-        clinicId: r.clinicId,
-        clinicName: r.clinic?.name || null,
-        lastLogin: r.lastLogin,
-        totalClicks: clicks,
-        totalConversions: conversions,
-        patientsAssigned: patientsMap.get(r.id) || 0,
-        conversionRate: clicks > 0 ? (conversions / clicks) * 100 : 0,
-        commissionEarnedCents: comm.commissionCents,
-        revenueCents: comm.revenueCents,
-        refCodes: r.salesRepRefCodes.map((c) => c.refCode),
-      };
-    });
-
-    reps.sort((a, b) => b.totalConversions - a.totalConversions);
-
-    const activeReps = reps.filter((r) => r.status === 'ACTIVE').length;
-    const totalClicks = reps.reduce((s, r) => s + r.totalClicks, 0);
-    const totalConversions = reps.reduce((s, r) => s + r.totalConversions, 0);
-    const totalCommissionCents = reps.reduce((s, r) => s + r.commissionEarnedCents, 0);
-    const totalRevenueCents = reps.reduce((s, r) => s + r.revenueCents, 0);
-
-    return NextResponse.json({
-      summary: {
-        totalReps: reps.length,
-        activeReps,
-        totalPatients: reps.reduce((s, r) => s + r.patientsAssigned, 0),
-        totalClicks,
-        totalConversions,
-        totalCommissionCents,
-        totalRevenueCents,
-        avgConversionRate: totalClicks > 0 ? (totalConversions / totalClicks) * 100 : 0,
-      },
-      reps,
-      dateRange: { startDate: startDate.toISOString(), endDate: endDate.toISOString() },
-    });
     }); // end withoutClinicFilter
   } catch (error) {
     logger.error('[SalesReps] Failed to fetch sales rep data', {

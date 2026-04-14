@@ -15,10 +15,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { verifyCronAuth, runCronPerTenant } from '@/lib/cron/tenant-isolation';
-import {
-  processDueRefills,
-  autoMatchPaymentForRefill,
-} from '@/services/refill/refillQueueService';
+import { processDueRefills, autoMatchPaymentForRefill } from '@/services/refill/refillQueueService';
 import { prisma } from '@/lib/db';
 import { handleApiError } from '@/domains/shared/errors';
 
@@ -80,7 +77,10 @@ async function runRefillScheduler(req: NextRequest) {
 
     const totalProcessed = results.reduce((sum, r) => sum + (r.data?.processed ?? 0), 0);
     const totalAutoMatched = results.reduce((sum, r) => sum + (r.data?.autoMatchedCount ?? 0), 0);
-    const totalErrors = results.reduce((sum, r) => sum + (r.data?.processErrors ?? 0) + (r.data?.autoMatchErrors ?? 0), 0);
+    const totalErrors = results.reduce(
+      (sum, r) => sum + (r.data?.processErrors ?? 0) + (r.data?.autoMatchErrors ?? 0),
+      0
+    );
 
     const result = {
       success: true,

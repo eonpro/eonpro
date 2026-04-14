@@ -94,10 +94,13 @@ export async function GET(req: NextRequest) {
 
     const [invoices, total] = dbResult.data!;
 
-    await auditPhiAccess(req, buildAuditPhiOptions(req, auth.user, 'invoice:view', {
-      route: 'GET /api/invoices',
-      patientId: patientId ? parseInt(patientId, 10) : undefined,
-    }));
+    await auditPhiAccess(
+      req,
+      buildAuditPhiOptions(req, auth.user, 'invoice:view', {
+        route: 'GET /api/invoices',
+        patientId: patientId ? parseInt(patientId, 10) : undefined,
+      })
+    );
 
     // Transform for frontend (decrypt patient PHI before sending)
     const formattedInvoices = invoices.map((inv: (typeof invoices)[number]) => {

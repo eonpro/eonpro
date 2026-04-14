@@ -138,17 +138,20 @@ const STEPS = [
 
 const TESTIMONIALS = [
   {
-    quote: 'Within the first month I felt stronger, more motivated, and more like myself again. The progress has been steady and real.',
+    quote:
+      'Within the first month I felt stronger, more motivated, and more like myself again. The progress has been steady and real.',
     name: 'John M.',
     age: '26',
   },
   {
-    quote: 'Better sleep, better recovery, and consistent improvement week after week. OT Men\'s Health helped me dial in the right protocol.',
+    quote:
+      "Better sleep, better recovery, and consistent improvement week after week. OT Men's Health helped me dial in the right protocol.",
     name: 'Kyle R.',
     age: '32',
   },
   {
-    quote: 'For the first time in years, I feel balanced and in control of my health. My drive, mood, and performance improved.',
+    quote:
+      'For the first time in years, I feel balanced and in control of my health. My drive, mood, and performance improved.',
     name: 'Lucas P.',
     age: '36',
   },
@@ -195,7 +198,15 @@ const ASSETS = {
 // Brand Logo Component
 // ============================================================================
 
-function OTLogo({ logoUrl, clinicName, size = 'default' }: { logoUrl?: string | null; clinicName?: string; size?: 'default' | 'small' }) {
+function OTLogo({
+  logoUrl,
+  clinicName,
+  size = 'default',
+}: {
+  logoUrl?: string | null;
+  clinicName?: string;
+  size?: 'default' | 'small';
+}) {
   const src = logoUrl || ASSETS.logo;
   const height = size === 'small' ? 'h-7' : 'h-8 sm:h-14';
 
@@ -233,12 +244,7 @@ function StarRating({ count = 5 }: { count?: number }) {
   return (
     <div className="flex gap-0.5">
       {[...Array(count)].map((_, i) => (
-        <svg
-          key={i}
-          className="h-4 w-4"
-          fill={PALETTE.starGold}
-          viewBox="0 0 20 20"
-        >
+        <svg key={i} className="h-4 w-4" fill={PALETTE.starGold} viewBox="0 0 20 20">
           <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
         </svg>
       ))}
@@ -350,7 +356,9 @@ function AffiliateLandingContent() {
   useEffect(() => {
     const prev = document.body.style.backgroundColor;
     document.body.style.backgroundColor = '#000000';
-    return () => { document.body.style.backgroundColor = prev; };
+    return () => {
+      document.body.style.backgroundColor = prev;
+    };
   }, []);
 
   // Fetch affiliate data
@@ -399,7 +407,9 @@ function AffiliateLandingContent() {
             className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent"
             style={{ borderColor: PALETTE.accent, borderTopColor: 'transparent' }}
           />
-          <p className="text-sm" style={{ color: PALETTE.textMuted }}>Loading...</p>
+          <p className="text-sm" style={{ color: PALETTE.textMuted }}>
+            Loading...
+          </p>
         </div>
       </div>
     );
@@ -412,8 +422,10 @@ function AffiliateLandingContent() {
   const clinicName = data?.clinicName;
 
   return (
-    <div className="min-h-screen font-sofia" style={{ backgroundColor: PALETTE.cream, color: PALETTE.text }}>
-
+    <div
+      className="min-h-screen font-sofia"
+      style={{ backgroundColor: PALETTE.cream, color: PALETTE.text }}
+    >
       {/* ================================================================ */}
       {/* Top Promo Banner — black bar with affiliate CTA */}
       {/* ================================================================ */}
@@ -423,7 +435,8 @@ function AffiliateLandingContent() {
       >
         {isValid && affiliateName ? (
           <span>
-            Referred by <span className="font-normal">{affiliateName}</span> &mdash; Start your personalized intake today.{' '}
+            Referred by <span className="font-normal">{affiliateName}</span> &mdash; Start your
+            personalized intake today.{' '}
             <a
               href="#treatments"
               onClick={scrollToTreatments}
@@ -452,7 +465,13 @@ function AffiliateLandingContent() {
       {/* Header — white with 50px radius, black behind for contrast */}
       {/* ================================================================ */}
       <div style={{ backgroundColor: '#000000' }}>
-        <header style={{ backgroundColor: PALETTE.white, borderTopLeftRadius: '20px', borderTopRightRadius: '20px' }}>
+        <header
+          style={{
+            backgroundColor: PALETTE.white,
+            borderTopLeftRadius: '20px',
+            borderTopRightRadius: '20px',
+          }}
+        >
           <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
             <OTLogo logoUrl={logoUrl} clinicName={clinicName} />
             <a
@@ -472,7 +491,6 @@ function AffiliateLandingContent() {
       {/* ================================================================ */}
       <section className="relative overflow-hidden" style={{ backgroundColor: PALETTE.white }}>
         <div className="relative mx-auto max-w-6xl px-6 pb-12 pt-12 md:pb-16 md:pt-20">
-
           {/* Headline */}
           <h1 className="mb-6 leading-tight tracking-tight">
             <span
@@ -499,19 +517,21 @@ function AffiliateLandingContent() {
             className="mb-8 max-w-xl text-base leading-relaxed md:text-lg"
             style={{ color: PALETTE.textSecondary }}
           >
-            Personalized treatments from board-certified providers.
-            Consultations, prescriptions, and ongoing support &mdash; all from home.
+            Personalized treatments from board-certified providers. Consultations, prescriptions,
+            and ongoing support &mdash; all from home.
           </p>
-
         </div>
       </section>
 
       {/* ================================================================ */}
       {/* Treatment Cards — matching header width (max-w-6xl) */}
       {/* ================================================================ */}
-      <section id="treatments" className="pb-16 pt-4 md:pb-24" style={{ backgroundColor: PALETTE.white }}>
+      <section
+        id="treatments"
+        className="pb-16 pt-4 md:pb-24"
+        style={{ backgroundColor: PALETTE.white }}
+      >
         <div className="mx-auto max-w-6xl px-6">
-
           {/* Top row: 3 cards */}
           <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
             {TREATMENTS.slice(0, 3).map((t) => (
@@ -552,9 +572,7 @@ function AffiliateLandingContent() {
             <h2 className="mb-3 text-3xl font-bold tracking-tight md:text-4xl">
               How it <span style={{ color: PALETTE.accent }}>works</span>
             </h2>
-            <p style={{ color: PALETTE.textSecondary }}>
-              Three simple steps to a better you.
-            </p>
+            <p style={{ color: PALETTE.textSecondary }}>Three simple steps to a better you.</p>
           </div>
 
           <div className="grid gap-8 md:grid-cols-3 md:gap-6">
@@ -596,11 +614,7 @@ function AffiliateLandingContent() {
 
           <div className="grid gap-5 md:grid-cols-3">
             {TESTIMONIALS.map((t, i) => (
-              <div
-                key={i}
-                className="rounded-2xl p-7"
-                style={{ backgroundColor: PALETTE.white }}
-              >
+              <div key={i} className="rounded-2xl p-7" style={{ backgroundColor: PALETTE.white }}>
                 <div className="mb-4">
                   <StarRating count={5} />
                 </div>
@@ -611,8 +625,7 @@ function AffiliateLandingContent() {
                   &ldquo;{t.quote}&rdquo;
                 </p>
                 <p className="text-sm font-semibold">
-                  {t.name}{' '}
-                  <span style={{ color: PALETTE.textMuted }}>&middot; {t.age}</span>
+                  {t.name} <span style={{ color: PALETTE.textMuted }}>&middot; {t.age}</span>
                 </p>
               </div>
             ))}
@@ -629,19 +642,17 @@ function AffiliateLandingContent() {
             {/* Left: Copy */}
             <div>
               <h2 className="mb-5 text-3xl font-bold tracking-tight md:text-4xl">
-                Backed by{' '}
-                <span style={{ color: PALETTE.accent }}>world-class</span>{' '}
-                providers
+                Backed by <span style={{ color: PALETTE.accent }}>world-class</span> providers
               </h2>
               <p className="mb-8 leading-relaxed" style={{ color: PALETTE.textSecondary }}>
-                Overtime&apos;s board-certified experts deliver high-quality
-                healthcare at scale. Their combined clinical expertise guides
-                innovative treatment plans and care delivery.
+                Overtime&apos;s board-certified experts deliver high-quality healthcare at scale.
+                Their combined clinical expertise guides innovative treatment plans and care
+                delivery.
               </p>
               <div className="space-y-4">
                 {[
                   'Board-certified with 15+ years experience',
-                  'Specialized in men\'s health optimization',
+                  "Specialized in men's health optimization",
                   'Thousands of patients treated nationwide',
                 ].map((item, i) => (
                   <div key={i} className="flex items-start gap-3">
@@ -666,7 +677,10 @@ function AffiliateLandingContent() {
 
             {/* Right: Stats card */}
             <div className="flex justify-center">
-              <div className="w-full max-w-xs rounded-2xl p-10 text-center" style={{ backgroundColor: PALETTE.white }}>
+              <div
+                className="w-full max-w-xs rounded-2xl p-10 text-center"
+                style={{ backgroundColor: PALETTE.white }}
+              >
                 <div className="mb-2 text-5xl font-bold" style={{ color: PALETTE.accent }}>
                   96%
                 </div>
@@ -692,8 +706,7 @@ function AffiliateLandingContent() {
       <section style={{ backgroundColor: PALETTE.creamDark }}>
         <div className="mx-auto max-w-3xl px-6 py-16 text-center md:py-24">
           <h2 className="mb-4 text-3xl font-bold tracking-tight md:text-4xl">
-            Ready to{' '}
-            <span style={{ color: PALETTE.accent }}>get started</span>?
+            Ready to <span style={{ color: PALETTE.accent }}>get started</span>?
           </h2>
           <p className="mb-8" style={{ color: PALETTE.textSecondary }}>
             {isValid && affiliateName
@@ -770,9 +783,7 @@ function TreatmentCard({
           ? `linear-gradient(135deg, ${treatment.hoverBg} 0%, ${treatment.hoverBgDark} 100%)`
           : '#f9f7f2',
         transition: 'background 0.35s ease-in-out, box-shadow 0.35s ease-in-out',
-        boxShadow: hovered
-          ? '0 8px 24px rgba(0,0,0,0.12)'
-          : 'none',
+        boxShadow: hovered ? '0 8px 24px rgba(0,0,0,0.12)' : 'none',
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -794,9 +805,7 @@ function TreatmentCard({
         >
           {treatment.label}
         </span>{' '}
-        <span style={{ color: treatment.keywordColor }}>
-          {treatment.keyword}
-        </span>
+        <span style={{ color: treatment.keywordColor }}>{treatment.keyword}</span>
       </h3>
 
       {/* Image + Arrow */}

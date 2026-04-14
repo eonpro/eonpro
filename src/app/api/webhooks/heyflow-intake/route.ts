@@ -6,7 +6,11 @@ import { upsertPatientFromIntake } from '@/lib/medlink/patientService';
 import { generateIntakePdf } from '@/services/intakePdfService';
 import { storeIntakePdf } from '@/services/storage/intakeStorage';
 import { generateSOAPFromIntake } from '@/services/ai/soapNoteService';
-import { attributeFromIntake, tagPatientWithReferralCodeOnly, attributeByRecentTouch } from '@/services/affiliate/attributionService';
+import {
+  attributeFromIntake,
+  tagPatientWithReferralCodeOnly,
+  attributeByRecentTouch,
+} from '@/services/affiliate/attributionService';
 import { extractPromoCode } from '@/lib/overtime/intakeNormalizer';
 import { logger } from '@/lib/logger';
 import { storeIntakeData } from '@/lib/storage/document-data-store';
@@ -161,7 +165,11 @@ export async function POST(req: NextRequest) {
           if (result) {
             logger.debug(`[HEYFLOW WEBHOOK] Affiliate attribution created: ${result.refCode}`);
           } else {
-            const tagged = await tagPatientWithReferralCodeOnly(patient.id, promoCode, patientRecord.clinicId);
+            const tagged = await tagPatientWithReferralCodeOnly(
+              patient.id,
+              promoCode,
+              patientRecord.clinicId
+            );
             if (tagged) {
               logger.debug(`[HEYFLOW WEBHOOK] Profile tagged with referral code: ${promoCode}`);
             }
@@ -179,13 +187,19 @@ export async function POST(req: NextRequest) {
         });
         if (patientRecord?.clinicId && !patientRecord.attributionAffiliateId) {
           const referrerUrl = (payload['Referrer'] || payload['referrer'] || '') as string;
-          const fallback = await attributeByRecentTouch(patient.id, referrerUrl || null, patientRecord.clinicId);
+          const fallback = await attributeByRecentTouch(
+            patient.id,
+            referrerUrl || null,
+            patientRecord.clinicId
+          );
           if (fallback) {
             logger.info(`[HEYFLOW WEBHOOK] Fallback affiliate attribution: ${fallback.refCode}`);
           }
         }
       } catch (fallbackErr: unknown) {
-        logger.warn(`[HEYFLOW WEBHOOK] Fallback attribution failed: ${(fallbackErr as any).message}`);
+        logger.warn(
+          `[HEYFLOW WEBHOOK] Fallback attribution failed: ${(fallbackErr as any).message}`
+        );
       }
     }
 
@@ -207,10 +221,11 @@ export async function POST(req: NextRequest) {
     });
 
     // Dual-write: S3 + DB `data` column (Phase 3.3)
-    const { s3DataKey, dataBuffer: intakeDataBuffer } = await storeIntakeData(
-      intakeDataToStore,
-      { documentId: existingDocument?.id, patientId: patient.id, clinicId: null }
-    );
+    const { s3DataKey, dataBuffer: intakeDataBuffer } = await storeIntakeData(intakeDataToStore, {
+      documentId: existingDocument?.id,
+      patientId: patient.id,
+      clinicId: null,
+    });
 
     let patientDocument;
     if (existingDocument) {
@@ -262,7 +277,6 @@ export async function POST(req: NextRequest) {
       { status: 200 }
     );
   } catch (err: unknown) {
-
     logger.error('Failed to process MedLink webhook', { error: err });
     return Response.json({ error: 'Failed to process intake' }, { status: 500 });
   }

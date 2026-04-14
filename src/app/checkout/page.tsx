@@ -210,7 +210,7 @@ const translations = {
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PUBLISHABLE_KEY ||
     process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ||
-    '',
+    ''
 );
 
 // ============================================================================
@@ -234,17 +234,43 @@ function CheckIcon({ className, style }: { className?: string; style?: React.CSS
 
 function PillIcon({ className, style }: { className?: string; style?: React.CSSProperties }) {
   return (
-    <svg className={className} style={style} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
+    <svg
+      className={className}
+      style={style}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3"
+      />
     </svg>
   );
 }
 
 function FlameIcon({ className, style }: { className?: string; style?: React.CSSProperties }) {
   return (
-    <svg className={className} style={style} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048 8.287 8.287 0 009 9.6a8.983 8.983 0 013.361-6.867 8.21 8.21 0 003 2.48z" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 18a3.75 3.75 0 00.495-7.467 5.99 5.99 0 00-1.925 3.546 5.974 5.974 0 01-2.133-1.001A3.75 3.75 0 0012 18z" />
+    <svg
+      className={className}
+      style={style}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048 8.287 8.287 0 009 9.6a8.983 8.983 0 013.361-6.867 8.21 8.21 0 003 2.48z"
+      />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 18a3.75 3.75 0 00.495-7.467 5.99 5.99 0 00-1.925 3.546 5.974 5.974 0 01-2.133-1.001A3.75 3.75 0 0012 18z"
+      />
     </svg>
   );
 }
@@ -343,24 +369,16 @@ export function CheckoutInner() {
   // Prefill from URL params + sessionStorage, set default dose/plan
   useEffect(() => {
     setPatientData({
-      firstName:
-        searchParams.get('firstName') || getSessionValue('intake_firstName') || '',
-      lastName:
-        searchParams.get('lastName') || getSessionValue('intake_lastName') || '',
-      email:
-        searchParams.get('email') || getSessionValue('intake_email') || '',
-      phone:
-        searchParams.get('phone') || getSessionValue('intake_phone') || '',
+      firstName: searchParams.get('firstName') || getSessionValue('intake_firstName') || '',
+      lastName: searchParams.get('lastName') || getSessionValue('intake_lastName') || '',
+      email: searchParams.get('email') || getSessionValue('intake_email') || '',
+      phone: searchParams.get('phone') || getSessionValue('intake_phone') || '',
     });
 
-    const addrLine1 =
-      searchParams.get('address') || getSessionValue('intake_address') || '';
-    const addrCity =
-      searchParams.get('city') || getSessionValue('intake_city') || '';
-    const addrState =
-      searchParams.get('state') || getSessionValue('intake_state') || '';
-    const addrZip =
-      searchParams.get('zip') || getSessionValue('intake_zip') || '';
+    const addrLine1 = searchParams.get('address') || getSessionValue('intake_address') || '';
+    const addrCity = searchParams.get('city') || getSessionValue('intake_city') || '';
+    const addrState = searchParams.get('state') || getSessionValue('intake_state') || '';
+    const addrZip = searchParams.get('zip') || getSessionValue('intake_zip') || '';
 
     if (addrLine1 || addrCity || addrState || addrZip) {
       setShippingAddress((prev) => ({
@@ -382,7 +400,8 @@ export function CheckoutInner() {
       let smartDoseId = productConfig.defaultDoseId || doses[0].id;
 
       if (medication === 'semaglutide') {
-        const isExperienced = glp1Type === 'semaglutide' &&
+        const isExperienced =
+          glp1Type === 'semaglutide' &&
           (glp1History === 'currently_taking' || glp1History === 'previously_taken');
         const highDosages = ['1mg', '1.7mg', '2mg', '2.4mg'];
         if (isExperienced && semaDosage && highDosages.includes(semaDosage)) {
@@ -392,7 +411,10 @@ export function CheckoutInner() {
       }
 
       setSelectedDose(smartDoseId);
-      setSmartDefaultApplied(glp1Type === medication || (!!glp1History && glp1History !== 'never_taken' && glp1History !== 'considering'));
+      setSmartDefaultApplied(
+        glp1Type === medication ||
+          (!!glp1History && glp1History !== 'never_taken' && glp1History !== 'considering')
+      );
 
       const doseData = doses.find((d) => d.id === smartDoseId);
       if (doseData && doseData.plans.length > 0) {
@@ -426,7 +448,17 @@ export function CheckoutInner() {
       promoApplied,
       currentStep,
     });
-  }, [medication, selectedDose, selectedPlan, selectedAddons, expeditedShipping, promoCode, promoApplied, currentStep, paymentComplete]);
+  }, [
+    medication,
+    selectedDose,
+    selectedPlan,
+    selectedAddons,
+    expeditedShipping,
+    promoCode,
+    promoApplied,
+    currentStep,
+    paymentComplete,
+  ]);
 
   // ZIP code auto-fill for city/state
   const handleZipChange = useCallback(async (zip: string) => {
@@ -539,9 +571,7 @@ export function CheckoutInner() {
 
   // Addon toggle
   const toggleAddon = (id: string) => {
-    setSelectedAddons((prev) =>
-      prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id],
-    );
+    setSelectedAddons((prev) => (prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id]));
   };
 
   // Navigation
@@ -608,9 +638,7 @@ export function CheckoutInner() {
       setPaymentIntentId(data.paymentIntentId);
       setCurrentStep(3);
     } catch (err: unknown) {
-      setPaymentError(
-        err instanceof Error ? err.message : 'Failed to initialize payment',
-      );
+      setPaymentError(err instanceof Error ? err.message : 'Failed to initialize payment');
     } finally {
       setIsCreatingIntent(false);
     }
@@ -704,29 +732,45 @@ export function CheckoutInner() {
           </div>
         </div>
 
-        <div className="mt-8 rounded-2xl bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 p-6 text-left">
-          <div className="flex items-center gap-3 mb-3">
+        <div className="mt-8 rounded-2xl border border-green-200 bg-gradient-to-r from-green-50 to-emerald-50 p-6 text-left">
+          <div className="mb-3 flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
-              <svg className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              <svg
+                className="h-5 w-5 text-green-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                />
               </svg>
             </div>
             <div>
               <h3 className="font-semibold text-gray-900">
-                {language === 'en' ? 'Your patient account has been created' : 'Tu cuenta de paciente ha sido creada'}
+                {language === 'en'
+                  ? 'Your patient account has been created'
+                  : 'Tu cuenta de paciente ha sido creada'}
               </h3>
               <p className="text-sm text-gray-500">
-                {language === 'en' ? 'Access your portal to track orders, chat with your provider, and manage your treatment.' : 'Accede a tu portal para rastrear pedidos, chatear con tu proveedor y manejar tu tratamiento.'}
+                {language === 'en'
+                  ? 'Access your portal to track orders, chat with your provider, and manage your treatment.'
+                  : 'Accede a tu portal para rastrear pedidos, chatear con tu proveedor y manejar tu tratamiento.'}
               </p>
             </div>
           </div>
           <a
             href="https://eonmeds.eonpro.io/patient-portal"
             className="continue-button mt-3 inline-flex w-full"
-            style={{ background: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}dd 100%)` }}
+            style={{
+              background: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}dd 100%)`,
+            }}
           >
             <span>{language === 'en' ? 'Go to Patient Portal' : 'Ir al Portal del Paciente'}</span>
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
             </svg>
           </a>
@@ -738,8 +782,9 @@ export function CheckoutInner() {
           {t.confirmationEmail} <strong>{patientData.email}</strong>
         </p>
 
-        <p className="copyright-text text-center mt-6">
-          © 2026 EONPro, LLC. All rights reserved.<br/>
+        <p className="copyright-text mt-6 text-center">
+          © 2026 EONPro, LLC. All rights reserved.
+          <br />
           Exclusive and protected process.
         </p>
       </div>
@@ -751,7 +796,11 @@ export function CheckoutInner() {
   // ========================================================================
   return (
     <div className="mx-auto max-w-2xl px-6 py-8 pb-24 sm:pb-8">
-      <ExitIntentPopup language={language as 'en' | 'es'} primaryColor={primaryColor} onStay={() => {}} />
+      <ExitIntentPopup
+        language={language as 'en' | 'es'}
+        primaryColor={primaryColor}
+        onStay={() => {}}
+      />
       <SocialProofToast language={language as 'en' | 'es'} />
       {showResumeModal && (
         <ResumeModal
@@ -764,9 +813,27 @@ export function CheckoutInner() {
       <StickyOrderBar
         total={totals.total}
         primaryColor={primaryColor}
-        ctaLabel={currentStep === 1 ? t.continueShipping : currentStep === 2 ? t.continuePayment : t.completePurchase}
-        onClick={currentStep === 1 ? () => setCurrentStep(2) : currentStep === 2 ? handleContinueToPayment : () => {}}
-        disabled={currentStep === 1 ? !canProceedStep1 : currentStep === 2 ? (!canProceedStep2 || isCreatingIntent) : false}
+        ctaLabel={
+          currentStep === 1
+            ? t.continueShipping
+            : currentStep === 2
+              ? t.continuePayment
+              : t.completePurchase
+        }
+        onClick={
+          currentStep === 1
+            ? () => setCurrentStep(2)
+            : currentStep === 2
+              ? handleContinueToPayment
+              : () => {}
+        }
+        disabled={
+          currentStep === 1
+            ? !canProceedStep1
+            : currentStep === 2
+              ? !canProceedStep2 || isCreatingIntent
+              : false
+        }
         visible={currentStep <= 2}
       />
 
@@ -783,11 +850,7 @@ export function CheckoutInner() {
                   backgroundColor: step <= currentStep ? primaryColor : undefined,
                 }}
               >
-                {step < currentStep ? (
-                  <CheckIcon className="h-4 w-4" />
-                ) : (
-                  step
-                )}
+                {step < currentStep ? <CheckIcon className="h-4 w-4" /> : step}
               </div>
               {step < 3 && (
                 <div
@@ -810,8 +873,18 @@ export function CheckoutInner() {
           {/* Smart default banner */}
           {smartDefaultApplied && (
             <div className="mb-4 flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-700">
-              <svg className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+              <svg
+                className="h-4 w-4 flex-shrink-0"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"
+                />
               </svg>
               {t.smartDefaultBanner}
             </div>
@@ -934,9 +1007,7 @@ export function CheckoutInner() {
                   {promoApplied ? t.promoApplied : t.applyPromo}
                 </button>
               </div>
-              {promoInvalid && (
-                <p className="mt-1 text-sm text-red-500">{t.promoInvalid}</p>
-              )}
+              {promoInvalid && <p className="mt-1 text-sm text-red-500">{t.promoInvalid}</p>}
               <CountdownTimer
                 language={language as 'en' | 'es'}
                 durationMinutes={15}
@@ -1025,23 +1096,17 @@ export function CheckoutInner() {
                 <input
                   type="text"
                   value={patientData.firstName}
-                  onChange={(e) =>
-                    setPatientData({ ...patientData, firstName: e.target.value })
-                  }
+                  onChange={(e) => setPatientData({ ...patientData, firstName: e.target.value })}
                   className="input-field"
                   placeholder={t.firstName}
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  {t.lastName}
-                </label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">{t.lastName}</label>
                 <input
                   type="text"
                   value={patientData.lastName}
-                  onChange={(e) =>
-                    setPatientData({ ...patientData, lastName: e.target.value })
-                  }
+                  onChange={(e) => setPatientData({ ...patientData, lastName: e.target.value })}
                   className="input-field"
                   placeholder={t.lastName}
                 />
@@ -1050,15 +1115,11 @@ export function CheckoutInner() {
 
             {/* Email */}
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                {t.email}
-              </label>
+              <label className="mb-1 block text-sm font-medium text-gray-700">{t.email}</label>
               <input
                 type="email"
                 value={patientData.email}
-                onChange={(e) =>
-                  setPatientData({ ...patientData, email: e.target.value })
-                }
+                onChange={(e) => setPatientData({ ...patientData, email: e.target.value })}
                 className="input-field"
                 placeholder={t.email}
               />
@@ -1066,15 +1127,11 @@ export function CheckoutInner() {
 
             {/* Phone */}
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                {t.phone}
-              </label>
+              <label className="mb-1 block text-sm font-medium text-gray-700">{t.phone}</label>
               <input
                 type="tel"
                 value={patientData.phone}
-                onChange={(e) =>
-                  setPatientData({ ...patientData, phone: e.target.value })
-                }
+                onChange={(e) => setPatientData({ ...patientData, phone: e.target.value })}
                 className="input-field"
                 placeholder="(555) 123-4567"
               />
@@ -1082,9 +1139,7 @@ export function CheckoutInner() {
 
             {/* Street Address */}
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                {t.address}
-              </label>
+              <label className="mb-1 block text-sm font-medium text-gray-700">{t.address}</label>
               <input
                 type="text"
                 value={shippingAddress.addressLine1}
@@ -1098,9 +1153,7 @@ export function CheckoutInner() {
 
             {/* Apt / Suite */}
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                {t.address2}
-              </label>
+              <label className="mb-1 block text-sm font-medium text-gray-700">{t.address2}</label>
               <input
                 type="text"
                 value={shippingAddress.addressLine2 || ''}
@@ -1115,23 +1168,17 @@ export function CheckoutInner() {
             {/* City / State / Zip */}
             <div className="grid gap-4 sm:grid-cols-3">
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  {t.city}
-                </label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">{t.city}</label>
                 <input
                   type="text"
                   value={shippingAddress.city}
-                  onChange={(e) =>
-                    setShippingAddress({ ...shippingAddress, city: e.target.value })
-                  }
+                  onChange={(e) => setShippingAddress({ ...shippingAddress, city: e.target.value })}
                   className="input-field"
                   placeholder={t.city}
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  {t.state}
-                </label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">{t.state}</label>
                 <input
                   type="text"
                   value={shippingAddress.state}
@@ -1144,9 +1191,7 @@ export function CheckoutInner() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  {t.zip}
-                </label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">{t.zip}</label>
                 <input
                   type="text"
                   value={shippingAddress.zipCode}
@@ -1245,7 +1290,13 @@ export function CheckoutInner() {
             onSuccess={() => {
               setPaymentComplete(true);
               clearCheckoutState();
-              try { const { track } = require('@vercel/analytics'); track('intake_payment_completed', { medication: productConfig.name, total: totals.total }); } catch {}
+              try {
+                const { track } = require('@vercel/analytics');
+                track('intake_payment_completed', {
+                  medication: productConfig.name,
+                  total: totals.total,
+                });
+              } catch {}
             }}
           />
         </Elements>
@@ -1273,17 +1324,14 @@ function DoseCard({
   primaryColor: string;
   t: typeof translations.en;
 }) {
-  const startingPrice =
-    dose.plans.length > 0 ? Math.min(...dose.plans.map((p) => p.price)) : 0;
+  const startingPrice = dose.plans.length > 0 ? Math.min(...dose.plans.map((p) => p.price)) : 0;
 
   return (
     <button
       type="button"
       onClick={onSelect}
       className={`relative rounded-xl border-2 p-5 text-left transition-all ${
-        isSelected
-          ? 'shadow-lg'
-          : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
+        isSelected ? 'shadow-lg' : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
       }`}
       style={{
         borderColor: isSelected ? primaryColor : undefined,
@@ -1356,16 +1404,14 @@ function PlanCard({
   t: typeof translations.en;
 }) {
   const planName = language === 'es' ? plan.nameEs : plan.nameEn;
-  const badge = language === 'es' ? (plan.badgeEs || plan.badge) : plan.badge;
+  const badge = language === 'es' ? plan.badgeEs || plan.badge : plan.badge;
 
   return (
     <button
       type="button"
       onClick={onSelect}
       className={`relative w-full rounded-xl border-2 p-4 text-left transition-all ${
-        isSelected
-          ? 'shadow-md'
-          : 'border-gray-200 bg-white hover:border-gray-300'
+        isSelected ? 'shadow-md' : 'border-gray-200 bg-white hover:border-gray-300'
       }`}
       style={{
         borderColor: isSelected ? primaryColor : undefined,
@@ -1458,9 +1504,7 @@ function AddonCard({
       type="button"
       onClick={onToggle}
       className={`w-full rounded-xl border-2 p-4 text-left transition-all ${
-        isSelected
-          ? 'shadow-md'
-          : 'border-gray-200 bg-white hover:border-gray-300'
+        isSelected ? 'shadow-md' : 'border-gray-200 bg-white hover:border-gray-300'
       }`}
       style={{
         borderColor: isSelected ? primaryColor : undefined,
@@ -1655,7 +1699,7 @@ function PaymentStep({
         <TrustBadges language={language as 'en' | 'es'} />
 
         {error && (
-          <div className="mt-6 mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          <div className="mb-4 mt-6 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
             {error}
           </div>
         )}
@@ -1673,9 +1717,7 @@ function PaymentStep({
             disabled={!stripe || isProcessing}
             className="continue-button flex-1"
           >
-            {isProcessing
-              ? t.processing
-              : `${t.completePurchase} — $${orderTotal.toFixed(2)}`}
+            {isProcessing ? t.processing : `${t.completePurchase} — $${orderTotal.toFixed(2)}`}
           </button>
         </div>
       </form>

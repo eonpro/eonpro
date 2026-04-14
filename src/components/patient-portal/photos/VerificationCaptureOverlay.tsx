@@ -49,7 +49,7 @@ function compressImage(file: File): Promise<{ blob: Blob; width: number; height:
             ? resolve({ blob, width: Math.round(width), height: Math.round(height) })
             : reject(new Error('Compression failed')),
         'image/jpeg',
-        COMPRESSION_QUALITY,
+        COMPRESSION_QUALITY
       );
     };
     img.onerror = () => {
@@ -86,7 +86,7 @@ function createThumbnail(blob: Blob, maxSize = 200): Promise<Blob> {
       canvas.toBlob(
         (b) => (b ? resolve(b) : reject(new Error('Thumbnail failed'))),
         'image/jpeg',
-        0.7,
+        0.7
       );
     };
     img.onerror = () => {
@@ -106,7 +106,7 @@ async function uploadVerificationPhoto(
   type: PatientPhotoType,
   width: number,
   height: number,
-  originalBlob: Blob,
+  originalBlob: Blob
 ): Promise<void> {
   const formData = new FormData();
   formData.append('file', compressed, `${type.toLowerCase()}.jpg`);
@@ -163,7 +163,10 @@ async function uploadVerificationPhoto(
       if (resp.status >= 400 && resp.status < 500) throw lastError;
     } catch (err) {
       clearTimeout(timeoutId);
-      if (err instanceof Error && (err.message.includes('session') || err.message.includes('unavailable'))) {
+      if (
+        err instanceof Error &&
+        (err.message.includes('session') || err.message.includes('unavailable'))
+      ) {
         throw err;
       }
       const isTimeout = (err as any)?.name === 'AbortError';
@@ -243,7 +246,7 @@ export default function VerificationCaptureOverlay({
         }
       }
     },
-    [stopCamera],
+    [stopCamera]
   );
 
   useEffect(() => {
@@ -283,9 +286,13 @@ export default function VerificationCaptureOverlay({
 
     ctx.drawImage(video, 0, 0);
     setCapturedDataUrl(canvas.toDataURL('image/jpeg', 0.92));
-    canvas.toBlob((b) => {
-      if (b) setCapturedBlob(b);
-    }, 'image/jpeg', 0.92);
+    canvas.toBlob(
+      (b) => {
+        if (b) setCapturedBlob(b);
+      },
+      'image/jpeg',
+      0.92
+    );
 
     stopCamera();
     setPhase('preview');
@@ -304,7 +311,9 @@ export default function VerificationCaptureOverlay({
     setError(null);
 
     try {
-      const file = new File([capturedBlob], `${step.type.toLowerCase()}.jpg`, { type: 'image/jpeg' });
+      const file = new File([capturedBlob], `${step.type.toLowerCase()}.jpg`, {
+        type: 'image/jpeg',
+      });
       const { blob: compressed, width, height } = await compressImage(file);
       await uploadVerificationPhoto(compressed, step.type, width, height, capturedBlob);
 
@@ -381,7 +390,11 @@ export default function VerificationCaptureOverlay({
         )}
 
         {phase === 'preview' && capturedDataUrl && (
-          <img src={capturedDataUrl} alt="Captured photo" className="h-full w-full object-contain" />
+          <img
+            src={capturedDataUrl}
+            alt="Captured photo"
+            className="h-full w-full object-contain"
+          />
         )}
 
         {phase === 'uploading' && (

@@ -498,12 +498,8 @@ export class PatientAnalyticsService {
         }),
       ]);
 
-      const failedCountMap = new Map(
-        failedPaymentCounts.map((f) => [f.patientId, f._count])
-      );
-      const revenueMap = new Map(
-        revenuesByPatient.map((r) => [r.patientId, r._sum.amount || 0])
-      );
+      const failedCountMap = new Map(failedPaymentCounts.map((f) => [f.patientId, f._count]));
+      const revenueMap = new Map(revenuesByPatient.map((r) => [r.patientId, r._sum.amount || 0]));
 
       const atRiskPatients: AtRiskPatient[] = [];
 

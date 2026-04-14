@@ -13,7 +13,11 @@ import {
 import type { AgingBucket } from '@/services/billing/billingAnalyticsService';
 
 const formatCurrency = (cents: number) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(cents / 100);
+  new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  }).format(cents / 100);
 
 const COLORS = ['#4fa77e', '#3b82f6', '#f59e0b', '#f97316', '#ef4444'];
 
@@ -40,14 +44,22 @@ export default function ARAgingBarChart({ data }: Props) {
           tick={{ fontSize: 12 }}
           stroke="#9ca3af"
         />
-        <YAxis type="category" dataKey="label" tick={{ fontSize: 12 }} stroke="#9ca3af" width={60} />
+        <YAxis
+          type="category"
+          dataKey="label"
+          tick={{ fontSize: 12 }}
+          stroke="#9ca3af"
+          width={60}
+        />
         <Tooltip
           formatter={((value: number | undefined) => [formatCurrency(value ?? 0), 'Amount']) as any}
-          labelFormatter={((label: React.ReactNode, payload: unknown) => {
-            const labelStr = String(label ?? '');
-            const bucket = data.find((b) => b.label === labelStr);
-            return bucket ? `${bucket.range} (${bucket.invoiceCount} invoices)` : labelStr;
-          }) as any}
+          labelFormatter={
+            ((label: React.ReactNode, payload: unknown) => {
+              const labelStr = String(label ?? '');
+              const bucket = data.find((b) => b.label === labelStr);
+              return bucket ? `${bucket.range} (${bucket.invoiceCount} invoices)` : labelStr;
+            }) as any
+          }
           contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb' }}
         />
         <Bar dataKey="amountCents" radius={[0, 6, 6, 0]} barSize={28}>

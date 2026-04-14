@@ -215,9 +215,19 @@ export interface SubscriptionMetrics {
     resumeAt?: Date;
   }>;
   /** Breakdown by medication (e.g. Semaglutide, Tirzepatide, NAD). */
-  byMedication: Array<{ medication: string; count: number; mrr: number; percentageOfTotal: number }>;
+  byMedication: Array<{
+    medication: string;
+    count: number;
+    mrr: number;
+    percentageOfTotal: number;
+  }>;
   /** Breakdown by interval (Monthly, 3 months, 6 months, 12 months). */
-  byInterval: Array<{ intervalLabel: string; count: number; mrr: number; percentageOfTotal: number }>;
+  byInterval: Array<{
+    intervalLabel: string;
+    count: number;
+    mrr: number;
+    percentageOfTotal: number;
+  }>;
   /** Cross breakdown: medication × interval (e.g. Semaglutide Monthly, Tirzepatide 3 months). */
   byMedicationAndInterval: Array<{
     medication: string;
@@ -460,7 +470,11 @@ function monthsBetween(start: Date, end: Date): number {
 /**
  * Normalize subscription amount to monthly (MRR) in cents
  */
-function subscriptionToMonthlyCents(amount: number, interval: string | null, intervalCount: number = 1): number {
+function subscriptionToMonthlyCents(
+  amount: number,
+  interval: string | null,
+  intervalCount: number = 1
+): number {
   const n = Math.max(1, intervalCount);
   switch ((interval || 'month').toLowerCase()) {
     case 'year':
@@ -677,9 +691,7 @@ export class ReportingService {
   /**
    * Get patients grouped by state
    */
-  async getPatientsByState(
-    dateRange: DateRangeParams
-  ): Promise<PatientsByStateEntry[]> {
+  async getPatientsByState(dateRange: DateRangeParams): Promise<PatientsByStateEntry[]> {
     const { start, end } = calculateDateRange(dateRange);
     const clinicFilter = this.getClinicFilter();
 
@@ -742,49 +754,47 @@ export class ReportingService {
     return buckets.map((b) => ({
       bucket: b.label,
       count: bucketCounts.get(b.label) || 0,
-      percentage: total > 0 ? Math.round(((bucketCounts.get(b.label) || 0) / total) * 10000) / 100 : 0,
+      percentage:
+        total > 0 ? Math.round(((bucketCounts.get(b.label) || 0) / total) * 10000) / 100 : 0,
     }));
   }
 
   /**
    * Get demographics summary with male/female ratio and gender breakdown
    */
-  async getDemographicsSummary(
-    dateRange: DateRangeParams
-  ): Promise<DemographicsSummary> {
+  async getDemographicsSummary(dateRange: DateRangeParams): Promise<DemographicsSummary> {
     const { start, end } = calculateDateRange(dateRange);
     const clinicFilter = this.getClinicFilter();
 
-    const [totalCount, newCount, activeCount, byGenderRaw, patientsForAge] =
-      await Promise.all([
-        prisma.patient.count({ where: clinicFilter }),
-        prisma.patient.count({
-          where: { ...clinicFilter, createdAt: { gte: start, lte: end } },
-        }),
-        (async () => {
-          const ninetyDaysAgo = new Date();
-          ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-          return prisma.patient.count({
-            where: {
-              ...clinicFilter,
-              OR: [
-                { orders: { some: { createdAt: { gte: ninetyDaysAgo } } } },
-                { payments: { some: { createdAt: { gte: ninetyDaysAgo } } } },
-                { subscriptions: { some: { status: 'ACTIVE' } } },
-              ],
-            },
-          });
-        })(),
-        prisma.patient.groupBy({
-          by: ['gender'],
-          where: { ...clinicFilter, createdAt: { gte: start, lte: end } },
-          _count: true,
-        }),
-        prisma.patient.findMany({
-          where: { ...clinicFilter, createdAt: { gte: start, lte: end } },
-          select: { dob: true, gender: true },
-        }),
-      ]);
+    const [totalCount, newCount, activeCount, byGenderRaw, patientsForAge] = await Promise.all([
+      prisma.patient.count({ where: clinicFilter }),
+      prisma.patient.count({
+        where: { ...clinicFilter, createdAt: { gte: start, lte: end } },
+      }),
+      (async () => {
+        const ninetyDaysAgo = new Date();
+        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+        return prisma.patient.count({
+          where: {
+            ...clinicFilter,
+            OR: [
+              { orders: { some: { createdAt: { gte: ninetyDaysAgo } } } },
+              { payments: { some: { createdAt: { gte: ninetyDaysAgo } } } },
+              { subscriptions: { some: { status: 'ACTIVE' } } },
+            ],
+          },
+        });
+      })(),
+      prisma.patient.groupBy({
+        by: ['gender'],
+        where: { ...clinicFilter, createdAt: { gte: start, lte: end } },
+        _count: true,
+      }),
+      prisma.patient.findMany({
+        where: { ...clinicFilter, createdAt: { gte: start, lte: end } },
+        select: { dob: true, gender: true },
+      }),
+    ]);
 
     // Normalize gender and compute ratio
     const male: number[] = [];
@@ -831,7 +841,9 @@ export class ReportingService {
       })
       .filter((a: number) => a > 0);
     const averageAge =
-      ages.length > 0 ? Math.round(ages.reduce((a: number, b: number) => a + b, 0) / ages.length) : 0;
+      ages.length > 0
+        ? Math.round(ages.reduce((a: number, b: number) => a + b, 0) / ages.length)
+        : 0;
 
     return {
       totalPatients: totalCount,
@@ -1028,7 +1040,10 @@ export class ReportingService {
     });
 
     const monthlyRecurringRevenue = activeSubscriptions.reduce(
-      (sum: number, s: { amount: number; interval: string | null; intervalCount: number | null }) => {
+      (
+        sum: number,
+        s: { amount: number; interval: string | null; intervalCount: number | null }
+      ) => {
         const n = Math.max(1, s.intervalCount ?? 1);
         if (s.interval === 'month') return sum + s.amount / n;
         if (s.interval === 'year') return sum + s.amount / 12;
@@ -1087,7 +1102,12 @@ export class ReportingService {
     });
 
     // Breakdown by medication, by interval, and by medication × interval
-    type SubForBreakdown = { amount: number; interval: string | null; intervalCount: number | null; planName: string | null };
+    type SubForBreakdown = {
+      amount: number;
+      interval: string | null;
+      intervalCount: number | null;
+      planName: string | null;
+    };
     const medicationMap = new Map<string, { count: number; mrr: number }>();
     const intervalMap = new Map<string, { count: number; mrr: number }>();
     const medicationIntervalMap = new Map<string, { count: number; mrr: number }>();
@@ -1208,10 +1228,12 @@ export class ReportingService {
     );
     const patientsWithPayments = ltvs.filter((v: number) => v > 0).length;
     const totalLTV = ltvs.reduce((a: number, b: number) => a + b, 0);
-    const averageLTV = patientsWithPaymentsList.length > 0 ? Math.round(totalLTV / patientsWithPaymentsList.length) : 0;
+    const averageLTV =
+      patientsWithPaymentsList.length > 0
+        ? Math.round(totalLTV / patientsWithPaymentsList.length)
+        : 0;
     const sortedLtvs = [...ltvs].sort((a: number, b: number) => a - b);
-    const medianLTV =
-      sortedLtvs.length > 0 ? sortedLtvs[Math.floor(sortedLtvs.length / 2)] : 0;
+    const medianLTV = sortedLtvs.length > 0 ? sortedLtvs[Math.floor(sortedLtvs.length / 2)] : 0;
 
     // Churned in period (full list for MRR, lifetime, reasons)
     const churnedInPeriodList = await prisma.subscription.findMany({
@@ -1250,7 +1272,8 @@ export class ReportingService {
     const churnReasonMap = new Map<string, { count: number; mrr: number }>();
     churnedInPeriodList.forEach((s: ChurnedRow) => {
       const meta = s.metadata as Record<string, unknown> | null;
-      const reason = (meta?.cancelReason as string) || (meta?.cancellation_reason as string) || 'Not specified';
+      const reason =
+        (meta?.cancelReason as string) || (meta?.cancellation_reason as string) || 'Not specified';
       const mrr = subscriptionToMonthlyCents(s.amount, s.interval, s.intervalCount || 1);
       const existing = churnReasonMap.get(reason);
       if (existing) {

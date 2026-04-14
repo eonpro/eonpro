@@ -29,12 +29,12 @@ export default function AddressStep({
   const router = useRouter();
   const { language } = useLanguage();
   const isSpanish = language === 'es';
-  
+
   const responses = useIntakeStore((state) => state.responses);
   const clinicSlug = useIntakeStore((state) => state.clinicSlug);
   const { setResponse, markStepCompleted, setCurrentStep } = useIntakeActions();
   const isOt = clinicSlug === 'ot' || clinicSlug === 'otmens';
-  
+
   const [address, setAddressLocal] = useState(String(responses.street ?? ''));
   const [apartment, setApartment] = useState(String(responses.apartment ?? ''));
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -71,19 +71,19 @@ export default function AddressStep({
 
   const initializeAutocomplete = () => {
     if (!inputRef.current || !window.google?.maps?.places) return;
-    
+
     try {
       autocompleteRef.current = new window.google.maps.places.Autocomplete(inputRef.current, {
         componentRestrictions: { country: 'us' },
-        fields: ['address_components', 'formatted_address', 'geometry']
+        fields: ['address_components', 'formatted_address', 'geometry'],
       });
 
       autocompleteRef.current.addListener('place_changed', () => {
         const place = autocompleteRef.current.getPlace();
-        
+
         if (place.formatted_address) {
           setAddressLocal(place.formatted_address);
-          
+
           if (place.address_components) {
             const components: Record<string, string> = {};
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -92,8 +92,10 @@ export default function AddressStep({
               if (types.includes('street_number')) components.streetNumber = component.long_name;
               if (types.includes('route')) components.route = component.long_name;
               if (types.includes('locality')) components.city = component.long_name;
-              if (types.includes('sublocality_level_1') && !components.city) components.city = component.long_name;
-              if (types.includes('administrative_area_level_1')) components.state = component.short_name;
+              if (types.includes('sublocality_level_1') && !components.city)
+                components.city = component.long_name;
+              if (types.includes('administrative_area_level_1'))
+                components.state = component.short_name;
               if (types.includes('postal_code')) components.zipCode = component.long_name;
               if (types.includes('country')) components.country = component.short_name;
             });
@@ -101,7 +103,9 @@ export default function AddressStep({
               const zipMatch = place.formatted_address.match(/\b(\d{5})(?:-\d{4})?\b/);
               if (zipMatch) components.zipCode = zipMatch[1];
             }
-            const streetOnly = [components.streetNumber, components.route].filter(Boolean).join(' ');
+            const streetOnly = [components.streetNumber, components.route]
+              .filter(Boolean)
+              .join(' ');
             if (streetOnly) components.streetAddress = streetOnly;
             setAddressComponents(components);
           }
@@ -127,7 +131,7 @@ export default function AddressStep({
     if (address) {
       const streetAddr = addressComponents?.streetAddress || address;
       const fullAddress = apartment ? `${streetAddr}, ${apartment}` : streetAddr;
-      
+
       setResponse('street', streetAddr);
       setResponse('apartment', apartment);
       setResponse('fullAddress', fullAddress);
@@ -138,7 +142,7 @@ export default function AddressStep({
       if (addressComponents?.state) {
         setResponse('state', addressComponents.state);
       }
-      
+
       markStepCompleted('address');
       setCurrentStep(nextStep);
       router.push(`${basePath}/${nextStep}`);
@@ -153,20 +157,33 @@ export default function AddressStep({
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className="flex min-h-screen flex-col bg-white">
       {/* Progress bar */}
-      <div className="w-full h-1 bg-gray-100">
-        <div 
+      <div className="h-1 w-full bg-gray-100">
+        <div
           className="h-full bg-[var(--intake-accent,#f0feab)] transition-all duration-300"
           style={{ width: `${progressPercent}%` }}
         />
       </div>
-      
+
       {prevStep && (
-        <div className="px-6 lg:px-8 pt-6 max-w-md lg:max-w-2xl mx-auto w-full">
-          <button onClick={handleBack} className="inline-block p-2 -ml-2 hover:bg-gray-100 rounded-lg">
-            <svg className="w-6 h-6 text-[#413d3d]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+        <div className="mx-auto w-full max-w-md px-6 pt-6 lg:max-w-2xl lg:px-8">
+          <button
+            onClick={handleBack}
+            className="-ml-2 inline-block rounded-lg p-2 hover:bg-gray-100"
+          >
+            <svg
+              className="h-6 w-6 text-[#413d3d]"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
           </button>
         </div>
@@ -174,43 +191,47 @@ export default function AddressStep({
 
       {/* Cold Shipping Banner - EONMeds only */}
       {!isOt && (
-        <div className="px-6 mt-3 max-w-md lg:max-w-lg mx-auto w-full">
-          <div className="bg-[#f0feab] rounded-3xl overflow-hidden flex items-stretch">
-            <div className="flex-1 px-5 py-3 flex flex-col justify-center">
-              <h3 className="font-semibold text-base text-black">
+        <div className="mx-auto mt-3 w-full max-w-md px-6 lg:max-w-lg">
+          <div className="flex items-stretch overflow-hidden rounded-3xl bg-[#f0feab]">
+            <div className="flex flex-1 flex-col justify-center px-5 py-3">
+              <h3 className="text-base font-semibold text-black">
                 {isSpanish ? 'Envío en frío' : 'Cold shipping'}
               </h3>
-              <p className="text-xs text-gray-600 font-normal mt-0.5">
+              <p className="mt-0.5 text-xs font-normal text-gray-600">
                 {isSpanish ? 'Entrega directa a tu puerta' : 'Delivered directly to your door'}
               </p>
             </div>
-            <div className="flex-shrink-0 bg-gray-200 rounded-r-3xl">
+            <div className="flex-shrink-0 rounded-r-3xl bg-gray-200">
               <img
                 src="https://static.wixstatic.com/media/c49a9b_4d682057194f4e1fa67cf62dd50a1d27~mv2.webp"
                 alt="Cold Shipping"
-                className="h-20 w-20 object-cover rounded-r-3xl"
+                className="h-20 w-20 rounded-r-3xl object-cover"
               />
             </div>
           </div>
         </div>
       )}
-      
-      <div className="flex-1 px-6 lg:px-8 py-4 pb-48 max-w-md lg:max-w-lg mx-auto w-full">
+
+      <div className="mx-auto w-full max-w-md flex-1 px-6 py-4 pb-48 lg:max-w-lg lg:px-8">
         <div className="space-y-4">
           <div>
             <h1 className="page-title mb-2">
               {isOt
-                ? (isSpanish ? '¿Cuál es tu dirección?' : 'What is your home address?')
-                : (isSpanish ? '¿A dónde enviamos tu tratamiento?' : 'Where should we ship your treatment?')}
+                ? isSpanish
+                  ? '¿Cuál es tu dirección?'
+                  : 'What is your home address?'
+                : isSpanish
+                  ? '¿A dónde enviamos tu tratamiento?'
+                  : 'Where should we ship your treatment?'}
             </h1>
-            <p className="page-subtitle text-sm mb-1">
+            <p className="page-subtitle mb-1 text-sm">
               {isOt
-                ? (isSpanish
-                    ? 'Usamos tu dirección para confirmar que nuestros servicios están disponibles en tu estado y para cumplir con los requisitos médicos locales.'
-                    : 'We use your address to confirm that our services are available in your state and to meet local medical requirements.')
-                : (isSpanish
-                    ? 'Enviamos a los 50 estados de EE. UU.'
-                    : 'We ship to all 50 US states.')}
+                ? isSpanish
+                  ? 'Usamos tu dirección para confirmar que nuestros servicios están disponibles en tu estado y para cumplir con los requisitos médicos locales.'
+                  : 'We use your address to confirm that our services are available in your state and to meet local medical requirements.'
+                : isSpanish
+                  ? 'Enviamos a los 50 estados de EE. UU.'
+                  : 'We ship to all 50 US states.'}
             </p>
           </div>
 
@@ -223,54 +244,58 @@ export default function AddressStep({
               onChange={(e) => setAddressLocal(e.target.value)}
               className="input-field w-full"
             />
-            
+
             <input
               type="text"
-              placeholder={isSpanish ? 'Apartamento, suite, etc. (opcional)' : 'Apartment, suite, etc. (optional)'}
+              placeholder={
+                isSpanish
+                  ? 'Apartamento, suite, etc. (opcional)'
+                  : 'Apartment, suite, etc. (optional)'
+              }
               value={apartment}
               onChange={(e) => setApartment(e.target.value)}
               className="input-field w-full"
             />
-            
+
             <p className="text-xs text-[#413d3d]/50">
-              {isSpanish 
+              {isSpanish
                 ? 'Si tu dirección incluye un número de apartamento o suite, agrégalo arriba.'
                 : 'If your address includes an apartment or suite number, please add it above.'}
             </p>
           </div>
 
           {mapUrl && (
-            <div className="rounded-2xl overflow-hidden border border-gray-200 mt-2">
+            <div className="mt-2 overflow-hidden rounded-2xl border border-gray-200">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={mapUrl}
-                alt="Address location"
-                className="w-full h-[160px] object-cover"
-              />
+              <img src={mapUrl} alt="Address location" className="h-[160px] w-full object-cover" />
             </div>
           )}
         </div>
       </div>
-      
+
       {/* Sticky bottom button */}
-      <div className="sticky-bottom-button max-w-md lg:max-w-lg mx-auto w-full">
-        <button 
-          onClick={handleContinue}
-          disabled={!address}
-          className="continue-button"
-        >
+      <div className="sticky-bottom-button mx-auto w-full max-w-md lg:max-w-lg">
+        <button onClick={handleContinue} disabled={!address} className="continue-button">
           <span>{isSpanish ? 'Continuar' : 'Continue'}</span>
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
           </svg>
         </button>
-        
+
         <div className="mt-6 text-center">
           <p className="copyright-text">
             {isSpanish ? (
-              <>© 2026 EONPro, LLC. Todos los derechos reservados.<br/>Proceso exclusivo y protegido.</>
+              <>
+                © 2026 EONPro, LLC. Todos los derechos reservados.
+                <br />
+                Proceso exclusivo y protegido.
+              </>
             ) : (
-              <>© 2026 EONPro, LLC. All rights reserved.<br/>Exclusive and protected process.</>
+              <>
+                © 2026 EONPro, LLC. All rights reserved.
+                <br />
+                Exclusive and protected process.
+              </>
             )}
           </p>
         </div>

@@ -49,7 +49,9 @@ export default function IntakeTemplatesPage() {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleCreate = async () => {
@@ -92,28 +94,24 @@ export default function IntakeTemplatesPage() {
     return (
       <div className="p-8">
         <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-100 rounded w-64" />
-          <div className="h-40 bg-gray-100 rounded-xl" />
+          <div className="h-8 w-64 rounded bg-gray-100" />
+          <div className="h-40 rounded-xl bg-gray-100" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-6">
+    <div className="mx-auto max-w-5xl space-y-6 p-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Intake Form Templates
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Manage intake forms for your clinic
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900">Intake Form Templates</h1>
+          <p className="mt-1 text-sm text-gray-500">Manage intake forms for your clinic</p>
         </div>
         <button
           type="button"
           onClick={() => setShowCreate(true)}
-          className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
         >
           + New Template
         </button>
@@ -122,14 +120,14 @@ export default function IntakeTemplatesPage() {
       {/* Create modal overlay */}
       {showCreate && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby="create-template-title"
           onClick={() => setShowCreate(false)}
         >
           <div
-            className="rounded-xl border border-gray-200 p-6 bg-white space-y-4 w-full max-w-lg shadow-xl"
+            className="w-full max-w-lg space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <h2 id="create-template-title" className="text-lg font-semibold">
@@ -137,24 +135,20 @@ export default function IntakeTemplatesPage() {
             </h2>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm text-gray-600 mb-1">
-                  Template Name
-                </label>
+                <label className="mb-1 block text-sm text-gray-600">Template Name</label>
                 <input
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   placeholder="e.g. Weight Loss Intake"
-                  className="w-full px-3 py-2 border rounded-lg text-sm"
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-600 mb-1">
-                  Treatment Type
-                </label>
+                <label className="mb-1 block text-sm text-gray-600">Treatment Type</label>
                 <select
                   value={newType}
                   onChange={(e) => setNewType(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg text-sm"
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
                 >
                   <option value="weight-loss">Weight Loss</option>
                   <option value="hormone-therapy">Hormone Therapy</option>
@@ -164,17 +158,13 @@ export default function IntakeTemplatesPage() {
               </div>
             </div>
             <div>
-              <label className="block text-sm text-gray-600 mb-1">
-                Start From
-              </label>
+              <label className="mb-1 block text-sm text-gray-600">Start From</label>
               <select
                 value={fromLibrary}
                 onChange={(e) => setFromLibrary(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg text-sm"
+                className="w-full rounded-lg border px-3 py-2 text-sm"
               >
-                <option value="weight-loss">
-                  Weight Loss Template (Library)
-                </option>
+                <option value="weight-loss">Weight Loss Template (Library)</option>
                 <option value="">Blank Template</option>
               </select>
             </div>
@@ -182,14 +172,14 @@ export default function IntakeTemplatesPage() {
               <button
                 type="button"
                 onClick={handleCreate}
-                className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700"
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
               >
                 Create
               </button>
               <button
                 type="button"
                 onClick={() => setShowCreate(false)}
-                className="px-4 py-2 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-100"
+                className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
               >
                 Cancel
               </button>
@@ -201,11 +191,11 @@ export default function IntakeTemplatesPage() {
       {/* Templates list */}
       <div className="space-y-3">
         {templates.length === 0 ? (
-          <div className="text-center py-16 rounded-xl border border-dashed border-gray-200">
+          <div className="rounded-xl border border-dashed border-gray-200 py-16 text-center">
             <p className="text-gray-500">No intake templates yet</p>
             <button
               onClick={() => setShowCreate(true)}
-              className="mt-3 text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+              className="mt-3 text-sm font-medium text-indigo-600 hover:text-indigo-700"
             >
               Create your first template
             </button>
@@ -215,31 +205,28 @@ export default function IntakeTemplatesPage() {
             <a
               key={t.id}
               href={`/admin/intake-builder/${t.id}`}
-              className="block rounded-xl border border-gray-100 p-5 hover:border-gray-200 transition-colors bg-white cursor-pointer"
+              className="block cursor-pointer rounded-xl border border-gray-100 bg-white p-5 transition-colors hover:border-gray-200"
             >
               <div className="flex items-center justify-between">
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="font-medium text-gray-900">{t.name}</h3>
                     <span
-                      className={`px-2 py-0.5 text-xs rounded-full font-medium ${
-                        t.isActive
-                          ? 'bg-green-50 text-green-700'
-                          : 'bg-gray-100 text-gray-500'
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                        t.isActive ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'
                       }`}
                     >
                       {t.isActive ? 'Active' : 'Inactive'}
                     </span>
                     <span className="text-xs text-gray-400">v{t.version}</span>
                   </div>
-                  <p className="text-sm text-gray-500 mt-0.5">
-                    {t.treatmentType} &middot;{' '}
-                    {t._count?.submissions ?? 0} submissions &middot;{' '}
+                  <p className="mt-0.5 text-sm text-gray-500">
+                    {t.treatmentType} &middot; {t._count?.submissions ?? 0} submissions &middot;{' '}
                     {t._count?.drafts ?? 0} active drafts
                   </p>
                 </div>
                 <svg
-                  className="w-5 h-5 text-gray-300"
+                  className="h-5 w-5 text-gray-300"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"

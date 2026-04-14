@@ -96,16 +96,19 @@ const patchHandler = withAuthParams(
         }
       }
 
-      await basePrisma.$transaction(async (tx) => {
-        await tx.patient.update({
-          where: { id: patientId },
-          data: { clinicId: targetClinicId },
-        });
-        await tx.order.updateMany({
-          where: { patientId },
-          data: { clinicId: targetClinicId },
-        });
-      }, { timeout: 15000 });
+      await basePrisma.$transaction(
+        async (tx) => {
+          await tx.patient.update({
+            where: { id: patientId },
+            data: { clinicId: targetClinicId },
+          });
+          await tx.order.updateMany({
+            where: { patientId },
+            data: { clinicId: targetClinicId },
+          });
+        },
+        { timeout: 15000 }
+      );
 
       logger.info('Patient reassigned to clinic', {
         patientId,

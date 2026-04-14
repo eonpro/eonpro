@@ -34,7 +34,10 @@ export default function AffiliateResourcesPage() {
           animate={{ opacity: 1, y: 0 }}
           className="rounded-2xl bg-white p-8 text-center"
         >
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full" style={{ backgroundColor: 'var(--brand-accent-light)' }}>
+          <div
+            className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full"
+            style={{ backgroundColor: 'var(--brand-accent-light)' }}
+          >
             <Download className="h-8 w-8" style={{ color: 'var(--brand-accent)' }} />
           </div>
           <h2 className="mb-2 text-xl font-semibold text-gray-900">Resources Coming Soon</h2>

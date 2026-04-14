@@ -245,10 +245,13 @@ async function getHandler(
       logger.error('Failed to create audit log', { error: auditError });
     }
 
-    await auditPhiAccess(request, buildAuditPhiOptions(request, user, 'message:view', {
-      patientId,
-      route: 'GET /api/messages/conversations/[patientId]',
-    }));
+    await auditPhiAccess(
+      request,
+      buildAuditPhiOptions(request, user, 'message:view', {
+        patientId,
+        route: 'GET /api/messages/conversations/[patientId]',
+      })
+    );
 
     logger.debug('Chat thread fetched', {
       patientId,
@@ -260,7 +263,9 @@ async function getHandler(
       messages: transformedMessages,
       patient: {
         id: patient.id,
-        name: `${safeDecrypt(patient.firstName)} ${safeDecrypt(patient.lastName)}`.trim() || `Patient #${patient.id}`,
+        name:
+          `${safeDecrypt(patient.firstName)} ${safeDecrypt(patient.lastName)}`.trim() ||
+          `Patient #${patient.id}`,
       },
       meta: {
         count: messages.length,

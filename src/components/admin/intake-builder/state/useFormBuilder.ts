@@ -70,10 +70,8 @@ export function useFormBuilder({
   onSave,
   autoSaveMs = 3000,
 }: UseFormBuilderOptions): UseFormBuilderReturn {
-  const [state, dispatch] = useReducer(
-    builderReducer,
-    initialConfig,
-    (cfg) => createInitialBuilderState(cfg),
+  const [state, dispatch] = useReducer(builderReducer, initialConfig, (cfg) =>
+    createInitialBuilderState(cfg)
   );
 
   const [ui, setUI] = useState<BuilderUIState>({
@@ -214,7 +212,11 @@ export function useFormBuilder({
         }
         if (ui.selection.type === 'field' && ui.selection.stepId && ui.selection.fieldId) {
           e.preventDefault();
-          dispatch({ type: 'DELETE_FIELD', stepId: ui.selection.stepId, fieldId: ui.selection.fieldId });
+          dispatch({
+            type: 'DELETE_FIELD',
+            stepId: ui.selection.stepId,
+            fieldId: ui.selection.fieldId,
+          });
           selectStep(ui.selection.stepId);
         }
       }
@@ -233,9 +235,10 @@ export function useFormBuilder({
     ? state.config.steps.find((s) => s.id === ui.selection.stepId)
     : undefined;
 
-  const selectedField = selectedStep && ui.selection.fieldId
-    ? selectedStep.fields.find((f) => f.id === ui.selection.fieldId)
-    : undefined;
+  const selectedField =
+    selectedStep && ui.selection.fieldId
+      ? selectedStep.fields.find((f) => f.id === ui.selection.fieldId)
+      : undefined;
 
   return {
     state,

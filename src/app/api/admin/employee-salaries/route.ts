@@ -29,7 +29,9 @@ export const GET = withAuth(
       const parsedClinicId = clinicIdParam ? parseInt(clinicIdParam, 10) : null;
       const effectiveClinicId =
         user.role === 'super_admin'
-          ? (parsedClinicId && !Number.isNaN(parsedClinicId) ? parsedClinicId : null)
+          ? parsedClinicId && !Number.isNaN(parsedClinicId)
+            ? parsedClinicId
+            : null
           : user.clinicId;
 
       const where: Record<string, any> = { isActive: true };
@@ -47,11 +49,12 @@ export const GET = withAuth(
           orderBy: [{ clinicId: 'asc' }, { createdAt: 'desc' }],
         });
 
-      const salaries = user.role === 'super_admin'
-        ? await withoutClinicFilter(fetcher)
-        : effectiveClinicId
-          ? await runWithClinicContext(effectiveClinicId, fetcher)
-          : [];
+      const salaries =
+        user.role === 'super_admin'
+          ? await withoutClinicFilter(fetcher)
+          : effectiveClinicId
+            ? await runWithClinicContext(effectiveClinicId, fetcher)
+            : [];
 
       return NextResponse.json({
         salaries: (salaries as any[]).map((s: any) => ({
@@ -59,7 +62,8 @@ export const GET = withAuth(
           clinicId: s.clinicId,
           clinicName: s.clinic?.name || '',
           userId: s.userId,
-          userName: `${s.user?.firstName || ''} ${s.user?.lastName || ''}`.trim() || s.user?.email || '',
+          userName:
+            `${s.user?.firstName || ''} ${s.user?.lastName || ''}`.trim() || s.user?.email || '',
           userEmail: s.user?.email || '',
           userRole: s.user?.role || '',
           weeklyBasePayCents: s.weeklyBasePayCents,
@@ -76,7 +80,8 @@ export const GET = withAuth(
       logger.error('[EmployeeSalaries GET]', {
         error: errMsg,
         errorType: errName,
-        stack: error instanceof Error ? error.stack?.split('\n').slice(0, 5).join(' | ') : undefined,
+        stack:
+          error instanceof Error ? error.stack?.split('\n').slice(0, 5).join(' | ') : undefined,
         userId: user.id,
         role: user.role,
         clinicId: user.clinicId,
@@ -93,15 +98,16 @@ export const POST = withAuth(
       const body = await req.json();
       const parsed = createSchema.safeParse(body);
       if (!parsed.success) {
-        return NextResponse.json({ error: 'Validation failed', details: parsed.error.flatten() }, { status: 400 });
+        return NextResponse.json(
+          { error: 'Validation failed', details: parsed.error.flatten() },
+          { status: 400 }
+        );
       }
 
       const { userId, weeklyBasePayCents, hourlyRateCents, effectiveFrom, notes } = parsed.data;
 
       const effectiveClinicId =
-        user.role === 'super_admin' && parsed.data.clinicId
-          ? parsed.data.clinicId
-          : user.clinicId;
+        user.role === 'super_admin' && parsed.data.clinicId ? parsed.data.clinicId : user.clinicId;
 
       if (!effectiveClinicId) {
         return NextResponse.json({ error: 'clinicId is required' }, { status: 400 });
@@ -160,7 +166,9 @@ export const POST = withAuth(
             id: salary.id,
             clinicId: salary.clinicId,
             userId: salary.userId,
-            userName: `${targetUser.firstName || ''} ${targetUser.lastName || ''}`.trim() || targetUser.email,
+            userName:
+              `${targetUser.firstName || ''} ${targetUser.lastName || ''}`.trim() ||
+              targetUser.email,
             userEmail: targetUser.email,
             userRole: targetUser.role,
             weeklyBasePayCents: salary.weeklyBasePayCents,
@@ -176,7 +184,9 @@ export const POST = withAuth(
         ? await withoutClinicFilter(verifyAndCreate)
         : await runWithClinicContext(effectiveClinicId, verifyAndCreate);
     } catch (error) {
-      logger.error('[EmployeeSalaries POST]', { error: error instanceof Error ? error.message : 'Unknown' });
+      logger.error('[EmployeeSalaries POST]', {
+        error: error instanceof Error ? error.message : 'Unknown',
+      });
       return NextResponse.json({ error: 'Failed to create salary' }, { status: 500 });
     }
   },

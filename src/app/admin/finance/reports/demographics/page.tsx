@@ -73,9 +73,7 @@ export default function DemographicsReportPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await apiFetch(
-        `/api/reports/patients?type=demographics&range=${dateRange}`
-      );
+      const response = await apiFetch(`/api/reports/patients?type=demographics&range=${dateRange}`);
 
       if (response.ok) {
         const data = await response.json();
@@ -106,10 +104,10 @@ export default function DemographicsReportPage() {
       ['Male / Female Ratio', summary?.maleFemaleRatio ?? 0, ''],
       [],
       ['By State', 'Count', 'Percentage'],
-      ...(byState.map((r) => [r.state, r.count, `${r.percentage}%`])),
+      ...byState.map((r) => [r.state, r.count, `${r.percentage}%`]),
       [],
       ['By Age Bucket', 'Count', 'Percentage'],
-      ...(byAgeBucket.map((r) => [r.bucket, r.count, `${r.percentage}%`])),
+      ...byAgeBucket.map((r) => [r.bucket, r.count, `${r.percentage}%`]),
       [],
       ['By Gender', 'Count', 'Percentage'],
       ...(summary?.genderBreakdown.map((r) => [r.value, r.count, `${r.percentage}%`]) ?? []),
@@ -221,9 +219,7 @@ export default function DemographicsReportPage() {
               <Calendar className="h-5 w-5 text-amber-600" />
             </div>
             <div>
-              <h3 className="text-2xl font-bold text-gray-900">
-                {summary?.averageAge ?? 0} yrs
-              </h3>
+              <h3 className="text-2xl font-bold text-gray-900">{summary?.averageAge ?? 0} yrs</h3>
               <p className="text-sm text-gray-500">Average Age</p>
             </div>
           </div>
@@ -268,10 +264,12 @@ export default function DemographicsReportPage() {
                   tick={{ fontSize: 12, fill: '#6B7280' }}
                 />
                 <Tooltip
-                  formatter={((value: number, name: string, props: { payload: { percentage: number } }) => [
-                    `${value} (${props.payload.percentage}%)`,
-                    'Patients',
-                  ]) as any}
+                  formatter={
+                    ((value: number, name: string, props: { payload: { percentage: number } }) => [
+                      `${value} (${props.payload.percentage}%)`,
+                      'Patients',
+                    ]) as any
+                  }
                 />
                 <Bar dataKey="count" fill="#10B981" radius={[0, 4, 4, 0]} />
               </BarChart>
@@ -302,17 +300,21 @@ export default function DemographicsReportPage() {
                   innerRadius={60}
                   outerRadius={100}
                   paddingAngle={2}
-                  label={({ value, percent }: any) => `${value} (${((percent ?? 0) * 100).toFixed(1)}%)`}
+                  label={({ value, percent }: any) =>
+                    `${value} (${((percent ?? 0) * 100).toFixed(1)}%)`
+                  }
                 >
                   {genderChartData.map((_, index) => (
                     <Cell key={index} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip
-                  formatter={((value: number, name: string, props: { payload: { percentage: number } }) => [
-                    `${value} (${props.payload.percentage}%)`,
-                    name,
-                  ]) as any}
+                  formatter={
+                    ((value: number, name: string, props: { payload: { percentage: number } }) => [
+                      `${value} (${props.payload.percentage}%)`,
+                      name,
+                    ]) as any
+                  }
                 />
               </RechartsPieChart>
             </ResponsiveContainer>
@@ -335,16 +337,15 @@ export default function DemographicsReportPage() {
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={byAgeBucket}>
               <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-              <XAxis
-                dataKey="bucket"
-                tick={{ fontSize: 12, fill: '#6B7280' }}
-              />
+              <XAxis dataKey="bucket" tick={{ fontSize: 12, fill: '#6B7280' }} />
               <YAxis tick={{ fontSize: 12, fill: '#6B7280' }} />
               <Tooltip
-                formatter={((value: number, name: string, props: { payload: { percentage: number } }) => [
-                  `${value} (${props.payload.percentage}%)`,
-                  'Patients',
-                ]) as any}
+                formatter={
+                  ((value: number, name: string, props: { payload: { percentage: number } }) => [
+                    `${value} (${props.payload.percentage}%)`,
+                    'Patients',
+                  ]) as any
+                }
               />
               <Bar dataKey="count" fill="#8B5CF6" radius={[4, 4, 0, 0]} />
             </BarChart>

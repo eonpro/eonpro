@@ -36,9 +36,9 @@ import type { UserContext } from '@/domains/shared/types';
  * Decrypt patient PHI fields in ticket query results.
  * Patient firstName/lastName are encrypted at rest; this decrypts them for display.
  */
-function decryptPatientFields<T extends { patient?: { firstName?: string | null; lastName?: string | null } | null }>(
-  record: T
-): T {
+function decryptPatientFields<
+  T extends { patient?: { firstName?: string | null; lastName?: string | null } | null },
+>(record: T): T {
   if (record.patient) {
     return {
       ...record,
@@ -158,11 +158,7 @@ function buildWhereClause(
   // Search with fuzzy matching (catches typos in title/description)
   const searchTrimmed = filters.search?.trim();
   if (searchTrimmed) {
-    where.OR = buildFuzzySearchOr(
-      searchTrimmed,
-      ['ticketNumber'],
-      ['title', 'description'],
-    );
+    where.OR = buildFuzzySearchOr(searchTrimmed, ['ticketNumber'], ['title', 'description']);
   }
 
   // Tags filter
@@ -849,10 +845,7 @@ export const ticketRepository = {
   // Timeline (merged view)
   // ==========================================================================
 
-  async getTimeline(
-    ticketId: number,
-    options: { limit?: number; offset?: number } = {}
-  ) {
+  async getTimeline(ticketId: number, options: { limit?: number; offset?: number } = {}) {
     const take = options.limit || 100;
     const skip = options.offset || 0;
 
@@ -903,7 +896,9 @@ export const ticketRepository = {
         id: `comment-${c.id}`,
         type: c.isInternal ? 'internal_note' : 'comment',
         timestamp: c.createdAt,
-        actor: c.author ? { id: c.author.id, firstName: c.author.firstName, lastName: c.author.lastName } : null,
+        actor: c.author
+          ? { id: c.author.id, firstName: c.author.firstName, lastName: c.author.lastName }
+          : null,
         content: c.comment,
         metadata: { isInternal: c.isInternal, commentId: c.id },
       });
@@ -920,7 +915,8 @@ export const ticketRepository = {
 
       let type = 'system';
       if (['STATUS_CHANGED'].includes(a.activityType)) type = 'status_change';
-      else if (['ASSIGNED', 'REASSIGNED', 'UNASSIGNED'].includes(a.activityType)) type = 'assignment';
+      else if (['ASSIGNED', 'REASSIGNED', 'UNASSIGNED'].includes(a.activityType))
+        type = 'assignment';
       else if (['ESCALATED'].includes(a.activityType)) type = 'escalation';
       else if (['RESOLVED'].includes(a.activityType)) type = 'resolution';
       else if (['REOPENED'].includes(a.activityType)) type = 'reopen';
@@ -937,7 +933,9 @@ export const ticketRepository = {
           fieldChanged: a.fieldChanged,
           oldValue: a.oldValue,
           newValue: a.newValue,
-          ...(a.details && typeof a.details === 'object' ? a.details as Record<string, unknown> : {}),
+          ...(a.details && typeof a.details === 'object'
+            ? (a.details as Record<string, unknown>)
+            : {}),
         },
       });
     }
@@ -1034,47 +1032,48 @@ export const ticketRepository = {
    * Get ticket statistics for a clinic
    */
   async getStats(clinicId: number) {
-    const [total, byStatus, byPriority, byCategory, slaBreach, unassigned, resolvedTickets] = await Promise.all([
-      prisma.ticket.count({ where: { clinicId } }),
-      prisma.ticket.groupBy({
-        by: ['status'],
-        where: { clinicId },
-        _count: { status: true },
-      }),
-      prisma.ticket.groupBy({
-        by: ['priority'],
-        where: { clinicId },
-        _count: { priority: true },
-      }),
-      prisma.ticket.groupBy({
-        by: ['category'],
-        where: { clinicId },
-        _count: { category: true },
-      }),
-      prisma.ticket.count({
-        where: {
-          clinicId,
-          sla: { breached: true },
-          status: { notIn: ['CLOSED', 'CANCELLED', 'RESOLVED'] },
-        },
-      }),
-      prisma.ticket.count({
-        where: {
-          clinicId,
-          assignedToId: null,
-          status: { notIn: ['CLOSED', 'CANCELLED', 'RESOLVED'] },
-        },
-      }),
-      prisma.ticket.findMany({
-        where: {
-          clinicId,
-          resolvedAt: { not: null },
-          createdAt: { gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) },
-        },
-        select: { createdAt: true, resolvedAt: true },
-        take: 1000,
-      }),
-    ]);
+    const [total, byStatus, byPriority, byCategory, slaBreach, unassigned, resolvedTickets] =
+      await Promise.all([
+        prisma.ticket.count({ where: { clinicId } }),
+        prisma.ticket.groupBy({
+          by: ['status'],
+          where: { clinicId },
+          _count: { status: true },
+        }),
+        prisma.ticket.groupBy({
+          by: ['priority'],
+          where: { clinicId },
+          _count: { priority: true },
+        }),
+        prisma.ticket.groupBy({
+          by: ['category'],
+          where: { clinicId },
+          _count: { category: true },
+        }),
+        prisma.ticket.count({
+          where: {
+            clinicId,
+            sla: { breached: true },
+            status: { notIn: ['CLOSED', 'CANCELLED', 'RESOLVED'] },
+          },
+        }),
+        prisma.ticket.count({
+          where: {
+            clinicId,
+            assignedToId: null,
+            status: { notIn: ['CLOSED', 'CANCELLED', 'RESOLVED'] },
+          },
+        }),
+        prisma.ticket.findMany({
+          where: {
+            clinicId,
+            resolvedAt: { not: null },
+            createdAt: { gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) },
+          },
+          select: { createdAt: true, resolvedAt: true },
+          take: 1000,
+        }),
+      ]);
 
     let avgResolutionTime = 0;
     if (resolvedTickets.length > 0) {
@@ -1140,10 +1139,7 @@ export const ticketRepository = {
       where: {
         status: 'ACTIVE',
         role: { in: ['ADMIN', 'STAFF', 'PROVIDER', 'SUPPORT'] },
-        OR: [
-          { clinicId },
-          { userClinics: { some: { clinicId, isActive: true } } },
-        ],
+        OR: [{ clinicId }, { userClinics: { some: { clinicId, isActive: true } } }],
       },
       select: {
         id: true,
@@ -1177,8 +1173,10 @@ export const ticketRepository = {
 
       let avgTime = 0;
       if (resolvedWithTime.length > 0) {
-        const total = resolvedWithTime.reduce((s, t) =>
-          s + ((t.resolvedAt?.getTime() || 0) - t.createdAt.getTime()) / 60000, 0);
+        const total = resolvedWithTime.reduce(
+          (s, t) => s + ((t.resolvedAt?.getTime() || 0) - t.createdAt.getTime()) / 60000,
+          0
+        );
         avgTime = Math.round(total / resolvedWithTime.length);
       }
 

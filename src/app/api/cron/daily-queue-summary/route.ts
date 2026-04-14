@@ -113,9 +113,13 @@ async function processClinic(clinicId: number): Promise<PerClinicResult> {
 
   if (totalAdminWork > 0 || scheduledToday > 0) {
     const parts: string[] = [];
-    if (pendingAdmin > 0) parts.push(`${pendingAdmin} refill${pendingAdmin > 1 ? 's' : ''} pending approval`);
+    if (pendingAdmin > 0)
+      parts.push(`${pendingAdmin} refill${pendingAdmin > 1 ? 's' : ''} pending approval`);
     if (pendingPayment > 0) parts.push(`${pendingPayment} awaiting payment verification`);
-    if (scheduledToday > 0) parts.push(`${scheduledToday} subscription renewal${scheduledToday > 1 ? 's' : ''} billing today`);
+    if (scheduledToday > 0)
+      parts.push(
+        `${scheduledToday} subscription renewal${scheduledToday > 1 ? 's' : ''} billing today`
+      );
 
     const priority: NotificationPriority = totalAdminWork >= 5 ? 'HIGH' : 'NORMAL';
 

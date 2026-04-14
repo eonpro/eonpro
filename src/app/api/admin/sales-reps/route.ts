@@ -26,9 +26,12 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<Response> {
     const includeInactive = searchParams.get('includeInactive') === 'true';
 
     const clinicIdParam = searchParams.get('clinicId');
-    const clinicId = user.role === 'super_admin'
-      ? (clinicIdParam ? parseInt(clinicIdParam, 10) : undefined)
-      : user.clinicId;
+    const clinicId =
+      user.role === 'super_admin'
+        ? clinicIdParam
+          ? parseInt(clinicIdParam, 10)
+          : undefined
+        : user.clinicId;
 
     const rolesParam = searchParams.get('roles');
     const allowedRoles: readonly string[] = COMMISSION_ELIGIBLE_ROLES;

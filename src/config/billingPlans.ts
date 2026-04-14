@@ -690,9 +690,9 @@ export const WELLMEDR_BILLING_PLANS: BillingPlan[] = [
 // WellMedR Addon Price ID Detection
 // ═══════════════════════════════════════════════════════════════════════════
 const WELLMEDR_ADDON_PRICE_IDS = new Set(
-  WELLMEDR_BILLING_PLANS
-    .filter((p) => p.category === 'addons' && p.stripePriceId)
-    .map((p) => p.stripePriceId!),
+  WELLMEDR_BILLING_PLANS.filter((p) => p.category === 'addons' && p.stripePriceId).map(
+    (p) => p.stripePriceId!
+  )
 );
 
 export function isWellMedrAddonPriceId(priceId: string): boolean {
@@ -700,9 +700,7 @@ export function isWellMedrAddonPriceId(priceId: string): boolean {
 }
 
 export function getAddonPlanByStripePriceId(priceId: string): BillingPlan | undefined {
-  return WELLMEDR_BILLING_PLANS.find(
-    (p) => p.category === 'addons' && p.stripePriceId === priceId,
-  );
+  return WELLMEDR_BILLING_PLANS.find((p) => p.category === 'addons' && p.stripePriceId === priceId);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

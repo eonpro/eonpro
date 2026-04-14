@@ -33,7 +33,7 @@ export default function MacroDropdown({ ticketId, onApplied }: MacroDropdownProp
     if (isOpen && macros.length === 0) {
       setLoading(true);
       apiFetch('/api/tickets/macros')
-        .then((r) => r.ok ? r.json() : { macros: [] })
+        .then((r) => (r.ok ? r.json() : { macros: [] }))
         .then((d) => setMacros(d.macros || []))
         .catch(() => setMacros([]))
         .finally(() => setLoading(false));
@@ -98,7 +98,9 @@ export default function MacroDropdown({ ticketId, onApplied }: MacroDropdownProp
             ) : macros.length === 0 ? (
               <div className="px-3 py-4 text-center text-sm text-gray-500">
                 No macros available.
-                <a href="/tickets/macros" className="ml-1 text-blue-600 hover:underline">Create one</a>
+                <a href="/tickets/macros" className="ml-1 text-blue-600 hover:underline">
+                  Create one
+                </a>
               </div>
             ) : (
               macros.map((macro) => (

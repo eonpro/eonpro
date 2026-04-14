@@ -31,9 +31,7 @@ export async function safeJson<T = unknown>(response: Response): Promise<T> {
 
   if (!contentType.includes('application/json')) {
     const text = await response.text();
-    const preview = text.length > MAX_BODY_PREVIEW
-      ? text.slice(0, MAX_BODY_PREVIEW) + '...'
-      : text;
+    const preview = text.length > MAX_BODY_PREVIEW ? text.slice(0, MAX_BODY_PREVIEW) + '...' : text;
     throw new SafeJsonParseError(
       `Response is not JSON. Status=${status} Content-Type=${contentType} Body=${preview}`,
       status,
@@ -43,9 +41,7 @@ export async function safeJson<T = unknown>(response: Response): Promise<T> {
   }
 
   const text = await response.text();
-  const preview = text.length > MAX_BODY_PREVIEW
-    ? text.slice(0, MAX_BODY_PREVIEW) + '...'
-    : text;
+  const preview = text.length > MAX_BODY_PREVIEW ? text.slice(0, MAX_BODY_PREVIEW) + '...' : text;
 
   try {
     return JSON.parse(text) as T;

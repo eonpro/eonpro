@@ -95,7 +95,7 @@ The goal is not lifelong medication dependency — it's sustainable weight manag
       'Your provider will create a personalized plan for both active weight loss and long-term maintenance',
     ],
     disclaimer:
-      'This article is for educational purposes only and does not constitute medical advice. Always follow your provider\'s specific instructions regarding your medication, dosage, and treatment plan.',
+      "This article is for educational purposes only and does not constitute medical advice. Always follow your provider's specific instructions regarding your medication, dosage, and treatment plan.",
   },
 
   'managing-side-effects': {
@@ -214,7 +214,7 @@ Don't hesitate to reach out to your care team — we'd always rather hear from y
       'Side effects often lessen with each dose increase as your body builds tolerance',
     ],
     disclaimer:
-      'This article is for educational purposes only and does not replace your provider\'s medical advice. If you are experiencing severe side effects, contact your healthcare provider or seek emergency care immediately.',
+      "This article is for educational purposes only and does not replace your provider's medical advice. If you are experiencing severe side effects, contact your healthcare provider or seek emergency care immediately.",
   },
 
   'nutrition-guidelines': {
@@ -253,7 +253,7 @@ Without intentional nutrition planning, patients on GLP-1 medications risk losin
 **Practical tip:** Eat your protein first at each meal. When your appetite is reduced, you want to make sure the most important nutrient gets in before you feel full.`,
       },
       {
-        heading: 'Structure Your Meals — Even When You\'re Not Hungry',
+        heading: "Structure Your Meals — Even When You're Not Hungry",
         body: `One of the biggest mistakes GLP-1 patients make is skipping meals because they don't feel hungry. While the reduced appetite is working as intended, going too long without eating can lead to muscle loss, blood sugar dips, fatigue, and binge eating later.
 
 **A good daily structure looks like:**
@@ -376,7 +376,7 @@ Always check with your provider before starting new supplements, as some can int
     ],
     keyTakeaways: [
       'Aim for 80–120 grams of protein daily to preserve muscle — eat protein first at every meal',
-      'Don\'t skip meals even if appetite is low; small, nutrient-dense meals beat skipping',
+      "Don't skip meals even if appetite is low; small, nutrient-dense meals beat skipping",
       'Build plates with half vegetables, quarter protein, quarter complex carbs',
       'Drink at least 64 oz of water daily — dehydration is the most common avoidable issue',
       'Limit fried, greasy, and highly processed foods to reduce GI side effects',
@@ -464,7 +464,7 @@ These are uncommon, but important to evaluate promptly. Your care team would alw
       'Contact your provider if redness spreads, swelling worsens, or you notice signs of infection',
     ],
     disclaimer:
-      'This article is for educational purposes only and does not replace your provider\'s medical advice. If you are experiencing a severe reaction or signs of an allergic response, contact your healthcare provider or seek emergency care immediately.',
+      "This article is for educational purposes only and does not replace your provider's medical advice. If you are experiencing a severe reaction or signs of an allergic response, contact your healthcare provider or seek emergency care immediately.",
   },
 
   'exercise-recommendations': {
@@ -609,7 +609,7 @@ Adjust based on your fitness level and schedule. The best plan is one you can ac
     keyTakeaways: [
       'Strength training is the most important exercise type during weight loss — it preserves muscle mass',
       'Aim for 2–3 strength sessions and 150+ minutes of moderate cardio per week',
-      'Start gently and build gradually — even 10-minute walks count when you\'re beginning',
+      "Start gently and build gradually — even 10-minute walks count when you're beginning",
       'Stay hydrated before, during, and after exercise; dehydration risk is elevated on GLP-1 medications',
       'Wait 60–90 minutes after eating before intense exercise to avoid nausea',
       'Consistency beats intensity — regular moderate activity outperforms sporadic intense workouts',

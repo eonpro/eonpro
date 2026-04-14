@@ -245,23 +245,23 @@ class DataPreloader {
           prisma.patient.findUnique({
             where: { id: patientId },
             include: {
-            orders: {
-              select: { id: true, status: true, createdAt: true },
-              orderBy: { createdAt: 'desc' },
-              take: 10,
+              orders: {
+                select: { id: true, status: true, createdAt: true },
+                orderBy: { createdAt: 'desc' },
+                take: 10,
+              },
+              invoices: {
+                select: { id: true, status: true, amount: true, createdAt: true },
+                orderBy: { createdAt: 'desc' },
+                take: 10,
+              },
+              appointments: {
+                select: { id: true, startTime: true, status: true },
+                where: { startTime: { gte: new Date() } },
+                orderBy: { startTime: 'asc' },
+                take: 5,
+              },
             },
-            invoices: {
-              select: { id: true, status: true, amount: true, createdAt: true },
-              orderBy: { createdAt: 'desc' },
-              take: 10,
-            },
-            appointments: {
-              select: { id: true, startTime: true, status: true },
-              where: { startTime: { gte: new Date() } },
-              orderBy: { startTime: 'asc' },
-              take: 5,
-            },
-          },
           })
         );
 

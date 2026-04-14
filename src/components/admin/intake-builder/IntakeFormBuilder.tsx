@@ -82,9 +82,7 @@ export default function IntakeFormBuilder({
 
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-  );
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   // ---- DnD handlers ----
 
@@ -125,7 +123,7 @@ export default function IntakeFormBuilder({
         return;
       }
     },
-    [dispatch, ui.selection.stepId],
+    [dispatch, ui.selection.stepId]
   );
 
   // ---- Callbacks for child components ----
@@ -134,28 +132,28 @@ export default function IntakeFormBuilder({
     (name: string) => {
       dispatch({ type: 'UPDATE_FORM', updates: { name } });
     },
-    [dispatch],
+    [dispatch]
   );
 
   const handleAddStep = useCallback(
     (stepType: import('./state/builderTypes').StepType) => {
       dispatch({ type: 'ADD_STEP', stepType, afterStepId: ui.selection.stepId ?? undefined });
     },
-    [dispatch, ui.selection.stepId],
+    [dispatch, ui.selection.stepId]
   );
 
   const handleAddFieldFromPalette = useCallback(
     (stepId: string, fieldType: FieldType) => {
       dispatch({ type: 'ADD_FIELD', stepId, fieldType });
     },
-    [dispatch],
+    [dispatch]
   );
 
   const handleJsonApply = useCallback(
     (config: FormConfig) => {
       dispatch({ type: 'SET_CONFIG', config });
     },
-    [dispatch],
+    [dispatch]
   );
 
   // ---- Render ----
@@ -167,7 +165,7 @@ export default function IntakeFormBuilder({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="h-screen flex flex-col bg-gray-100 overflow-hidden">
+      <div className="flex h-screen flex-col overflow-hidden bg-gray-100">
         {/* Toolbar */}
         <BuilderToolbar
           formName={state.config.name}
@@ -193,16 +191,16 @@ export default function IntakeFormBuilder({
 
         {/* Main content area */}
         {ui.builderView === 'builder' && (
-          <div className="flex-1 flex overflow-hidden">
+          <div className="flex flex-1 overflow-hidden">
             {/* Left panel */}
-            <div className="w-[280px] bg-white border-r border-gray-200 flex flex-col shrink-0">
+            <div className="flex w-[280px] shrink-0 flex-col border-r border-gray-200 bg-white">
               {/* Panel tabs */}
               <div className="flex border-b border-gray-200">
                 <button
                   onClick={() => setLeftPanelTab('steps')}
                   className={`flex-1 px-4 py-2.5 text-xs font-semibold uppercase tracking-wider transition-colors ${
                     ui.leftPanelTab === 'steps'
-                      ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50/50'
+                      ? 'border-b-2 border-indigo-600 bg-indigo-50/50 text-indigo-600'
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
@@ -212,7 +210,7 @@ export default function IntakeFormBuilder({
                   onClick={() => setLeftPanelTab('elements')}
                   className={`flex-1 px-4 py-2.5 text-xs font-semibold uppercase tracking-wider transition-colors ${
                     ui.leftPanelTab === 'elements'
-                      ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50/50'
+                      ? 'border-b-2 border-indigo-600 bg-indigo-50/50 text-indigo-600'
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
@@ -231,7 +229,9 @@ export default function IntakeFormBuilder({
                     onAddStep={handleAddStep}
                     onDuplicateStep={(id) => dispatch({ type: 'DUPLICATE_STEP', stepId: id })}
                     onDeleteStep={(id) => dispatch({ type: 'DELETE_STEP', stepId: id })}
-                    onReorderSteps={(a, o) => dispatch({ type: 'REORDER_STEPS', activeId: a, overId: o })}
+                    onReorderSteps={(a, o) =>
+                      dispatch({ type: 'REORDER_STEPS', activeId: a, overId: o })
+                    }
                     onSetStartStep={(id) => dispatch({ type: 'SET_START_STEP', stepId: id })}
                     language={ui.language}
                   />
@@ -245,7 +245,7 @@ export default function IntakeFormBuilder({
             </div>
 
             {/* Center canvas */}
-            <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex flex-1 flex-col overflow-hidden">
               <div className="flex-1 overflow-auto">
                 <BuilderCanvas
                   step={selectedStep}
@@ -265,7 +265,12 @@ export default function IntakeFormBuilder({
                   }}
                   onReorderFields={(a, o) => {
                     if (ui.selection.stepId)
-                      dispatch({ type: 'REORDER_FIELDS', stepId: ui.selection.stepId, activeId: a, overId: o });
+                      dispatch({
+                        type: 'REORDER_FIELDS',
+                        stepId: ui.selection.stepId,
+                        activeId: a,
+                        overId: o,
+                      });
                   }}
                   onDeleteField={(fieldId) => {
                     if (ui.selection.stepId)
@@ -277,14 +282,19 @@ export default function IntakeFormBuilder({
                   }}
                   onDropNewField={(fieldType, atIndex) => {
                     if (ui.selection.stepId)
-                      dispatch({ type: 'ADD_FIELD', stepId: ui.selection.stepId, fieldType, atIndex });
+                      dispatch({
+                        type: 'ADD_FIELD',
+                        stepId: ui.selection.stepId,
+                        fieldType,
+                        atIndex,
+                      });
                   }}
                 />
               </div>
 
               {/* Flow diagram (collapsible) */}
               {ui.showFlowDiagram && (
-                <div className="border-t border-gray-200 bg-white p-3 shrink-0">
+                <div className="shrink-0 border-t border-gray-200 bg-white p-3">
                   <StepFlowDiagram
                     steps={state.config.steps}
                     startStepId={state.config.startStep}
@@ -296,7 +306,7 @@ export default function IntakeFormBuilder({
             </div>
 
             {/* Right panel */}
-            <div className="w-[320px] bg-white border-l border-gray-200 shrink-0 overflow-y-auto">
+            <div className="w-[320px] shrink-0 overflow-y-auto border-l border-gray-200 bg-white">
               <PropertiesPanel
                 selection={ui.selection}
                 steps={state.config.steps}
@@ -310,18 +320,36 @@ export default function IntakeFormBuilder({
                 }
                 onUpdateForm={(u) => dispatch({ type: 'UPDATE_FORM', updates: u })}
                 onUpdateBranding={(u) => dispatch({ type: 'UPDATE_BRANDING', updates: u })}
-                onAddOption={(sId, fId) => dispatch({ type: 'ADD_OPTION', stepId: sId, fieldId: fId })}
+                onAddOption={(sId, fId) =>
+                  dispatch({ type: 'ADD_OPTION', stepId: sId, fieldId: fId })
+                }
                 onDeleteOption={(sId, fId, oId) =>
                   dispatch({ type: 'DELETE_OPTION', stepId: sId, fieldId: fId, optionId: oId })
                 }
                 onUpdateOption={(sId, fId, oId, u) =>
-                  dispatch({ type: 'UPDATE_OPTION', stepId: sId, fieldId: fId, optionId: oId, updates: u })
+                  dispatch({
+                    type: 'UPDATE_OPTION',
+                    stepId: sId,
+                    fieldId: fId,
+                    optionId: oId,
+                    updates: u,
+                  })
                 }
                 onReorderOptions={(sId, fId, a, o) =>
-                  dispatch({ type: 'REORDER_OPTIONS', stepId: sId, fieldId: fId, activeId: a, overId: o })
+                  dispatch({
+                    type: 'REORDER_OPTIONS',
+                    stepId: sId,
+                    fieldId: fId,
+                    activeId: a,
+                    overId: o,
+                  })
                 }
-                onSetNextStep={(id, n) => dispatch({ type: 'SET_NEXT_STEP', stepId: id, nextStep: n })}
-                onAddConditionalNav={(id, nav) => dispatch({ type: 'ADD_CONDITIONAL_NAV', stepId: id, nav })}
+                onSetNextStep={(id, n) =>
+                  dispatch({ type: 'SET_NEXT_STEP', stepId: id, nextStep: n })
+                }
+                onAddConditionalNav={(id, nav) =>
+                  dispatch({ type: 'ADD_CONDITIONAL_NAV', stepId: id, nav })
+                }
                 onDeleteConditionalNav={(id, idx) =>
                   dispatch({ type: 'DELETE_CONDITIONAL_NAV', stepId: id, index: idx })
                 }
@@ -336,7 +364,7 @@ export default function IntakeFormBuilder({
 
         {/* Preview view */}
         {ui.builderView === 'preview' && (
-          <div className="flex-1 overflow-auto bg-gray-50 flex items-start justify-center p-8">
+          <div className="flex flex-1 items-start justify-center overflow-auto bg-gray-50 p-8">
             <FormPreviewPanel
               config={state.config}
               devicePreview={ui.devicePreview}
@@ -358,7 +386,7 @@ export default function IntakeFormBuilder({
       {/* Drag overlay for palette elements */}
       <DragOverlay>
         {activeDragId && activeDragId.startsWith('el-') ? (
-          <div className="bg-white border border-indigo-300 rounded-lg px-3 py-2 shadow-lg text-sm font-medium text-indigo-700 opacity-90">
+          <div className="rounded-lg border border-indigo-300 bg-white px-3 py-2 text-sm font-medium text-indigo-700 opacity-90 shadow-lg">
             {getElementDefinition(activeDragId)?.label ?? 'Element'}
           </div>
         ) : null}

@@ -360,7 +360,9 @@ function getInitialBrandingState(
         if (cachedData.clinicId && cachedData.ts && Date.now() - cachedData.ts < 3600_000) {
           cId = cachedData.clinicId;
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
   }
 
@@ -370,10 +372,16 @@ function getInitialBrandingState(
       try {
         const cached = JSON.parse(raw);
         if (cached.data && cached.ts && Date.now() - cached.ts < 60 * 60 * 1000) {
-          const merged = { ...defaultBranding, ...cached.data, features: { ...defaultFeatures, ...cached.data.features } };
+          const merged = {
+            ...defaultBranding,
+            ...cached.data,
+            features: { ...defaultFeatures, ...cached.data.features },
+          };
           return { branding: merged, isLoading: false };
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
   }
 
@@ -521,7 +529,10 @@ export function ClinicBrandingProvider({
                 if (resolveData.clinicId) {
                   cId = resolveData.clinicId;
                   try {
-                    localStorage.setItem(cacheKey, JSON.stringify({ clinicId: cId, ts: Date.now() }));
+                    localStorage.setItem(
+                      cacheKey,
+                      JSON.stringify({ clinicId: cId, ts: Date.now() })
+                    );
                   } catch {
                     // localStorage may be full or disabled
                   }

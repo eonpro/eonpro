@@ -68,9 +68,12 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       where.alertType = params.type;
     }
 
-    const statsWhere = user.role === 'super_admin'
-      ? params.clinicId ? { clinicId: params.clinicId } : {}
-      : { clinicId: user.clinicId! };
+    const statsWhere =
+      user.role === 'super_admin'
+        ? params.clinicId
+          ? { clinicId: params.clinicId }
+          : {}
+        : { clinicId: user.clinicId! };
 
     const [total, alerts, stats, severityStats] = await Promise.all([
       prisma.affiliateFraudAlert.count({ where }),
@@ -87,11 +90,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
           },
           clinic: { select: { id: true, name: true } },
         },
-        orderBy: [
-          { status: 'asc' },
-          { severity: 'desc' },
-          { createdAt: 'desc' },
-        ],
+        orderBy: [{ status: 'asc' }, { severity: 'desc' }, { createdAt: 'desc' }],
         skip: (params.page! - 1) * params.limit!,
         take: params.limit,
       }),
@@ -221,7 +220,9 @@ async function handlePatch(request: NextRequest, user: AuthUser) {
         status = 'INVESTIGATING';
         break;
       default:
-        return badRequest('Invalid action. Must be: dismiss, false_positive, confirm, or investigate');
+        return badRequest(
+          'Invalid action. Must be: dismiss, false_positive, confirm, or investigate'
+        );
     }
 
     // Update alert

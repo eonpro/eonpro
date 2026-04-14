@@ -29,12 +29,14 @@ async function handler(req: NextRequest) {
     const rxcuiPairs = await Promise.all(
       medications.map(async (med) => ({ name: med, rxcui: await resolveRxCUI(med) }))
     );
-    const validRxcuis = rxcuiPairs.filter((p) => p.rxcui !== null) as { name: string; rxcui: string }[];
+    const validRxcuis = rxcuiPairs.filter((p) => p.rxcui !== null) as {
+      name: string;
+      rxcui: string;
+    }[];
 
     // Step 3: Check drug-drug interactions via RxNorm
-    const interactions = validRxcuis.length >= 2
-      ? await checkInteractions(validRxcuis.map((p) => p.rxcui))
-      : [];
+    const interactions =
+      validRxcuis.length >= 2 ? await checkInteractions(validRxcuis.map((p) => p.rxcui)) : [];
 
     // Step 4: Generate AI summary if there are warnings (non-blocking, best effort)
     let aiSummary: string | null = null;
@@ -59,10 +61,7 @@ async function handler(req: NextRequest) {
     logger.error('[interaction-check] Error:', {
       error: error instanceof Error ? error.message : String(error),
     });
-    return NextResponse.json(
-      { error: 'Failed to check interactions' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to check interactions' }, { status: 500 });
   }
 }
 
@@ -80,12 +79,18 @@ function buildSummaryPrompt(
     parts.push(`Known allergies: ${allergies.join(', ')}`);
   }
   if (interactions.length > 0) {
-    parts.push(`Drug interactions found: ${interactions.map((i) => `${i.drug1} + ${i.drug2}: ${i.description}`).join('; ')}`);
+    parts.push(
+      `Drug interactions found: ${interactions.map((i) => `${i.drug1} + ${i.drug2}: ${i.description}`).join('; ')}`
+    );
   }
   if (allergyWarnings.length > 0) {
-    parts.push(`Allergy warnings: ${allergyWarnings.map((w: any) => `${w.medication} vs ${w.allergy}: ${w.reason}`).join('; ')}`);
+    parts.push(
+      `Allergy warnings: ${allergyWarnings.map((w: any) => `${w.medication} vs ${w.allergy}: ${w.reason}`).join('; ')}`
+    );
   }
-  parts.push('Focus on clinical significance, severity, and whether medication changes may be needed. Be concise.');
+  parts.push(
+    'Focus on clinical significance, severity, and whether medication changes may be needed. Be concise.'
+  );
   return parts.join('\n');
 }
 

@@ -57,31 +57,28 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     // into memory. Returns only unique (state, clinicId, count) rows — orders of magnitude
     // smaller than the full patient table.
     // Wrapped in circuit breaker Tier 2 (READ) — fail-fast when breaker is OPEN
-    const geoResult = await executeDbRead(
-      async () => {
-        const grouped = await prisma.patient.groupBy({
-          by: ['state', 'clinicId'],
-          where: {
-            ...clinicFilter,
-            state: { not: '' },
-          },
-          _count: { _all: true },
-        });
+    const geoResult = await executeDbRead(async () => {
+      const grouped = await prisma.patient.groupBy({
+        by: ['state', 'clinicId'],
+        where: {
+          ...clinicFilter,
+          state: { not: '' },
+        },
+        _count: { _all: true },
+      });
 
-        const clinicIds = [...new Set(grouped.map((g) => g.clinicId))];
-        const clinics = await prisma.clinic.findMany({
-          where: { id: { in: clinicIds } },
-          select: {
-            id: true,
-            name: true,
-            primaryColor: true,
-          },
-        });
+      const clinicIds = [...new Set(grouped.map((g) => g.clinicId))];
+      const clinics = await prisma.clinic.findMany({
+        where: { id: { in: clinicIds } },
+        select: {
+          id: true,
+          name: true,
+          primaryColor: true,
+        },
+      });
 
-        return { grouped, clinicIds, clinics };
-      },
-      'admin-dashboard-geo:data'
-    );
+      return { grouped, clinicIds, clinics };
+    }, 'admin-dashboard-geo:data');
 
     if (!geoResult.success) {
       logger.warn('[ADMIN-DASHBOARD-GEO] Blocked by circuit breaker', {
@@ -117,9 +114,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
       // Track per-clinic within state
       const clinicInfo = clinicMap.get(row.clinicId);
-      const existing = stateData[stateCode].clinics.find(
-        (c) => c.clinicId === row.clinicId
-      );
+      const existing = stateData[stateCode].clinics.find((c) => c.clinicId === row.clinicId);
       if (existing) {
         existing.count += count;
       } else {
@@ -131,10 +126,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         });
       }
 
-      clinicTotals.set(
-        row.clinicId,
-        (clinicTotals.get(row.clinicId) ?? 0) + count
-      );
+      clinicTotals.set(row.clinicId, (clinicTotals.get(row.clinicId) ?? 0) + count);
     }
 
     // Sort clinics within each state by count descending
@@ -191,28 +183,111 @@ function normalizeStateCode(input: string): string | null {
 }
 
 const STATE_CODES = new Set([
-  'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
-  'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
-  'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
-  'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
-  'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY',
+  'AL',
+  'AK',
+  'AZ',
+  'AR',
+  'CA',
+  'CO',
+  'CT',
+  'DE',
+  'FL',
+  'GA',
+  'HI',
+  'ID',
+  'IL',
+  'IN',
+  'IA',
+  'KS',
+  'KY',
+  'LA',
+  'ME',
+  'MD',
+  'MA',
+  'MI',
+  'MN',
+  'MS',
+  'MO',
+  'MT',
+  'NE',
+  'NV',
+  'NH',
+  'NJ',
+  'NM',
+  'NY',
+  'NC',
+  'ND',
+  'OH',
+  'OK',
+  'OR',
+  'PA',
+  'RI',
+  'SC',
+  'SD',
+  'TN',
+  'TX',
+  'UT',
+  'VT',
+  'VA',
+  'WA',
+  'WV',
+  'WI',
+  'WY',
   'DC',
 ]);
 
 const STATE_NAME_MAP = new Map<string, string>([
-  ['ALABAMA', 'AL'], ['ALASKA', 'AK'], ['ARIZONA', 'AZ'], ['ARKANSAS', 'AR'],
-  ['CALIFORNIA', 'CA'], ['COLORADO', 'CO'], ['CONNECTICUT', 'CT'], ['DELAWARE', 'DE'],
-  ['FLORIDA', 'FL'], ['GEORGIA', 'GA'], ['HAWAII', 'HI'], ['IDAHO', 'ID'],
-  ['ILLINOIS', 'IL'], ['INDIANA', 'IN'], ['IOWA', 'IA'], ['KANSAS', 'KS'],
-  ['KENTUCKY', 'KY'], ['LOUISIANA', 'LA'], ['MAINE', 'ME'], ['MARYLAND', 'MD'],
-  ['MASSACHUSETTS', 'MA'], ['MICHIGAN', 'MI'], ['MINNESOTA', 'MN'], ['MISSISSIPPI', 'MS'],
-  ['MISSOURI', 'MO'], ['MONTANA', 'MT'], ['NEBRASKA', 'NE'], ['NEVADA', 'NV'],
-  ['NEW HAMPSHIRE', 'NH'], ['NEW JERSEY', 'NJ'], ['NEW MEXICO', 'NM'], ['NEW YORK', 'NY'],
-  ['NORTH CAROLINA', 'NC'], ['NORTH DAKOTA', 'ND'], ['OHIO', 'OH'], ['OKLAHOMA', 'OK'],
-  ['OREGON', 'OR'], ['PENNSYLVANIA', 'PA'], ['RHODE ISLAND', 'RI'], ['SOUTH CAROLINA', 'SC'],
-  ['SOUTH DAKOTA', 'SD'], ['TENNESSEE', 'TN'], ['TEXAS', 'TX'], ['UTAH', 'UT'],
-  ['VERMONT', 'VT'], ['VIRGINIA', 'VA'], ['WASHINGTON', 'WA'], ['WEST VIRGINIA', 'WV'],
-  ['WISCONSIN', 'WI'], ['WYOMING', 'WY'], ['DISTRICT OF COLUMBIA', 'DC'],
+  ['ALABAMA', 'AL'],
+  ['ALASKA', 'AK'],
+  ['ARIZONA', 'AZ'],
+  ['ARKANSAS', 'AR'],
+  ['CALIFORNIA', 'CA'],
+  ['COLORADO', 'CO'],
+  ['CONNECTICUT', 'CT'],
+  ['DELAWARE', 'DE'],
+  ['FLORIDA', 'FL'],
+  ['GEORGIA', 'GA'],
+  ['HAWAII', 'HI'],
+  ['IDAHO', 'ID'],
+  ['ILLINOIS', 'IL'],
+  ['INDIANA', 'IN'],
+  ['IOWA', 'IA'],
+  ['KANSAS', 'KS'],
+  ['KENTUCKY', 'KY'],
+  ['LOUISIANA', 'LA'],
+  ['MAINE', 'ME'],
+  ['MARYLAND', 'MD'],
+  ['MASSACHUSETTS', 'MA'],
+  ['MICHIGAN', 'MI'],
+  ['MINNESOTA', 'MN'],
+  ['MISSISSIPPI', 'MS'],
+  ['MISSOURI', 'MO'],
+  ['MONTANA', 'MT'],
+  ['NEBRASKA', 'NE'],
+  ['NEVADA', 'NV'],
+  ['NEW HAMPSHIRE', 'NH'],
+  ['NEW JERSEY', 'NJ'],
+  ['NEW MEXICO', 'NM'],
+  ['NEW YORK', 'NY'],
+  ['NORTH CAROLINA', 'NC'],
+  ['NORTH DAKOTA', 'ND'],
+  ['OHIO', 'OH'],
+  ['OKLAHOMA', 'OK'],
+  ['OREGON', 'OR'],
+  ['PENNSYLVANIA', 'PA'],
+  ['RHODE ISLAND', 'RI'],
+  ['SOUTH CAROLINA', 'SC'],
+  ['SOUTH DAKOTA', 'SD'],
+  ['TENNESSEE', 'TN'],
+  ['TEXAS', 'TX'],
+  ['UTAH', 'UT'],
+  ['VERMONT', 'VT'],
+  ['VIRGINIA', 'VA'],
+  ['WASHINGTON', 'WA'],
+  ['WEST VIRGINIA', 'WV'],
+  ['WISCONSIN', 'WI'],
+  ['WYOMING', 'WY'],
+  ['DISTRICT OF COLUMBIA', 'DC'],
 ]);
 
 export const GET = withAdminAuth(handleGet);

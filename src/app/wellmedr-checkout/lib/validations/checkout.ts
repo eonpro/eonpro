@@ -14,15 +14,9 @@ export const shippingAddressSchema = z.object({
     .string()
     .min(1, 'Last name is required')
     .min(2, 'Last name must be at least 2 characters'),
-  address: z
-    .string()
-    .min(1, 'Address is required')
-    .min(5, 'Please enter a valid address'),
+  address: z.string().min(1, 'Address is required').min(5, 'Please enter a valid address'),
   apt: z.string().optional(),
-  city: z
-    .string()
-    .min(1, 'City is required')
-    .min(2, 'Please enter a valid city'),
+  city: z.string().min(1, 'City is required').min(2, 'Please enter a valid city'),
   state: z
     .enum(stateWithEmptyValues)
     .refine((val) => val !== '', { message: 'Please select a state' }),
@@ -65,9 +59,7 @@ export const checkoutFormSchema = z
         savings: z.number().optional(),
       })
       .nullable(),
-    selectedAddons: z.array(
-      z.enum(['nad_plus', 'sermorelin', 'b12', 'elite_bundle']),
-    ).default([]),
+    selectedAddons: z.array(z.enum(['nad_plus', 'sermorelin', 'b12', 'elite_bundle'])).default([]),
     shippingAddress: shippingAddressSchema,
     billingAddress: billingAddressSchema,
     cardholderName: z.string(),
@@ -98,10 +90,7 @@ export const checkoutFormSchema = z
       }
 
       // Validate zip code format if provided
-      if (
-        data.billingAddress.zipCode &&
-        !/^\d{5}(-\d{4})?$/.test(data.billingAddress.zipCode)
-      ) {
+      if (data.billingAddress.zipCode && !/^\d{5}(-\d{4})?$/.test(data.billingAddress.zipCode)) {
         ctx.addIssue({
           code: 'custom',
           message: 'Please enter a valid zip code (e.g., 12345)',

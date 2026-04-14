@@ -31,7 +31,6 @@ export async function POST(req: NextRequest) {
       body: body,
     });
   } catch (err: any) {
-
     logger.error('[HEYFLOW TEST] Error parsing body:', { error: err });
     return Response.json(
       {

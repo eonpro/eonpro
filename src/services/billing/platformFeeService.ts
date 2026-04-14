@@ -487,7 +487,10 @@ export const platformFeeService = {
       calculationDetails = {
         feeType,
         calculationType: ruleResult.charge.type,
-        rate: ruleResult.charge.type === 'FLAT' ? (ruleResult.charge.amountCents ?? 0) : (ruleResult.charge.basisPoints ?? 0),
+        rate:
+          ruleResult.charge.type === 'FLAT'
+            ? (ruleResult.charge.amountCents ?? 0)
+            : (ruleResult.charge.basisPoints ?? 0),
         orderTotalCents: orderTotalCents ?? undefined,
         medicationKey,
         isWithinCycle: false,

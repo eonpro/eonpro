@@ -223,7 +223,10 @@ export default function SuperAdminAffiliatesPage() {
   // Password reset state
   const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
   const [resetPasswordAffiliate, setResetPasswordAffiliate] = useState<Affiliate | null>(null);
-  const [resetPasswordForm, setResetPasswordForm] = useState({ password: '', sendNotification: false });
+  const [resetPasswordForm, setResetPasswordForm] = useState({
+    password: '',
+    sendNotification: false,
+  });
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [resettingPassword, setResettingPassword] = useState(false);
   const [resetPasswordError, setResetPasswordError] = useState<string | null>(null);
@@ -277,7 +280,8 @@ export default function SuperAdminAffiliatesPage() {
         setDiagnostics(await response.json());
       }
     } catch (error) {
-      process.env.NODE_ENV === 'development' && console.error('Failed to fetch diagnostics:', error);
+      process.env.NODE_ENV === 'development' &&
+        console.error('Failed to fetch diagnostics:', error);
     } finally {
       setDiagnosticsLoading(false);
     }
@@ -1076,9 +1080,7 @@ export default function SuperAdminAffiliatesPage() {
               <DollarSign className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">
-                {formatCurrency(totals.revenue)}
-              </p>
+              <p className="text-2xl font-bold text-gray-900">{formatCurrency(totals.revenue)}</p>
               <p className="text-sm text-gray-500">Total Revenue</p>
             </div>
           </div>
@@ -1249,12 +1251,18 @@ export default function SuperAdminAffiliatesPage() {
                       {affiliate.stats.totalConversions} conversions
                       {affiliate.stats.totalClicks > 0 && (
                         <span className="ml-1 text-xs text-gray-400">
-                          ({((affiliate.stats.totalConversions / affiliate.stats.totalClicks) * 100).toFixed(1)}%)
+                          (
+                          {(
+                            (affiliate.stats.totalConversions / affiliate.stats.totalClicks) *
+                            100
+                          ).toFixed(1)}
+                          %)
                         </span>
                       )}
                     </p>
                     <p className="text-gray-500">
-                      {formatCurrency(affiliate.stats.totalRevenueCents)} rev · {formatCurrency(affiliate.stats.totalCommissionCents)} earned
+                      {formatCurrency(affiliate.stats.totalRevenueCents)} rev ·{' '}
+                      {formatCurrency(affiliate.stats.totalCommissionCents)} earned
                     </p>
                   </div>
                 </td>
@@ -1677,7 +1685,8 @@ export default function SuperAdminAffiliatesPage() {
             </div>
 
             <p className="mb-4 text-sm text-gray-600">
-              Reset the password for <strong>{resetPasswordAffiliate.displayName}</strong> ({resetPasswordAffiliate.user.email})
+              Reset the password for <strong>{resetPasswordAffiliate.displayName}</strong> (
+              {resetPasswordAffiliate.user.email})
             </p>
 
             <form onSubmit={handleResetPassword} className="space-y-4">
@@ -1702,7 +1711,11 @@ export default function SuperAdminAffiliatesPage() {
                       onClick={() => setShowResetPassword(!showResetPassword)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                     >
-                      {showResetPassword ? <XCircle className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      {showResetPassword ? (
+                        <XCircle className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
                     </button>
                   </div>
                   <button
@@ -1728,7 +1741,9 @@ export default function SuperAdminAffiliatesPage() {
               </label>
 
               {resetPasswordError && (
-                <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{resetPasswordError}</div>
+                <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                  {resetPasswordError}
+                </div>
               )}
 
               <div className="flex gap-3 pt-2">

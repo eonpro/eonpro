@@ -19,7 +19,12 @@
 import { prisma, getClinicContext } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { generatePatientId } from '@/lib/patients';
-import { decryptPHI, encryptPatientPHI, computeEmailHash, computeDobHash } from '@/lib/security/phi-encryption';
+import {
+  decryptPHI,
+  encryptPatientPHI,
+  computeEmailHash,
+  computeDobHash,
+} from '@/lib/security/phi-encryption';
 import { buildPatientSearchIndex } from '@/lib/utils/search';
 import Stripe from 'stripe';
 import { Prisma } from '@prisma/client';
@@ -126,9 +131,7 @@ async function getStripeClientForClinic(clinicId?: number): Promise<{
     try {
       const { getStripeForClinic } = await import('@/lib/stripe/connect');
       const ctx = await getStripeForClinic(clinicId);
-      const connectOpts = ctx.stripeAccountId
-        ? { stripeAccount: ctx.stripeAccountId }
-        : undefined;
+      const connectOpts = ctx.stripeAccountId ? { stripeAccount: ctx.stripeAccountId } : undefined;
       return { stripe: ctx.stripe, connectOpts };
     } catch {
       // Fall through to legacy
@@ -151,7 +154,7 @@ async function getStripeClientForClinic(clinicId?: number): Promise<{
  */
 export async function fetchStripeCustomerData(
   customerId: string,
-  clinicId?: number,
+  clinicId?: number
 ): Promise<{
   email: string | null;
   name: string | null;
@@ -298,7 +301,7 @@ function extractNameFromDescription(description: string | null): string | null {
  */
 export async function enhancePaymentDataWithCustomerInfo(
   paymentData: StripePaymentData,
-  clinicId?: number,
+  clinicId?: number
 ): Promise<StripePaymentData> {
   let enhanced = { ...paymentData };
 
@@ -823,8 +826,7 @@ export async function createPatientFromStripePayment(
   const phiData = {
     firstName: firstName || 'Unknown',
     lastName: lastName || 'Customer',
-    email:
-      paymentData.email || `stripe-${paymentData.customerId || Date.now()}@placeholder.local`,
+    email: paymentData.email || `stripe-${paymentData.customerId || Date.now()}@placeholder.local`,
     phone: paymentData.phone || '',
     dob: '1900-01-01', // Placeholder - to be updated
     address1: address?.line1 || '',
@@ -935,64 +937,71 @@ export async function createPaidInvoiceFromStripe(
       // Payment form created the PENDING record and the webhook fires before the
       // invoice is created by createInvoiceForProcessedPayment. Create the invoice
       // and link it to the existing payment rather than creating a duplicate.
-      logger.info('[PaymentMatching] Payment exists without invoice — creating invoice and linking to existing payment', {
-        paymentId: existingPayment.id,
-        paymentIntentId: paymentData.paymentIntentId,
-        status: existingPayment.status,
-      });
+      logger.info(
+        '[PaymentMatching] Payment exists without invoice — creating invoice and linking to existing payment',
+        {
+          paymentId: existingPayment.id,
+          paymentIntentId: paymentData.paymentIntentId,
+          status: existingPayment.status,
+        }
+      );
 
       const desc = paymentData.description || 'Payment received via Stripe';
-      const li = paymentData.lineItemDetails && paymentData.lineItemDetails.length > 0
-        ? paymentData.lineItemDetails.map((l) => ({
-            description: l.description,
-            product: l.productName || l.description,
-            amount: l.amount,
-            quantity: l.quantity,
-          }))
-        : [{ description: desc, amount: paymentData.amount, quantity: 1 }];
+      const li =
+        paymentData.lineItemDetails && paymentData.lineItemDetails.length > 0
+          ? paymentData.lineItemDetails.map((l) => ({
+              description: l.description,
+              product: l.productName || l.description,
+              amount: l.amount,
+              quantity: l.quantity,
+            }))
+          : [{ description: desc, amount: paymentData.amount, quantity: 1 }];
 
       try {
-        const linked = await prisma.$transaction(async (tx) => {
-          // Re-check inside the transaction: the confirm route may have linked
-          // an invoice between our outer read and this point.
-          const freshPayment = await tx.payment.findUnique({
-            where: { id: existingPayment.id },
-            select: { invoiceId: true },
-          });
-          if (freshPayment?.invoiceId) {
-            const existingInv = await tx.invoice.findUnique({
-              where: { id: freshPayment.invoiceId },
+        const linked = await prisma.$transaction(
+          async (tx) => {
+            // Re-check inside the transaction: the confirm route may have linked
+            // an invoice between our outer read and this point.
+            const freshPayment = await tx.payment.findUnique({
+              where: { id: existingPayment.id },
+              select: { invoiceId: true },
             });
-            if (existingInv) return existingInv;
-          }
+            if (freshPayment?.invoiceId) {
+              const existingInv = await tx.invoice.findUnique({
+                where: { id: freshPayment.invoiceId },
+              });
+              if (existingInv) return existingInv;
+            }
 
-          const inv = await tx.invoice.create({
-            data: {
-              patientId: patient.id,
-              clinicId: patient.clinicId,
-              stripeInvoiceId: paymentData.stripeInvoiceId,
-              description: desc,
-              amount: paymentData.amount,
-              amountDue: 0,
-              amountPaid: paymentData.amount,
-              currency: paymentData.currency || 'usd',
-              status: 'PAID' as InvoiceStatus,
-              paidAt: paymentData.paidAt,
-              lineItems: li as any,
-              metadata: {
-                source: 'stripe_webhook_linked',
-                paymentIntentId: paymentData.paymentIntentId,
-                chargeId: paymentData.chargeId,
-                stripeMetadata: paymentData.metadata,
-              } as any,
-            },
-          });
-          await tx.payment.update({
-            where: { id: existingPayment.id },
-            data: { invoiceId: inv.id },
-          });
-          return inv;
-        }, { timeout: 15000 });
+            const inv = await tx.invoice.create({
+              data: {
+                patientId: patient.id,
+                clinicId: patient.clinicId,
+                stripeInvoiceId: paymentData.stripeInvoiceId,
+                description: desc,
+                amount: paymentData.amount,
+                amountDue: 0,
+                amountPaid: paymentData.amount,
+                currency: paymentData.currency || 'usd',
+                status: 'PAID' as InvoiceStatus,
+                paidAt: paymentData.paidAt,
+                lineItems: li as any,
+                metadata: {
+                  source: 'stripe_webhook_linked',
+                  paymentIntentId: paymentData.paymentIntentId,
+                  chargeId: paymentData.chargeId,
+                  stripeMetadata: paymentData.metadata,
+                } as any,
+              },
+            });
+            await tx.payment.update({
+              where: { id: existingPayment.id },
+              data: { invoiceId: inv.id },
+            });
+            return inv;
+          },
+          { timeout: 15000 }
+        );
 
         return linked;
       } catch (txError) {
@@ -1003,10 +1012,13 @@ export async function createPaidInvoiceFromStripe(
             include: { invoice: true },
           });
           if (racePayment?.invoice) {
-            logger.info('[PaymentMatching] Link race resolved via P2002 — using confirm-route invoice', {
-              paymentId: existingPayment.id,
-              invoiceId: racePayment.invoice.id,
-            });
+            logger.info(
+              '[PaymentMatching] Link race resolved via P2002 — using confirm-route invoice',
+              {
+                paymentId: existingPayment.id,
+                invoiceId: racePayment.invoice.id,
+              }
+            );
             return racePayment.invoice;
           }
         }
@@ -1018,63 +1030,68 @@ export async function createPaidInvoiceFromStripe(
   // Build line items from expanded Stripe data when available, falling back to description
   const description = paymentData.description || 'Payment received via Stripe';
 
-  const lineItemsJson = paymentData.lineItemDetails && paymentData.lineItemDetails.length > 0
-    ? paymentData.lineItemDetails.map((li) => ({
-        description: li.description,
-        product: li.productName || li.description,
-        amount: li.amount,
-        quantity: li.quantity,
-      }))
-    : [{ description, amount: paymentData.amount, quantity: 1 }];
+  const lineItemsJson =
+    paymentData.lineItemDetails && paymentData.lineItemDetails.length > 0
+      ? paymentData.lineItemDetails.map((li) => ({
+          description: li.description,
+          product: li.productName || li.description,
+          amount: li.amount,
+          quantity: li.quantity,
+        }))
+      : [{ description, amount: paymentData.amount, quantity: 1 }];
 
   // Derive top-level product name for the prescription queue to read
-  const productName = paymentData.lineItemDetails?.[0]?.productName
-    || paymentData.metadata?.product
-    || paymentData.metadata?.product_name
-    || null;
+  const productName =
+    paymentData.lineItemDetails?.[0]?.productName ||
+    paymentData.metadata?.product ||
+    paymentData.metadata?.product_name ||
+    null;
 
   // Wrap invoice and payment creation in a transaction for atomicity
   try {
-    const invoice = await prisma.$transaction(async (tx) => {
-      const newInvoice = await tx.invoice.create({
-        data: {
-          patientId: patient.id,
-          clinicId: patient.clinicId,
-          stripeInvoiceId: paymentData.stripeInvoiceId,
-          description: productName || description,
-          amount: paymentData.amount,
-          amountDue: 0,
-          amountPaid: paymentData.amount,
-          currency: paymentData.currency || 'usd',
-          status: 'PAID' as InvoiceStatus,
-          paidAt: paymentData.paidAt,
-          lineItems: lineItemsJson as any,
-          metadata: {
-            source: 'stripe_webhook',
-            paymentIntentId: paymentData.paymentIntentId,
-            chargeId: paymentData.chargeId,
-            ...(productName ? { product: productName } : {}),
-            stripeMetadata: paymentData.metadata,
-          } as any,
-        },
-      });
+    const invoice = await prisma.$transaction(
+      async (tx) => {
+        const newInvoice = await tx.invoice.create({
+          data: {
+            patientId: patient.id,
+            clinicId: patient.clinicId,
+            stripeInvoiceId: paymentData.stripeInvoiceId,
+            description: productName || description,
+            amount: paymentData.amount,
+            amountDue: 0,
+            amountPaid: paymentData.amount,
+            currency: paymentData.currency || 'usd',
+            status: 'PAID' as InvoiceStatus,
+            paidAt: paymentData.paidAt,
+            lineItems: lineItemsJson as any,
+            metadata: {
+              source: 'stripe_webhook',
+              paymentIntentId: paymentData.paymentIntentId,
+              chargeId: paymentData.chargeId,
+              ...(productName ? { product: productName } : {}),
+              stripeMetadata: paymentData.metadata,
+            } as any,
+          },
+        });
 
-      await tx.payment.create({
-        data: {
-          patientId: patient.id,
-          clinicId: patient.clinicId,
-          invoiceId: newInvoice.id,
-          stripePaymentIntentId: paymentData.paymentIntentId,
-          stripeChargeId: paymentData.chargeId,
-          amount: paymentData.amount,
-          currency: paymentData.currency || 'usd',
-          status: 'SUCCEEDED',
-          paidAt: paymentData.paidAt,
-        },
-      });
+        await tx.payment.create({
+          data: {
+            patientId: patient.id,
+            clinicId: patient.clinicId,
+            invoiceId: newInvoice.id,
+            stripePaymentIntentId: paymentData.paymentIntentId,
+            stripeChargeId: paymentData.chargeId,
+            amount: paymentData.amount,
+            currency: paymentData.currency || 'usd',
+            status: 'SUCCEEDED',
+            paidAt: paymentData.paidAt,
+          },
+        });
 
-      return newInvoice;
-    }, { timeout: 15000 });
+        return newInvoice;
+      },
+      { timeout: 15000 }
+    );
 
     logger.info('[PaymentMatching] Created paid invoice from Stripe payment', {
       invoiceId: (invoice as any).id,
@@ -1886,7 +1903,11 @@ export async function syncInvoiceFromStripe(invoiceId: number): Promise<InvoiceS
     if (payment.stripeChargeId) {
       try {
         stripeCharge = connectOpts
-          ? await stripe.charges.retrieve(payment.stripeChargeId, { expand: ['refunds'] }, connectOpts)
+          ? await stripe.charges.retrieve(
+              payment.stripeChargeId,
+              { expand: ['refunds'] },
+              connectOpts
+            )
           : await stripe.charges.retrieve(payment.stripeChargeId, { expand: ['refunds'] });
       } catch {
         // Charge might not exist, try payment intent
@@ -1895,8 +1916,14 @@ export async function syncInvoiceFromStripe(invoiceId: number): Promise<InvoiceS
 
     if (!stripeCharge && payment.stripePaymentIntentId) {
       const pi = connectOpts
-        ? await stripe.paymentIntents.retrieve(payment.stripePaymentIntentId, { expand: ['latest_charge.refunds'] }, connectOpts)
-        : await stripe.paymentIntents.retrieve(payment.stripePaymentIntentId, { expand: ['latest_charge.refunds'] });
+        ? await stripe.paymentIntents.retrieve(
+            payment.stripePaymentIntentId,
+            { expand: ['latest_charge.refunds'] },
+            connectOpts
+          )
+        : await stripe.paymentIntents.retrieve(payment.stripePaymentIntentId, {
+            expand: ['latest_charge.refunds'],
+          });
       if (pi.latest_charge && typeof pi.latest_charge === 'object') {
         stripeCharge = pi.latest_charge as Stripe.Charge;
       }
@@ -1942,7 +1969,10 @@ export async function syncInvoiceFromStripe(invoiceId: number): Promise<InvoiceS
           typeof stripeCharge.customer === 'string'
             ? stripeCharge.customer
             : stripeCharge.customer.id;
-        const customerData = await fetchStripeCustomerData(customerId, invoiceClinicId ?? undefined);
+        const customerData = await fetchStripeCustomerData(
+          customerId,
+          invoiceClinicId ?? undefined
+        );
         customerName = customerName || customerData.name;
         customerEmail = customerEmail || customerData.email;
         customerPhone = customerPhone || customerData.phone;

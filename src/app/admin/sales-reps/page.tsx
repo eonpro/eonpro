@@ -87,10 +87,10 @@ export default function SalesRepsPage() {
             Commission Plans
           </Link>
           <button
-          onClick={() => setShowBulkReassignModal(true)}
-          disabled={salesReps.length < 2}
-          className="flex items-center gap-2 rounded-lg px-4 py-2 text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-          style={{ backgroundColor: 'var(--brand-primary, #0EA5E9)' }}
+            onClick={() => setShowBulkReassignModal(true)}
+            disabled={salesReps.length < 2}
+            className="flex items-center gap-2 rounded-lg px-4 py-2 text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+            style={{ backgroundColor: 'var(--brand-primary, #0EA5E9)' }}
           >
             <ArrowRightLeft className="h-5 w-5" />
             Bulk Reassign

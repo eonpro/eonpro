@@ -10,7 +10,8 @@
  * Query params:
  *   - days: 1-90 (default 14)
  *   - status: MATCHED | CREATED | FAILED | PENDING | SKIPPED (optional)
- *   - limit: 1-200 (default 100)
+ *   - limit: 1-200 (default 50)
+ *   - page: 1+ (default 1)
  *
  * Security: Clinic-scoped for admin/staff; super_admin can view all when no clinic context.
  */
@@ -23,11 +24,7 @@ import { prisma, getClinicContext, withClinicContext } from '@/lib/db';
 import { withAdminAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { verifyClinicAccess } from '@/lib/auth/clinic-access';
-import {
-  handleApiError,
-  ForbiddenError,
-  BadRequestError,
-} from '@/domains/shared/errors';
+import { handleApiError, ForbiddenError, BadRequestError } from '@/domains/shared/errors';
 import { subDays } from 'date-fns';
 import { decryptPatientPHI } from '@/lib/security/phi-encryption';
 
@@ -36,17 +33,19 @@ const VALID_STATUSES = ['MATCHED', 'CREATED', 'FAILED', 'PENDING', 'SKIPPED'] as
 const querySchema = z.object({
   days: z.coerce.number().int().min(1).max(90).default(14),
   status: z.enum(VALID_STATUSES).optional(),
-  limit: z.coerce.number().int().min(1).max(200).default(100),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  page: z.coerce.number().int().min(1).default(1),
 });
 
 async function getHandler(request: NextRequest, user: AuthUser) {
   try {
-
     const contextClinicId = getClinicContext();
     const clinicId = contextClinicId ?? user.clinicId ?? null;
 
     if (!clinicId && user.role !== 'super_admin') {
-      throw new BadRequestError('Clinic context required. Select a clinic to view incoming payments.');
+      throw new BadRequestError(
+        'Clinic context required. Select a clinic to view incoming payments.'
+      );
     }
 
     if (clinicId && !verifyClinicAccess(user, clinicId)) {
@@ -58,6 +57,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
       days: searchParams.get('days') ?? undefined,
       status: searchParams.get('status') ?? undefined,
       limit: searchParams.get('limit') ?? undefined,
+      page: searchParams.get('page') ?? undefined,
     });
 
     if (!parseResult.success) {
@@ -70,8 +70,9 @@ async function getHandler(request: NextRequest, user: AuthUser) {
       );
     }
 
-    const { days, status, limit } = parseResult.data;
+    const { days, status, limit, page } = parseResult.data;
     const since = subDays(new Date(), days);
+    const skip = (page - 1) * limit;
 
     const where: Prisma.PaymentReconciliationWhereInput = {
       createdAt: { gte: since },
@@ -99,6 +100,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
           },
           orderBy: { createdAt: 'desc' },
           take: limit,
+          skip,
         }),
         prisma.paymentReconciliation.groupBy({
           by: ['status'],
@@ -106,10 +108,11 @@ async function getHandler(request: NextRequest, user: AuthUser) {
           _count: true,
           _sum: { amount: true },
         }),
+        prisma.paymentReconciliation.count({ where }),
       ]);
     };
 
-    const [payments, stats] = clinicId
+    const [payments, stats, totalCount] = clinicId
       ? await withClinicContext(clinicId, runQuery)
       : await runQuery();
 
@@ -121,12 +124,20 @@ async function getHandler(request: NextRequest, user: AuthUser) {
       };
     }
 
+    const totalPages = Math.ceil(totalCount / limit);
+
     const response = {
       success: true as const,
       summary: {
-        total: payments.length,
+        total: totalCount,
         byStatus,
         period: `Last ${days} days`,
+      },
+      pagination: {
+        page,
+        limit,
+        totalCount,
+        totalPages,
       },
       payments: payments.map((r) => {
         let patient = r.patient;

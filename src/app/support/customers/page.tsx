@@ -1,16 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import {
-  Users,
-  Filter,
-  MoreVertical,
-  Mail,
-  Phone,
-  Calendar,
-  MapPin,
-  Shield,
-} from 'lucide-react';
+import { Users, Filter, MoreVertical, Mail, Phone, Calendar, MapPin, Shield } from 'lucide-react';
 import { normalizedIncludes } from '@/lib/utils/search';
 
 interface Customer {

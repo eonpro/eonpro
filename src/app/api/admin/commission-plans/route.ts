@@ -71,7 +71,9 @@ export const GET = withAuth(
       const errorId = crypto.randomUUID().slice(0, 8);
       logger.error(`[COMMISSION_PLANS_GET] Error ${errorId}:`, {
         error: error instanceof Error ? error.message : 'Unknown error',
-        ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
+        ...(process.env.NODE_ENV === 'development' && {
+          stack: error instanceof Error ? error.stack : undefined,
+        }),
         userId: user.id,
       });
       return NextResponse.json(
@@ -209,7 +211,9 @@ export const POST = withAuth(
       const errorId = crypto.randomUUID().slice(0, 8);
       logger.error(`[COMMISSION_PLANS_POST] Error ${errorId}:`, {
         error: error instanceof Error ? error.message : 'Unknown error',
-        ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
+        ...(process.env.NODE_ENV === 'development' && {
+          stack: error instanceof Error ? error.stack : undefined,
+        }),
         userId: user.id,
       });
       return NextResponse.json(

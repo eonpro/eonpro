@@ -1,13 +1,6 @@
 'use client';
 
-import {
-  useState,
-  useEffect,
-  useMemo,
-  useCallback,
-  type FormEvent,
-  type ReactNode,
-} from 'react';
+import { useState, useEffect, useMemo, useCallback, type FormEvent, type ReactNode } from 'react';
 
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { loadStripe, type Stripe } from '@stripe/stripe-js';
@@ -16,12 +9,11 @@ import { apiFetch } from '@/lib/api/fetch';
 import { getCardNetworkLogo } from '@/lib/constants/brand-assets';
 import { logger } from '@/lib/logger';
 
-
 const stripeCache = new Map<string, Promise<Stripe | null>>();
 
 function getStripeInstance(
   publishableKey?: string,
-  connectedAccountId?: string | null,
+  connectedAccountId?: string | null
 ): Promise<Stripe | null> | null {
   const envPk = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
   const pk = publishableKey?.trim() ? publishableKey.trim() : envPk;
@@ -155,7 +147,7 @@ interface SetupIntentApiJson {
 }
 
 async function requestPatientSetupIntent(
-  patientId: number,
+  patientId: number
 ): Promise<{ ok: true; data: SetupIntentPayload } | { ok: false; error: string }> {
   const setupRes = await apiFetch('/api/payment-methods/setup-intent', {
     method: 'POST',
@@ -236,7 +228,7 @@ function AddCardForm({
       }
 
       const { setupIntentId, stripePaymentMethodId } = paymentMethodIdsFromSetupIntent(
-        (setupIntent ?? {}) as { id?: string; payment_method?: string | { id?: string } },
+        (setupIntent ?? {}) as { id?: string; payment_method?: string | { id?: string } }
       );
 
       await savePaymentMethodAfterSetup({
@@ -264,7 +256,12 @@ function AddCardForm({
     >
       <div className="rounded-lg border border-gray-200 bg-gray-50 p-1">
         <div className="flex items-center gap-2 px-3 pb-1 pt-2">
-          <svg className="h-4 w-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg
+            className="h-4 w-4 text-green-600"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -272,7 +269,9 @@ function AddCardForm({
               d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
             />
           </svg>
-          <span className="text-xs font-medium text-gray-500">Secure payment powered by Stripe</span>
+          <span className="text-xs font-medium text-gray-500">
+            Secure payment powered by Stripe
+          </span>
         </div>
         <div className="rounded-md bg-white p-3">
           <PaymentElement />
@@ -426,7 +425,10 @@ function SavedCardsBlock({
   );
 }
 
-export default function PatientPaymentMethods({ patientId, patientName }: PatientPaymentMethodsProps) {
+export default function PatientPaymentMethods({
+  patientId,
+  patientName,
+}: PatientPaymentMethodsProps) {
   void patientName;
   const [cards, setCards] = useState<SavedCard[]>([]);
   const [loading, setLoading] = useState(true);
@@ -482,7 +484,9 @@ export default function PatientPaymentMethods({ patientId, patientName }: Patien
         setSetupData(result.data);
       } catch (err: unknown) {
         if (!cancelled) {
-          setSetupFetchError(err instanceof Error ? err.message : 'Failed to initialize payment setup');
+          setSetupFetchError(
+            err instanceof Error ? err.message : 'Failed to initialize payment setup'
+          );
         }
       } finally {
         if (!cancelled) setSetupLoading(false);

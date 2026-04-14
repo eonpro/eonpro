@@ -540,7 +540,9 @@ export default function AdminSettingsPage() {
           if (data.inviteEmailSent) {
             alert('User created successfully! A welcome email has been sent.');
           } else {
-            alert('User created successfully! Welcome email could not be sent — share the credentials manually.');
+            alert(
+              'User created successfully! Welcome email could not be sent — share the credentials manually.'
+            );
           }
         }
       } else {
@@ -711,7 +713,12 @@ export default function AdminSettingsPage() {
     const totalPages = Math.max(1, Math.ceil(list.length / USER_LIST_PAGE_SIZE));
     const page = Math.min(Math.max(1, userSectionPage[sectionKey]), totalPages);
     const start = (page - 1) * USER_LIST_PAGE_SIZE;
-    return { list: list.slice(start, start + USER_LIST_PAGE_SIZE), page, totalPages, total: list.length };
+    return {
+      list: list.slice(start, start + USER_LIST_PAGE_SIZE),
+      page,
+      totalPages,
+      total: list.length,
+    };
   };
 
   const setSectionPage = (sectionKey: SectionKey, page: number) => {
@@ -892,9 +899,13 @@ export default function AdminSettingsPage() {
                 </div>
 
                 <div className="rounded-xl bg-[var(--brand-primary-light)] p-4">
-                  <p className="text-3xl font-bold text-[var(--brand-primary)]">{stats.orders.thisMonth}</p>
+                  <p className="text-3xl font-bold text-[var(--brand-primary)]">
+                    {stats.orders.thisMonth}
+                  </p>
                   <p className="text-sm text-[var(--brand-primary)]">Orders This Month</p>
-                  <p className="mt-2 text-xs text-[var(--brand-primary)]">{stats.orders.pending} pending</p>
+                  <p className="mt-2 text-xs text-[var(--brand-primary)]">
+                    {stats.orders.pending} pending
+                  </p>
                 </div>
 
                 <div className="rounded-xl bg-orange-50 p-4">
@@ -1362,147 +1373,158 @@ export default function AdminSettingsPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200 bg-white">
-                      {(['admin_staff', 'provider', 'affiliate', 'patient'] as const).map((sectionKey) => {
-                        const sectionUsers = usersByType[sectionKey];
-                        const isExpanded = userSectionsExpanded[sectionKey];
-                        const { list: pageList, page, totalPages, total } = getSectionPageSlice(sectionKey);
-                        return (
-                          <Fragment key={sectionKey}>
-                            <tr className="bg-gray-50/80">
-                              <td colSpan={5} className="p-0">
-                                <button
-                                  type="button"
-                                  onClick={() => toggleUserSection(sectionKey)}
-                                  className="flex w-full items-center gap-2 px-6 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 hover:bg-gray-100"
-                                >
-                                  {isExpanded ? (
-                                    <ChevronDown className="h-4 w-4 shrink-0" />
-                                  ) : (
-                                    <ChevronRight className="h-4 w-4 shrink-0" />
-                                  )}
-                                  <span>
-                                    {sectionLabels[sectionKey]}
-                                    {sectionUsers.length > 0 && (
-                                      <span className="ml-1.5 font-normal normal-case text-gray-500">
-                                        ({sectionUsers.length})
-                                      </span>
+                      {(['admin_staff', 'provider', 'affiliate', 'patient'] as const).map(
+                        (sectionKey) => {
+                          const sectionUsers = usersByType[sectionKey];
+                          const isExpanded = userSectionsExpanded[sectionKey];
+                          const {
+                            list: pageList,
+                            page,
+                            totalPages,
+                            total,
+                          } = getSectionPageSlice(sectionKey);
+                          return (
+                            <Fragment key={sectionKey}>
+                              <tr className="bg-gray-50/80">
+                                <td colSpan={5} className="p-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleUserSection(sectionKey)}
+                                    className="flex w-full items-center gap-2 px-6 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 hover:bg-gray-100"
+                                  >
+                                    {isExpanded ? (
+                                      <ChevronDown className="h-4 w-4 shrink-0" />
+                                    ) : (
+                                      <ChevronRight className="h-4 w-4 shrink-0" />
                                     )}
-                                  </span>
-                                </button>
-                              </td>
-                            </tr>
-                            {isExpanded &&
-                              pageList.map((u) => (
-                                <tr key={u.id} className="hover:bg-gray-50">
-                                  <td className="px-6 py-4">
-                                    <div className="flex items-center">
-                                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
-                                        <span className="font-medium text-emerald-700">
-                                          {u.firstName?.[0]}
-                                          {u.lastName?.[0]}
-                                        </span>
-                                      </div>
-                                      <div className="ml-4">
-                                        <div className="font-medium text-gray-900">
-                                          {u.firstName} {u.lastName}
-                                        </div>
-                                        <div className="text-sm text-gray-500">{u.email}</div>
-                                      </div>
-                                    </div>
-                                  </td>
-                                  <td className="px-6 py-4">
-                                    <span
-                                      className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                                        u.role === 'ADMIN'
-                                          ? 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]'
-                                          : u.role === 'PROVIDER'
-                                            ? 'bg-blue-100 text-blue-800'
-                                            : u.role === 'AFFILIATE' || u.role === 'INFLUENCER'
-                                              ? 'bg-violet-100 text-violet-800'
-                                              : 'bg-gray-100 text-gray-800'
-                                      }`}
-                                    >
-                                      {u.role}
-                                    </span>
-                                  </td>
-                                  <td className="px-6 py-4">
-                                    <span
-                                      className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                                        u.status === 'ACTIVE'
-                                          ? 'bg-green-100 text-green-800'
-                                          : 'bg-gray-100 text-gray-800'
-                                      }`}
-                                    >
-                                      {u.status}
-                                    </span>
-                                  </td>
-                                  <td className="px-6 py-4 text-sm text-gray-500">
-                                    {u.lastLogin ? new Date(u.lastLogin).toLocaleDateString() : 'Never'}
-                                  </td>
-                                  <td className="px-6 py-4 text-right">
-                                    {!u.lastLogin && (
-                                      <button
-                                        onClick={() => handleResendInvite(u)}
-                                        disabled={resendingInvite === u.id}
-                                        className="mr-3 text-sm font-medium text-blue-600 hover:text-blue-800 disabled:opacity-50"
-                                        title="Resend setup invitation email"
-                                      >
-                                        {resendingInvite === u.id ? 'Sending...' : 'Resend Invite'}
-                                      </button>
-                                    )}
-                                    <button
-                                      onClick={() => openEditUser(u)}
-                                      className="mr-3 text-emerald-600 hover:text-emerald-900"
-                                    >
-                                      <Pencil className="h-4 w-4" />
-                                    </button>
-                                    {u.status === 'ACTIVE' && (
-                                      <button
-                                        onClick={() => handleDeactivateUser(u.id)}
-                                        className="text-red-600 hover:text-red-900"
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </button>
-                                    )}
-                                  </td>
-                                </tr>
-                              ))}
-                            {isExpanded && totalPages > 1 && (
-                              <tr className="bg-gray-50/50">
-                                <td colSpan={5} className="px-6 py-3">
-                                  <div className="flex items-center justify-between text-sm text-gray-600">
                                     <span>
-                                      Showing {(page - 1) * USER_LIST_PAGE_SIZE + 1}–
-                                      {Math.min(page * USER_LIST_PAGE_SIZE, total)} of {total}
+                                      {sectionLabels[sectionKey]}
+                                      {sectionUsers.length > 0 && (
+                                        <span className="ml-1.5 font-normal normal-case text-gray-500">
+                                          ({sectionUsers.length})
+                                        </span>
+                                      )}
                                     </span>
-                                    <div className="flex items-center gap-1">
-                                      <button
-                                        type="button"
-                                        onClick={() => setSectionPage(sectionKey, page - 1)}
-                                        disabled={page <= 1}
-                                        className="rounded border border-gray-300 bg-white px-2 py-1 text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                                      >
-                                        Previous
-                                      </button>
-                                      <span className="px-2">
-                                        Page {page} of {totalPages}
-                                      </span>
-                                      <button
-                                        type="button"
-                                        onClick={() => setSectionPage(sectionKey, page + 1)}
-                                        disabled={page >= totalPages}
-                                        className="rounded border border-gray-300 bg-white px-2 py-1 text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                                      >
-                                        Next
-                                      </button>
-                                    </div>
-                                  </div>
+                                  </button>
                                 </td>
                               </tr>
-                            )}
-                          </Fragment>
-                        );
-                      })}
+                              {isExpanded &&
+                                pageList.map((u) => (
+                                  <tr key={u.id} className="hover:bg-gray-50">
+                                    <td className="px-6 py-4">
+                                      <div className="flex items-center">
+                                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
+                                          <span className="font-medium text-emerald-700">
+                                            {u.firstName?.[0]}
+                                            {u.lastName?.[0]}
+                                          </span>
+                                        </div>
+                                        <div className="ml-4">
+                                          <div className="font-medium text-gray-900">
+                                            {u.firstName} {u.lastName}
+                                          </div>
+                                          <div className="text-sm text-gray-500">{u.email}</div>
+                                        </div>
+                                      </div>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                      <span
+                                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                                          u.role === 'ADMIN'
+                                            ? 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]'
+                                            : u.role === 'PROVIDER'
+                                              ? 'bg-blue-100 text-blue-800'
+                                              : u.role === 'AFFILIATE' || u.role === 'INFLUENCER'
+                                                ? 'bg-violet-100 text-violet-800'
+                                                : 'bg-gray-100 text-gray-800'
+                                        }`}
+                                      >
+                                        {u.role}
+                                      </span>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                      <span
+                                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                                          u.status === 'ACTIVE'
+                                            ? 'bg-green-100 text-green-800'
+                                            : 'bg-gray-100 text-gray-800'
+                                        }`}
+                                      >
+                                        {u.status}
+                                      </span>
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-gray-500">
+                                      {u.lastLogin
+                                        ? new Date(u.lastLogin).toLocaleDateString()
+                                        : 'Never'}
+                                    </td>
+                                    <td className="px-6 py-4 text-right">
+                                      {!u.lastLogin && (
+                                        <button
+                                          onClick={() => handleResendInvite(u)}
+                                          disabled={resendingInvite === u.id}
+                                          className="mr-3 text-sm font-medium text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                                          title="Resend setup invitation email"
+                                        >
+                                          {resendingInvite === u.id
+                                            ? 'Sending...'
+                                            : 'Resend Invite'}
+                                        </button>
+                                      )}
+                                      <button
+                                        onClick={() => openEditUser(u)}
+                                        className="mr-3 text-emerald-600 hover:text-emerald-900"
+                                      >
+                                        <Pencil className="h-4 w-4" />
+                                      </button>
+                                      {u.status === 'ACTIVE' && (
+                                        <button
+                                          onClick={() => handleDeactivateUser(u.id)}
+                                          className="text-red-600 hover:text-red-900"
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </button>
+                                      )}
+                                    </td>
+                                  </tr>
+                                ))}
+                              {isExpanded && totalPages > 1 && (
+                                <tr className="bg-gray-50/50">
+                                  <td colSpan={5} className="px-6 py-3">
+                                    <div className="flex items-center justify-between text-sm text-gray-600">
+                                      <span>
+                                        Showing {(page - 1) * USER_LIST_PAGE_SIZE + 1}–
+                                        {Math.min(page * USER_LIST_PAGE_SIZE, total)} of {total}
+                                      </span>
+                                      <div className="flex items-center gap-1">
+                                        <button
+                                          type="button"
+                                          onClick={() => setSectionPage(sectionKey, page - 1)}
+                                          disabled={page <= 1}
+                                          className="rounded border border-gray-300 bg-white px-2 py-1 text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                          Previous
+                                        </button>
+                                        <span className="px-2">
+                                          Page {page} of {totalPages}
+                                        </span>
+                                        <button
+                                          type="button"
+                                          onClick={() => setSectionPage(sectionKey, page + 1)}
+                                          disabled={page >= totalPages}
+                                          className="rounded border border-gray-300 bg-white px-2 py-1 text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                          Next
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </Fragment>
+                          );
+                        }
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -1854,7 +1876,14 @@ export default function AdminSettingsPage() {
               {clinic.logoUrl && (
                 <div className="border-t pt-6">
                   <label className="mb-2 block text-sm font-medium text-gray-700">Logo</label>
-                  <img src={clinic.logoUrl} alt="Clinic logo" className="h-16 object-contain" width={200} height={64} loading="lazy" />
+                  <img
+                    src={clinic.logoUrl}
+                    alt="Clinic logo"
+                    className="h-16 object-contain"
+                    width={200}
+                    height={64}
+                    loading="lazy"
+                  />
                 </div>
               )}
             </div>
@@ -1922,7 +1951,9 @@ export default function AdminSettingsPage() {
                       )}
                     </div>
                     <button
-                      onClick={() => { window.location.href = '/admin/settings/stripe'; }}
+                      onClick={() => {
+                        window.location.href = '/admin/settings/stripe';
+                      }}
                       className="flex items-center gap-2 rounded-lg bg-[var(--brand-primary)] px-4 py-2 text-white hover:brightness-90"
                     >
                       {clinic.stripeAccountId ? 'Manage' : 'Connect'}
@@ -2265,7 +2296,9 @@ export default function AdminSettingsPage() {
                     </label>
                   </div>
                   {userForm.sendInvite && (
-                    <p className="text-xs text-emerald-600 pl-6">The user will set their own password via a secure link.</p>
+                    <p className="pl-6 text-xs text-emerald-600">
+                      The user will set their own password via a secure link.
+                    </p>
                   )}
                 </div>
               )}
@@ -2289,7 +2322,11 @@ export default function AdminSettingsPage() {
                         onClick={() => setShowPassword(!showPassword)}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
                       >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
                       </button>
                     </div>
                     <button

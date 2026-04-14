@@ -19,170 +19,173 @@ const requestSchema = z.object({
   setAsDefault: z.boolean().optional().default(false),
 });
 
-export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
-  try {
-    if (!user.patientId) {
-      return NextResponse.json(
-        { error: 'Patient ID required', code: 'PATIENT_ID_REQUIRED' },
-        { status: 400 }
-      );
-    }
-
-    const body = await req.json();
-    const parsed = requestSchema.safeParse(body);
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: 'Validation failed', details: parsed.error.flatten() },
-        { status: 400 }
-      );
-    }
-
-    const { stripePaymentMethodId, setAsDefault } = parsed.data;
-
-    const patient = await prisma.patient.findUnique({
-      where: { id: user.patientId },
-      select: { id: true, clinicId: true, stripeCustomerId: true },
-    });
-
-    if (!patient) {
-      return NextResponse.json(
-        { error: 'Patient not found', code: 'PATIENT_NOT_FOUND' },
-        { status: 404 }
-      );
-    }
-
-    const stripeContext = await getStripeForClinic(patient.clinicId);
-    const stripe = stripeContext.stripe;
-    const connectOpts = stripeContext.stripeAccountId
-      ? { stripeAccount: stripeContext.stripeAccountId }
-      : undefined;
-
-    const pm = connectOpts
-      ? await stripe.paymentMethods.retrieve(stripePaymentMethodId, {}, connectOpts)
-      : await stripe.paymentMethods.retrieve(stripePaymentMethodId);
-
-    const existing = await prisma.paymentMethod.findFirst({
-      where: { stripePaymentMethodId, patientId: patient.id, isActive: true },
-    });
-
-    if (existing) {
-      return NextResponse.json({
-        success: true,
-        card: {
-          id: existing.id,
-          last4: existing.cardLast4,
-          brand: existing.cardBrand,
-          expMonth: existing.expiryMonth,
-          expYear: existing.expiryYear,
-          isDefault: existing.isDefault,
-        },
-      });
-    }
-
-    // Shared-profile guard: if card already exists on another profile in this clinic,
-    // avoid duplicate insert and surface success so it can be reused.
-    const existingOnOtherProfile = await prisma.paymentMethod.findFirst({
-      where: {
-        stripePaymentMethodId,
-        isActive: true,
-        patientId: { not: patient.id },
-        ...(patient.clinicId ? { clinicId: patient.clinicId } : {}),
-      },
-      select: {
-        id: true,
-        cardLast4: true,
-        cardBrand: true,
-        expiryMonth: true,
-        expiryYear: true,
-      },
-    });
-
-    if (existingOnOtherProfile) {
-      return NextResponse.json({
-        success: true,
-        card: {
-          id: `stripe_${stripePaymentMethodId}`,
-          last4: existingOnOtherProfile.cardLast4,
-          brand: existingOnOtherProfile.cardBrand,
-          expMonth: existingOnOtherProfile.expiryMonth,
-          expYear: existingOnOtherProfile.expiryYear,
-          isDefault: false,
-          sharedAcrossProfiles: true,
-        },
-        message: 'Card is already available via another profile in this clinic.',
-      });
-    }
-
-    const existingCards = await prisma.paymentMethod.count({
-      where: { patientId: patient.id, isActive: true },
-    });
-    const shouldBeDefault = setAsDefault || existingCards === 0;
-
-    if (shouldBeDefault) {
-      await prisma.paymentMethod.updateMany({
-        where: { patientId: patient.id, isDefault: true },
-        data: { isDefault: false },
-      });
-    }
-
-    const saved = await prisma.paymentMethod.create({
-      data: {
-        patientId: patient.id,
-        clinicId: patient.clinicId,
-        stripePaymentMethodId,
-        cardLast4: pm.card?.last4 || '????',
-        cardBrand: pm.card?.brand
-          ? pm.card.brand.charAt(0).toUpperCase() + pm.card.brand.slice(1)
-          : 'Unknown',
-        expiryMonth: pm.card?.exp_month || null,
-        expiryYear: pm.card?.exp_year || null,
-        cardholderName: pm.billing_details?.name || null,
-        billingZip: pm.billing_details?.address?.postal_code || null,
-        isDefault: shouldBeDefault,
-        encryptionKeyId: 'stripe',
-      },
-    });
-
-    logger.info('[Portal SaveCard] Payment method saved', {
-      patientId: patient.id,
-      paymentMethodId: saved.id,
-    });
-
+export const POST = withAuth(
+  async (req: NextRequest, user: AuthUser) => {
     try {
-      await auditLog(req, {
-        userId: user.id,
-        userEmail: user.email,
-        userRole: user.role,
-        clinicId: user.clinicId ?? undefined,
-        eventType: AuditEventType.PHI_UPDATE,
-        resourceType: 'PaymentMethod',
-        resourceId: String(saved.id),
-        patientId: patient.id,
-        action: 'portal_add_payment_method',
-        outcome: 'SUCCESS',
+      if (!user.patientId) {
+        return NextResponse.json(
+          { error: 'Patient ID required', code: 'PATIENT_ID_REQUIRED' },
+          { status: 400 }
+        );
+      }
+
+      const body = await req.json();
+      const parsed = requestSchema.safeParse(body);
+      if (!parsed.success) {
+        return NextResponse.json(
+          { error: 'Validation failed', details: parsed.error.flatten() },
+          { status: 400 }
+        );
+      }
+
+      const { stripePaymentMethodId, setAsDefault } = parsed.data;
+
+      const patient = await prisma.patient.findUnique({
+        where: { id: user.patientId },
+        select: { id: true, clinicId: true, stripeCustomerId: true },
       });
-    } catch (auditErr: unknown) {
-      logger.warn('Failed to create audit log for card save', {
+
+      if (!patient) {
+        return NextResponse.json(
+          { error: 'Patient not found', code: 'PATIENT_NOT_FOUND' },
+          { status: 404 }
+        );
+      }
+
+      const stripeContext = await getStripeForClinic(patient.clinicId);
+      const stripe = stripeContext.stripe;
+      const connectOpts = stripeContext.stripeAccountId
+        ? { stripeAccount: stripeContext.stripeAccountId }
+        : undefined;
+
+      const pm = connectOpts
+        ? await stripe.paymentMethods.retrieve(stripePaymentMethodId, {}, connectOpts)
+        : await stripe.paymentMethods.retrieve(stripePaymentMethodId);
+
+      const existing = await prisma.paymentMethod.findFirst({
+        where: { stripePaymentMethodId, patientId: patient.id, isActive: true },
+      });
+
+      if (existing) {
+        return NextResponse.json({
+          success: true,
+          card: {
+            id: existing.id,
+            last4: existing.cardLast4,
+            brand: existing.cardBrand,
+            expMonth: existing.expiryMonth,
+            expYear: existing.expiryYear,
+            isDefault: existing.isDefault,
+          },
+        });
+      }
+
+      // Shared-profile guard: if card already exists on another profile in this clinic,
+      // avoid duplicate insert and surface success so it can be reused.
+      const existingOnOtherProfile = await prisma.paymentMethod.findFirst({
+        where: {
+          stripePaymentMethodId,
+          isActive: true,
+          patientId: { not: patient.id },
+          ...(patient.clinicId ? { clinicId: patient.clinicId } : {}),
+        },
+        select: {
+          id: true,
+          cardLast4: true,
+          cardBrand: true,
+          expiryMonth: true,
+          expiryYear: true,
+        },
+      });
+
+      if (existingOnOtherProfile) {
+        return NextResponse.json({
+          success: true,
+          card: {
+            id: `stripe_${stripePaymentMethodId}`,
+            last4: existingOnOtherProfile.cardLast4,
+            brand: existingOnOtherProfile.cardBrand,
+            expMonth: existingOnOtherProfile.expiryMonth,
+            expYear: existingOnOtherProfile.expiryYear,
+            isDefault: false,
+            sharedAcrossProfiles: true,
+          },
+          message: 'Card is already available via another profile in this clinic.',
+        });
+      }
+
+      const existingCards = await prisma.paymentMethod.count({
+        where: { patientId: patient.id, isActive: true },
+      });
+      const shouldBeDefault = setAsDefault || existingCards === 0;
+
+      if (shouldBeDefault) {
+        await prisma.paymentMethod.updateMany({
+          where: { patientId: patient.id, isDefault: true },
+          data: { isDefault: false },
+        });
+      }
+
+      const saved = await prisma.paymentMethod.create({
+        data: {
+          patientId: patient.id,
+          clinicId: patient.clinicId,
+          stripePaymentMethodId,
+          cardLast4: pm.card?.last4 || '????',
+          cardBrand: pm.card?.brand
+            ? pm.card.brand.charAt(0).toUpperCase() + pm.card.brand.slice(1)
+            : 'Unknown',
+          expiryMonth: pm.card?.exp_month || null,
+          expiryYear: pm.card?.exp_year || null,
+          cardholderName: pm.billing_details?.name || null,
+          billingZip: pm.billing_details?.address?.postal_code || null,
+          isDefault: shouldBeDefault,
+          encryptionKeyId: 'stripe',
+        },
+      });
+
+      logger.info('[Portal SaveCard] Payment method saved', {
         patientId: patient.id,
-        error: auditErr instanceof Error ? auditErr.message : String(auditErr),
+        paymentMethodId: saved.id,
+      });
+
+      try {
+        await auditLog(req, {
+          userId: user.id,
+          userEmail: user.email,
+          userRole: user.role,
+          clinicId: user.clinicId ?? undefined,
+          eventType: AuditEventType.PHI_UPDATE,
+          resourceType: 'PaymentMethod',
+          resourceId: String(saved.id),
+          patientId: patient.id,
+          action: 'portal_add_payment_method',
+          outcome: 'SUCCESS',
+        });
+      } catch (auditErr: unknown) {
+        logger.warn('Failed to create audit log for card save', {
+          patientId: patient.id,
+          error: auditErr instanceof Error ? auditErr.message : String(auditErr),
+        });
+      }
+
+      return NextResponse.json({
+        success: true,
+        card: {
+          id: saved.id,
+          last4: saved.cardLast4,
+          brand: saved.cardBrand,
+          expMonth: saved.expiryMonth,
+          expYear: saved.expiryYear,
+          isDefault: saved.isDefault,
+        },
+      });
+    } catch (error) {
+      return handleApiError(error, {
+        route: 'POST /api/patient-portal/billing/save-card',
+        context: { patientId: user?.patientId },
       });
     }
-
-    return NextResponse.json({
-      success: true,
-      card: {
-        id: saved.id,
-        last4: saved.cardLast4,
-        brand: saved.cardBrand,
-        expMonth: saved.expiryMonth,
-        expYear: saved.expiryYear,
-        isDefault: saved.isDefault,
-      },
-    });
-  } catch (error) {
-    return handleApiError(error, {
-      route: 'POST /api/patient-portal/billing/save-card',
-      context: { patientId: user?.patientId },
-    });
-  }
-}, { roles: ['patient'] });
+  },
+  { roles: ['patient'] }
+);

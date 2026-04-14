@@ -86,8 +86,13 @@ export class StripeInvoiceService {
 
       let decrypted: Record<string, unknown> = patient as Record<string, unknown>;
       try {
-        decrypted = decryptPatientPHI(patient as Record<string, unknown>, DEFAULT_PHI_FIELDS as unknown as string[]);
-      } catch { /* use raw */ }
+        decrypted = decryptPatientPHI(
+          patient as Record<string, unknown>,
+          DEFAULT_PHI_FIELDS as unknown as string[]
+        );
+      } catch {
+        /* use raw */
+      }
 
       const email = (decrypted.email as string) || '';
       const name = `${decrypted.firstName || ''} ${decrypted.lastName || ''}`.trim();
@@ -98,20 +103,24 @@ export class StripeInvoiceService {
           customer = existing.data[0];
         } else {
           customer = await stripeClient.customers.create(
-            { email, name: name || undefined, metadata: { patientId: options.patientId.toString() } },
-            stripeOpts,
+            {
+              email,
+              name: name || undefined,
+              metadata: { patientId: options.patientId.toString() },
+            },
+            stripeOpts
           );
         }
       } else {
         customer = await stripeClient.customers.create(
           { name: name || undefined, metadata: { patientId: options.patientId.toString() } },
-          stripeOpts,
+          stripeOpts
         );
       }
     } else {
       customer = await StripeCustomerService.getOrCreateCustomerForContext(
         options.patientId,
-        stripeClient,
+        stripeClient
       );
     }
 
@@ -119,39 +128,49 @@ export class StripeInvoiceService {
     const { items: dedupedLineItems } = await deduplicateShipping(
       options.lineItems as any,
       options.patientId,
-      clinicId,
+      clinicId
     );
     options = { ...options, lineItems: dedupedLineItems as unknown as InvoiceLineItem[] };
 
-    const stripeInvoice = await stripeClient.invoices.create({
-      customer: customer.id,
-      description: options.description,
-      collection_method: STRIPE_CONFIG.collectionMethod,
-      days_until_due: options.dueInDays || STRIPE_CONFIG.invoiceDueDays,
-      auto_advance: false,
-      metadata: {
-        patientId: options.patientId.toString(),
-        ...(clinicId ? { clinicId: clinicId.toString() } : {}),
-        orderId: options.orderId?.toString() || '',
-        ...options.metadata,
-      } as any,
-    }, stripeOpts);
+    const stripeInvoice = await stripeClient.invoices.create(
+      {
+        customer: customer.id,
+        description: options.description,
+        collection_method: STRIPE_CONFIG.collectionMethod,
+        days_until_due: options.dueInDays || STRIPE_CONFIG.invoiceDueDays,
+        auto_advance: false,
+        metadata: {
+          patientId: options.patientId.toString(),
+          ...(clinicId ? { clinicId: clinicId.toString() } : {}),
+          orderId: options.orderId?.toString() || '',
+          ...options.metadata,
+        } as any,
+      },
+      stripeOpts
+    );
 
     for (const item of options.lineItems) {
-      await stripeClient.invoiceItems.create({
-        customer: customer.id,
-        invoice: stripeInvoice.id,
-        description:
-          item.quantity && item.quantity > 1
-            ? `${item.description} (x${item.quantity})`
-            : item.description,
-        amount: item.amount,
-        currency: STRIPE_CONFIG.currency,
-        metadata: item.metadata,
-      }, stripeOpts);
+      await stripeClient.invoiceItems.create(
+        {
+          customer: customer.id,
+          invoice: stripeInvoice.id,
+          description:
+            item.quantity && item.quantity > 1
+              ? `${item.description} (x${item.quantity})`
+              : item.description,
+          amount: item.amount,
+          currency: STRIPE_CONFIG.currency,
+          metadata: item.metadata,
+        },
+        stripeOpts
+      );
     }
 
-    const finalizedInvoice = await stripeClient.invoices.finalizeInvoice(stripeInvoice.id, {}, stripeOpts);
+    const finalizedInvoice = await stripeClient.invoices.finalizeInvoice(
+      stripeInvoice.id,
+      {},
+      stripeOpts
+    );
 
     if (options.autoSend) {
       await stripeClient.invoices.sendInvoice(finalizedInvoice.id, {}, stripeOpts);
@@ -233,7 +252,8 @@ export class StripeInvoiceService {
           trigger: AutomationTrigger.INVOICE_SENT,
           recipientEmail: decryptedEmail,
           data: {
-            patientName: `${safeDecryptField(invoice.patient?.firstName)} ${safeDecryptField(invoice.patient?.lastName)}`.trim(),
+            patientName:
+              `${safeDecryptField(invoice.patient?.firstName)} ${safeDecryptField(invoice.patient?.lastName)}`.trim(),
             invoiceNumber: sentInvoice.number || invoice.stripeInvoiceId,
             amount: ((invoice.amountDue || 0) / 100).toFixed(2),
             currency: invoice.currency?.toUpperCase() || 'USD',
@@ -248,7 +268,12 @@ export class StripeInvoiceService {
       } catch (emailError) {
         logger.warn(`[STRIPE] Failed to send payment link email`, {
           invoiceId,
-          error: emailError instanceof Error ? (emailError instanceof Error ? emailError.message : String(emailError)) : 'Unknown',
+          error:
+            emailError instanceof Error
+              ? emailError instanceof Error
+                ? emailError.message
+                : String(emailError)
+              : 'Unknown',
         });
       }
     }
@@ -394,9 +419,10 @@ export class StripeInvoiceService {
       logger.warn(`[STRIPE] Invoice ${stripeInvoice.id} not found and could not be auto-created`, {
         stripeInvoiceId: stripeInvoice.id,
         status: stripeInvoice.status,
-        customerId: typeof stripeInvoice.customer === 'string'
-          ? stripeInvoice.customer
-          : stripeInvoice.customer?.id,
+        customerId:
+          typeof stripeInvoice.customer === 'string'
+            ? stripeInvoice.customer
+            : stripeInvoice.customer?.id,
       });
       return;
     }
@@ -450,7 +476,12 @@ export class StripeInvoiceService {
       } catch (emailError) {
         logger.warn(`[STRIPE] Failed to send receipt email`, {
           invoiceId: invoice.id,
-          error: emailError instanceof Error ? (emailError instanceof Error ? emailError.message : String(emailError)) : 'Unknown',
+          error:
+            emailError instanceof Error
+              ? emailError instanceof Error
+                ? emailError.message
+                : String(emailError)
+              : 'Unknown',
         });
       }
     }
@@ -480,15 +511,17 @@ export class StripeInvoiceService {
 
       // Process affiliate commission (non-blocking)
       try {
-        await this.processInvoiceCommission(
-          invoice,
-          stripeInvoice,
-        );
+        await this.processInvoiceCommission(invoice, stripeInvoice);
       } catch (commissionError) {
         logger.warn('[STRIPE] Affiliate commission processing failed for invoice (non-blocking)', {
           invoiceId: invoice.id,
           patientId: invoice.patientId,
-          error: commissionError instanceof Error ? (commissionError instanceof Error ? commissionError.message : String(commissionError)) : 'Unknown',
+          error:
+            commissionError instanceof Error
+              ? commissionError instanceof Error
+                ? commissionError.message
+                : String(commissionError)
+              : 'Unknown',
         });
       }
 
@@ -501,7 +534,12 @@ export class StripeInvoiceService {
           logger.warn('[STRIPE] Portal invite on renewal payment failed (non-fatal)', {
             invoiceId: invoice.id,
             patientId: invoice.patientId,
-            error: inviteErr instanceof Error ? (inviteErr instanceof Error ? inviteErr.message : String(inviteErr)) : 'Unknown',
+            error:
+              inviteErr instanceof Error
+                ? inviteErr instanceof Error
+                  ? inviteErr.message
+                  : String(inviteErr)
+                : 'Unknown',
           });
         }
 
@@ -510,7 +548,8 @@ export class StripeInvoiceService {
           const { notificationEvents } = await import('@/services/notification/notificationEvents');
           const amountDollars = (stripeInvoice.amount_paid || 0) / 100;
           const patientName = invoice.patient
-            ? `${safeDecryptField(invoice.patient.firstName)} ${safeDecryptField(invoice.patient.lastName)}`.trim() || 'Patient'
+            ? `${safeDecryptField(invoice.patient.firstName)} ${safeDecryptField(invoice.patient.lastName)}`.trim() ||
+              'Patient'
             : 'Patient';
           await notificationEvents.paymentReceived({
             clinicId: invoice.clinicId || 0,
@@ -522,7 +561,12 @@ export class StripeInvoiceService {
         } catch (notifErr) {
           logger.warn('[STRIPE] Payment notification for renewal failed (non-fatal)', {
             invoiceId: invoice.id,
-            error: notifErr instanceof Error ? (notifErr instanceof Error ? notifErr.message : String(notifErr)) : 'Unknown',
+            error:
+              notifErr instanceof Error
+                ? notifErr instanceof Error
+                  ? notifErr.message
+                  : String(notifErr)
+                : 'Unknown',
           });
         }
       }
@@ -564,9 +608,7 @@ export class StripeInvoiceService {
       try {
         const metaClinicRaw = stripeInvoice.metadata?.clinicId;
         const metaClinicId =
-          metaClinicRaw != null && metaClinicRaw !== ''
-            ? parseInt(String(metaClinicRaw), 10)
-            : NaN;
+          metaClinicRaw != null && metaClinicRaw !== '' ? parseInt(String(metaClinicRaw), 10) : NaN;
         let stripeClient: Stripe;
         let stripeOpts: Stripe.RequestOptions | undefined;
         if (Number.isFinite(metaClinicId) && metaClinicId > 0) {
@@ -580,7 +622,12 @@ export class StripeInvoiceService {
         const stripeCustomer = stripeOpts
           ? await stripeClient.customers.retrieve(customerId, {}, stripeOpts)
           : await stripeClient.customers.retrieve(customerId);
-        if (stripeCustomer && !stripeCustomer.deleted && 'email' in stripeCustomer && stripeCustomer.email) {
+        if (
+          stripeCustomer &&
+          !stripeCustomer.deleted &&
+          'email' in stripeCustomer &&
+          stripeCustomer.email
+        ) {
           patient = await findPatientByEmail(stripeCustomer.email.trim().toLowerCase());
           if (patient) {
             // Link stripeCustomerId for fast-path on future events
@@ -588,16 +635,24 @@ export class StripeInvoiceService {
               where: { id: patient.id },
               data: { stripeCustomerId: customerId },
             });
-            logger.info('[STRIPE] Linked stripeCustomerId via email fallback during invoice auto-create', {
-              patientId: patient.id,
-              stripeInvoiceId: stripeInvoice.id,
-            });
+            logger.info(
+              '[STRIPE] Linked stripeCustomerId via email fallback during invoice auto-create',
+              {
+                patientId: patient.id,
+                stripeInvoiceId: stripeInvoice.id,
+              }
+            );
           }
         }
       } catch (emailErr) {
         logger.warn('[STRIPE] Email fallback for invoice auto-create failed (non-blocking)', {
           stripeInvoiceId: stripeInvoice.id,
-          error: emailErr instanceof Error ? (emailErr instanceof Error ? emailErr.message : String(emailErr)) : 'Unknown',
+          error:
+            emailErr instanceof Error
+              ? emailErr instanceof Error
+                ? emailErr.message
+                : String(emailErr)
+              : 'Unknown',
         });
       }
     }
@@ -638,9 +693,8 @@ export class StripeInvoiceService {
 
           if (stripeInvoice.billing_reason !== 'subscription_create') {
             const start = new Date(localSub.startDate);
-            const totalMonths = localSub.interval === 'year'
-              ? localSub.intervalCount * 12
-              : localSub.intervalCount;
+            const totalMonths =
+              localSub.interval === 'year' ? localSub.intervalCount * 12 : localSub.intervalCount;
             const monthsElapsed =
               (paidAt.getFullYear() - start.getFullYear()) * 12 +
               (paidAt.getMonth() - start.getMonth());
@@ -648,11 +702,14 @@ export class StripeInvoiceService {
           }
         }
       } catch (err) {
-        logger.warn('[STRIPE] Could not compute renewal month / plan description for subscription invoice', {
-          stripeInvoiceId: stripeInvoice.id,
-          stripeSubscriptionId: subscriptionId,
-          error: err instanceof Error ? err.message : String(err),
-        });
+        logger.warn(
+          '[STRIPE] Could not compute renewal month / plan description for subscription invoice',
+          {
+            stripeInvoiceId: stripeInvoice.id,
+            stripeSubscriptionId: subscriptionId,
+            error: err instanceof Error ? err.message : String(err),
+          }
+        );
       }
     }
 
@@ -660,8 +717,9 @@ export class StripeInvoiceService {
     // For trial invoices ($0 initial charge), Stripe auto-generates "Free trial for N × Product"
     // which is misleading — use the local subscription's plan description instead.
     const lines = stripeInvoice.lines?.data || [];
-    const isTrialInvoice = stripeInvoice.billing_reason === 'subscription_create'
-      && (stripeInvoice.amount_paid === 0 || stripeInvoice.amount_due === 0);
+    const isTrialInvoice =
+      stripeInvoice.billing_reason === 'subscription_create' &&
+      (stripeInvoice.amount_paid === 0 || stripeInvoice.amount_due === 0);
 
     const rawDescription = (() => {
       if (isTrialInvoice && localSubPlanDescription) {
@@ -683,64 +741,67 @@ export class StripeInvoiceService {
     })();
 
     const lineItemsJson = lines.map((l) => ({
-      description: lineItemDescription || (l.description || 'Subscription'),
+      description: lineItemDescription || l.description || 'Subscription',
       amount: l.amount || 0,
       quantity: l.quantity || 1,
     }));
 
     try {
-      const result = await prisma.$transaction(async (tx) => {
-        const newInvoice = await tx.invoice.create({
-          data: {
-            patientId: patient!.id,
-            clinicId: patient!.clinicId,
-            stripeInvoiceId: stripeInvoice.id,
-            stripeInvoiceNumber: stripeInvoice.number || undefined,
-            stripeInvoiceUrl: stripeInvoice.hosted_invoice_url || undefined,
-            stripePdfUrl: stripeInvoice.invoice_pdf || undefined,
-            description,
-            amount: stripeInvoice.amount_paid || stripeInvoice.amount_due || 0,
-            amountDue: 0,
-            amountPaid: stripeInvoice.amount_paid || 0,
-            currency: stripeInvoice.currency || 'usd',
-            status: 'PAID' as InvoiceStatus,
-            paidAt,
-            lineItems: lineItemsJson as any,
-            metadata: {
-              source: 'stripe_webhook_auto_create',
-              billingReason: stripeInvoice.billing_reason,
-              stripeSubscriptionId: subscriptionId || undefined,
-              paymentIntentId: paymentIntentId || undefined,
-              ...(renewalMonth ? { renewalMonth } : {}),
-            } as any,
-          },
-        });
-
-        // Create associated Payment record for full billing trail
-        if (paymentIntentId) {
-          // Guard: skip if payment record already exists (idempotent)
-          const existingPayment = await tx.payment.findUnique({
-            where: { stripePaymentIntentId: paymentIntentId },
+      const result = await prisma.$transaction(
+        async (tx) => {
+          const newInvoice = await tx.invoice.create({
+            data: {
+              patientId: patient!.id,
+              clinicId: patient!.clinicId,
+              stripeInvoiceId: stripeInvoice.id,
+              stripeInvoiceNumber: stripeInvoice.number || undefined,
+              stripeInvoiceUrl: stripeInvoice.hosted_invoice_url || undefined,
+              stripePdfUrl: stripeInvoice.invoice_pdf || undefined,
+              description,
+              amount: stripeInvoice.amount_paid || stripeInvoice.amount_due || 0,
+              amountDue: 0,
+              amountPaid: stripeInvoice.amount_paid || 0,
+              currency: stripeInvoice.currency || 'usd',
+              status: 'PAID' as InvoiceStatus,
+              paidAt,
+              lineItems: lineItemsJson as any,
+              metadata: {
+                source: 'stripe_webhook_auto_create',
+                billingReason: stripeInvoice.billing_reason,
+                stripeSubscriptionId: subscriptionId || undefined,
+                paymentIntentId: paymentIntentId || undefined,
+                ...(renewalMonth ? { renewalMonth } : {}),
+              } as any,
+            },
           });
-          if (!existingPayment) {
-            await tx.payment.create({
-              data: {
-                patientId: patient!.id,
-                clinicId: patient!.clinicId,
-                invoiceId: newInvoice.id,
-                stripePaymentIntentId: paymentIntentId,
-                amount: stripeInvoice.amount_paid || 0,
-                currency: stripeInvoice.currency || 'usd',
-                status: 'SUCCEEDED',
-                paidAt,
-                description: `Auto-recorded: ${description}`,
-              },
-            });
-          }
-        }
 
-        return newInvoice;
-      }, { timeout: 15000 });
+          // Create associated Payment record for full billing trail
+          if (paymentIntentId) {
+            // Guard: skip if payment record already exists (idempotent)
+            const existingPayment = await tx.payment.findUnique({
+              where: { stripePaymentIntentId: paymentIntentId },
+            });
+            if (!existingPayment) {
+              await tx.payment.create({
+                data: {
+                  patientId: patient!.id,
+                  clinicId: patient!.clinicId,
+                  invoiceId: newInvoice.id,
+                  stripePaymentIntentId: paymentIntentId,
+                  amount: stripeInvoice.amount_paid || 0,
+                  currency: stripeInvoice.currency || 'usd',
+                  status: 'SUCCEEDED',
+                  paidAt,
+                  description: `Auto-recorded: ${description}`,
+                },
+              });
+            }
+          }
+
+          return newInvoice;
+        },
+        { timeout: 15000 }
+      );
 
       // Re-fetch with patient relation so downstream logic has full data
       const fullInvoice = await prisma.invoice.findUnique({
@@ -778,8 +839,13 @@ export class StripeInvoiceService {
    * HIPAA-COMPLIANT: Only passes IDs and amounts, never patient data.
    */
   private static async processInvoiceCommission(
-    invoice: { id: number; patientId: number; clinicId: number | null; stripeInvoiceId: string | null },
-    stripeInvoice: Stripe.Invoice,
+    invoice: {
+      id: number;
+      patientId: number;
+      clinicId: number | null;
+      stripeInvoiceId: string | null;
+    },
+    stripeInvoice: Stripe.Invoice
   ): Promise<void> {
     const clinicId = invoice.clinicId;
     if (!clinicId) {
@@ -815,9 +881,8 @@ export class StripeInvoiceService {
     }
 
     // Determine if this is the patient's first successful payment
-    const { processPaymentForCommission, checkIfFirstPayment } = await import(
-      '@/services/affiliate/affiliateCommissionService'
-    );
+    const { processPaymentForCommission, checkIfFirstPayment } =
+      await import('@/services/affiliate/affiliateCommissionService');
 
     const paymentIntentId =
       typeof (stripeInvoice as any).payment_intent === 'string'
@@ -826,7 +891,7 @@ export class StripeInvoiceService {
 
     const isFirstPayment = await checkIfFirstPayment(
       invoice.patientId,
-      paymentIntentId || undefined,
+      paymentIntentId || undefined
     );
 
     // Use the Stripe event ID derived from the invoice for idempotency
@@ -938,51 +1003,54 @@ export class StripeInvoiceService {
 
       // Wrap all database operations in a transaction for atomicity
       if (stripeSubscriptions.length > 0) {
-        await prisma.$transaction(async (tx) => {
-          const intervalMap: Record<string, string> = {
-            WEEKLY: 'week',
-            MONTHLY: 'month',
-            QUARTERLY: 'month',
-            SEMI_ANNUAL: 'month',
-            ANNUAL: 'year',
-          };
+        await prisma.$transaction(
+          async (tx) => {
+            const intervalMap: Record<string, string> = {
+              WEEKLY: 'week',
+              MONTHLY: 'month',
+              QUARTERLY: 'month',
+              SEMI_ANNUAL: 'month',
+              ANNUAL: 'year',
+            };
 
-          for (const { subscription, product } of stripeSubscriptions) {
-            // Create subscription record in database
-            await tx.subscription.create({
-              data: {
-                clinicId: invoice.clinicId,
-                patientId: patient.id,
-                planId: product.id.toString(),
-                planName: product.name,
-                planDescription: product.description || product.shortDescription || '',
-                status: 'ACTIVE',
-                amount: product.price,
-                currency: product.currency || 'usd',
-                interval: intervalMap[product.billingInterval || 'MONTHLY'] || 'month',
-                intervalCount: product.billingIntervalCount || 1,
-                startDate: new Date(),
-                currentPeriodStart: new Date(),
-                currentPeriodEnd: new Date(
-                  (subscription as unknown as { current_period_end: number }).current_period_end *
-                    1000
-                ),
-                nextBillingDate: new Date(
-                  (subscription as unknown as { current_period_end: number }).current_period_end *
-                    1000
-                ),
-                stripeSubscriptionId: subscription.id,
-                metadata: { productId: product.id, invoiceId: invoice.id },
-              },
+            for (const { subscription, product } of stripeSubscriptions) {
+              // Create subscription record in database
+              await tx.subscription.create({
+                data: {
+                  clinicId: invoice.clinicId,
+                  patientId: patient.id,
+                  planId: product.id.toString(),
+                  planName: product.name,
+                  planDescription: product.description || product.shortDescription || '',
+                  status: 'ACTIVE',
+                  amount: product.price,
+                  currency: product.currency || 'usd',
+                  interval: intervalMap[product.billingInterval || 'MONTHLY'] || 'month',
+                  intervalCount: product.billingIntervalCount || 1,
+                  startDate: new Date(),
+                  currentPeriodStart: new Date(),
+                  currentPeriodEnd: new Date(
+                    (subscription as unknown as { current_period_end: number }).current_period_end *
+                      1000
+                  ),
+                  nextBillingDate: new Date(
+                    (subscription as unknown as { current_period_end: number }).current_period_end *
+                      1000
+                  ),
+                  stripeSubscriptionId: subscription.id,
+                  metadata: { productId: product.id, invoiceId: invoice.id },
+                },
+              });
+            }
+
+            // Mark invoice as having created subscriptions
+            await tx.invoice.update({
+              where: { id: invoice.id },
+              data: { subscriptionCreated: true },
             });
-          }
-
-          // Mark invoice as having created subscriptions
-          await tx.invoice.update({
-            where: { id: invoice.id },
-            data: { subscriptionCreated: true },
-          });
-        }, { timeout: 15000 });
+          },
+          { timeout: 15000 }
+        );
       } else {
         // No subscriptions created, still mark invoice
         await prisma.invoice.update({

@@ -98,7 +98,9 @@ async function handleGet(
     }
 
     const s3Url = `/api/patient-photos/${photo.id}/image`;
-    const thumbnailUrl = photo.thumbnailKey ? `/api/patient-photos/${photo.id}/image?thumb=1` : null;
+    const thumbnailUrl = photo.thumbnailKey
+      ? `/api/patient-photos/${photo.id}/image?thumb=1`
+      : null;
 
     const { patient, ...photoData } = photo;
 
@@ -199,7 +201,9 @@ async function handlePatch(
     });
 
     const s3Url = `/api/patient-photos/${updatedPhoto.id}/image`;
-    const thumbnailUrl = updatedPhoto.thumbnailKey ? `/api/patient-photos/${updatedPhoto.id}/image?thumb=1` : null;
+    const thumbnailUrl = updatedPhoto.thumbnailKey
+      ? `/api/patient-photos/${updatedPhoto.id}/image?thumb=1`
+      : null;
 
     logger.info('[Photos API] Photo updated', {
       photoId,
@@ -207,7 +211,14 @@ async function handlePatch(
       fields: Object.keys(updateData),
     });
 
-    await logPHIUpdate(req, user, 'PatientPhoto', String(photoId), photo.patientId, Object.keys(updateData));
+    await logPHIUpdate(
+      req,
+      user,
+      'PatientPhoto',
+      String(photoId),
+      photo.patientId,
+      Object.keys(updateData)
+    );
 
     return NextResponse.json({
       photo: {
@@ -267,10 +278,7 @@ async function handleDelete(
       ID_VERIFICATION_TYPES.includes(photo.type) &&
       photo.verificationStatus === 'VERIFIED'
     ) {
-      return NextResponse.json(
-        { error: 'Verified ID photos cannot be removed' },
-        { status: 403 },
-      );
+      return NextResponse.json({ error: 'Verified ID photos cannot be removed' }, { status: 403 });
     }
 
     // Permanent deletion (only for super_admin or if already soft-deleted)
@@ -300,7 +308,14 @@ async function handleDelete(
         deletedBy: user.id,
       });
 
-      await logPHIDelete(req, user, 'PatientPhoto', String(photoId), photo.patientId, reason || 'Permanent deletion');
+      await logPHIDelete(
+        req,
+        user,
+        'PatientPhoto',
+        String(photoId),
+        photo.patientId,
+        reason || 'Permanent deletion'
+      );
 
       return NextResponse.json({ success: true, permanent: true });
     }
@@ -326,7 +341,14 @@ async function handleDelete(
       reason,
     });
 
-    await logPHIDelete(req, user, 'PatientPhoto', String(photoId), photo.patientId, reason || 'Soft deletion');
+    await logPHIDelete(
+      req,
+      user,
+      'PatientPhoto',
+      String(photoId),
+      photo.patientId,
+      reason || 'Soft deletion'
+    );
 
     return NextResponse.json({ success: true, permanent: false });
   } catch (error) {

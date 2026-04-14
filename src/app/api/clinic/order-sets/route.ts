@@ -43,7 +43,9 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
     return NextResponse.json({ orderSets });
   } catch (err) {
-    logger.error('[ORDER_SETS/GET] Failed', { error: err instanceof Error ? err.message : String(err) });
+    logger.error('[ORDER_SETS/GET] Failed', {
+      error: err instanceof Error ? err.message : String(err),
+    });
     return NextResponse.json({ error: 'Failed to fetch order sets' }, { status: 500 });
   }
 }

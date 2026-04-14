@@ -151,15 +151,21 @@ let cachedLogo: Uint8Array | null = null;
 async function loadAsset(relPath: string): Promise<Uint8Array | null> {
   try {
     return new Uint8Array(await fs.readFile(path.join(process.cwd(), 'public', relPath)));
-  } catch { /* fall through */ }
+  } catch {
+    /* fall through */
+  }
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL;
   if (baseUrl) {
     try {
-      const url = baseUrl.startsWith('http') ? `${baseUrl}/${relPath}` : `https://${baseUrl}/${relPath}`;
+      const url = baseUrl.startsWith('http')
+        ? `${baseUrl}/${relPath}`
+        : `https://${baseUrl}/${relPath}`;
       const res = await fetch(url);
       if (res.ok) return new Uint8Array(await res.arrayBuffer());
-    } catch { /* fall through */ }
+    } catch {
+      /* fall through */
+    }
   }
 
   return null;
@@ -321,22 +327,28 @@ export async function generateHsaLetterPdf(data: HsaLetterData): Promise<Uint8Ar
   const black = rgb(0, 0, 0);
   const darkGray = rgb(0.2, 0.2, 0.2);
   const lineGray = rgb(0.55, 0.55, 0.55);
-  const fillBeige = rgb(0.99, 0.95, 0.90);
+  const fillBeige = rgb(0.99, 0.95, 0.9);
 
   // Load logo
   let logoImage: Awaited<ReturnType<typeof doc.embedPng>> | null = null;
   try {
     const logoBytes = await loadLogo();
     logoImage = logoBytes ? await doc.embedPng(logoBytes) : null;
-  } catch { /* skip logo */ }
+  } catch {
+    /* skip logo */
+  }
 
   // --- Helpers ---
   const txt = (
-    page: PDFPage, text: string, x: number, y: number,
+    page: PDFPage,
+    text: string,
+    x: number,
+    y: number,
     opts: { size?: number; font?: PDFFont; color?: ReturnType<typeof rgb> } = {}
   ) => {
     page.drawText(sanitizeForPdf(text || ''), {
-      x, y,
+      x,
+      y,
       size: opts.size ?? 9.5,
       font: opts.font ?? regular,
       color: opts.color ?? darkGray,
@@ -363,16 +375,25 @@ export async function generateHsaLetterPdf(data: HsaLetterData): Promise<Uint8Ar
 
   const drawBox = (page: PDFPage, x: number, y: number, w: number, h: number) => {
     page.drawRectangle({
-      x, y: y - h, width: w, height: h,
-      borderColor: black, borderWidth: 1,
+      x,
+      y: y - h,
+      width: w,
+      height: h,
+      borderColor: black,
+      borderWidth: 1,
     });
   };
 
   const drawBoxHeader = (page: PDFPage, title: string, x: number, y: number, w: number): number => {
     const headerH = 22;
     page.drawRectangle({
-      x, y: y - headerH, width: w, height: headerH,
-      color: rgb(0.92, 0.92, 0.92), borderColor: black, borderWidth: 1,
+      x,
+      y: y - headerH,
+      width: w,
+      height: headerH,
+      color: rgb(0.92, 0.92, 0.92),
+      borderColor: black,
+      borderWidth: 1,
     });
     txt(page, title, x + INNER, y - 15, { size: 11, font: bold, color: black });
     return y - headerH;
@@ -387,11 +408,12 @@ export async function generateHsaLetterPdf(data: HsaLetterData): Promise<Uint8Ar
     });
   };
 
-  const drawFilledLine = (
-    page: PDFPage, x: number, y: number, w: number, h: number = 16
-  ) => {
+  const drawFilledLine = (page: PDFPage, x: number, y: number, w: number, h: number = 16) => {
     page.drawRectangle({
-      x, y: y - h + 2, width: w, height: h,
+      x,
+      y: y - h + 2,
+      width: w,
+      height: h,
       color: fillBeige,
     });
   };
@@ -431,7 +453,7 @@ export async function generateHsaLetterPdf(data: HsaLetterData): Promise<Uint8Ar
   const irsText =
     'Under Internal Revenue Service (IRS) rules, some health care services and products are only eligible for ' +
     'reimbursement from your health savings account (HSA) when your doctor or other licensed health care provider ' +
-    'certifies that they are medically necessary. Your provider must indicate your (or your qualified dependent\'s) specific ' +
+    "certifies that they are medically necessary. Your provider must indicate your (or your qualified dependent's) specific " +
     'diagnosed medical condition, the specific treatment needed, the length of treatment, and how this treatment will ' +
     'alleviate your medical condition.';
   const irsLines = wrapText(irsText, innerW, regular, 8.5);
@@ -481,7 +503,10 @@ export async function generateHsaLetterPdf(data: HsaLetterData): Promise<Uint8Ar
 
   // Diagnosed condition
   y -= 8;
-  txt(page, 'Describe the diagnosed medical condition being treated:', innerX, y, { size: 9.5, color: black });
+  txt(page, 'Describe the diagnosed medical condition being treated:', innerX, y, {
+    size: 9.5,
+    color: black,
+  });
   y -= 16;
   const condLines = wrapText(data.diagnosedCondition, innerW - 4, regular, 9);
   for (const line of condLines) {
@@ -503,9 +528,19 @@ export async function generateHsaLetterPdf(data: HsaLetterData): Promise<Uint8Ar
 
   // Duration of treatment
   y -= 10;
-  txt(page, 'Duration of treatment (not to exceed 12 months):', innerX, y, { size: 9.5, color: black });
-  const durLabelW = regular.widthOfTextAtSize('Duration of treatment (not to exceed 12 months):', 9.5);
-  txt(page, data.durationOfTreatment, innerX + durLabelW + 8, y, { size: 9.5, font: bold, color: black });
+  txt(page, 'Duration of treatment (not to exceed 12 months):', innerX, y, {
+    size: 9.5,
+    color: black,
+  });
+  const durLabelW = regular.widthOfTextAtSize(
+    'Duration of treatment (not to exceed 12 months):',
+    9.5
+  );
+  txt(page, data.durationOfTreatment, innerX + durLabelW + 8, y, {
+    size: 9.5,
+    font: bold,
+    color: black,
+  });
   drawFieldLine(page, innerX + durLabelW + 4, y, innerW - durLabelW - 4);
 
   // Amount Paid
@@ -532,15 +567,33 @@ export async function generateHsaLetterPdf(data: HsaLetterData): Promise<Uint8Ar
   const halfW = CW / 2;
 
   // Row 1: Physician Name | Signature
-  page.drawLine({ start: { x: M, y: gridY }, end: { x: M + CW, y: gridY }, thickness: 0.5, color: lineGray });
+  page.drawLine({
+    start: { x: M, y: gridY },
+    end: { x: M + CW, y: gridY },
+    thickness: 0.5,
+    color: lineGray,
+  });
   const row1H = 38;
-  page.drawLine({ start: { x: M + halfW, y: gridY }, end: { x: M + halfW, y: gridY - row1H }, thickness: 0.5, color: lineGray });
-  page.drawLine({ start: { x: M, y: gridY - row1H }, end: { x: M + CW, y: gridY - row1H }, thickness: 0.5, color: lineGray });
+  page.drawLine({
+    start: { x: M + halfW, y: gridY },
+    end: { x: M + halfW, y: gridY - row1H },
+    thickness: 0.5,
+    color: lineGray,
+  });
+  page.drawLine({
+    start: { x: M, y: gridY - row1H },
+    end: { x: M + CW, y: gridY - row1H },
+    thickness: 0.5,
+    color: lineGray,
+  });
 
   txt(page, 'Print Physician Name', M + INNER, gridY - 12, { size: 8, color: lineGray });
   txt(page, data.provider.fullName, M + INNER, gridY - 28, { size: 10, font: bold, color: black });
 
-  txt(page, 'Signature of Attending Physician', M + halfW + INNER, gridY - 12, { size: 8, color: lineGray });
+  txt(page, 'Signature of Attending Physician', M + halfW + INNER, gridY - 12, {
+    size: 8,
+    color: lineGray,
+  });
 
   // Embed provider signature
   if (data.provider.signatureDataUrl) {
@@ -565,11 +618,24 @@ export async function generateHsaLetterPdf(data: HsaLetterData): Promise<Uint8Ar
   // Row 2: License Number | Date
   const row2Top = gridY - row1H;
   const row2H = 32;
-  page.drawLine({ start: { x: M + halfW, y: row2Top }, end: { x: M + halfW, y: row2Top - row2H }, thickness: 0.5, color: lineGray });
-  page.drawLine({ start: { x: M, y: row2Top - row2H }, end: { x: M + CW, y: row2Top - row2H }, thickness: 0.5, color: lineGray });
+  page.drawLine({
+    start: { x: M + halfW, y: row2Top },
+    end: { x: M + halfW, y: row2Top - row2H },
+    thickness: 0.5,
+    color: lineGray,
+  });
+  page.drawLine({
+    start: { x: M, y: row2Top - row2H },
+    end: { x: M + CW, y: row2Top - row2H },
+    thickness: 0.5,
+    color: lineGray,
+  });
 
   txt(page, 'Provider License Number', M + INNER, row2Top - 12, { size: 8, color: lineGray });
-  txt(page, data.provider.licenseNumber || '', M + INNER, row2Top - 25, { size: 9.5, color: black });
+  txt(page, data.provider.licenseNumber || '', M + INNER, row2Top - 25, {
+    size: 9.5,
+    color: black,
+  });
 
   txt(page, 'Date', M + halfW + INNER, row2Top - 12, { size: 8, color: lineGray });
   txt(page, data.dateOfService, M + halfW + INNER, row2Top - 25, { size: 9.5, color: black });
@@ -577,14 +643,27 @@ export async function generateHsaLetterPdf(data: HsaLetterData): Promise<Uint8Ar
   // Row 3: Address | Phone
   const row3Top = row2Top - row2H;
   const row3H = 32;
-  page.drawLine({ start: { x: M + halfW, y: row3Top }, end: { x: M + halfW, y: row3Top - row3H }, thickness: 0.5, color: lineGray });
-  page.drawLine({ start: { x: M, y: row3Top - row3H }, end: { x: M + CW, y: row3Top - row3H }, thickness: 0.5, color: lineGray });
+  page.drawLine({
+    start: { x: M + halfW, y: row3Top },
+    end: { x: M + halfW, y: row3Top - row3H },
+    thickness: 0.5,
+    color: lineGray,
+  });
+  page.drawLine({
+    start: { x: M, y: row3Top - row3H },
+    end: { x: M + CW, y: row3Top - row3H },
+    thickness: 0.5,
+    color: lineGray,
+  });
 
   txt(page, 'Provider Address', M + INNER, row3Top - 12, { size: 8, color: lineGray });
   txt(page, data.provider.address || '', M + INNER, row3Top - 25, { size: 9, color: black });
 
   txt(page, 'Provider Phone Number', M + halfW + INNER, row3Top - 12, { size: 8, color: lineGray });
-  txt(page, data.provider.phone || '', M + halfW + INNER, row3Top - 25, { size: 9.5, color: black });
+  txt(page, data.provider.phone || '', M + halfW + INNER, row3Top - 25, {
+    size: 9.5,
+    color: black,
+  });
 
   return doc.save();
 }

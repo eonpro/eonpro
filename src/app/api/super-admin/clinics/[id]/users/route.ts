@@ -52,15 +52,17 @@ export const GET = withSuperAdminAuth(
       step = 'role_filter';
       const url = new URL(req.url);
       const rolesParam = url.searchParams.get('roles');
-      const roleFilter = rolesParam ? rolesParam.split(',').map((r) => r.trim()).filter(Boolean) : null;
+      const roleFilter = rolesParam
+        ? rolesParam
+            .split(',')
+            .map((r) => r.trim())
+            .filter(Boolean)
+        : null;
 
       step = 'user_query';
       const users = await prisma.user.findMany({
         where: {
-          OR: [
-            { clinicId },
-            { userClinics: { some: { clinicId, isActive: true } } },
-          ],
+          OR: [{ clinicId }, { userClinics: { some: { clinicId, isActive: true } } }],
           ...(roleFilter && roleFilter.length > 0 ? { role: { in: roleFilter as any[] } } : {}),
         },
         select: {
@@ -106,7 +108,8 @@ export const GET = withSuperAdminAuth(
       return NextResponse.json({ users: formattedUsers });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);
-      const stack = error instanceof Error ? error.stack?.split('\n').slice(0, 5).join('\n') : undefined;
+      const stack =
+        error instanceof Error ? error.stack?.split('\n').slice(0, 5).join('\n') : undefined;
       logger.error('Error fetching clinic users', { step, clinicId, error: msg });
       return NextResponse.json(
         { error: `Failed at step "${step}"`, detail: msg, stack },
@@ -190,7 +193,10 @@ export const POST = withSuperAdminAuth(
       const validRoles = ['admin', 'provider', 'staff', 'support', 'sales_rep', 'pharmacy_rep'];
       if (!validRoles.includes(normalizedRole)) {
         return NextResponse.json(
-          { error: 'Invalid role. Must be ADMIN, PROVIDER, STAFF, SUPPORT, SALES_REP, or PHARMACY_REP' },
+          {
+            error:
+              'Invalid role. Must be ADMIN, PROVIDER, STAFF, SUPPORT, SALES_REP, or PHARMACY_REP',
+          },
           { status: 400 }
         );
       }
@@ -245,7 +251,10 @@ export const POST = withSuperAdminAuth(
             });
           }
 
-          logger.info('[CLINIC-USERS] Reactivated user in clinic', { userId: existingUser.id, clinicId });
+          logger.info('[CLINIC-USERS] Reactivated user in clinic', {
+            userId: existingUser.id,
+            clinicId,
+          });
 
           return NextResponse.json({
             user: {
@@ -302,9 +311,14 @@ export const POST = withSuperAdminAuth(
                 where: { id: existingUser.provider.id },
                 data: { clinicId: null }, // Make provider shared across clinics
               });
-              logger.info('[CLINIC-USERS] Made Provider shared for multi-clinic user', { providerId: existingUser.provider.id, email: existingUser.email });
+              logger.info('[CLINIC-USERS] Made Provider shared for multi-clinic user', {
+                providerId: existingUser.provider.id,
+                email: existingUser.email,
+              });
             } catch (updateError: unknown) {
-              logger.error('Error making provider shared', { error: updateError instanceof Error ? updateError.message : String(updateError) });
+              logger.error('Error making provider shared', {
+                error: updateError instanceof Error ? updateError.message : String(updateError),
+              });
             }
           }
         }
@@ -345,9 +359,13 @@ export const POST = withSuperAdminAuth(
               data: { providerId: providerRecord.id },
             });
 
-            logger.info('[CLINIC-USERS] Created and linked Provider record for existing user', { email: existingUser.email });
+            logger.info('[CLINIC-USERS] Created and linked Provider record for existing user', {
+              email: existingUser.email,
+            });
           } catch (providerError: unknown) {
-            logger.error('Error creating provider record for existing user', { error: providerError instanceof Error ? providerError.message : String(providerError) });
+            logger.error('Error creating provider record for existing user', {
+              error: providerError instanceof Error ? providerError.message : String(providerError),
+            });
             // Don't fail the operation - the user was already added to the clinic
             // They can complete their provider profile later
           }
@@ -399,7 +417,10 @@ export const POST = withSuperAdminAuth(
             });
           }
 
-          logger.info('[CLINIC-USERS] Reactivated provider in clinic', { userId: existingProvider.user.id, clinicId });
+          logger.info('[CLINIC-USERS] Reactivated provider in clinic', {
+            userId: existingProvider.user.id,
+            clinicId,
+          });
 
           return NextResponse.json({
             user: {
@@ -605,7 +626,9 @@ export const POST = withSuperAdminAuth(
             });
           }
         } catch (providerError: unknown) {
-          logger.error('Error creating provider record', { error: providerError instanceof Error ? providerError.message : String(providerError) });
+          logger.error('Error creating provider record', {
+            error: providerError instanceof Error ? providerError.message : String(providerError),
+          });
           // Don't fail the whole operation - the user was created
           // Just log the error for debugging
         }
@@ -613,7 +636,12 @@ export const POST = withSuperAdminAuth(
 
       // Send welcome notification (non-blocking — user creation already committed)
       const { sendInviteText } = body;
-      let inviteResult: { emailSent: boolean; smsSent: boolean; emailError?: string; smsError?: string } = { emailSent: false, smsSent: false };
+      let inviteResult: {
+        emailSent: boolean;
+        smsSent: boolean;
+        emailError?: string;
+        smsError?: string;
+      } = { emailSent: false, smsSent: false };
       if (sendInvite || sendInviteText) {
         inviteResult = await sendUserWelcomeNotification({
           userId: newUser.id,
@@ -641,7 +669,9 @@ export const POST = withSuperAdminAuth(
         ...(inviteResult.smsError ? { inviteSmsError: inviteResult.smsError } : {}),
       });
     } catch (error: unknown) {
-      logger.error('Error creating clinic user', { error: error instanceof Error ? error.message : String(error) });
+      logger.error('Error creating clinic user', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return NextResponse.json(
         { error: (error as any).message || 'Failed to create user' },
         { status: 500 }

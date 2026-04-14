@@ -74,52 +74,69 @@ export default function InfoImageStep({
   const sourceLink = isSpanish ? sourceLinkEs : sourceLinkEn;
 
   return (
-    <div className="min-h-screen bg-white flex flex-col" onClick={handleClick}>
+    <div className="flex min-h-screen flex-col bg-white" onClick={handleClick}>
       {/* Progress bar */}
-      <div className="w-full h-1 bg-white/20">
-        <div 
+      <div className="h-1 w-full bg-white/20">
+        <div
           className="h-full bg-[var(--intake-accent,#f0feab)] transition-all duration-300"
           style={{ width: `${progressPercent}%` }}
         />
       </div>
-      
+
       {/* Back button */}
       {prevStep && (
-        <div className="px-6 lg:px-8 pt-8 lg:pt-6">
+        <div className="px-6 pt-8 lg:px-8 lg:pt-6">
           <button
-            onClick={(e) => { e.stopPropagation(); handleBack(); }}
-            className="inline-block p-2 -ml-2 hover:bg-white/10 rounded-lg"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleBack();
+            }}
+            className="-ml-2 inline-block rounded-lg p-2 hover:bg-white/10"
           >
-            <svg className="w-6 h-6 text-[#413d3d]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+            <svg
+              className="h-6 w-6 text-[#413d3d]"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
           </button>
         </div>
       )}
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col px-6 lg:px-8 py-8 max-w-md lg:max-w-lg mx-auto w-full">
-        <div className={`relative w-full transition-all duration-1000 ease-out transform ${
-          showContainer ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-12 scale-95'
-        }`}>
+      <div className="mx-auto flex w-full max-w-md flex-1 flex-col px-6 py-8 lg:max-w-lg lg:px-8">
+        <div
+          className={`relative w-full transform transition-all duration-1000 ease-out ${
+            showContainer
+              ? 'translate-y-0 scale-100 opacity-100'
+              : 'translate-y-12 scale-95 opacity-0'
+          }`}
+        >
           <Image
             src={imageSrc}
             alt="Information"
             width={500}
             height={600}
-            className="w-full h-auto rounded-2xl"
+            className="h-auto w-full rounded-2xl"
             priority
           />
-          
+
           {/* Source Link */}
           {sourceText && (
             <div className="mt-4 text-left">
-              <a 
+              <a
                 href={sourceLink}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
-                className="text-xs text-[#413d3d]/60 hover:text-[#413d3d]/80 underline transition-colors"
+                className="text-xs text-[#413d3d]/60 underline transition-colors hover:text-[#413d3d]/80"
               >
                 {sourceText}
               </a>
@@ -131,12 +148,14 @@ export default function InfoImageStep({
             <p className="copyright-text">
               {isSpanish ? (
                 <>
-                  © 2026 EONPro, LLC. Todos los derechos reservados.<br/>
+                  © 2026 EONPro, LLC. Todos los derechos reservados.
+                  <br />
                   Proceso exclusivo y protegido.
                 </>
               ) : (
                 <>
-                  © 2026 EONPro, LLC. All rights reserved.<br/>
+                  © 2026 EONPro, LLC. All rights reserved.
+                  <br />
                   Exclusive and protected process.
                 </>
               )}

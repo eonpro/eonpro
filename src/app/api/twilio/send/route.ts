@@ -135,7 +135,9 @@ async function handleSend(req: NextRequest, user: AuthUser) {
       notice: 'Twilio not configured - this is a demo message',
     });
   } catch (error: unknown) {
-    logger.error('Failed to send message', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('Failed to send message', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json({ error: 'Failed to send message' }, { status: 500 });
   }
 }

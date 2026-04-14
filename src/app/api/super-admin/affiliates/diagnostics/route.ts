@@ -65,16 +65,29 @@ async function handler(req: NextRequest): Promise<Response> {
 
     // Run all independent count/aggregate queries in parallel
     const [
-      affiliateCount, activeAffiliateCount,
-      refCodeCount, activeRefCodeCount,
-      touchCount, recentTouchCount, convertedTouchCount,
-      commissionCount, pendingCommissions, approvedCommissions, paidCommissions, totalCommissionCents,
-      planCount, activePlanCount,
+      affiliateCount,
+      activeAffiliateCount,
+      refCodeCount,
+      activeRefCodeCount,
+      touchCount,
+      recentTouchCount,
+      convertedTouchCount,
+      commissionCount,
+      pendingCommissions,
+      approvedCommissions,
+      paidCommissions,
+      totalCommissionCents,
+      planCount,
+      activePlanCount,
       affiliatesWithPlans,
-      patientsWithAttribution, recentPatientsWithAttribution,
+      patientsWithAttribution,
+      recentPatientsWithAttribution,
       legacyInfluencerCount,
-      influencerCodes, affiliateCodes,
-      recentTouches, recentCommissions, recentReferrals,
+      influencerCodes,
+      affiliateCodes,
+      recentTouches,
+      recentCommissions,
+      recentReferrals,
     ] = await Promise.all([
       prisma.affiliate.count(),
       prisma.affiliate.count({ where: { status: 'ACTIVE' } }),
@@ -95,19 +108,27 @@ async function handler(req: NextRequest): Promise<Response> {
       prisma.affiliateCommissionPlan.count({ where: { isActive: true } }),
       prisma.affiliate.count({ where: { planAssignments: { some: { effectiveTo: null } } } }),
       prisma.patient.count({ where: { attributionAffiliateId: { not: null } } }),
-      prisma.patient.count({ where: { attributionAffiliateId: { not: null }, createdAt: { gte: thirtyDaysAgo } } }),
+      prisma.patient.count({
+        where: { attributionAffiliateId: { not: null }, createdAt: { gte: thirtyDaysAgo } },
+      }),
       prisma.influencer.count({ where: { status: 'ACTIVE' } }),
       prisma.influencer.findMany({ where: { status: 'ACTIVE' }, select: { promoCode: true } }),
       prisma.affiliateRefCode.findMany({ select: { refCode: true } }),
       prisma.affiliateTouch.findMany({
         where: { createdAt: { gte: thirtyDaysAgo } },
-        include: { affiliate: { select: { displayName: true } }, clinic: { select: { name: true } } },
+        include: {
+          affiliate: { select: { displayName: true } },
+          clinic: { select: { name: true } },
+        },
         orderBy: { createdAt: 'desc' },
         take: 10,
       }),
       prisma.affiliateCommissionEvent.findMany({
         where: { createdAt: { gte: thirtyDaysAgo } },
-        include: { affiliate: { select: { displayName: true } }, clinic: { select: { name: true } } },
+        include: {
+          affiliate: { select: { displayName: true } },
+          clinic: { select: { name: true } },
+        },
         orderBy: { createdAt: 'desc' },
         take: 10,
       }),
@@ -129,79 +150,93 @@ async function handler(req: NextRequest): Promise<Response> {
       {
         name: 'Affiliates',
         status: affiliateCount > 0 ? 'healthy' : 'error',
-        message: affiliateCount > 0
-          ? `${affiliateCount} affiliates (${activeAffiliateCount} active)`
-          : 'No affiliates found - create affiliates or run migration',
+        message:
+          affiliateCount > 0
+            ? `${affiliateCount} affiliates (${activeAffiliateCount} active)`
+            : 'No affiliates found - create affiliates or run migration',
         value: affiliateCount,
         details: { total: affiliateCount, active: activeAffiliateCount },
       },
       {
         name: 'Ref Codes',
         status: refCodeCount > 0 ? 'healthy' : 'error',
-        message: refCodeCount > 0
-          ? `${refCodeCount} ref codes (${activeRefCodeCount} active)`
-          : 'No ref codes found - affiliates need ref codes to track',
+        message:
+          refCodeCount > 0
+            ? `${refCodeCount} ref codes (${activeRefCodeCount} active)`
+            : 'No ref codes found - affiliates need ref codes to track',
         value: refCodeCount,
         details: { total: refCodeCount, active: activeRefCodeCount },
       },
       {
         name: 'Tracking Records',
         status: touchCount > 0 ? (recentTouchCount > 0 ? 'healthy' : 'warning') : 'warning',
-        message: touchCount > 0
-          ? `${touchCount} total (${recentTouchCount} in last 30 days, ${convertedTouchCount} converted)`
-          : 'No tracking records - verify AffiliateTracker is in app layout',
+        message:
+          touchCount > 0
+            ? `${touchCount} total (${recentTouchCount} in last 30 days, ${convertedTouchCount} converted)`
+            : 'No tracking records - verify AffiliateTracker is in app layout',
         value: touchCount,
-        details: { total: touchCount, last30Days: recentTouchCount, converted: convertedTouchCount },
+        details: {
+          total: touchCount,
+          last30Days: recentTouchCount,
+          converted: convertedTouchCount,
+        },
       },
       {
         name: 'Commission Events',
         status: commissionCount > 0 ? 'healthy' : 'warning',
-        message: commissionCount > 0
-          ? `${commissionCount} events ($${((totalCommissionCents._sum.commissionAmountCents || 0) / 100).toFixed(2)} total)`
-          : 'No commission events - check Stripe webhook integration',
+        message:
+          commissionCount > 0
+            ? `${commissionCount} events ($${((totalCommissionCents._sum.commissionAmountCents || 0) / 100).toFixed(2)} total)`
+            : 'No commission events - check Stripe webhook integration',
         value: commissionCount,
         details: {
-          total: commissionCount, pending: pendingCommissions,
-          approved: approvedCommissions, paid: paidCommissions,
+          total: commissionCount,
+          pending: pendingCommissions,
+          approved: approvedCommissions,
+          paid: paidCommissions,
           totalCents: totalCommissionCents._sum.commissionAmountCents || 0,
         },
       },
       {
         name: 'Commission Plans',
         status: planCount > 0 ? 'healthy' : 'error',
-        message: planCount > 0
-          ? `${planCount} plans (${activePlanCount} active)`
-          : 'No commission plans - affiliates cannot earn without plans',
+        message:
+          planCount > 0
+            ? `${planCount} plans (${activePlanCount} active)`
+            : 'No commission plans - affiliates cannot earn without plans',
         value: planCount,
         details: { total: planCount, active: activePlanCount },
       },
       {
         name: 'Plan Assignments',
         status: affiliatesWithoutPlans === 0 ? 'healthy' : 'warning',
-        message: affiliatesWithoutPlans === 0
-          ? 'All affiliates have active plans'
-          : `${affiliatesWithoutPlans} affiliates without plans`,
+        message:
+          affiliatesWithoutPlans === 0
+            ? 'All affiliates have active plans'
+            : `${affiliatesWithoutPlans} affiliates without plans`,
         value: affiliatesWithPlans,
         details: { withPlans: affiliatesWithPlans, withoutPlans: affiliatesWithoutPlans },
       },
       {
         name: 'Patient Attribution',
         status: patientsWithAttribution > 0 ? 'healthy' : 'warning',
-        message: patientsWithAttribution > 0
-          ? `${patientsWithAttribution} patients attributed (${recentPatientsWithAttribution} in last 30 days)`
-          : 'No patients have affiliate attribution',
+        message:
+          patientsWithAttribution > 0
+            ? `${patientsWithAttribution} patients attributed (${recentPatientsWithAttribution} in last 30 days)`
+            : 'No patients have affiliate attribution',
         value: patientsWithAttribution,
         details: { total: patientsWithAttribution, last30Days: recentPatientsWithAttribution },
       },
       {
         name: 'Legacy Migration',
         status: unmigratedCodes.length === 0 ? 'healthy' : 'warning',
-        message: unmigratedCodes.length === 0
-          ? 'All legacy codes migrated'
-          : `${unmigratedCodes.length} legacy codes need migration`,
+        message:
+          unmigratedCodes.length === 0
+            ? 'All legacy codes migrated'
+            : `${unmigratedCodes.length} legacy codes need migration`,
         value: unmigratedCodes.length,
         details: { unmigrated: unmigratedCodes.slice(0, 10), legacyCount: legacyInfluencerCount },
-      },
+      }
     );
 
     // ========================================================================

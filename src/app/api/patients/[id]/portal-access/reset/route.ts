@@ -59,31 +59,34 @@ const postHandler = withAuthParams(
       const archivedEmail = `reset+${portalUserId}+${Date.now()}@portal-reset.invalid`;
       const disabledPasswordHash = await bcrypt.hash(crypto.randomUUID(), 12);
 
-      await prisma.$transaction(async (tx) => {
-        await tx.userSession.deleteMany({ where: { userId: portalUserId } });
-        await tx.userAuditLog.deleteMany({ where: { userId: portalUserId } });
-        await tx.apiKey.deleteMany({ where: { userId: portalUserId } });
-        await tx.passwordResetToken.deleteMany({ where: { userId: portalUserId } });
-        await tx.emailVerificationToken.deleteMany({ where: { userId: portalUserId } });
+      await prisma.$transaction(
+        async (tx) => {
+          await tx.userSession.deleteMany({ where: { userId: portalUserId } });
+          await tx.userAuditLog.deleteMany({ where: { userId: portalUserId } });
+          await tx.apiKey.deleteMany({ where: { userId: portalUserId } });
+          await tx.passwordResetToken.deleteMany({ where: { userId: portalUserId } });
+          await tx.emailVerificationToken.deleteMany({ where: { userId: portalUserId } });
 
-        // Do not hard-delete user: many relational references can block delete and
-        // surface as intermittent 5xx. Instead, tombstone + unlink from patient.
-        await tx.user.update({
-          where: { id: portalUserId },
-          data: {
-            status: 'INACTIVE',
-            email: archivedEmail,
-            phone: null,
-            passwordHash: disabledPasswordHash,
-            patientId: null,
-            lastPasswordChange: new Date(),
-            metadata: {
-              portalAccessResetAt: new Date().toISOString(),
-              portalAccessResetBy: user.id,
+          // Do not hard-delete user: many relational references can block delete and
+          // surface as intermittent 5xx. Instead, tombstone + unlink from patient.
+          await tx.user.update({
+            where: { id: portalUserId },
+            data: {
+              status: 'INACTIVE',
+              email: archivedEmail,
+              phone: null,
+              passwordHash: disabledPasswordHash,
+              patientId: null,
+              lastPasswordChange: new Date(),
+              metadata: {
+                portalAccessResetAt: new Date().toISOString(),
+                portalAccessResetBy: user.id,
+              },
             },
-          },
-        });
-      }, { timeout: 15000 });
+          });
+        },
+        { timeout: 15000 }
+      );
 
       logger.info('[PortalAccess] Portal access reset', {
         patientId: id,

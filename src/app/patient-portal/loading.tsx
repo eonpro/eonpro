@@ -45,7 +45,10 @@ export default function PatientPortalLoading() {
         <div className="mb-3 h-5 w-28 rounded bg-gray-200" />
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="flex flex-col items-center gap-2 rounded-2xl bg-white p-4 shadow-sm">
+            <div
+              key={i}
+              className="flex flex-col items-center gap-2 rounded-2xl bg-white p-4 shadow-sm"
+            >
               <div className="h-10 w-10 rounded-xl bg-gray-200" />
               <div className="h-3 w-14 rounded bg-gray-200" />
             </div>

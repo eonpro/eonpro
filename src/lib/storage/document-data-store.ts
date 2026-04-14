@@ -41,9 +41,7 @@ function isS3PdfStorageEnabled(): boolean {
  */
 async function getS3Service() {
   try {
-    const { uploadToS3, downloadFromS3 } = await import(
-      '@/lib/integrations/aws/s3Service'
-    );
+    const { uploadToS3, downloadFromS3 } = await import('@/lib/integrations/aws/s3Service');
     const { isS3Enabled, FileCategory } = await import('@/lib/integrations/aws/s3Config');
     if (!isS3Enabled()) return null;
     return { uploadToS3, downloadFromS3, FileCategory };
@@ -163,9 +161,7 @@ export async function storeIntakeData(
  *
  * Returns the parsed JSON object, or null if no data is available.
  */
-export async function readIntakeData(
-  document: DocumentForRead
-): Promise<unknown | null> {
+export async function readIntakeData(document: DocumentForRead): Promise<unknown | null> {
   // Try S3 first (if enabled and key exists)
   if (isS3IntakeDataEnabled() && document.s3DataKey) {
     try {
@@ -198,9 +194,7 @@ export async function readIntakeData(
  * This does NOT go to S3 for intake-JSON — only the `data` column
  * or `externalUrl` paths handle binary content (unchanged).
  */
-export function readBinaryData(
-  data: Buffer | Uint8Array | null | undefined
-): Buffer | null {
+export function readBinaryData(data: Buffer | Uint8Array | null | undefined): Buffer | null {
   return toBuffer(data);
 }
 
@@ -297,9 +291,7 @@ export async function storePdfData(
  *
  * Returns the raw Buffer, or null if no data is available.
  */
-export async function readPdfData(
-  document: DocumentForRead
-): Promise<Buffer | null> {
+export async function readPdfData(document: DocumentForRead): Promise<Buffer | null> {
   if (isS3PdfStorageEnabled() && document.s3DataKey) {
     try {
       const s3 = await getS3Service();
@@ -332,17 +324,15 @@ export async function readPdfData(
  * Handles both JSON intake data and binary PDF documents.
  * Returns the S3 key if successful, null if skipped or failed.
  */
-export async function migrateDocumentData(
-  document: {
-    id: number;
-    patientId: number;
-    clinicId: number | null;
-    mimeType?: string;
-    filename?: string;
-    data: Buffer | Uint8Array | null;
-    s3DataKey: string | null;
-  }
-): Promise<string | null> {
+export async function migrateDocumentData(document: {
+  id: number;
+  patientId: number;
+  clinicId: number | null;
+  mimeType?: string;
+  filename?: string;
+  data: Buffer | Uint8Array | null;
+  s3DataKey: string | null;
+}): Promise<string | null> {
   if (document.s3DataKey) return document.s3DataKey;
   if (!document.data) return null;
 
@@ -356,7 +346,7 @@ export async function migrateDocumentData(
   const key = isJson
     ? `intake-data/${cId}/${document.patientId}/${document.id}.json`
     : `documents/${cId}/${document.patientId}/${document.id}.pdf`;
-  const contentType = isJson ? 'application/json' : (document.mimeType || 'application/pdf');
+  const contentType = isJson ? 'application/json' : document.mimeType || 'application/pdf';
   const dataType = isJson ? 'intake-json-data' : 'pdf-document';
 
   try {
@@ -406,9 +396,7 @@ export async function migrateDocumentData(
  * Parse the DB `data` column (Bytes) into a JSON object.
  * Handles Buffer, Uint8Array, and legacy `{ type: 'Buffer', data: [...] }` shapes.
  */
-export function parseDataColumn(
-  data: Buffer | Uint8Array | null | undefined
-): unknown | null {
+export function parseDataColumn(data: Buffer | Uint8Array | null | undefined): unknown | null {
   const buffer = toBuffer(data);
   if (!buffer || buffer.length === 0) return null;
 

@@ -3,16 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import {
-  ChevronLeft,
-  DollarSign,
-  Users,
-  Package,
-  Plus,
-  Trash2,
-  Loader2,
-  Edit,
-} from 'lucide-react';
+import { ChevronLeft, DollarSign, Users, Package, Plus, Trash2, Loader2, Edit } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 
 function formatCurrency(cents: number): string {
@@ -174,13 +165,9 @@ export default function SalesRepCommissionPlanDetailPage() {
     setError(null);
     try {
       const hourly =
-        addHourlyCents.trim() === ''
-          ? undefined
-          : Math.round(parseFloat(addHourlyCents) * 100);
+        addHourlyCents.trim() === '' ? undefined : Math.round(parseFloat(addHourlyCents) * 100);
       const weeklyBase =
-        addWeeklyBasePay.trim() === ''
-          ? undefined
-          : Math.round(parseFloat(addWeeklyBasePay) * 100);
+        addWeeklyBasePay.trim() === '' ? undefined : Math.round(parseFloat(addWeeklyBasePay) * 100);
       const res = await apiFetch(`${API_PLANS}/${planId}/assignments`, {
         method: 'POST',
         body: JSON.stringify({
@@ -205,21 +192,24 @@ export default function SalesRepCommissionPlanDetailPage() {
 
   const handleUpdateHourly = async (assignmentId: number, hourlyRateCents: number | null) => {
     if (!planId) return;
-    const res = await apiFetch(
-      `${API_PLANS}/${planId}/assignments/${assignmentId}`,
-      { method: 'PATCH', body: JSON.stringify({ hourlyRateCents }) }
-    );
+    const res = await apiFetch(`${API_PLANS}/${planId}/assignments/${assignmentId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ hourlyRateCents }),
+    });
     if (res.ok) {
       fetchAssignments();
     }
   };
 
-  const handleUpdateWeeklyBasePay = async (assignmentId: number, weeklyBasePayCents: number | null) => {
+  const handleUpdateWeeklyBasePay = async (
+    assignmentId: number,
+    weeklyBasePayCents: number | null
+  ) => {
     if (!planId) return;
-    const res = await apiFetch(
-      `${API_PLANS}/${planId}/assignments/${assignmentId}`,
-      { method: 'PATCH', body: JSON.stringify({ weeklyBasePayCents }) }
-    );
+    const res = await apiFetch(`${API_PLANS}/${planId}/assignments/${assignmentId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ weeklyBasePayCents }),
+    });
     if (res.ok) {
       fetchAssignments();
     }
@@ -227,10 +217,9 @@ export default function SalesRepCommissionPlanDetailPage() {
 
   const handleRemoveAssignment = async (assignmentId: number) => {
     if (!planId || !confirm('Remove this rep from the plan?')) return;
-    const res = await apiFetch(
-      `${API_PLANS}/${planId}/assignments/${assignmentId}`,
-      { method: 'DELETE' }
-    );
+    const res = await apiFetch(`${API_PLANS}/${planId}/assignments/${assignmentId}`, {
+      method: 'DELETE',
+    });
     if (res.ok) {
       fetchAssignments();
       fetchPlan();
@@ -293,10 +282,9 @@ export default function SalesRepCommissionPlanDetailPage() {
 
   const handleDeleteRule = async (ruleId: number) => {
     if (!planId || !confirm('Delete this product/package commission rule?')) return;
-    const res = await apiFetch(
-      `${API_PLANS}/${planId}/product-rules/${ruleId}`,
-      { method: 'DELETE' }
-    );
+    const res = await apiFetch(`${API_PLANS}/${planId}/product-rules/${ruleId}`, {
+      method: 'DELETE',
+    });
     if (res.ok) fetchRules();
   };
 
@@ -339,11 +327,10 @@ export default function SalesRepCommissionPlanDetailPage() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{plan.name}</h1>
-          {plan.description && (
-            <p className="mt-1 text-gray-500">{plan.description}</p>
-          )}
+          {plan.description && <p className="mt-1 text-gray-500">{plan.description}</p>}
           <p className="mt-1 text-sm text-gray-400">
-            Base: {plan.planType === 'PERCENT' && plan.percentBps != null
+            Base:{' '}
+            {plan.planType === 'PERCENT' && plan.percentBps != null
               ? formatPercent(plan.percentBps)
               : plan.flatAmountCents != null
                 ? formatCurrency(plan.flatAmountCents)
@@ -359,9 +346,7 @@ export default function SalesRepCommissionPlanDetailPage() {
         </Link>
       </div>
 
-      {error && (
-        <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>
-      )}
+      {error && <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>}
 
       {/* Assigned employee + hourly rate */}
       <section className="mb-8 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -441,7 +426,9 @@ export default function SalesRepCommissionPlanDetailPage() {
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500">Weekly base salary ($)</label>
+            <label className="block text-xs font-medium text-gray-500">
+              Weekly base salary ($)
+            </label>
             <input
               type="number"
               min={0}
@@ -458,7 +445,11 @@ export default function SalesRepCommissionPlanDetailPage() {
             onClick={handleAddRep}
             className="inline-flex items-center gap-1 rounded-lg bg-[var(--brand-primary)] px-4 py-2 text-sm font-medium text-white hover:brightness-90 disabled:opacity-50"
           >
-            {addingRep ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            {addingRep ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Plus className="h-4 w-4" />
+            )}
             Add
           </button>
         </div>
@@ -594,7 +585,11 @@ export default function SalesRepCommissionPlanDetailPage() {
             onClick={handleAddRule}
             className="inline-flex items-center gap-1 rounded-lg bg-[var(--brand-primary)] px-4 py-2 text-sm font-medium text-white hover:brightness-90 disabled:opacity-50"
           >
-            {addingRule ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            {addingRule ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Plus className="h-4 w-4" />
+            )}
             Add rule
           </button>
         </div>
@@ -611,9 +606,7 @@ function HourlyRateInput({
   onSave: (cents: number | null) => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const [input, setInput] = useState(
-    valueCents != null ? (valueCents / 100).toFixed(2) : ''
-  );
+  const [input, setInput] = useState(valueCents != null ? (valueCents / 100).toFixed(2) : '');
 
   useEffect(() => {
     setInput(valueCents != null ? (valueCents / 100).toFixed(2) : '');
@@ -650,11 +643,7 @@ function HourlyRateInput({
     );
   }
   return (
-    <button
-      type="button"
-      onClick={() => setEditing(true)}
-      className="text-left hover:underline"
-    >
+    <button type="button" onClick={() => setEditing(true)} className="text-left hover:underline">
       {valueCents != null ? formatCurrency(valueCents) : 'Set rate'}
     </button>
   );

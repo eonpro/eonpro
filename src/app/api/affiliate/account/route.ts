@@ -137,12 +137,16 @@ async function handleGet(request: NextRequest, user: AuthUser) {
     }
 
     // Extract notification preferences from metadata (persisted in PATCH handler)
-    const meta = (affiliate.metadata && typeof affiliate.metadata === 'object' && !Array.isArray(affiliate.metadata))
-      ? (affiliate.metadata as Record<string, unknown>)
-      : {};
-    const prefs = (meta.notificationPreferences && typeof meta.notificationPreferences === 'object')
-      ? (meta.notificationPreferences as Record<string, unknown>)
-      : {};
+    const meta =
+      affiliate.metadata &&
+      typeof affiliate.metadata === 'object' &&
+      !Array.isArray(affiliate.metadata)
+        ? (affiliate.metadata as Record<string, unknown>)
+        : {};
+    const prefs =
+      meta.notificationPreferences && typeof meta.notificationPreferences === 'object'
+        ? (meta.notificationPreferences as Record<string, unknown>)
+        : {};
 
     return NextResponse.json({
       profile: {
@@ -154,8 +158,10 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       },
       payoutMethod,
       preferences: {
-        emailNotifications: typeof prefs.emailNotifications === 'boolean' ? prefs.emailNotifications : true,
-        smsNotifications: typeof prefs.smsNotifications === 'boolean' ? prefs.smsNotifications : false,
+        emailNotifications:
+          typeof prefs.emailNotifications === 'boolean' ? prefs.emailNotifications : true,
+        smsNotifications:
+          typeof prefs.smsNotifications === 'boolean' ? prefs.smsNotifications : false,
         weeklyReport: typeof prefs.weeklyReport === 'boolean' ? prefs.weeklyReport : true,
       },
       leaderboard: {
@@ -171,7 +177,9 @@ async function handleGet(request: NextRequest, user: AuthUser) {
   } catch (error) {
     logger.error('[Affiliate Account] GET error', {
       error: error instanceof Error ? error.message : 'Unknown error',
-      ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
+      ...(process.env.NODE_ENV === 'development' && {
+        stack: error instanceof Error ? error.stack : undefined,
+      }),
     });
     return NextResponse.json({ error: 'Failed to load account' }, { status: 500 });
   }
@@ -208,15 +216,20 @@ async function handlePatch(request: NextRequest, user: AuthUser) {
       select: { metadata: true },
     });
 
-    const currentMeta = (current?.metadata && typeof current.metadata === 'object' && !Array.isArray(current.metadata))
-      ? (current.metadata as Record<string, unknown>)
-      : {};
-    const currentPrefs = (currentMeta.notificationPreferences && typeof currentMeta.notificationPreferences === 'object')
-      ? (currentMeta.notificationPreferences as Record<string, unknown>)
-      : {};
+    const currentMeta =
+      current?.metadata && typeof current.metadata === 'object' && !Array.isArray(current.metadata)
+        ? (current.metadata as Record<string, unknown>)
+        : {};
+    const currentPrefs =
+      currentMeta.notificationPreferences && typeof currentMeta.notificationPreferences === 'object'
+        ? (currentMeta.notificationPreferences as Record<string, unknown>)
+        : {};
 
     // Merge only provided notification fields
-    const hasNotifUpdate = emailNotifications !== undefined || smsNotifications !== undefined || weeklyReport !== undefined;
+    const hasNotifUpdate =
+      emailNotifications !== undefined ||
+      smsNotifications !== undefined ||
+      weeklyReport !== undefined;
     const updatedPrefs = {
       ...currentPrefs,
       ...(emailNotifications !== undefined && { emailNotifications }),
@@ -250,17 +263,23 @@ async function handlePatch(request: NextRequest, user: AuthUser) {
     });
 
     // Read back persisted preferences
-    const meta = (affiliate.metadata && typeof affiliate.metadata === 'object' && !Array.isArray(affiliate.metadata))
-      ? (affiliate.metadata as Record<string, unknown>)
-      : {};
-    const prefs = (meta.notificationPreferences && typeof meta.notificationPreferences === 'object')
-      ? (meta.notificationPreferences as Record<string, unknown>)
-      : {};
+    const meta =
+      affiliate.metadata &&
+      typeof affiliate.metadata === 'object' &&
+      !Array.isArray(affiliate.metadata)
+        ? (affiliate.metadata as Record<string, unknown>)
+        : {};
+    const prefs =
+      meta.notificationPreferences && typeof meta.notificationPreferences === 'object'
+        ? (meta.notificationPreferences as Record<string, unknown>)
+        : {};
 
     return NextResponse.json({
       preferences: {
-        emailNotifications: typeof prefs.emailNotifications === 'boolean' ? prefs.emailNotifications : true,
-        smsNotifications: typeof prefs.smsNotifications === 'boolean' ? prefs.smsNotifications : false,
+        emailNotifications:
+          typeof prefs.emailNotifications === 'boolean' ? prefs.emailNotifications : true,
+        smsNotifications:
+          typeof prefs.smsNotifications === 'boolean' ? prefs.smsNotifications : false,
         weeklyReport: typeof prefs.weeklyReport === 'boolean' ? prefs.weeklyReport : true,
       },
       leaderboard: {

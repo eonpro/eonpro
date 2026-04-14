@@ -3,7 +3,11 @@
 import type { CollectionMetrics } from '@/services/billing/billingAnalyticsService';
 
 const formatCurrency = (cents: number) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(cents / 100);
+  new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  }).format(cents / 100);
 
 interface Props {
   data: CollectionMetrics;
@@ -14,8 +18,7 @@ export default function CollectionGauge({ data }: Props) {
   const circumference = 2 * Math.PI * 80;
   const offset = circumference - (rate / 100) * circumference;
 
-  const rateColor =
-    rate >= 80 ? '#4fa77e' : rate >= 60 ? '#f59e0b' : '#ef4444';
+  const rateColor = rate >= 80 ? '#4fa77e' : rate >= 60 ? '#f59e0b' : '#ef4444';
 
   return (
     <div className="flex flex-col items-center gap-4">
@@ -50,7 +53,9 @@ export default function CollectionGauge({ data }: Props) {
         </div>
         <div className="rounded-xl bg-yellow-50 p-3">
           <p className="text-xs text-gray-500">Outstanding</p>
-          <p className="font-semibold text-yellow-700">{formatCurrency(data.totalOutstandingCents)}</p>
+          <p className="font-semibold text-yellow-700">
+            {formatCurrency(data.totalOutstandingCents)}
+          </p>
         </div>
         <div className="rounded-xl bg-red-50 p-3">
           <p className="text-xs text-gray-500">Overdue</p>

@@ -89,17 +89,36 @@ export default function ConditionalHeader() {
 
   const visibleLinks = useMemo(
     () => NAV_LINKS.filter((link) => link.roles.includes(userRole)),
-    [userRole],
+    [userRole]
   );
 
   const isNoHeaderPage = useMemo(() => {
     const noHeaderPrefixes = [
-      '/login', '/patient-login', '/register', '/forgot-password',
-      '/reset-password', '/verify-email', '/affiliate', '/patient-portal',
-      '/portal', '/provider', '/staff', '/support', '/demo', '/pay/',
-      '/admin', '/super-admin', '/patients', '/intake', '/intake-forms',
-      '/dashboard', '/checkout', '/wellmedr-checkout', '/tickets',
-      '/request-demo', '/platform',
+      '/login',
+      '/patient-login',
+      '/register',
+      '/forgot-password',
+      '/reset-password',
+      '/verify-email',
+      '/affiliate',
+      '/patient-portal',
+      '/portal',
+      '/provider',
+      '/staff',
+      '/support',
+      '/demo',
+      '/pay/',
+      '/admin',
+      '/super-admin',
+      '/patients',
+      '/intake',
+      '/intake-forms',
+      '/dashboard',
+      '/checkout',
+      '/wellmedr-checkout',
+      '/tickets',
+      '/request-demo',
+      '/platform',
     ];
     return pathname === '/' || noHeaderPrefixes.some((p) => pathname?.startsWith(p));
   }, [pathname]);

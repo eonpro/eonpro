@@ -284,30 +284,33 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
     const finalThreadId = threadId || generateThreadId(clinicId);
 
     // Use transaction for atomic message creation + SMS delivery status
-    const result = await prisma.$transaction(async (tx) => {
-      // Create the message
-      const chatMessage = await tx.patientChatMessage.create({
-        data: {
-          patientId,
-          clinicId: clinicId || null,
-          message,
-          direction,
-          channel,
-          senderType,
-          senderId: isPatient ? null : user.id,
-          senderName: isPatient ? `${patient.firstName} ${patient.lastName}` : user.email,
-          status: 'SENT',
-          threadId: finalThreadId,
-          replyToId: replyToId || null,
-          metadata: {
-            userAgent: request.headers.get('user-agent'),
-            createdBy: user.id,
+    const result = await prisma.$transaction(
+      async (tx) => {
+        // Create the message
+        const chatMessage = await tx.patientChatMessage.create({
+          data: {
+            patientId,
+            clinicId: clinicId || null,
+            message,
+            direction,
+            channel,
+            senderType,
+            senderId: isPatient ? null : user.id,
+            senderName: isPatient ? `${patient.firstName} ${patient.lastName}` : user.email,
+            status: 'SENT',
+            threadId: finalThreadId,
+            replyToId: replyToId || null,
+            metadata: {
+              userAgent: request.headers.get('user-agent'),
+              createdBy: user.id,
+            },
           },
-        },
-      });
+        });
 
-      return chatMessage;
-    }, { timeout: 15000 });
+        return chatMessage;
+      },
+      { timeout: 15000 }
+    );
 
     // Send SMS if requested (outside transaction - external service)
     let smsStatus = null;
@@ -383,23 +386,25 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
     if (direction === 'INBOUND' && clinicId) {
       const patientDisplayName = `${patient.firstName} ${patient.lastName}`.trim();
       const preview = message.length > 80 ? `${message.slice(0, 80)}…` : message;
-      notificationService.notifyAdmins({
-        clinicId,
-        category: 'MESSAGE',
-        priority: 'NORMAL',
-        title: `New message from ${patientDisplayName}`,
-        message: preview,
-        actionUrl: '/admin/messages',
-        sourceType: 'patient_chat',
-        sourceId: `chat_${result.id}`,
-        metadata: { patientId, messageId: result.id, channel },
-      }).catch((err) => {
-        logger.error('Failed to notify admins of new message', {
-          error: err instanceof Error ? err.message : 'Unknown error',
-          patientId,
-          messageId: result.id,
+      notificationService
+        .notifyAdmins({
+          clinicId,
+          category: 'MESSAGE',
+          priority: 'NORMAL',
+          title: `New message from ${patientDisplayName}`,
+          message: preview,
+          actionUrl: '/admin/messages',
+          sourceType: 'patient_chat',
+          sourceId: `chat_${result.id}`,
+          metadata: { patientId, messageId: result.id, channel },
+        })
+        .catch((err) => {
+          logger.error('Failed to notify admins of new message', {
+            error: err instanceof Error ? err.message : 'Unknown error',
+            patientId,
+            messageId: result.id,
+          });
         });
-      });
     }
 
     const duration = Date.now() - startTime;

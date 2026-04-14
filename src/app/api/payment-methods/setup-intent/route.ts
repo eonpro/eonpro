@@ -20,7 +20,10 @@ async function handler(req: NextRequest, user: AuthUser) {
     const body = await req.json();
     const parsed = schema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Invalid input', details: parsed.error.flatten() }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid input', details: parsed.error.flatten() },
+        { status: 400 }
+      );
     }
 
     const { patientId } = parsed.data;
@@ -43,7 +46,7 @@ async function handler(req: NextRequest, user: AuthUser) {
     const customer = await StripeCustomerService.getOrCreateCustomerForContext(
       patient.id,
       stripe,
-      connectOpts,
+      connectOpts
     );
     const stripeCustomerId = customer.id;
 

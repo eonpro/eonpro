@@ -70,7 +70,10 @@ export default function MonitoringDashboard() {
         return;
       }
       const parsed = safeParseJsonString<Record<string, unknown>>(user);
-      if (!parsed) { router.replace('/login'); return; }
+      if (!parsed) {
+        router.replace('/login');
+        return;
+      }
       const role = String(parsed?.role ?? '').toLowerCase();
       if (role !== 'super_admin') {
         router.replace('/admin');
@@ -457,7 +460,7 @@ export default function MonitoringDashboard() {
                 )}
                 <a
                   href="/admin/feature-flags"
-                  className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                  className="text-sm text-blue-400 transition-colors hover:text-blue-300"
                 >
                   Manage Flags
                 </a>
@@ -469,8 +472,8 @@ export default function MonitoringDashboard() {
                   key={flag.flag}
                   className={`rounded-lg p-3 ${
                     flag.enabled
-                      ? 'bg-gray-700/50 border border-gray-600'
-                      : 'bg-red-900/30 border border-red-700'
+                      ? 'border border-gray-600 bg-gray-700/50'
+                      : 'border border-red-700 bg-red-900/30'
                   }`}
                 >
                   <div className="flex items-center gap-2">
@@ -479,7 +482,7 @@ export default function MonitoringDashboard() {
                         flag.enabled ? 'bg-emerald-400' : 'bg-red-400'
                       }`}
                     />
-                    <span className="text-xs text-gray-300 truncate">{flag.flag}</span>
+                    <span className="truncate text-xs text-gray-300">{flag.flag}</span>
                   </div>
                 </div>
               ))}

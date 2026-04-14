@@ -17,115 +17,113 @@ import { logger } from '@/lib/logger';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-export const GET = withAffiliateAuth(
-  async (req: NextRequest, user: AuthUser) => {
-    try {
-      logger.info('[Affiliate Branding] Fetching branding', {
-        userId: user.id,
-        clinicId: user.clinicId,
-        role: user.role,
-        affiliateId: user.affiliateId,
-      });
+export const GET = withAffiliateAuth(async (req: NextRequest, user: AuthUser) => {
+  try {
+    logger.info('[Affiliate Branding] Fetching branding', {
+      userId: user.id,
+      clinicId: user.clinicId,
+      role: user.role,
+      affiliateId: user.affiliateId,
+    });
 
-      const affiliateId = user.affiliateId;
-      if (!affiliateId) {
-        return NextResponse.json({ error: 'Not an affiliate' }, { status: 403 });
-      }
-
-      const affiliate = await basePrisma.affiliate.findUnique({
-        where: { id: affiliateId },
-        select: {
-          id: true,
-          clinicId: true,
-          displayName: true,
-          status: true,
-        },
-      });
-
-      if (!affiliate) {
-        logger.warn('[Affiliate Branding] Affiliate not found for user', {
-          userId: user.id,
-          clinicId: user.clinicId,
-        });
-        return NextResponse.json({ error: 'Affiliate profile not found' }, { status: 404 });
-      }
-
-      // Get clinic branding using basePrisma (Clinic is also clinic-isolated)
-      const clinic = await basePrisma.clinic.findUnique({
-        where: { id: affiliate.clinicId },
-        select: {
-          id: true,
-          name: true,
-          logoUrl: true,
-          faviconUrl: true,
-          primaryColor: true,
-          secondaryColor: true,
-          accentColor: true,
-          customCss: true,
-          settings: true,
-          adminEmail: true,
-          supportEmail: true,
-          phone: true,
-        },
-      });
-
-      if (!clinic) {
-        logger.warn('[Affiliate Branding] Clinic not found', {
-          clinicId: affiliate.clinicId,
-        });
-        return NextResponse.json({ error: 'Clinic not found' }, { status: 404 });
-      }
-
-      // Parse settings for affiliate-specific customizations
-      const settings = (clinic.settings as any) || {};
-      const affiliateSettings = settings.affiliatePortal || {};
-
-      const branding = {
-        clinicId: clinic.id,
-        clinicName: clinic.name,
-        affiliateName: affiliate.displayName,
-        logoUrl: clinic.logoUrl,
-        faviconUrl: clinic.faviconUrl,
-        primaryColor: clinic.primaryColor || '#4fa77e',
-        secondaryColor: clinic.secondaryColor || '#3B82F6',
-        accentColor: affiliateSettings.accentColor || clinic.accentColor || '#d3f931',
-        customCss: clinic.customCss,
-        features: {
-          showPerformanceChart: affiliateSettings.showPerformanceChart ?? true,
-          showRefCodeManager: affiliateSettings.showRefCodeManager ?? true,
-          showPayoutHistory: affiliateSettings.showPayoutHistory ?? true,
-          showResources: affiliateSettings.showResources ?? true,
-        },
-        supportEmail: clinic.supportEmail || clinic.adminEmail,
-        supportPhone: clinic.phone,
-        // Affiliate-specific resources
-        resources: affiliateSettings.resources || [
-          {
-            id: 'getting-started',
-            title: 'Getting Started Guide',
-            description: 'Learn how to maximize your affiliate earnings',
-            url: '/affiliate-resources/getting-started',
-            type: 'guide',
-          },
-          {
-            id: 'marketing-materials',
-            title: 'Marketing Materials',
-            description: 'Download banners, images, and copy',
-            url: '/affiliate-resources/marketing',
-            type: 'download',
-          },
-        ],
-      };
-
-      return NextResponse.json(branding);
-    } catch (error) {
-      logger.error('[Affiliate Branding] Error fetching branding', {
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack?.split('\n').slice(0, 5).join(' | ') : '',
-        userId: user.id,
-        clinicId: user.clinicId,
-      });
-      return NextResponse.json({ error: 'Failed to fetch branding' }, { status: 500 });
+    const affiliateId = user.affiliateId;
+    if (!affiliateId) {
+      return NextResponse.json({ error: 'Not an affiliate' }, { status: 403 });
     }
+
+    const affiliate = await basePrisma.affiliate.findUnique({
+      where: { id: affiliateId },
+      select: {
+        id: true,
+        clinicId: true,
+        displayName: true,
+        status: true,
+      },
+    });
+
+    if (!affiliate) {
+      logger.warn('[Affiliate Branding] Affiliate not found for user', {
+        userId: user.id,
+        clinicId: user.clinicId,
+      });
+      return NextResponse.json({ error: 'Affiliate profile not found' }, { status: 404 });
+    }
+
+    // Get clinic branding using basePrisma (Clinic is also clinic-isolated)
+    const clinic = await basePrisma.clinic.findUnique({
+      where: { id: affiliate.clinicId },
+      select: {
+        id: true,
+        name: true,
+        logoUrl: true,
+        faviconUrl: true,
+        primaryColor: true,
+        secondaryColor: true,
+        accentColor: true,
+        customCss: true,
+        settings: true,
+        adminEmail: true,
+        supportEmail: true,
+        phone: true,
+      },
+    });
+
+    if (!clinic) {
+      logger.warn('[Affiliate Branding] Clinic not found', {
+        clinicId: affiliate.clinicId,
+      });
+      return NextResponse.json({ error: 'Clinic not found' }, { status: 404 });
+    }
+
+    // Parse settings for affiliate-specific customizations
+    const settings = (clinic.settings as any) || {};
+    const affiliateSettings = settings.affiliatePortal || {};
+
+    const branding = {
+      clinicId: clinic.id,
+      clinicName: clinic.name,
+      affiliateName: affiliate.displayName,
+      logoUrl: clinic.logoUrl,
+      faviconUrl: clinic.faviconUrl,
+      primaryColor: clinic.primaryColor || '#4fa77e',
+      secondaryColor: clinic.secondaryColor || '#3B82F6',
+      accentColor: affiliateSettings.accentColor || clinic.accentColor || '#d3f931',
+      customCss: clinic.customCss,
+      features: {
+        showPerformanceChart: affiliateSettings.showPerformanceChart ?? true,
+        showRefCodeManager: affiliateSettings.showRefCodeManager ?? true,
+        showPayoutHistory: affiliateSettings.showPayoutHistory ?? true,
+        showResources: affiliateSettings.showResources ?? true,
+      },
+      supportEmail: clinic.supportEmail || clinic.adminEmail,
+      supportPhone: clinic.phone,
+      // Affiliate-specific resources
+      resources: affiliateSettings.resources || [
+        {
+          id: 'getting-started',
+          title: 'Getting Started Guide',
+          description: 'Learn how to maximize your affiliate earnings',
+          url: '/affiliate-resources/getting-started',
+          type: 'guide',
+        },
+        {
+          id: 'marketing-materials',
+          title: 'Marketing Materials',
+          description: 'Download banners, images, and copy',
+          url: '/affiliate-resources/marketing',
+          type: 'download',
+        },
+      ],
+    };
+
+    return NextResponse.json(branding);
+  } catch (error) {
+    logger.error('[Affiliate Branding] Error fetching branding', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack?.split('\n').slice(0, 5).join(' | ') : '',
+      userId: user.id,
+      clinicId: user.clinicId,
+    });
+    return NextResponse.json({ error: 'Failed to fetch branding' }, { status: 500 });
   }
-);
+});

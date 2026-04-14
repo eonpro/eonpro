@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
       const customer = await StripeCustomerService.getOrCreateCustomerForContext(
         patientId,
         stripe,
-        connectOpts,
+        connectOpts
       );
       stripeCustomerId = customer.id;
     }
@@ -154,7 +154,6 @@ export async function POST(req: NextRequest) {
       status: subscription.status,
     });
   } catch (error: unknown) {
-
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[STRIPE_CREATE_SUBSCRIPTION]', error);
     return NextResponse.json(

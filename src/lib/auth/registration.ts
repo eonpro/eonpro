@@ -203,360 +203,370 @@ export async function registerPatient(
   ipAddress?: string
 ): Promise<RegistrationResult> {
   return withoutClinicFilter(async () => {
-  const { email, password, firstName, lastName, phone, dob, clinicCode } = input;
+    const { email, password, firstName, lastName, phone, dob, clinicCode } = input;
 
-  try {
-    // Normalize inputs
-    const normalizedEmail = email.toLowerCase().trim();
-    const normalizedCode = clinicCode.trim().toUpperCase();
-    const normalizedPhone = formatPhone(phone);
-    const normalizedDOB = normalizeDOB(dob);
+    try {
+      // Normalize inputs
+      const normalizedEmail = email.toLowerCase().trim();
+      const normalizedCode = clinicCode.trim().toUpperCase();
+      const normalizedPhone = formatPhone(phone);
+      const normalizedDOB = normalizeDOB(dob);
 
-    // Validate clinic code
-    const inviteCode = await prisma.clinicInviteCode.findUnique({
-      where: { code: normalizedCode },
-      include: { clinic: true },
-    });
-
-    if (!inviteCode || !inviteCode.isActive) {
-      return { success: false, error: 'Invalid or inactive clinic code' };
-    }
-
-    if (inviteCode.expiresAt && new Date() > inviteCode.expiresAt) {
-      return { success: false, error: 'Clinic code has expired' };
-    }
-
-    if (inviteCode.usageLimit !== null && inviteCode.usageCount >= inviteCode.usageLimit) {
-      return { success: false, error: 'Clinic code has reached its usage limit' };
-    }
-
-    if (inviteCode.clinic.status !== 'ACTIVE') {
-      return { success: false, error: 'Clinic is not accepting new registrations' };
-    }
-
-    // Check if email already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email: normalizedEmail },
-    });
-
-    if (existingUser) {
-      // Don't reveal that email exists (security)
-      logger.warn('Registration attempted with existing email', { email: normalizedEmail });
-      return {
-        success: false,
-        error: 'Unable to complete registration. Please try again or contact support.',
-      };
-    }
-
-    // Match patient by email (using searchIndex for encrypted-email support).
-    // Patient.email is AES-256-GCM encrypted, so direct WHERE won't match.
-    // searchIndex is a plain-text GIN-indexed column containing email for search.
-    let existingPatient: Awaited<ReturnType<typeof prisma.patient.findFirst>> & { user?: unknown } | null = null;
-
-    // 1) Try plain text email match first (legacy non-encrypted records)
-    existingPatient = await prisma.patient.findFirst({
-      where: { email: normalizedEmail, clinicId: inviteCode.clinicId },
-      include: { user: true },
-    });
-
-    // 2) searchIndex-based lookup: find candidates, verify by decrypting
-    if (!existingPatient) {
-      const candidates = await prisma.patient.findMany({
-        where: {
-          clinicId: inviteCode.clinicId,
-          searchIndex: { contains: normalizedEmail, mode: 'insensitive' },
-        },
-        include: { user: true },
-        take: 10,
+      // Validate clinic code
+      const inviteCode = await prisma.clinicInviteCode.findUnique({
+        where: { code: normalizedCode },
+        include: { clinic: true },
       });
-      for (const candidate of candidates) {
-        try {
-          const decryptedEmail = decryptPHI(candidate.email);
-          if (decryptedEmail && decryptedEmail.toLowerCase() === normalizedEmail) {
-            existingPatient = candidate;
-            break;
-          }
-        } catch {
-          if (candidate.email.toLowerCase() === normalizedEmail) {
-            existingPatient = candidate;
-            break;
-          }
-        }
+
+      if (!inviteCode || !inviteCode.isActive) {
+        return { success: false, error: 'Invalid or inactive clinic code' };
       }
-    }
 
-    // 3) Phone-based fallback using searchIndex (phone is also encrypted)
-    if (!existingPatient && normalizedPhone) {
-      const phoneDigits = phone.replace(/\D/g, '');
-      const phoneCandidates = await prisma.patient.findMany({
-        where: {
-          clinicId: inviteCode.clinicId,
-          user: null,
-          searchIndex: { contains: phoneDigits, mode: 'insensitive' },
-        },
-        include: { user: true },
-        take: 10,
-      });
-      for (const candidate of phoneCandidates) {
-        try {
-          const decryptedPhone = decryptPHI(candidate.phone);
-          const candidateDigits = (decryptedPhone || candidate.phone).replace(/\D/g, '');
-          if (candidateDigits === phoneDigits || candidateDigits === `1${phoneDigits}`) {
-            existingPatient = candidate;
-            break;
-          }
-        } catch {
-          const candidateDigits = candidate.phone.replace(/\D/g, '');
-          if (candidateDigits === phoneDigits || candidateDigits === `1${phoneDigits}`) {
-            existingPatient = candidate;
-            break;
-          }
-        }
+      if (inviteCode.expiresAt && new Date() > inviteCode.expiresAt) {
+        return { success: false, error: 'Clinic code has expired' };
       }
-    }
 
-    if (existingPatient?.user) {
-      logger.warn('Registration attempted with existing patient+user', {
-        email: normalizedEmail,
-        clinicId: inviteCode.clinicId,
-        patientId: existingPatient.id,
+      if (inviteCode.usageLimit !== null && inviteCode.usageCount >= inviteCode.usageLimit) {
+        return { success: false, error: 'Clinic code has reached its usage limit' };
+      }
+
+      if (inviteCode.clinic.status !== 'ACTIVE') {
+        return { success: false, error: 'Clinic is not accepting new registrations' };
+      }
+
+      // Check if email already exists
+      const existingUser = await prisma.user.findUnique({
+        where: { email: normalizedEmail },
       });
-      return {
-        success: false,
-        error: 'An account already exists for this patient. Please log in or reset your password.',
-      };
-    }
 
-    // Verify identity by matching name + DOB before linking to existing record.
-    // PHI fields (firstName, lastName, dob) may be encrypted — decrypt before comparing.
-    let linkToExistingPatient = false;
-    if (existingPatient && !existingPatient.user) {
-      const safeDecrypt = (val: string | null | undefined): string => {
-        if (!val) return '';
-        try { return decryptPHI(val) || val; } catch { return val; }
-      };
-      const existingFirstName = safeDecrypt(existingPatient.firstName).toLowerCase().trim();
-      const existingLastName = safeDecrypt(existingPatient.lastName).toLowerCase().trim();
-      const inputFirstName = firstName.toLowerCase().trim();
-      const inputLastName = lastName.toLowerCase().trim();
+      if (existingUser) {
+        // Don't reveal that email exists (security)
+        logger.warn('Registration attempted with existing email', { email: normalizedEmail });
+        return {
+          success: false,
+          error: 'Unable to complete registration. Please try again or contact support.',
+        };
+      }
 
-      const existingDOB = safeDecrypt(existingPatient.dob).replace(/[\/\-]/g, '') || '';
-      const inputDOBNormalized = normalizedDOB.replace(/[\/\-]/g, '');
+      // Match patient by email (using searchIndex for encrypted-email support).
+      // Patient.email is AES-256-GCM encrypted, so direct WHERE won't match.
+      // searchIndex is a plain-text GIN-indexed column containing email for search.
+      let existingPatient:
+        | (Awaited<ReturnType<typeof prisma.patient.findFirst>> & { user?: unknown })
+        | null = null;
 
-      const nameMatches =
-        existingFirstName === inputFirstName && existingLastName === inputLastName;
-      const dobMatches = existingDOB === inputDOBNormalized;
+      // 1) Try plain text email match first (legacy non-encrypted records)
+      existingPatient = await prisma.patient.findFirst({
+        where: { email: normalizedEmail, clinicId: inviteCode.clinicId },
+        include: { user: true },
+      });
 
-      if (nameMatches && dobMatches) {
-        linkToExistingPatient = true;
-        logger.info('Registration linked to existing intake patient', {
-          email: normalizedEmail,
-          patientId: existingPatient.id,
-          clinicId: inviteCode.clinicId,
-          matchedBy: existingPatient.email === normalizedEmail ? 'email' : 'phone',
+      // 2) searchIndex-based lookup: find candidates, verify by decrypting
+      if (!existingPatient) {
+        const candidates = await prisma.patient.findMany({
+          where: {
+            clinicId: inviteCode.clinicId,
+            searchIndex: { contains: normalizedEmail, mode: 'insensitive' },
+          },
+          include: { user: true },
+          take: 10,
         });
-      } else {
-        logger.warn('Registration identity mismatch with existing patient', {
+        for (const candidate of candidates) {
+          try {
+            const decryptedEmail = decryptPHI(candidate.email);
+            if (decryptedEmail && decryptedEmail.toLowerCase() === normalizedEmail) {
+              existingPatient = candidate;
+              break;
+            }
+          } catch {
+            if (candidate.email.toLowerCase() === normalizedEmail) {
+              existingPatient = candidate;
+              break;
+            }
+          }
+        }
+      }
+
+      // 3) Phone-based fallback using searchIndex (phone is also encrypted)
+      if (!existingPatient && normalizedPhone) {
+        const phoneDigits = phone.replace(/\D/g, '');
+        const phoneCandidates = await prisma.patient.findMany({
+          where: {
+            clinicId: inviteCode.clinicId,
+            user: null,
+            searchIndex: { contains: phoneDigits, mode: 'insensitive' },
+          },
+          include: { user: true },
+          take: 10,
+        });
+        for (const candidate of phoneCandidates) {
+          try {
+            const decryptedPhone = decryptPHI(candidate.phone);
+            const candidateDigits = (decryptedPhone || candidate.phone).replace(/\D/g, '');
+            if (candidateDigits === phoneDigits || candidateDigits === `1${phoneDigits}`) {
+              existingPatient = candidate;
+              break;
+            }
+          } catch {
+            const candidateDigits = candidate.phone.replace(/\D/g, '');
+            if (candidateDigits === phoneDigits || candidateDigits === `1${phoneDigits}`) {
+              existingPatient = candidate;
+              break;
+            }
+          }
+        }
+      }
+
+      if (existingPatient?.user) {
+        logger.warn('Registration attempted with existing patient+user', {
           email: normalizedEmail,
-          patientId: existingPatient.id,
           clinicId: inviteCode.clinicId,
-          nameMatches,
-          dobMatches,
+          patientId: existingPatient.id,
         });
         return {
           success: false,
           error:
-            'The information you entered doesn\'t match our records. Please make sure your first name, last name, and date of birth match what you provided during intake. If you need help, contact your clinic.',
+            'An account already exists for this patient. Please log in or reset your password.',
         };
       }
-    }
 
-    // Validate password
-    const passwordValidation = validatePassword(password);
-    if (!passwordValidation.isValid) {
-      return { success: false, error: passwordValidation.errors.join('. ') };
-    }
+      // Verify identity by matching name + DOB before linking to existing record.
+      // PHI fields (firstName, lastName, dob) may be encrypted — decrypt before comparing.
+      let linkToExistingPatient = false;
+      if (existingPatient && !existingPatient.user) {
+        const safeDecrypt = (val: string | null | undefined): string => {
+          if (!val) return '';
+          try {
+            return decryptPHI(val) || val;
+          } catch {
+            return val;
+          }
+        };
+        const existingFirstName = safeDecrypt(existingPatient.firstName).toLowerCase().trim();
+        const existingLastName = safeDecrypt(existingPatient.lastName).toLowerCase().trim();
+        const inputFirstName = firstName.toLowerCase().trim();
+        const inputLastName = lastName.toLowerCase().trim();
 
-    // Validate phone
-    if (!validatePhone(phone)) {
-      return { success: false, error: 'Invalid phone number format' };
-    }
+        const existingDOB = safeDecrypt(existingPatient.dob).replace(/[\/\-]/g, '') || '';
+        const inputDOBNormalized = normalizedDOB.replace(/[\/\-]/g, '');
 
-    // Validate DOB
-    const dobValidation = validateDOB(dob);
-    if (!dobValidation.isValid) {
-      return { success: false, error: dobValidation.error };
-    }
+        const nameMatches =
+          existingFirstName === inputFirstName && existingLastName === inputLastName;
+        const dobMatches = existingDOB === inputDOBNormalized;
 
-    // Hash password
-    const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+        if (nameMatches && dobMatches) {
+          linkToExistingPatient = true;
+          logger.info('Registration linked to existing intake patient', {
+            email: normalizedEmail,
+            patientId: existingPatient.id,
+            clinicId: inviteCode.clinicId,
+            matchedBy: existingPatient.email === normalizedEmail ? 'email' : 'phone',
+          });
+        } else {
+          logger.warn('Registration identity mismatch with existing patient', {
+            email: normalizedEmail,
+            patientId: existingPatient.id,
+            clinicId: inviteCode.clinicId,
+            nameMatches,
+            dobMatches,
+          });
+          return {
+            success: false,
+            error:
+              "The information you entered doesn't match our records. Please make sure your first name, last name, and date of birth match what you provided during intake. If you need help, contact your clinic.",
+          };
+        }
+      }
 
-    // Generate verification token
-    const verificationToken = generateVerificationToken();
-    const hashedToken = hashToken(verificationToken);
-    const tokenExpiresAt = new Date();
-    tokenExpiresAt.setHours(tokenExpiresAt.getHours() + VERIFICATION_TOKEN_EXPIRY_HOURS);
+      // Validate password
+      const passwordValidation = validatePassword(password);
+      if (!passwordValidation.isValid) {
+        return { success: false, error: passwordValidation.errors.join('. ') };
+      }
 
-    // Create user (and optionally patient) in transaction
-    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      let patient;
+      // Validate phone
+      if (!validatePhone(phone)) {
+        return { success: false, error: 'Invalid phone number format' };
+      }
 
-      if (linkToExistingPatient && existingPatient) {
-        patient = await tx.patient.update({
-          where: { id: existingPatient.id },
-          data: {
-            ...(normalizedPhone &&
-            (!existingPatient.phone || existingPatient.phone !== normalizedPhone)
-              ? { phone: normalizedPhone }
-              : {}),
-            ...(existingPatient.email !== normalizedEmail
-              ? { email: normalizedEmail }
-              : {}),
-            searchIndex: buildPatientSearchIndex({
+      // Validate DOB
+      const dobValidation = validateDOB(dob);
+      if (!dobValidation.isValid) {
+        return { success: false, error: dobValidation.error };
+      }
+
+      // Hash password
+      const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+
+      // Generate verification token
+      const verificationToken = generateVerificationToken();
+      const hashedToken = hashToken(verificationToken);
+      const tokenExpiresAt = new Date();
+      tokenExpiresAt.setHours(tokenExpiresAt.getHours() + VERIFICATION_TOKEN_EXPIRY_HOURS);
+
+      // Create user (and optionally patient) in transaction
+      const result = await prisma.$transaction(
+        async (tx: Prisma.TransactionClient) => {
+          let patient;
+
+          if (linkToExistingPatient && existingPatient) {
+            patient = await tx.patient.update({
+              where: { id: existingPatient.id },
+              data: {
+                ...(normalizedPhone &&
+                (!existingPatient.phone || existingPatient.phone !== normalizedPhone)
+                  ? { phone: normalizedPhone }
+                  : {}),
+                ...(existingPatient.email !== normalizedEmail ? { email: normalizedEmail } : {}),
+                searchIndex: buildPatientSearchIndex({
+                  firstName: firstName.trim(),
+                  lastName: lastName.trim(),
+                  email: normalizedEmail,
+                  phone: normalizedPhone,
+                  patientId: existingPatient.patientId ?? null,
+                }),
+                sourceMetadata: {
+                  ...(typeof existingPatient.sourceMetadata === 'object'
+                    ? existingPatient.sourceMetadata
+                    : {}),
+                  portalAccessCreated: new Date().toISOString(),
+                  portalClinicCode: normalizedCode,
+                },
+              },
+            });
+
+            logger.info('Linked portal registration to existing intake patient', {
+              patientId: patient.id,
+              clinicId: inviteCode.clinicId,
+            });
+          } else {
+            // Create new patient record (self-registration without prior intake)
+            const searchIndex = buildPatientSearchIndex({
               firstName: firstName.trim(),
               lastName: lastName.trim(),
               email: normalizedEmail,
               phone: normalizedPhone,
-              patientId: existingPatient.patientId ?? null,
-            }),
-            sourceMetadata: {
-              ...(typeof existingPatient.sourceMetadata === 'object'
-                ? existingPatient.sourceMetadata
-                : {}),
-              portalAccessCreated: new Date().toISOString(),
-              portalClinicCode: normalizedCode,
+            });
+            const { encryptPatientPHI } = await import('@/lib/security/phi-encryption');
+            const phiData = encryptPatientPHI({
+              firstName: firstName.trim(),
+              lastName: lastName.trim(),
+              email: normalizedEmail,
+              phone: normalizedPhone,
+              dob: normalizedDOB,
+            });
+            patient = await tx.patient.create({
+              data: {
+                clinicId: inviteCode.clinicId,
+                ...phiData,
+                emailHash: computeEmailHash(normalizedEmail),
+                dobHash: computeDobHash(normalizedDOB),
+                gender: 'other',
+                address1: '',
+                city: '',
+                state: '',
+                zip: '',
+                source: 'self_registration',
+                searchIndex,
+                sourceMetadata: { clinicCode: normalizedCode, ipAddress },
+              },
+            });
+          }
+
+          // Create user record linked to patient
+          const user = await tx.user.create({
+            data: {
+              clinicId: inviteCode.clinicId,
+              email: normalizedEmail,
+              passwordHash,
+              firstName: firstName.trim(),
+              lastName: lastName.trim(),
+              role: 'PATIENT',
+              status: 'ACTIVE',
+              patientId: patient.id,
+              emailVerified: false,
             },
+          });
+
+          // Create email verification token
+          await tx.emailVerificationToken.create({
+            data: {
+              userId: user.id,
+              token: hashedToken,
+              expiresAt: tokenExpiresAt,
+            },
+          });
+
+          // Increment clinic code usage count
+          await tx.clinicInviteCode.update({
+            where: { id: inviteCode.id },
+            data: { usageCount: { increment: 1 } },
+          });
+
+          return { patient, user, linkedToExisting: linkToExistingPatient };
+        },
+        { timeout: 15000 }
+      );
+
+      // Send welcome email with verification link
+      const baseUrl = getAppBaseUrl();
+      const verificationUrl = baseUrl
+        ? `${baseUrl}/api/auth/verify-email?token=${verificationToken}`
+        : '';
+
+      try {
+        await sendTemplatedEmail({
+          to: normalizedEmail,
+          template: EmailTemplate.PATIENT_WELCOME_VERIFICATION,
+          data: {
+            firstName: firstName.trim(),
+            lastName: lastName.trim(),
+            verificationLink: verificationUrl,
+            expiresIn: '24 hours',
+            clinicName: inviteCode.clinic.name,
           },
         });
 
-        logger.info('Linked portal registration to existing intake patient', {
-          patientId: patient.id,
-          clinicId: inviteCode.clinicId,
-        });
-      } else {
-        // Create new patient record (self-registration without prior intake)
-        const searchIndex = buildPatientSearchIndex({
-          firstName: firstName.trim(),
-          lastName: lastName.trim(),
+        logger.info('Welcome email sent for new patient registration', {
+          userId: result.user.id,
+          patientId: result.patient.id,
           email: normalizedEmail,
-          phone: normalizedPhone,
         });
-        const { encryptPatientPHI } = await import('@/lib/security/phi-encryption');
-        const phiData = encryptPatientPHI({
-          firstName: firstName.trim(),
-          lastName: lastName.trim(),
-          email: normalizedEmail,
-          phone: normalizedPhone,
-          dob: normalizedDOB,
-        });
-        patient = await tx.patient.create({
-          data: {
-            clinicId: inviteCode.clinicId,
-            ...phiData,
-            emailHash: computeEmailHash(normalizedEmail),
-            dobHash: computeDobHash(normalizedDOB),
-            gender: 'other',
-            address1: '',
-            city: '',
-            state: '',
-            zip: '',
-            source: 'self_registration',
-            searchIndex,
-            sourceMetadata: { clinicCode: normalizedCode, ipAddress },
-          },
+      } catch (emailError: unknown) {
+        // Log error but don't fail registration
+        logger.error('Failed to send welcome email', {
+          userId: result.user.id,
+          error: (emailError as any).message,
         });
       }
 
-      // Create user record linked to patient
-      const user = await tx.user.create({
-        data: {
-          clinicId: inviteCode.clinicId,
-          email: normalizedEmail,
-          passwordHash,
-          firstName: firstName.trim(),
-          lastName: lastName.trim(),
-          role: 'PATIENT',
-          status: 'ACTIVE',
-          patientId: patient.id,
-          emailVerified: false,
-        },
-      });
-
-      // Create email verification token
-      await tx.emailVerificationToken.create({
-        data: {
-          userId: user.id,
-          token: hashedToken,
-          expiresAt: tokenExpiresAt,
-        },
-      });
-
-      // Increment clinic code usage count
-      await tx.clinicInviteCode.update({
-        where: { id: inviteCode.id },
-        data: { usageCount: { increment: 1 } },
-      });
-
-      return { patient, user, linkedToExisting: linkToExistingPatient };
-    }, { timeout: 15000 });
-
-    // Send welcome email with verification link
-    const baseUrl = getAppBaseUrl();
-    const verificationUrl = baseUrl
-      ? `${baseUrl}/api/auth/verify-email?token=${verificationToken}`
-      : '';
-
-    try {
-      await sendTemplatedEmail({
-        to: normalizedEmail,
-        template: EmailTemplate.PATIENT_WELCOME_VERIFICATION,
-        data: {
-          firstName: firstName.trim(),
-          lastName: lastName.trim(),
-          verificationLink: verificationUrl,
-          expiresIn: '24 hours',
-          clinicName: inviteCode.clinic.name,
-        },
-      });
-
-      logger.info('Welcome email sent for new patient registration', {
+      // Audit log
+      logger.security('Patient portal registration', {
         userId: result.user.id,
         patientId: result.patient.id,
+        clinicId: inviteCode.clinicId,
         email: normalizedEmail,
+        ipAddress,
+        linkedToExistingPatient: result.linkedToExisting,
       });
-    } catch (emailError: unknown) {
-      // Log error but don't fail registration
-      logger.error('Failed to send welcome email', {
+
+      return {
+        success: true,
+        message: result.linkedToExisting
+          ? 'Account created and linked to your existing patient profile. Please check your email to verify your account.'
+          : 'Registration successful. Please check your email to verify your account.',
         userId: result.user.id,
-        error: (emailError as any).message,
+        patientId: result.patient.id,
+      };
+    } catch (error: unknown) {
+      logger.error('Patient registration failed', {
+        error: error instanceof Error ? error.message : String(error),
       });
+      return {
+        success: false,
+        error: 'Registration failed. Please try again.',
+      };
     }
-
-    // Audit log
-    logger.security('Patient portal registration', {
-      userId: result.user.id,
-      patientId: result.patient.id,
-      clinicId: inviteCode.clinicId,
-      email: normalizedEmail,
-      ipAddress,
-      linkedToExistingPatient: result.linkedToExisting,
-    });
-
-    return {
-      success: true,
-      message: result.linkedToExisting
-        ? 'Account created and linked to your existing patient profile. Please check your email to verify your account.'
-        : 'Registration successful. Please check your email to verify your account.',
-      userId: result.user.id,
-      patientId: result.patient.id,
-    };
-  } catch (error: unknown) {
-    logger.error('Patient registration failed', { error: error instanceof Error ? error.message : String(error) });
-    return {
-      success: false,
-      error: 'Registration failed. Please try again.',
-    };
-  }
   }); // end withoutClinicFilter
 }
 
@@ -569,152 +579,158 @@ export async function registerWithInviteToken(
   ipAddress?: string
 ): Promise<RegistrationResult> {
   return withoutClinicFilter(async () => {
-  const { validateInviteToken, markInviteTokenUsed } = await import('@/lib/portal-invite/service');
-  const { email, password, firstName, lastName, phone, dob, inviteToken } = input;
+    const { validateInviteToken, markInviteTokenUsed } =
+      await import('@/lib/portal-invite/service');
+    const { email, password, firstName, lastName, phone, dob, inviteToken } = input;
 
-  try {
-    const normalizedEmail = email.toLowerCase().trim();
-    const normalizedPhone = phone ? formatPhone(phone) : '';
-    const normalizedDOB = dob ? normalizeDOB(dob) : '';
+    try {
+      const normalizedEmail = email.toLowerCase().trim();
+      const normalizedPhone = phone ? formatPhone(phone) : '';
+      const normalizedDOB = dob ? normalizeDOB(dob) : '';
 
-    const invite = await validateInviteToken(inviteToken);
-    if (!invite) {
-      return {
-        success: false,
-        error:
-          'This invite link is invalid or has expired. Please request a new one from your care team.',
-      };
-    }
-
-    if (normalizedEmail !== invite.patient.email.toLowerCase().trim()) {
-      return {
-        success: false,
-        error: 'Email must match the email we have on file for this invite.',
-      };
-    }
-
-    const inviteDob = (invite.patient.dob || '').trim();
-    if (inviteDob && normalizedDOB) {
-      const inviteDobNormalized = normalizeDOB(inviteDob);
-      if (normalizedDOB !== inviteDobNormalized) {
+      const invite = await validateInviteToken(inviteToken);
+      if (!invite) {
         return {
           success: false,
-          error: 'Date of birth must match the date we have on file for this invite.',
+          error:
+            'This invite link is invalid or has expired. Please request a new one from your care team.',
         };
       }
-    }
 
-    const existingUser = await prisma.user.findUnique({
-      where: { email: normalizedEmail },
-    });
-    if (existingUser) {
-      logger.warn('RegisterWithInvite attempted with existing email', { email: normalizedEmail });
-      return {
-        success: false,
-        error: 'An account with this email already exists. Please log in or reset your password.',
-      };
-    }
-
-    const passwordValidation = validatePassword(password);
-    if (!passwordValidation.isValid) {
-      return { success: false, error: passwordValidation.errors.join('. ') };
-    }
-    if (phone && !validatePhone(phone)) {
-      return { success: false, error: 'Invalid phone number format' };
-    }
-    if (dob) {
-      const dobValidation = validateDOB(dob);
-      if (!dobValidation.isValid) {
-        return { success: false, error: dobValidation.error };
+      if (normalizedEmail !== invite.patient.email.toLowerCase().trim()) {
+        return {
+          success: false,
+          error: 'Email must match the email we have on file for this invite.',
+        };
       }
-    }
 
-    const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
-    const verificationToken = generateVerificationToken();
-    const hashedToken = hashToken(verificationToken);
-    const tokenExpiresAt = new Date();
-    tokenExpiresAt.setHours(tokenExpiresAt.getHours() + VERIFICATION_TOKEN_EXPIRY_HOURS);
+      const inviteDob = (invite.patient.dob || '').trim();
+      if (inviteDob && normalizedDOB) {
+        const inviteDobNormalized = normalizeDOB(inviteDob);
+        if (normalizedDOB !== inviteDobNormalized) {
+          return {
+            success: false,
+            error: 'Date of birth must match the date we have on file for this invite.',
+          };
+        }
+      }
 
-    const clinic = await prisma.clinic.findUnique({
-      where: { id: invite.clinicId },
-      select: { name: true },
-    });
+      const existingUser = await prisma.user.findUnique({
+        where: { email: normalizedEmail },
+      });
+      if (existingUser) {
+        logger.warn('RegisterWithInvite attempted with existing email', { email: normalizedEmail });
+        return {
+          success: false,
+          error: 'An account with this email already exists. Please log in or reset your password.',
+        };
+      }
 
-    const needsProfileCompletion = !phone || !dob;
+      const passwordValidation = validatePassword(password);
+      if (!passwordValidation.isValid) {
+        return { success: false, error: passwordValidation.errors.join('. ') };
+      }
+      if (phone && !validatePhone(phone)) {
+        return { success: false, error: 'Invalid phone number format' };
+      }
+      if (dob) {
+        const dobValidation = validateDOB(dob);
+        if (!dobValidation.isValid) {
+          return { success: false, error: dobValidation.error };
+        }
+      }
 
-    // Invite-based registration: the invite link was sent to the patient's email,
-    // so the email is already verified by possessing the invite token.
-    // Auto-verify so patients can log in immediately after signup.
-    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      const user = await tx.user.create({
-        data: {
-          clinicId: invite.clinicId,
-          email: normalizedEmail,
-          passwordHash,
-          firstName: firstName.trim(),
-          lastName: lastName.trim(),
-          role: 'PATIENT',
-          status: 'ACTIVE',
-          patientId: invite.patientId,
-          emailVerified: true,
-          emailVerifiedAt: new Date(),
-        },
+      const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+      const verificationToken = generateVerificationToken();
+      const hashedToken = hashToken(verificationToken);
+      const tokenExpiresAt = new Date();
+      tokenExpiresAt.setHours(tokenExpiresAt.getHours() + VERIFICATION_TOKEN_EXPIRY_HOURS);
+
+      const clinic = await prisma.clinic.findUnique({
+        where: { id: invite.clinicId },
+        select: { name: true },
       });
 
-      if (needsProfileCompletion) {
-        await tx.patient.update({
-          where: { id: invite.patientId },
+      const needsProfileCompletion = !phone || !dob;
+
+      // Invite-based registration: the invite link was sent to the patient's email,
+      // so the email is already verified by possessing the invite token.
+      // Auto-verify so patients can log in immediately after signup.
+      const result = await prisma.$transaction(
+        async (tx: Prisma.TransactionClient) => {
+          const user = await tx.user.create({
+            data: {
+              clinicId: invite.clinicId,
+              email: normalizedEmail,
+              passwordHash,
+              firstName: firstName.trim(),
+              lastName: lastName.trim(),
+              role: 'PATIENT',
+              status: 'ACTIVE',
+              patientId: invite.patientId,
+              emailVerified: true,
+              emailVerifiedAt: new Date(),
+            },
+          });
+
+          if (needsProfileCompletion) {
+            await tx.patient.update({
+              where: { id: invite.patientId },
+              data: {
+                profileStatus: 'PENDING_COMPLETION',
+              },
+            });
+          }
+
+          return { user };
+        },
+        { timeout: 15000 }
+      );
+
+      await markInviteTokenUsed(inviteToken);
+
+      // Send welcome email (informational, not verification-gated)
+      try {
+        await sendTemplatedEmail({
+          to: normalizedEmail,
+          template: EmailTemplate.PATIENT_WELCOME_VERIFICATION,
           data: {
-            profileStatus: 'PENDING_COMPLETION',
+            firstName: firstName.trim(),
+            lastName: lastName.trim(),
+            verificationLink: '', // No verification needed - invite already validated
+            expiresIn: '',
+            clinicName: clinic?.name || 'Your Clinic',
           },
+        });
+      } catch (emailError: unknown) {
+        logger.error('Failed to send welcome email after invite registration', {
+          userId: result.user.id,
+          error: (emailError as any).message,
         });
       }
 
-      return { user };
-    }, { timeout: 15000 });
-
-    await markInviteTokenUsed(inviteToken);
-
-    // Send welcome email (informational, not verification-gated)
-    try {
-      await sendTemplatedEmail({
-        to: normalizedEmail,
-        template: EmailTemplate.PATIENT_WELCOME_VERIFICATION,
-        data: {
-          firstName: firstName.trim(),
-          lastName: lastName.trim(),
-          verificationLink: '', // No verification needed - invite already validated
-          expiresIn: '',
-          clinicName: clinic?.name || 'Your Clinic',
-        },
-      });
-    } catch (emailError: unknown) {
-      logger.error('Failed to send welcome email after invite registration', {
+      logger.security('Patient portal registration (invite token)', {
         userId: result.user.id,
-        error: (emailError as any).message,
+        patientId: invite.patientId,
+        clinicId: invite.clinicId,
+        ipAddress,
       });
+
+      return {
+        success: true,
+        message: needsProfileCompletion
+          ? 'Account created successfully! Please complete your profile after logging in.'
+          : 'Account created successfully! You can now log in.',
+        userId: result.user.id,
+        patientId: invite.patientId,
+        needsProfileCompletion,
+      };
+    } catch (error: unknown) {
+      logger.error('Register with invite failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return { success: false, error: 'Registration failed. Please try again.' };
     }
-
-    logger.security('Patient portal registration (invite token)', {
-      userId: result.user.id,
-      patientId: invite.patientId,
-      clinicId: invite.clinicId,
-      ipAddress,
-    });
-
-    return {
-      success: true,
-      message: needsProfileCompletion
-        ? 'Account created successfully! Please complete your profile after logging in.'
-        : 'Account created successfully! You can now log in.',
-      userId: result.user.id,
-      patientId: invite.patientId,
-      needsProfileCompletion,
-    };
-  } catch (error: unknown) {
-    logger.error('Register with invite failed', { error: error instanceof Error ? error.message : String(error) });
-    return { success: false, error: 'Registration failed. Please try again.' };
-  }
   }); // end withoutClinicFilter
 }
 
@@ -723,70 +739,75 @@ export async function registerWithInviteToken(
  */
 export async function verifyEmail(token: string): Promise<RegistrationResult> {
   return withoutClinicFilter(async () => {
-  try {
-    const hashedToken = hashToken(token);
+    try {
+      const hashedToken = hashToken(token);
 
-    // Find the verification token
-    const verificationRecord = await prisma.emailVerificationToken.findUnique({
-      where: { token: hashedToken },
-      include: { user: true },
-    });
+      // Find the verification token
+      const verificationRecord = await prisma.emailVerificationToken.findUnique({
+        where: { token: hashedToken },
+        include: { user: true },
+      });
 
-    if (!verificationRecord) {
-      return { success: false, error: 'Invalid verification link' };
-    }
+      if (!verificationRecord) {
+        return { success: false, error: 'Invalid verification link' };
+      }
 
-    // Link already used = user may already be verified (e.g. double-click or refresh). Treat as success so they can log in.
-    if (verificationRecord.used) {
-      if (verificationRecord.user.emailVerified) {
+      // Link already used = user may already be verified (e.g. double-click or refresh). Treat as success so they can log in.
+      if (verificationRecord.used) {
+        if (verificationRecord.user.emailVerified) {
+          return {
+            success: true,
+            message: 'Your email is already verified. You can log in.',
+            userId: verificationRecord.userId,
+          };
+        }
+        return { success: false, error: 'This verification link has already been used' };
+      }
+
+      if (new Date() > verificationRecord.expiresAt) {
         return {
-          success: true,
-          message: 'Your email is already verified. You can log in.',
-          userId: verificationRecord.userId,
+          success: false,
+          error: 'This verification link has expired. Please request a new one.',
         };
       }
-      return { success: false, error: 'This verification link has already been used' };
-    }
 
-    if (new Date() > verificationRecord.expiresAt) {
+      // Mark user as verified and token as used (use callback form for Prisma wrapper compatibility)
+      await prisma.$transaction(
+        async (tx) => {
+          await tx.user.update({
+            where: { id: verificationRecord.userId },
+            data: {
+              emailVerified: true,
+              emailVerifiedAt: new Date(),
+            },
+          });
+          await tx.emailVerificationToken.update({
+            where: { id: verificationRecord.id },
+            data: {
+              used: true,
+              usedAt: new Date(),
+            },
+          });
+        },
+        { timeout: 15000 }
+      );
+
+      logger.security('Email verified', {
+        userId: verificationRecord.userId,
+        email: verificationRecord.user.email,
+      });
+
       return {
-        success: false,
-        error: 'This verification link has expired. Please request a new one.',
+        success: true,
+        message: 'Email verified successfully. You can now log in.',
+        userId: verificationRecord.userId,
       };
+    } catch (error: unknown) {
+      logger.error('Email verification failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return { success: false, error: 'Verification failed. Please try again.' };
     }
-
-    // Mark user as verified and token as used (use callback form for Prisma wrapper compatibility)
-    await prisma.$transaction(async (tx) => {
-      await tx.user.update({
-        where: { id: verificationRecord.userId },
-        data: {
-          emailVerified: true,
-          emailVerifiedAt: new Date(),
-        },
-      });
-      await tx.emailVerificationToken.update({
-        where: { id: verificationRecord.id },
-        data: {
-          used: true,
-          usedAt: new Date(),
-        },
-      });
-    }, { timeout: 15000 });
-
-    logger.security('Email verified', {
-      userId: verificationRecord.userId,
-      email: verificationRecord.user.email,
-    });
-
-    return {
-      success: true,
-      message: 'Email verified successfully. You can now log in.',
-      userId: verificationRecord.userId,
-    };
-  } catch (error: unknown) {
-    logger.error('Email verification failed', { error: error instanceof Error ? error.message : String(error) });
-    return { success: false, error: 'Verification failed. Please try again.' };
-  }
   }); // end withoutClinicFilter
 }
 
@@ -795,70 +816,73 @@ export async function verifyEmail(token: string): Promise<RegistrationResult> {
  */
 export async function resendVerificationEmail(email: string): Promise<RegistrationResult> {
   return withoutClinicFilter(async () => {
-  try {
-    const normalizedEmail = email.toLowerCase().trim();
+    try {
+      const normalizedEmail = email.toLowerCase().trim();
 
-    const user = await prisma.user.findUnique({
-      where: { email: normalizedEmail },
-      include: { clinic: true },
-    });
+      const user = await prisma.user.findUnique({
+        where: { email: normalizedEmail },
+        include: { clinic: true },
+      });
 
-    // Always return success to prevent email enumeration
-    if (!user) {
-      return {
-        success: true,
-        message: 'If an account exists, a verification email has been sent.',
-      };
+      // Always return success to prevent email enumeration
+      if (!user) {
+        return {
+          success: true,
+          message: 'If an account exists, a verification email has been sent.',
+        };
+      }
+
+      if (user.emailVerified) {
+        return { success: false, error: 'Email is already verified. Please log in.' };
+      }
+
+      // Invalidate existing tokens
+      await prisma.emailVerificationToken.updateMany({
+        where: { userId: user.id, used: false },
+        data: { used: true },
+      });
+
+      // Generate new token
+      const verificationToken = generateVerificationToken();
+      const hashedToken = hashToken(verificationToken);
+      const tokenExpiresAt = new Date();
+      tokenExpiresAt.setHours(tokenExpiresAt.getHours() + VERIFICATION_TOKEN_EXPIRY_HOURS);
+
+      await prisma.emailVerificationToken.create({
+        data: {
+          userId: user.id,
+          token: hashedToken,
+          expiresAt: tokenExpiresAt,
+        },
+      });
+
+      // Send verification email
+      const baseUrl = getAppBaseUrl();
+      const verificationUrl = baseUrl
+        ? `${baseUrl}/api/auth/verify-email?token=${verificationToken}`
+        : '';
+
+      await sendTemplatedEmail({
+        to: normalizedEmail,
+        template: EmailTemplate.PATIENT_WELCOME_VERIFICATION,
+        data: {
+          firstName: user.firstName,
+          lastName: user.lastName,
+          verificationLink: verificationUrl,
+          expiresIn: '24 hours',
+          clinicName: user.clinic?.name || 'Your Healthcare Provider',
+        },
+      });
+
+      logger.info('Verification email resent', { userId: user.id, email: normalizedEmail });
+
+      return { success: true, message: 'Verification email sent. Please check your inbox.' };
+    } catch (error: unknown) {
+      logger.error('Failed to resend verification email', {
+        error: error instanceof Error ? error.message : String(error),
+        email,
+      });
+      return { success: false, error: 'Failed to send email. Please try again.' };
     }
-
-    if (user.emailVerified) {
-      return { success: false, error: 'Email is already verified. Please log in.' };
-    }
-
-    // Invalidate existing tokens
-    await prisma.emailVerificationToken.updateMany({
-      where: { userId: user.id, used: false },
-      data: { used: true },
-    });
-
-    // Generate new token
-    const verificationToken = generateVerificationToken();
-    const hashedToken = hashToken(verificationToken);
-    const tokenExpiresAt = new Date();
-    tokenExpiresAt.setHours(tokenExpiresAt.getHours() + VERIFICATION_TOKEN_EXPIRY_HOURS);
-
-    await prisma.emailVerificationToken.create({
-      data: {
-        userId: user.id,
-        token: hashedToken,
-        expiresAt: tokenExpiresAt,
-      },
-    });
-
-    // Send verification email
-    const baseUrl = getAppBaseUrl();
-    const verificationUrl = baseUrl
-      ? `${baseUrl}/api/auth/verify-email?token=${verificationToken}`
-      : '';
-
-    await sendTemplatedEmail({
-      to: normalizedEmail,
-      template: EmailTemplate.PATIENT_WELCOME_VERIFICATION,
-      data: {
-        firstName: user.firstName,
-        lastName: user.lastName,
-        verificationLink: verificationUrl,
-        expiresIn: '24 hours',
-        clinicName: user.clinic?.name || 'Your Healthcare Provider',
-      },
-    });
-
-    logger.info('Verification email resent', { userId: user.id, email: normalizedEmail });
-
-    return { success: true, message: 'Verification email sent. Please check your inbox.' };
-  } catch (error: unknown) {
-    logger.error('Failed to resend verification email', { error: error instanceof Error ? error.message : String(error), email });
-    return { success: false, error: 'Failed to send email. Please try again.' };
-  }
   }); // end withoutClinicFilter
 }

@@ -36,7 +36,11 @@ interface SOAPNoteData {
   status: string;
 }
 
-export default function PostCallSummary({ data, onBackToQueue, onSelectNextPatient }: PostCallSummaryProps) {
+export default function PostCallSummary({
+  data,
+  onBackToQueue,
+  onSelectNextPatient,
+}: PostCallSummaryProps) {
   const [soapNote, setSoapNote] = useState<SOAPNoteData>(
     data.soapNote ?? {
       subjective: '',
@@ -61,7 +65,9 @@ export default function PostCallSummary({ data, onBackToQueue, onSelectNextPatie
         if (parsed?.providerId) setProviderId(Number(parsed.providerId));
         else if (parsed?.id) setProviderId(Number(parsed.id));
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, []);
 
   useEffect(() => {
@@ -81,7 +87,9 @@ export default function PostCallSummary({ data, onBackToQueue, onSelectNextPatie
           const waiting = sessions.find((s: any) => s.status === 'WAITING');
           setNextSession(waiting ?? sessions[0]);
         }
-      } catch { /* non-blocking */ }
+      } catch {
+        /* non-blocking */
+      }
     };
     void fetchNext();
   }, [data.session.id, data.session.appointment?.id, onSelectNextPatient]);
@@ -95,8 +103,9 @@ export default function PostCallSummary({ data, onBackToQueue, onSelectNextPatie
   const generateSOAP = async () => {
     if (!data.session.appointment?.id || !providerId || isGenerating) return;
 
-    const transcriptText = data.transcript
-      || `Telehealth consultation with ${data.session.patient.firstName} ${data.session.patient.lastName}. Duration: ${Math.ceil(data.duration / 60)} minutes. Reason: ${data.session.appointment?.reason || data.session.topic || 'Follow-up consultation'}.`;
+    const transcriptText =
+      data.transcript ||
+      `Telehealth consultation with ${data.session.patient.firstName} ${data.session.patient.lastName}. Duration: ${Math.ceil(data.duration / 60)} minutes. Reason: ${data.session.appointment?.reason || data.session.topic || 'Follow-up consultation'}.`;
 
     setIsGenerating(true);
     setGenerateError(null);
@@ -182,11 +191,9 @@ export default function PostCallSummary({ data, onBackToQueue, onSelectNextPatie
               <Clock className="h-3.5 w-3.5" />
               Duration
             </div>
-            <p className="mt-1 text-lg font-bold text-gray-900">
-              {formatDuration(data.duration)}
-            </p>
+            <p className="mt-1 text-lg font-bold text-gray-900">{formatDuration(data.duration)}</p>
           </div>
-          <div className="py-3 sm:py-0 sm:px-6">
+          <div className="py-3 sm:px-6 sm:py-0">
             <div className="flex items-center gap-2 text-xs font-medium text-gray-400">
               <Users className="h-3.5 w-3.5" />
               Patient
@@ -195,7 +202,7 @@ export default function PostCallSummary({ data, onBackToQueue, onSelectNextPatie
               {data.session.patient.firstName} {data.session.patient.lastName}
             </p>
           </div>
-          <div className="pt-3 sm:pt-0 sm:pl-6">
+          <div className="pt-3 sm:pl-6 sm:pt-0">
             <div className="flex items-center gap-2 text-xs font-medium text-gray-400">
               <FileText className="h-3.5 w-3.5" />
               SOAP Note
@@ -204,7 +211,11 @@ export default function PostCallSummary({ data, onBackToQueue, onSelectNextPatie
               {(() => {
                 if (soapNote.id) {
                   return (
-                    <span className={soapNote.status === 'APPROVED' ? 'text-emerald-600' : 'text-blue-600'}>
+                    <span
+                      className={
+                        soapNote.status === 'APPROVED' ? 'text-emerald-600' : 'text-blue-600'
+                      }
+                    >
                       {soapNote.status === 'APPROVED' ? 'Signed' : 'Draft'}
                     </span>
                   );
@@ -217,9 +228,11 @@ export default function PostCallSummary({ data, onBackToQueue, onSelectNextPatie
                     </span>
                   );
                 }
-                return generateError
-                  ? <span className="text-red-500">Failed</span>
-                  : <span className="text-gray-400">Pending</span>;
+                return generateError ? (
+                  <span className="text-red-500">Failed</span>
+                ) : (
+                  <span className="text-gray-400">Pending</span>
+                );
               })()}
             </p>
           </div>

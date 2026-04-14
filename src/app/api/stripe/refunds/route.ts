@@ -108,52 +108,55 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
       const invoiceId = payment?.invoiceId || invoice?.id;
 
       // Wrap all database updates in a transaction for atomicity
-      await prisma.$transaction(async (tx) => {
-        // Update payment status if we have a payment
-        if (payment) {
-          await tx.payment.update({
-            where: { id: payment.id },
+      await prisma.$transaction(
+        async (tx) => {
+          // Update payment status if we have a payment
+          if (payment) {
+            await tx.payment.update({
+              where: { id: payment.id },
+              data: {
+                status: isFullRefund ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
+                refundedAmount: refundAmount,
+                refundedAt: new Date(),
+                metadata: {
+                  ...((payment.metadata as object) || {}),
+                  refundReason: validated.reason,
+                  refundedBy: 'demo_mode',
+                },
+              },
+            });
+          }
+
+          // Update invoice if exists
+          if (invoiceId) {
+            await tx.invoice.update({
+              where: { id: invoiceId },
+              data: {
+                amountPaid: { decrement: refundAmount },
+                status: isFullRefund ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
+              },
+            });
+          }
+
+          // Create audit log
+          await tx.auditLog.create({
             data: {
-              status: isFullRefund ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
-              refundedAmount: refundAmount,
-              refundedAt: new Date(),
-              metadata: {
-                ...((payment.metadata as object) || {}),
-                refundReason: validated.reason,
-                refundedBy: 'demo_mode',
+              userId: 0, // TODO: Get from auth
+              action: 'REFUND_PROCESSED',
+              resource: payment ? 'Payment' : 'Invoice',
+              resourceId: payment?.id || invoice?.id || 0,
+              details: {
+                paymentId: payment?.id,
+                invoiceId: invoiceId,
+                amount: refundAmount,
+                reason: validated.reason,
+                demoMode: true,
               },
             },
           });
-        }
-
-        // Update invoice if exists
-        if (invoiceId) {
-          await tx.invoice.update({
-            where: { id: invoiceId },
-            data: {
-              amountPaid: { decrement: refundAmount },
-              status: isFullRefund ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
-            },
-          });
-        }
-
-        // Create audit log
-        await tx.auditLog.create({
-          data: {
-            userId: 0, // TODO: Get from auth
-            action: 'REFUND_PROCESSED',
-            resource: payment ? 'Payment' : 'Invoice',
-            resourceId: payment?.id || invoice?.id || 0,
-            details: {
-              paymentId: payment?.id,
-              invoiceId: invoiceId,
-              amount: refundAmount,
-              reason: validated.reason,
-              demoMode: true,
-            },
-          },
-        });
-      }, { timeout: 15000 });
+        },
+        { timeout: 15000 }
+      );
 
       return NextResponse.json({
         success: true,
@@ -387,7 +390,9 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
               }
             }
           } catch (lookupError: unknown) {
-            logger.error('[Refunds] Failed to lookup charges', { error: (lookupError as any).message });
+            logger.error('[Refunds] Failed to lookup charges', {
+              error: (lookupError as any).message,
+            });
           }
 
           // If we still don't have a refund, return error
@@ -422,53 +427,56 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
       let dbUpdateSuccess = true;
 
       try {
-        await prisma.$transaction(async (tx) => {
-          // Update payment in database if we have one
-          if (payment) {
-            await tx.payment.update({
-              where: { id: payment.id },
-              data: {
-                status: isFullRefund ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
-                refundedAmount: refundAmount,
-                refundedAt: new Date(),
-                stripeRefundId: refund.id,
-                metadata: {
-                  ...((payment.metadata as object) || {}),
-                  refundReason: validated.reason,
+        await prisma.$transaction(
+          async (tx) => {
+            // Update payment in database if we have one
+            if (payment) {
+              await tx.payment.update({
+                where: { id: payment.id },
+                data: {
+                  status: isFullRefund ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
+                  refundedAmount: refundAmount,
+                  refundedAt: new Date(),
                   stripeRefundId: refund.id,
+                  metadata: {
+                    ...((payment.metadata as object) || {}),
+                    refundReason: validated.reason,
+                    stripeRefundId: refund.id,
+                  },
+                },
+              });
+            }
+
+            // Update invoice if exists
+            if (invoiceId) {
+              await tx.invoice.update({
+                where: { id: invoiceId },
+                data: {
+                  amountPaid: { decrement: refundAmount },
+                  status: isFullRefund ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
+                },
+              });
+            }
+
+            // Create audit log
+            await tx.auditLog.create({
+              data: {
+                userId: 0, // TODO: Get from auth
+                action: 'REFUND_PROCESSED',
+                resource: payment ? 'Payment' : 'Invoice',
+                resourceId: payment?.id || invoice?.id || 0,
+                details: {
+                  paymentId: payment?.id,
+                  invoiceId: invoiceId,
+                  stripeRefundId: refund.id,
+                  amount: refundAmount,
+                  reason: validated.reason,
                 },
               },
             });
-          }
-
-          // Update invoice if exists
-          if (invoiceId) {
-            await tx.invoice.update({
-              where: { id: invoiceId },
-              data: {
-                amountPaid: { decrement: refundAmount },
-                status: isFullRefund ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
-              },
-            });
-          }
-
-          // Create audit log
-          await tx.auditLog.create({
-            data: {
-              userId: 0, // TODO: Get from auth
-              action: 'REFUND_PROCESSED',
-              resource: payment ? 'Payment' : 'Invoice',
-              resourceId: payment?.id || invoice?.id || 0,
-              details: {
-                paymentId: payment?.id,
-                invoiceId: invoiceId,
-                stripeRefundId: refund.id,
-                amount: refundAmount,
-                reason: validated.reason,
-              },
-            },
-          });
-        }, { timeout: 15000 });
+          },
+          { timeout: 15000 }
+        );
       } catch (dbError: unknown) {
         // Log DB error but don't fail - the Stripe refund already succeeded
         logger.error('[Refunds] Database update failed after successful Stripe refund', {
@@ -521,7 +529,9 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
     }
 
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : String(error) || 'Failed to process refund' },
+      {
+        error: error instanceof Error ? error.message : String(error) || 'Failed to process refund',
+      },
       { status: 500 }
     );
   }
@@ -591,7 +601,9 @@ async function getRefundsHandler(request: NextRequest, user: AuthUser) {
     logger.error('[Refunds] Error fetching refunds:', error);
 
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : String(error) || 'Failed to fetch refunds' },
+      {
+        error: error instanceof Error ? error.message : String(error) || 'Failed to fetch refunds',
+      },
       { status: 500 }
     );
   }

@@ -49,12 +49,12 @@ export default function InputField({
   };
 
   return (
-    <div className={cn('w-full flex flex-col gap-2', className)}>
+    <div className={cn('flex w-full flex-col gap-2', className)}>
       {label && <label className="form-label">{label}</label>}
       <div className="relative">
         {icon && (
-          <div className="absolute left-4 sm:left-8 top-1/2 transform -translate-y-1/2 w-6 h-6 text-gray-400">
-            <img src={icon} alt="" className="w-full h-full" />
+          <div className="absolute left-4 top-1/2 h-6 w-6 -translate-y-1/2 transform text-gray-400 sm:left-8">
+            <img src={icon} alt="" className="h-full w-full" />
           </div>
         )}
         <input
@@ -65,13 +65,13 @@ export default function InputField({
           className={cn(
             'form-input w-full',
             icon ? 'pl-14 sm:pl-20' : '',
-            error ? 'border-red-500' : '',
+            error ? 'border-red-500' : ''
           )}
           onChange={handleInputChange}
           onBlur={handleBlur}
         />
       </div>
-      {error && <span className="block text-red-500 text-sm">{error}</span>}
+      {error && <span className="block text-sm text-red-500">{error}</span>}
     </div>
   );
 }

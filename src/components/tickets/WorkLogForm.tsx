@@ -108,7 +108,9 @@ export default function WorkLogForm({ ticketId, onSubmit }: WorkLogFormProps) {
               className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
             >
               {WORK_ACTIONS.map((a) => (
-                <option key={a.value} value={a.value}>{a.label}</option>
+                <option key={a.value} value={a.value}>
+                  {a.label}
+                </option>
               ))}
             </select>
           </div>
@@ -147,7 +149,10 @@ export default function WorkLogForm({ ticketId, onSubmit }: WorkLogFormProps) {
           <label className="mb-1 block text-xs font-medium text-gray-600">Description</label>
           <textarea
             value={description}
-            onChange={(e) => { setDescription(e.target.value); setError(null); }}
+            onChange={(e) => {
+              setDescription(e.target.value);
+              setError(null);
+            }}
             placeholder="What did you do?"
             rows={2}
             className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
@@ -159,7 +164,10 @@ export default function WorkLogForm({ ticketId, onSubmit }: WorkLogFormProps) {
         <div className="flex justify-end gap-2">
           <button
             type="button"
-            onClick={() => { setIsOpen(false); setError(null); }}
+            onClick={() => {
+              setIsOpen(false);
+              setError(null);
+            }}
             className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
             Cancel
@@ -169,7 +177,11 @@ export default function WorkLogForm({ ticketId, onSubmit }: WorkLogFormProps) {
             disabled={submitting || !description.trim()}
             className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-50"
           >
-            {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Clock className="h-3.5 w-3.5" />}
+            {submitting ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Clock className="h-3.5 w-3.5" />
+            )}
             Log Work
           </button>
         </div>

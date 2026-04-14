@@ -21,7 +21,9 @@ function AdminMockup() {
             <div key={s.l} className="rounded-xl bg-gray-50 p-3">
               <p className="text-[10px] text-gray-400">{s.l}</p>
               <p className="text-lg font-bold text-gray-900">{s.v}</p>
-              <span className="text-[10px] font-semibold" style={{ color: s.c }}>{s.d}</span>
+              <span className="text-[10px] font-semibold" style={{ color: s.c }}>
+                {s.d}
+              </span>
             </div>
           ))}
         </div>
@@ -32,9 +34,14 @@ function AdminMockup() {
             { n: 'James K.', t: '15m ago', s: 'Testosterone' },
             { n: 'Maria L.', t: '1h ago', s: 'Peptides' },
           ].map((p) => (
-            <div key={p.n} className="flex items-center justify-between border-t border-gray-100 py-2 first:border-0 first:pt-0">
+            <div
+              key={p.n}
+              className="flex items-center justify-between border-t border-gray-100 py-2 first:border-0 first:pt-0"
+            >
               <div className="flex items-center gap-2">
-                <div className="h-6 w-6 rounded-full bg-[#4fa77e]/10 text-center text-[10px] font-bold leading-6 text-[#4fa77e]">{p.n[0]}</div>
+                <div className="h-6 w-6 rounded-full bg-[#4fa77e]/10 text-center text-[10px] font-bold leading-6 text-[#4fa77e]">
+                  {p.n[0]}
+                </div>
                 <div>
                   <p className="text-xs font-medium text-gray-900">{p.n}</p>
                   <p className="text-[10px] text-gray-400">{p.s}</p>
@@ -73,27 +80,33 @@ export default function ClinicAdminContent() {
       features={[
         {
           title: 'Multi-Clinic Management',
-          description: 'Manage multiple clinic brands, each with their own domain, branding, providers, and patient pools — all from one admin panel.',
+          description:
+            'Manage multiple clinic brands, each with their own domain, branding, providers, and patient pools — all from one admin panel.',
         },
         {
           title: 'Intake Form Builder',
-          description: 'Drag-and-drop form engine to build custom intake flows. Supports medical history, consent forms, insurance capture, and BMI calculators.',
+          description:
+            'Drag-and-drop form engine to build custom intake flows. Supports medical history, consent forms, insurance capture, and BMI calculators.',
         },
         {
           title: 'Revenue Analytics',
-          description: 'Real-time dashboards for MRR, new intakes, active prescriptions, churn rate, and revenue per patient.',
+          description:
+            'Real-time dashboards for MRR, new intakes, active prescriptions, churn rate, and revenue per patient.',
         },
         {
           title: 'Affiliate Program',
-          description: 'Built-in referral tracking with unique codes, commission tiers, payout management, and performance analytics.',
+          description:
+            'Built-in referral tracking with unique codes, commission tiers, payout management, and performance analytics.',
         },
         {
           title: 'White-Label Branding',
-          description: 'Custom domains, logos, colors, and email templates per clinic. Your brand, powered by EonPro infrastructure.',
+          description:
+            'Custom domains, logos, colors, and email templates per clinic. Your brand, powered by EonPro infrastructure.',
         },
         {
           title: 'Subscription Management',
-          description: 'Stripe-powered recurring billing with automated invoicing, payment retries, and patient self-service plan changes.',
+          description:
+            'Stripe-powered recurring billing with automated invoicing, payment retries, and patient self-service plan changes.',
         },
       ]}
     />

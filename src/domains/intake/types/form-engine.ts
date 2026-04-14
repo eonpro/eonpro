@@ -97,12 +97,7 @@ export interface FormField {
 // Step Types
 // ---------------------------------------------------------------------------
 
-export type StepType =
-  | 'single-select'
-  | 'multi-select'
-  | 'input'
-  | 'info'
-  | 'custom';
+export type StepType = 'single-select' | 'multi-select' | 'input' | 'info' | 'custom';
 
 export type StepNavigation = string | ConditionalNavigation[] | null;
 
@@ -226,10 +221,7 @@ export interface StepComponentRegistration {
 // Navigation helpers (pure functions)
 // ---------------------------------------------------------------------------
 
-export function resolveNextStep(
-  step: FormStep,
-  responses: Record<string, unknown>,
-): string | null {
+export function resolveNextStep(step: FormStep, responses: Record<string, unknown>): string | null {
   const { nextStep } = step;
   if (nextStep === null) return null;
   if (typeof nextStep === 'string') return nextStep;
@@ -243,7 +235,7 @@ export function resolveNextStep(
 
 export function evaluateCondition(
   rule: ConditionalRule,
-  responses: Record<string, unknown>,
+  responses: Record<string, unknown>
 ): boolean {
   const value = responses[rule.field];
 
@@ -255,25 +247,13 @@ export function evaluateCondition(
     case 'contains':
       return Array.isArray(value) && value.includes(rule.value as string);
     case 'greaterThan':
-      return (
-        typeof value === 'number' &&
-        typeof rule.value === 'number' &&
-        value > rule.value
-      );
+      return typeof value === 'number' && typeof rule.value === 'number' && value > rule.value;
     case 'lessThan':
-      return (
-        typeof value === 'number' &&
-        typeof rule.value === 'number' &&
-        value < rule.value
-      );
+      return typeof value === 'number' && typeof rule.value === 'number' && value < rule.value;
     case 'in':
-      return (
-        Array.isArray(rule.value) && rule.value.includes(value as string)
-      );
+      return Array.isArray(rule.value) && rule.value.includes(value as string);
     case 'notIn':
-      return (
-        Array.isArray(rule.value) && !rule.value.includes(value as string)
-      );
+      return Array.isArray(rule.value) && !rule.value.includes(value as string);
     case 'isEmpty':
       return (
         value === undefined ||

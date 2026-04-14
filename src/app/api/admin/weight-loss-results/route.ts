@@ -149,8 +149,9 @@ export const GET = withAuth(
           const patientsWithLoss = computed.length;
           const avgLbsLost =
             patientsWithLoss > 0
-              ? Math.round((computed.reduce((s, r) => s + r.totalLost, 0) / patientsWithLoss) * 10) /
-                10
+              ? Math.round(
+                  (computed.reduce((s, r) => s + r.totalLost, 0) / patientsWithLoss) * 10
+                ) / 10
               : 0;
           const avgLbsPerMonth =
             patientsWithLoss > 0
@@ -159,11 +160,8 @@ export const GET = withAuth(
                 ) / 100
               : 0;
           const topLbsLost =
-            computed.length > 0
-              ? Math.max(...computed.map((r) => r.totalLost))
-              : 0;
-          const totalLbsLost =
-            Math.round(computed.reduce((s, r) => s + r.totalLost, 0) * 10) / 10;
+            computed.length > 0 ? Math.max(...computed.map((r) => r.totalLost)) : 0;
+          const totalLbsLost = Math.round(computed.reduce((s, r) => s + r.totalLost, 0) * 10) / 10;
 
           return NextResponse.json({
             results,
@@ -192,10 +190,7 @@ export const GET = withAuth(
         userId: user.id,
         clinicId: user.clinicId,
       });
-      return NextResponse.json(
-        { error: 'Failed to fetch weight loss results' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to fetch weight loss results' }, { status: 500 });
     }
   },
   { roles: ['admin', 'super_admin', 'provider'] }

@@ -112,10 +112,7 @@ export function classifyError(error: unknown): TripSignal {
  * Check if cumulative DB time in the current request has exceeded budget.
  * Used by the Prisma middleware to trip the breaker proactively.
  */
-export function checkTimeBudget(
-  cumulativeMs: number,
-  thresholdMs: number = 5000
-): TripSignal {
+export function checkTimeBudget(cumulativeMs: number, thresholdMs: number = 5000): TripSignal {
   if (cumulativeMs >= thresholdMs) {
     return {
       isTrip: true,
@@ -129,10 +126,7 @@ export function checkTimeBudget(
 /**
  * Check if connection acquisition took too long (pre-emptive trip signal).
  */
-export function checkAcquisitionDelay(
-  acquireMs: number,
-  thresholdMs: number = 10000
-): TripSignal {
+export function checkAcquisitionDelay(acquireMs: number, thresholdMs: number = 10000): TripSignal {
   if (acquireMs >= thresholdMs) {
     return {
       isTrip: true,

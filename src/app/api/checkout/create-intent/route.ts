@@ -25,7 +25,7 @@ async function getOrCreateCustomer(
     postal_code: string;
     country?: string;
   },
-  metadata?: Record<string, string>,
+  metadata?: Record<string, string>
 ) {
   const isValidEmail = email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
           error: 'Shipping address required',
           message: 'Please enter a complete shipping address (street, city, state, zip).',
         },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -102,9 +102,13 @@ export async function POST(req: NextRequest) {
       addressLine1: String(shipping_address.addressLine1 || '').trim(),
       addressLine2: String(shipping_address.addressLine2 || '').trim(),
       city: String(shipping_address.city || '').trim(),
-      state: String(shipping_address.state || '').trim().toUpperCase(),
+      state: String(shipping_address.state || '')
+        .trim()
+        .toUpperCase(),
       zipCode: String(shipping_address.zipCode || '').trim(),
-      country: String(shipping_address.country || 'US').trim().toUpperCase(),
+      country: String(shipping_address.country || 'US')
+        .trim()
+        .toUpperCase(),
     };
 
     const billingAddress = {
@@ -125,7 +129,7 @@ export async function POST(req: NextRequest) {
         medication: order_data?.medication || '',
         plan: order_data?.plan || '',
         source: 'eonpro_checkout',
-      },
+      }
     );
 
     const planType = order_data?.plan || '';
@@ -133,12 +137,15 @@ export async function POST(req: NextRequest) {
 
     const normalizedPlanName = (() => {
       const p = (order_data?.plan || '').toLowerCase();
-      if (p.includes('mensual') || p.includes('monthly') || p.includes('recurrente') || p.includes('recurring'))
+      if (
+        p.includes('mensual') ||
+        p.includes('monthly') ||
+        p.includes('recurrente') ||
+        p.includes('recurring')
+      )
         return 'Monthly Recurring';
-      if (p.includes('3') && (p.includes('mes') || p.includes('month')))
-        return '3-Month Plan';
-      if (p.includes('6') && (p.includes('mes') || p.includes('month')))
-        return '6-Month Plan';
+      if (p.includes('3') && (p.includes('mes') || p.includes('month'))) return '3-Month Plan';
+      if (p.includes('6') && (p.includes('mes') || p.includes('month'))) return '6-Month Plan';
       if (p.includes('única') || p.includes('one-time') || p.includes('onetime'))
         return 'One-Time Purchase';
       return order_data?.plan || 'Monthly Recurring';
@@ -220,7 +227,7 @@ export async function POST(req: NextRequest) {
     console.error('Error creating payment intent:', { error: message });
     return NextResponse.json(
       { error: 'Failed to create payment intent', message },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

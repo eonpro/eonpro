@@ -80,7 +80,7 @@ export async function GET(req: NextRequest) {
               status: 'PROCESSED',
               processedAt: now,
               metadata: {
-                ...(sp.metadata as object || {}),
+                ...((sp.metadata as object) || {}),
                 processedByCron: true,
                 processedAt: now.toISOString(),
               },
@@ -104,7 +104,7 @@ export async function GET(req: NextRequest) {
               status: 'FAILED',
               processedAt: now,
               metadata: {
-                ...(sp.metadata as object || {}),
+                ...((sp.metadata as object) || {}),
                 failureReason: 'No saved payment method with Stripe link',
                 processedByCron: true,
               },
@@ -146,7 +146,7 @@ export async function GET(req: NextRequest) {
               processedAt: now,
               paymentId: paymentData.payment?.id || null,
               metadata: {
-                ...(sp.metadata as object || {}),
+                ...((sp.metadata as object) || {}),
                 processedByCron: true,
                 paymentResponse: { success: true, paymentId: paymentData.payment?.id },
               },
@@ -167,7 +167,7 @@ export async function GET(req: NextRequest) {
               status: 'FAILED',
               processedAt: now,
               metadata: {
-                ...(sp.metadata as object || {}),
+                ...((sp.metadata as object) || {}),
                 processedByCron: true,
                 failureReason: errData.error || `HTTP ${paymentRes.status}`,
               },
@@ -188,18 +188,20 @@ export async function GET(req: NextRequest) {
           error: spErr instanceof Error ? spErr.message : String(spErr),
         });
 
-        await prisma.scheduledPayment.update({
-          where: { id: sp.id },
-          data: {
-            status: 'FAILED',
-            processedAt: now,
-            metadata: {
-              ...(sp.metadata as object || {}),
-              processedByCron: true,
-              failureReason: spErr instanceof Error ? spErr.message : 'Processing error',
+        await prisma.scheduledPayment
+          .update({
+            where: { id: sp.id },
+            data: {
+              status: 'FAILED',
+              processedAt: now,
+              metadata: {
+                ...((sp.metadata as object) || {}),
+                processedByCron: true,
+                failureReason: spErr instanceof Error ? spErr.message : 'Processing error',
+              },
             },
-          },
-        }).catch(() => {});
+          })
+          .catch(() => {});
       }
     }
 

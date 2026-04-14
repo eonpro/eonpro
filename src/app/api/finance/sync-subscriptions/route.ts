@@ -26,7 +26,7 @@ const SYNC_CONCURRENCY = 10;
 async function syncOneSub(
   sub: Stripe.Subscription,
   clinicId: number,
-  stripeAccountId: string | null,
+  stripeAccountId: string | null
 ): Promise<{ synced: number; skipped: number; canceled: number; errors: number }> {
   const r = { synced: 0, skipped: 0, canceled: 0, errors: 0 };
   try {
@@ -37,7 +37,7 @@ async function syncOneSub(
     ) {
       const res = await cancelSubscriptionFromStripe(
         sub.id,
-        sub.canceled_at ? new Date(sub.canceled_at * 1000) : undefined,
+        sub.canceled_at ? new Date(sub.canceled_at * 1000) : undefined
       );
       if (res.success && !res.skipped) r.canceled++;
       else if (res.skipped) r.skipped++;
@@ -95,7 +95,7 @@ export const POST = withAdminAuth(async (request: NextRequest, user) => {
               ? msg
               : 'Set EONMEDS_STRIPE_SECRET_KEY for Eonmeds, or connect Stripe in clinic settings.',
         },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -103,7 +103,7 @@ export const POST = withAdminAuth(async (request: NextRequest, user) => {
     if (!stripe) {
       return NextResponse.json(
         { error: 'This clinic does not have a Stripe account configured' },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -138,7 +138,7 @@ export const POST = withAdminAuth(async (request: NextRequest, user) => {
                 ? 'Invalid or missing Stripe API key for this clinic.'
                 : msg,
           },
-          { status: 502 },
+          { status: 502 }
         );
       }
 
@@ -146,7 +146,7 @@ export const POST = withAdminAuth(async (request: NextRequest, user) => {
       for (let i = 0; i < subs.data.length; i += SYNC_CONCURRENCY) {
         const batch = subs.data.slice(i, i + SYNC_CONCURRENCY);
         const batchResults = await Promise.all(
-          batch.map((sub) => syncOneSub(sub, clinicId, stripeAccountId ?? null)),
+          batch.map((sub) => syncOneSub(sub, clinicId, stripeAccountId ?? null))
         );
         for (const br of batchResults) {
           results.synced += br.synced;
@@ -174,7 +174,7 @@ export const POST = withAdminAuth(async (request: NextRequest, user) => {
     logger.error('[SyncSubscriptions] Failed', { error: message });
     return NextResponse.json(
       { error: 'Failed to sync subscriptions', details: message },
-      { status: 500 },
+      { status: 500 }
     );
   }
 });

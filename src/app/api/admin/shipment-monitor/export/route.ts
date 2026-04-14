@@ -9,10 +9,21 @@ import { ShippingStatus } from '@prisma/client';
 
 function safeDecrypt(val: string | null | undefined): string | null {
   if (!val) return null;
-  try { return decryptPHI(val) || val; } catch { return val; }
+  try {
+    return decryptPHI(val) || val;
+  } catch {
+    return val;
+  }
 }
 
-const TABS = ['label_created', 'shipped', 'in_transit', 'out_for_delivery', 'delivered', 'issues'] as const;
+const TABS = [
+  'label_created',
+  'shipped',
+  'in_transit',
+  'out_for_delivery',
+  'delivered',
+  'issues',
+] as const;
 type Tab = (typeof TABS)[number];
 
 const TAB_STATUS_MAP: Record<Tab, ShippingStatus[]> = {
@@ -28,10 +39,16 @@ function parseDateRange(range: string | undefined): Date | undefined {
   if (!range) return undefined;
   const now = new Date();
   switch (range) {
-    case '7d': return new Date(now.getTime() - 7 * 86400000);
-    case '30d': return new Date(now.getTime() - 30 * 86400000);
-    case '90d': return new Date(now.getTime() - 90 * 86400000);
-    default: { const d = new Date(range); return isNaN(d.getTime()) ? undefined : d; }
+    case '7d':
+      return new Date(now.getTime() - 7 * 86400000);
+    case '30d':
+      return new Date(now.getTime() - 30 * 86400000);
+    case '90d':
+      return new Date(now.getTime() - 90 * 86400000);
+    default: {
+      const d = new Date(range);
+      return isNaN(d.getTime()) ? undefined : d;
+    }
   }
 }
 
@@ -88,22 +105,53 @@ async function handleExport(req: NextRequest, user: AuthUser) {
       orderBy: { createdAt: 'desc' },
       take: 10000,
       select: {
-        lifefileOrderId: true, trackingNumber: true, status: true, statusNote: true, carrier: true,
-        shippedAt: true, estimatedDelivery: true, actualDelivery: true, source: true, createdAt: true,
+        lifefileOrderId: true,
+        trackingNumber: true,
+        status: true,
+        statusNote: true,
+        carrier: true,
+        shippedAt: true,
+        estimatedDelivery: true,
+        actualDelivery: true,
+        source: true,
+        createdAt: true,
         patient: { select: { firstName: true, lastName: true } },
         order: { select: { lifefileOrderId: true } },
         rawPayload: true,
       },
     });
 
-    const header = ['Lifefile ID', 'Tracking Number', 'Status', 'Status Note', 'Carrier', 'Patient Name', 'Shipped', 'Est. Delivery', 'Actual Delivery', 'Signed By', 'Source', 'Created'].join(',');
+    const header = [
+      'Lifefile ID',
+      'Tracking Number',
+      'Status',
+      'Status Note',
+      'Carrier',
+      'Patient Name',
+      'Shipped',
+      'Est. Delivery',
+      'Actual Delivery',
+      'Signed By',
+      'Source',
+      'Created',
+    ].join(',');
     const rows = records.map((r: any) => {
-      const patientName = [safeDecrypt(r.patient?.firstName), safeDecrypt(r.patient?.lastName)].filter(Boolean).join(' ');
+      const patientName = [safeDecrypt(r.patient?.firstName), safeDecrypt(r.patient?.lastName)]
+        .filter(Boolean)
+        .join(' ');
       return [
-        escapeCsv(r.lifefileOrderId || r.order?.lifefileOrderId), escapeCsv(r.trackingNumber),
-        escapeCsv(r.status), escapeCsv(r.statusNote), escapeCsv(r.carrier), escapeCsv(patientName),
-        formatCsvDate(r.shippedAt), formatCsvDate(r.estimatedDelivery), formatCsvDate(r.actualDelivery),
-        escapeCsv((r.rawPayload as any)?.signedBy), escapeCsv(r.source), formatCsvDate(r.createdAt),
+        escapeCsv(r.lifefileOrderId || r.order?.lifefileOrderId),
+        escapeCsv(r.trackingNumber),
+        escapeCsv(r.status),
+        escapeCsv(r.statusNote),
+        escapeCsv(r.carrier),
+        escapeCsv(patientName),
+        formatCsvDate(r.shippedAt),
+        formatCsvDate(r.estimatedDelivery),
+        formatCsvDate(r.actualDelivery),
+        escapeCsv((r.rawPayload as any)?.signedBy),
+        escapeCsv(r.source),
+        formatCsvDate(r.createdAt),
       ].join(',');
     });
 
@@ -111,11 +159,16 @@ async function handleExport(req: NextRequest, user: AuthUser) {
     const filename = `shipment-monitor-${calendarTodayServer()}.csv`;
     return new NextResponse(csv, {
       status: 200,
-      headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="${filename}"` },
+      headers: {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+      },
     });
   } catch (error) {
     return handleApiError(error, { route: 'GET /api/admin/shipment-monitor/export' });
   }
 }
 
-export const GET = withAuth(handleExport, { roles: ['super_admin', 'admin', 'staff', 'pharmacy_rep'] });
+export const GET = withAuth(handleExport, {
+  roles: ['super_admin', 'admin', 'staff', 'pharmacy_rep'],
+});

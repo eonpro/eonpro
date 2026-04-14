@@ -54,10 +54,7 @@ async function createRequestHandler(req: NextRequest, user: AuthUser) {
     });
 
     if (existingAssignment?.salesRepId === user.id) {
-      return NextResponse.json(
-        { error: 'Patient is already assigned to you' },
-        { status: 409 }
-      );
+      return NextResponse.json({ error: 'Patient is already assigned to you' }, { status: 409 });
     }
 
     const currentTags = Array.isArray(patient.tags) ? (patient.tags as string[]) : [];
@@ -197,5 +194,9 @@ async function deleteRequestHandler(req: NextRequest, user: AuthUser) {
   }
 }
 
-export const POST = withAuth(createRequestHandler, { roles: ['sales_rep', 'admin', 'super_admin'] });
-export const DELETE = withAuth(deleteRequestHandler, { roles: ['sales_rep', 'admin', 'super_admin'] });
+export const POST = withAuth(createRequestHandler, {
+  roles: ['sales_rep', 'admin', 'super_admin'],
+});
+export const DELETE = withAuth(deleteRequestHandler, {
+  roles: ['sales_rep', 'admin', 'super_admin'],
+});

@@ -123,39 +123,40 @@ export default function PatientShippingHistory({
     }
   }, [patientId]);
 
-  const refreshFedExTracking = useCallback(async (updates: ShippingUpdate[]) => {
-    const fedexActive = updates.filter(
-      (u) =>
-        u.carrier.toUpperCase().includes('FEDEX') &&
-        !TERMINAL_STATUSES.includes(u.status)
-    );
+  const refreshFedExTracking = useCallback(
+    async (updates: ShippingUpdate[]) => {
+      const fedexActive = updates.filter(
+        (u) => u.carrier.toUpperCase().includes('FEDEX') && !TERMINAL_STATUSES.includes(u.status)
+      );
 
-    if (fedexActive.length === 0) return;
+      if (fedexActive.length === 0) return;
 
-    const uniqueTrackingNumbers = [...new Set(fedexActive.map((u) => u.trackingNumber))];
+      const uniqueTrackingNumbers = [...new Set(fedexActive.map((u) => u.trackingNumber))];
 
-    setRefreshing(true);
-    try {
-      const payload =
-        uniqueTrackingNumbers.length === 1
-          ? { trackingNumber: uniqueTrackingNumbers[0] }
-          : { trackingNumbers: uniqueTrackingNumbers };
+      setRefreshing(true);
+      try {
+        const payload =
+          uniqueTrackingNumbers.length === 1
+            ? { trackingNumber: uniqueTrackingNumbers[0] }
+            : { trackingNumbers: uniqueTrackingNumbers };
 
-      const res = await apiFetch('/api/shipping/fedex/track', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+        const res = await apiFetch('/api/shipping/fedex/track', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
 
-      if (res.ok) {
-        await fetchShippingUpdates();
+        if (res.ok) {
+          await fetchShippingUpdates();
+        }
+      } catch {
+        // Non-blocking: tracking refresh failure shouldn't break the page
+      } finally {
+        setRefreshing(false);
       }
-    } catch {
-      // Non-blocking: tracking refresh failure shouldn't break the page
-    } finally {
-      setRefreshing(false);
-    }
-  }, [fetchShippingUpdates]);
+    },
+    [fetchShippingUpdates]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -175,7 +176,9 @@ export default function PatientShippingHistory({
       }
     });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [patientId, fetchShippingUpdates, refreshFedExTracking]);
 
   const handleManualRefresh = async () => {
@@ -301,8 +304,7 @@ export default function PatientShippingHistory({
             )}
             {shippingUpdates.some(
               (u) =>
-                u.carrier.toUpperCase().includes('FEDEX') &&
-                !TERMINAL_STATUSES.includes(u.status)
+                u.carrier.toUpperCase().includes('FEDEX') && !TERMINAL_STATUSES.includes(u.status)
             ) && (
               <button
                 onClick={handleManualRefresh}
@@ -468,8 +470,18 @@ export default function PatientShippingHistory({
               {/* Patient delivery confirmation */}
               {update.patientConfirmedAt && (
                 <div className="mt-3 flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm">
-                  <svg className="h-4 w-4 shrink-0 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  <svg
+                    className="h-4 w-4 shrink-0 text-emerald-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 13l4 4L19 7"
+                    />
                   </svg>
                   <span className="font-medium text-emerald-700">
                     Received by patient on {formatDate(update.patientConfirmedAt)}

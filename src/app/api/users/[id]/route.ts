@@ -228,7 +228,12 @@ async function updateUserHandler(
       });
     } catch (auditError) {
       // Audit log creation is non-critical
-      const errMsg = auditError instanceof Error ? (auditError instanceof Error ? auditError.message : String(auditError)) : 'Unknown error';
+      const errMsg =
+        auditError instanceof Error
+          ? auditError instanceof Error
+            ? auditError.message
+            : String(auditError)
+          : 'Unknown error';
       logger.warn('Failed to create audit log:', { error: errMsg });
     }
 

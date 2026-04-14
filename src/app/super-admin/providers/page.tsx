@@ -23,27 +23,121 @@ import {
 import { apiFetch } from '@/lib/api/fetch';
 
 const US_STATES = [
-  'AL','AK','AZ','AR','CA','CO','CT','DE','DC','FL',
-  'GA','HI','ID','IL','IN','IA','KS','KY','LA','ME',
-  'MD','MA','MI','MN','MS','MO','MT','NE','NV','NH',
-  'NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI',
-  'SC','SD','TN','TX','UT','VT','VA','WA','WV','WI',
-  'WY','AS','GU','MP','PR','VI',
+  'AL',
+  'AK',
+  'AZ',
+  'AR',
+  'CA',
+  'CO',
+  'CT',
+  'DE',
+  'DC',
+  'FL',
+  'GA',
+  'HI',
+  'ID',
+  'IL',
+  'IN',
+  'IA',
+  'KS',
+  'KY',
+  'LA',
+  'ME',
+  'MD',
+  'MA',
+  'MI',
+  'MN',
+  'MS',
+  'MO',
+  'MT',
+  'NE',
+  'NV',
+  'NH',
+  'NJ',
+  'NM',
+  'NY',
+  'NC',
+  'ND',
+  'OH',
+  'OK',
+  'OR',
+  'PA',
+  'RI',
+  'SC',
+  'SD',
+  'TN',
+  'TX',
+  'UT',
+  'VT',
+  'VA',
+  'WA',
+  'WV',
+  'WI',
+  'WY',
+  'AS',
+  'GU',
+  'MP',
+  'PR',
+  'VI',
 ] as const;
 
 const STATE_NAMES: Record<string, string> = {
-  AL:'Alabama',AK:'Alaska',AZ:'Arizona',AR:'Arkansas',CA:'California',
-  CO:'Colorado',CT:'Connecticut',DE:'Delaware',DC:'District of Columbia',FL:'Florida',
-  GA:'Georgia',HI:'Hawaii',ID:'Idaho',IL:'Illinois',IN:'Indiana',
-  IA:'Iowa',KS:'Kansas',KY:'Kentucky',LA:'Louisiana',ME:'Maine',
-  MD:'Maryland',MA:'Massachusetts',MI:'Michigan',MN:'Minnesota',MS:'Mississippi',
-  MO:'Missouri',MT:'Montana',NE:'Nebraska',NV:'Nevada',NH:'New Hampshire',
-  NJ:'New Jersey',NM:'New Mexico',NY:'New York',NC:'North Carolina',ND:'North Dakota',
-  OH:'Ohio',OK:'Oklahoma',OR:'Oregon',PA:'Pennsylvania',RI:'Rhode Island',
-  SC:'South Carolina',SD:'South Dakota',TN:'Tennessee',TX:'Texas',UT:'Utah',
-  VT:'Vermont',VA:'Virginia',WA:'Washington',WV:'West Virginia',WI:'Wisconsin',
-  WY:'Wyoming',AS:'American Samoa',GU:'Guam',MP:'Northern Mariana Islands',
-  PR:'Puerto Rico',VI:'US Virgin Islands',
+  AL: 'Alabama',
+  AK: 'Alaska',
+  AZ: 'Arizona',
+  AR: 'Arkansas',
+  CA: 'California',
+  CO: 'Colorado',
+  CT: 'Connecticut',
+  DE: 'Delaware',
+  DC: 'District of Columbia',
+  FL: 'Florida',
+  GA: 'Georgia',
+  HI: 'Hawaii',
+  ID: 'Idaho',
+  IL: 'Illinois',
+  IN: 'Indiana',
+  IA: 'Iowa',
+  KS: 'Kansas',
+  KY: 'Kentucky',
+  LA: 'Louisiana',
+  ME: 'Maine',
+  MD: 'Maryland',
+  MA: 'Massachusetts',
+  MI: 'Michigan',
+  MN: 'Minnesota',
+  MS: 'Mississippi',
+  MO: 'Missouri',
+  MT: 'Montana',
+  NE: 'Nebraska',
+  NV: 'Nevada',
+  NH: 'New Hampshire',
+  NJ: 'New Jersey',
+  NM: 'New Mexico',
+  NY: 'New York',
+  NC: 'North Carolina',
+  ND: 'North Dakota',
+  OH: 'Ohio',
+  OK: 'Oklahoma',
+  OR: 'Oregon',
+  PA: 'Pennsylvania',
+  RI: 'Rhode Island',
+  SC: 'South Carolina',
+  SD: 'South Dakota',
+  TN: 'Tennessee',
+  TX: 'Texas',
+  UT: 'Utah',
+  VT: 'Vermont',
+  VA: 'Virginia',
+  WA: 'Washington',
+  WV: 'West Virginia',
+  WI: 'Wisconsin',
+  WY: 'Wyoming',
+  AS: 'American Samoa',
+  GU: 'Guam',
+  MP: 'Northern Mariana Islands',
+  PR: 'Puerto Rico',
+  VI: 'US Virgin Islands',
 };
 
 interface Clinic {
@@ -135,7 +229,12 @@ export default function SuperAdminProvidersPage() {
     licenseNumber: '',
     dea: '',
     clinicIds: [] as number[],
-    licenses: [] as Array<{ state: string; licenseNumber: string; expiresAt: string; issuedAt: string }>,
+    licenses: [] as Array<{
+      state: string;
+      licenseNumber: string;
+      expiresAt: string;
+      issuedAt: string;
+    }>,
   });
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -351,9 +450,12 @@ export default function SuperAdminProvidersPage() {
 
     try {
       const isArchived = archivingProvider.status === 'ARCHIVED';
-      const response = await apiFetch(`/api/super-admin/providers/${archivingProvider.id}/archive`, {
-        method: isArchived ? 'DELETE' : 'POST',
-      });
+      const response = await apiFetch(
+        `/api/super-admin/providers/${archivingProvider.id}/archive`,
+        {
+          method: isArchived ? 'DELETE' : 'POST',
+        }
+      );
 
       if (!response.ok) {
         const data = await response.json();
@@ -1087,13 +1189,13 @@ export default function SuperAdminProvidersPage() {
                         className="mt-0.5 w-44 rounded border border-gray-300 px-2 py-1.5 text-sm"
                       >
                         <option value="">Select state...</option>
-                        {US_STATES
-                          .filter((s) => !createForm.licenses.some((l) => l.state === s))
-                          .map((s) => (
-                            <option key={s} value={s}>
-                              {s} — {STATE_NAMES[s]}
-                            </option>
-                          ))}
+                        {US_STATES.filter(
+                          (s) => !createForm.licenses.some((l) => l.state === s)
+                        ).map((s) => (
+                          <option key={s} value={s}>
+                            {s} — {STATE_NAMES[s]}
+                          </option>
+                        ))}
                       </select>
                     </div>
                     <div>
@@ -1141,7 +1243,12 @@ export default function SuperAdminProvidersPage() {
                       type="button"
                       onClick={() => {
                         setShowCreateLicenseForm(false);
-                        setCreateLicenseForm({ state: '', licenseNumber: '', expiresAt: '', issuedAt: '' });
+                        setCreateLicenseForm({
+                          state: '',
+                          licenseNumber: '',
+                          expiresAt: '',
+                          issuedAt: '',
+                        });
                       }}
                       className="text-sm text-gray-500 hover:text-gray-700"
                     >

@@ -139,9 +139,7 @@ async function handler(req: NextRequest, user: AuthUser): Promise<Response> {
       `,
 
       // Batch: revenue and commission per code (via raw SQL for JSONB metadata filtering)
-      prisma.$queryRaw<
-        Array<{ refCode: string; revenueCents: number; commissionCents: number }>
-      >`
+      prisma.$queryRaw<Array<{ refCode: string; revenueCents: number; commissionCents: number }>>`
         SELECT
           metadata->>'refCode' as "refCode",
           COALESCE(SUM("eventAmountCents"), 0)::int as "revenueCents",
@@ -156,9 +154,7 @@ async function handler(req: NextRequest, user: AuthUser): Promise<Response> {
       `,
 
       // Batch: unique visitors per code (raw SQL COUNT DISTINCT)
-      prisma.$queryRaw<
-        Array<{ refCode: string; uniqueVisitors: number }>
-      >`
+      prisma.$queryRaw<Array<{ refCode: string; uniqueVisitors: number }>>`
         SELECT
           "refCode",
           COUNT(DISTINCT "visitorFingerprint")::int as "uniqueVisitors"
@@ -184,9 +180,7 @@ async function handler(req: NextRequest, user: AuthUser): Promise<Response> {
       }),
 
       // Batch: daily click breakdown per code (CLICK type only)
-      prisma.$queryRaw<
-        Array<{ refCode: string; date: Date; clicks: number }>
-      >`
+      prisma.$queryRaw<Array<{ refCode: string; date: Date; clicks: number }>>`
         SELECT
           "refCode",
           DATE("createdAt") as date,
@@ -205,14 +199,13 @@ async function handler(req: NextRequest, user: AuthUser): Promise<Response> {
     // Build lookup maps for O(1) per-code access
     const clicksMap = new Map(clicksByCode.map((r) => [r.refCode, r._count]));
     const impressionsMap = new Map(impressionsByCode.map((r) => [r.refCode, r._count]));
-    const intakesMap = new Map(
-      (intakesByCode || []).map((r) => [r.refCode, r.count])
-    );
-    const conversionsMap = new Map(
-      (conversionsByCode || []).map((r) => [r.refCode, r.count])
-    );
+    const intakesMap = new Map((intakesByCode || []).map((r) => [r.refCode, r.count]));
+    const conversionsMap = new Map((conversionsByCode || []).map((r) => [r.refCode, r.count]));
     const commissionsMap = new Map(
-      (commissionsByCode || []).map((r) => [r.refCode, { revenueCents: r.revenueCents, commissionCents: r.commissionCents }])
+      (commissionsByCode || []).map((r) => [
+        r.refCode,
+        { revenueCents: r.revenueCents, commissionCents: r.commissionCents },
+      ])
     );
     const uniqueVisitorsMap = new Map(
       (uniqueVisitorsByCode || []).map((r) => [r.refCode, r.uniqueVisitors])
@@ -236,14 +229,15 @@ async function handler(req: NextRequest, user: AuthUser): Promise<Response> {
       const uniqueVisitors = uniqueVisitorsMap.get(code.refCode) || 0;
       const intakes = intakesMap.get(code.refCode) || 0;
       const conversions = conversionsMap.get(code.refCode) || 0;
-      const commission = commissionsMap.get(code.refCode) || { revenueCents: 0, commissionCents: 0 };
+      const commission = commissionsMap.get(code.refCode) || {
+        revenueCents: 0,
+        commissionCents: 0,
+      };
       const prevPeriodClicks = prevClicksMap.get(code.refCode) || 0;
 
       const conversionRate = clicks > 0 ? (conversions / clicks) * 100 : 0;
       const intakeRate = clicks > 0 ? (intakes / clicks) * 100 : 0;
-      const clickThroughRate = impressions > 0
-        ? ((clicks - impressions) / impressions) * 100
-        : 0;
+      const clickThroughRate = impressions > 0 ? ((clicks - impressions) / impressions) * 100 : 0;
 
       const trend =
         prevPeriodClicks > 0
@@ -292,7 +286,8 @@ async function handler(req: NextRequest, user: AuthUser): Promise<Response> {
       totalCommissionCents: refCodeStats.reduce((sum, c) => sum + (c.commissionCents ?? 0), 0),
       avgIntakeRate: totalClicks > 0 ? (totalIntakes / totalClicks) * 100 : 0,
       avgConversionRate: totalClicks > 0 ? (totalConversions / totalClicks) * 100 : 0,
-      avgClickThroughRate: totalImpressions > 0 ? ((totalClicks - totalImpressions) / totalImpressions) * 100 : 0,
+      avgClickThroughRate:
+        totalImpressions > 0 ? ((totalClicks - totalImpressions) / totalImpressions) * 100 : 0,
     };
 
     return NextResponse.json({

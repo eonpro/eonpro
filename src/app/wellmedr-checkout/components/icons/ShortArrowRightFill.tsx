@@ -19,12 +19,7 @@ const ShortArrowRightFill = (props: SVGProps<SVGSVGElement>) => {
       </g>
       <defs>
         <clipPath id="clip0_short_arrow">
-          <rect
-            width="20"
-            height="20"
-            fill="white"
-            transform="translate(0 0.5)"
-          />
+          <rect width="20" height="20" fill="white" transform="translate(0 0.5)" />
         </clipPath>
       </defs>
     </svg>

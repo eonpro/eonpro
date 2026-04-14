@@ -21,10 +21,13 @@ import {
 const uploadDocumentSchema = z.object({
   patientId: z.number(),
   filename: z.string().min(1),
-  mimeType: z.string().refine(
-    (type) => (ACCEPTED_DOCUMENT_UPLOAD_MIME_TYPES as readonly string[]).includes(type.toLowerCase()),
-    { message: `Unsupported file type. Accepted formats: ${ACCEPTED_DOCUMENT_UPLOAD_LABEL}` },
-  ),
+  mimeType: z
+    .string()
+    .refine(
+      (type) =>
+        (ACCEPTED_DOCUMENT_UPLOAD_MIME_TYPES as readonly string[]).includes(type.toLowerCase()),
+      { message: `Unsupported file type. Accepted formats: ${ACCEPTED_DOCUMENT_UPLOAD_LABEL}` }
+    ),
   category: z.enum([
     'MEDICAL_INTAKE_FORM',
     'MEDICAL_RECORDS',
@@ -44,256 +47,283 @@ const uploadDocumentSchema = z.object({
  * GET /api/patient-portal/documents
  * Get patient's documents
  */
-export const GET = withAuth(async (req: NextRequest, user) => {
-  try {
-    const searchParams = req.nextUrl.searchParams;
-    const patientId = searchParams.get('patientId');
-    const category = searchParams.get('category');
-
-    // For patient role, only allow access to their own documents
-    let patientIdToQuery: number;
-    let clinicIdForAudit: number | undefined;
-    if (user.role === 'patient') {
-      if (!user.patientId) {
-        return NextResponse.json({ error: 'Patient profile not found' }, { status: 404 });
-      }
-      patientIdToQuery = user.patientId;
-    } else if (patientId) {
-      patientIdToQuery = parseInt(patientId);
-      if (isNaN(patientIdToQuery)) {
-        return NextResponse.json({ error: 'Invalid patientId' }, { status: 400 });
-      }
-      // Clinic isolation: staff/admin can only list documents for patients in their clinic
-      const patient = await prisma.patient.findUnique({
-        where: { id: patientIdToQuery },
-        select: { id: true, clinicId: true },
-      });
-      if (!patient) {
-        return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
-      }
-      if (user.role !== 'super_admin' && user.clinicId != null && patient.clinicId !== user.clinicId) {
-        return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-      }
-      clinicIdForAudit = patient.clinicId ?? undefined;
-    } else {
-      return NextResponse.json({ error: 'patientId is required' }, { status: 400 });
-    }
-
-    const where: any = { patientId: patientIdToQuery };
-    if (category) {
-      const validCategories: PatientDocumentCategory[] = [
-        'MEDICAL_INTAKE_FORM', 'MEDICAL_RECORDS', 'LAB_RESULTS', 'INSURANCE',
-        'CONSENT_FORMS', 'PRESCRIPTIONS', 'IMAGING', 'ID_PHOTO', 'OTHER',
-      ];
-      if (!validCategories.includes(category as PatientDocumentCategory)) {
-        return NextResponse.json(
-          { error: 'Invalid document category', code: 'INVALID_CATEGORY' },
-          { status: 400 }
-        );
-      }
-      where.category = category as PatientDocumentCategory;
-    }
-
-    const documents = await prisma.patientDocument.findMany({
-      where,
-      select: {
-        id: true,
-        filename: true,
-        mimeType: true,
-        category: true,
-        source: true,
-        createdAt: true,
-        // Don't return the actual data for listing
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-
+export const GET = withAuth(
+  async (req: NextRequest, user) => {
     try {
-      await auditLog(req, {
-        userId: user.id,
-        userEmail: user.email,
-        userRole: user.role,
-        clinicId: clinicIdForAudit ?? user.clinicId ?? undefined,
-        eventType: AuditEventType.DOCUMENT_VIEW,
-        resourceType: 'PatientDocument',
-        resourceId: String(patientIdToQuery),
-        patientId: patientIdToQuery,
-        action: 'portal_list_documents',
-        outcome: 'SUCCESS',
-        metadata: { documentCount: documents.length },
+      const searchParams = req.nextUrl.searchParams;
+      const patientId = searchParams.get('patientId');
+      const category = searchParams.get('category');
+
+      // For patient role, only allow access to their own documents
+      let patientIdToQuery: number;
+      let clinicIdForAudit: number | undefined;
+      if (user.role === 'patient') {
+        if (!user.patientId) {
+          return NextResponse.json({ error: 'Patient profile not found' }, { status: 404 });
+        }
+        patientIdToQuery = user.patientId;
+      } else if (patientId) {
+        patientIdToQuery = parseInt(patientId);
+        if (isNaN(patientIdToQuery)) {
+          return NextResponse.json({ error: 'Invalid patientId' }, { status: 400 });
+        }
+        // Clinic isolation: staff/admin can only list documents for patients in their clinic
+        const patient = await prisma.patient.findUnique({
+          where: { id: patientIdToQuery },
+          select: { id: true, clinicId: true },
+        });
+        if (!patient) {
+          return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
+        }
+        if (
+          user.role !== 'super_admin' &&
+          user.clinicId != null &&
+          patient.clinicId !== user.clinicId
+        ) {
+          return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+        }
+        clinicIdForAudit = patient.clinicId ?? undefined;
+      } else {
+        return NextResponse.json({ error: 'patientId is required' }, { status: 400 });
+      }
+
+      const where: any = { patientId: patientIdToQuery };
+      if (category) {
+        const validCategories: PatientDocumentCategory[] = [
+          'MEDICAL_INTAKE_FORM',
+          'MEDICAL_RECORDS',
+          'LAB_RESULTS',
+          'INSURANCE',
+          'CONSENT_FORMS',
+          'PRESCRIPTIONS',
+          'IMAGING',
+          'ID_PHOTO',
+          'OTHER',
+        ];
+        if (!validCategories.includes(category as PatientDocumentCategory)) {
+          return NextResponse.json(
+            { error: 'Invalid document category', code: 'INVALID_CATEGORY' },
+            { status: 400 }
+          );
+        }
+        where.category = category as PatientDocumentCategory;
+      }
+
+      const documents = await prisma.patientDocument.findMany({
+        where,
+        select: {
+          id: true,
+          filename: true,
+          mimeType: true,
+          category: true,
+          source: true,
+          createdAt: true,
+          // Don't return the actual data for listing
+        },
+        orderBy: { createdAt: 'desc' },
       });
-    } catch (auditErr: unknown) {
-      logger.warn('Failed to create HIPAA audit log for portal documents list', {
-        patientId: patientIdToQuery,
-        userId: user.id,
-        error: auditErr instanceof Error ? auditErr.message : String(auditErr),
+
+      try {
+        await auditLog(req, {
+          userId: user.id,
+          userEmail: user.email,
+          userRole: user.role,
+          clinicId: clinicIdForAudit ?? user.clinicId ?? undefined,
+          eventType: AuditEventType.DOCUMENT_VIEW,
+          resourceType: 'PatientDocument',
+          resourceId: String(patientIdToQuery),
+          patientId: patientIdToQuery,
+          action: 'portal_list_documents',
+          outcome: 'SUCCESS',
+          metadata: { documentCount: documents.length },
+        });
+      } catch (auditErr: unknown) {
+        logger.warn('Failed to create HIPAA audit log for portal documents list', {
+          patientId: patientIdToQuery,
+          userId: user.id,
+          error: auditErr instanceof Error ? auditErr.message : String(auditErr),
+        });
+      }
+
+      return NextResponse.json({ documents });
+    } catch (error) {
+      return handleApiError(error, {
+        route: 'GET /api/patient-portal/documents',
+        context: { userId: user?.id },
       });
     }
-
-    return NextResponse.json({ documents });
-  } catch (error) {
-    return handleApiError(error, {
-      route: 'GET /api/patient-portal/documents',
-      context: { userId: user?.id },
-    });
-  }
-}, { roles: ['patient', 'admin', 'provider', 'staff', 'super_admin'] });
+  },
+  { roles: ['patient', 'admin', 'provider', 'staff', 'super_admin'] }
+);
 
 /**
  * POST /api/patient-portal/documents
  * Upload a new document
  */
-export const POST = withAuth(async (req: NextRequest, user) => {
-  try {
-    const body = await req.json();
-    const parsed = uploadDocumentSchema.safeParse(body);
+export const POST = withAuth(
+  async (req: NextRequest, user) => {
+    try {
+      const body = await req.json();
+      const parsed = uploadDocumentSchema.safeParse(body);
 
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: 'Invalid request data', details: parsed.error.issues },
-        { status: 400 }
-      );
-    }
-
-    // For patient role, only allow upload to their own profile
-    let patientId = parsed.data.patientId;
-    if (user.role === 'patient') {
-      if (!user.patientId) {
-        return NextResponse.json({ error: 'Patient profile not found' }, { status: 404 });
+      if (!parsed.success) {
+        return NextResponse.json(
+          { error: 'Invalid request data', details: parsed.error.issues },
+          { status: 400 }
+        );
       }
-      patientId = user.patientId;
-    }
 
-    // Verify patient exists
-    const patient = await prisma.patient.findUnique({
-      where: { id: patientId },
-      select: { id: true, clinicId: true },
-    });
-
-    if (!patient) {
-      return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
-    }
-
-    // Validate file size (if base64 data provided)
-    if (parsed.data.data) {
-      const sizeInBytes = Buffer.from(parsed.data.data, 'base64').length;
-      const maxSize = 10 * 1024 * 1024; // 10MB
-      if (sizeInBytes > maxSize) {
-        return NextResponse.json({ error: 'File size exceeds 10MB limit' }, { status: 400 });
+      // For patient role, only allow upload to their own profile
+      let patientId = parsed.data.patientId;
+      if (user.role === 'patient') {
+        if (!user.patientId) {
+          return NextResponse.json({ error: 'Patient profile not found' }, { status: 404 });
+        }
+        patientId = user.patientId;
       }
-    }
 
-    // Dual-write: S3 + DB for binary uploads (Phase 4A)
-    let dataToStore: Buffer | null = null;
-    let s3DataKey: string | null = null;
+      // Verify patient exists
+      const patient = await prisma.patient.findUnique({
+        where: { id: patientId },
+        select: { id: true, clinicId: true },
+      });
 
-    if (parsed.data.data) {
-      const rawBuffer = Buffer.from(parsed.data.data, 'base64');
-      const pdfResult = await storePdfData(rawBuffer, {
+      if (!patient) {
+        return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
+      }
+
+      // Validate file size (if base64 data provided)
+      if (parsed.data.data) {
+        const sizeInBytes = Buffer.from(parsed.data.data, 'base64').length;
+        const maxSize = 10 * 1024 * 1024; // 10MB
+        if (sizeInBytes > maxSize) {
+          return NextResponse.json({ error: 'File size exceeds 10MB limit' }, { status: 400 });
+        }
+      }
+
+      // Dual-write: S3 + DB for binary uploads (Phase 4A)
+      let dataToStore: Buffer | null = null;
+      let s3DataKey: string | null = null;
+
+      if (parsed.data.data) {
+        const rawBuffer = Buffer.from(parsed.data.data, 'base64');
+        const pdfResult = await storePdfData(rawBuffer, {
+          patientId,
+          clinicId: patient.clinicId,
+          filename: parsed.data.filename,
+        });
+        dataToStore = pdfResult.dataBuffer;
+        s3DataKey = pdfResult.s3DataKey;
+      }
+
+      const document = await prisma.patientDocument.create({
+        data: {
+          patientId,
+          clinicId: patient.clinicId,
+          filename: parsed.data.filename,
+          mimeType: parsed.data.mimeType,
+          category: parsed.data.category as PatientDocumentCategory,
+          source: 'patient_upload',
+          data: dataToStore ? new Uint8Array(dataToStore) : null,
+          s3DataKey,
+          externalUrl: parsed.data.externalUrl,
+        },
+        select: {
+          id: true,
+          filename: true,
+          mimeType: true,
+          category: true,
+          createdAt: true,
+        },
+      });
+
+      logger.info('Patient document uploaded', {
+        documentId: document.id,
         patientId,
-        clinicId: patient.clinicId,
+        category: parsed.data.category,
+        uploadedBy: user.id,
+      });
+
+      await logPHICreate(req, user, 'PatientDocument', String(document.id), patientId, {
+        category: parsed.data.category,
         filename: parsed.data.filename,
       });
-      dataToStore = pdfResult.dataBuffer;
-      s3DataKey = pdfResult.s3DataKey;
+
+      return NextResponse.json({ document }, { status: 201 });
+    } catch (error) {
+      return handleApiError(error, {
+        route: 'POST /api/patient-portal/documents',
+        context: { userId: user?.id },
+      });
     }
-
-    const document = await prisma.patientDocument.create({
-      data: {
-        patientId,
-        clinicId: patient.clinicId,
-        filename: parsed.data.filename,
-        mimeType: parsed.data.mimeType,
-        category: parsed.data.category as PatientDocumentCategory,
-        source: 'patient_upload',
-        data: dataToStore ? new Uint8Array(dataToStore) : null,
-        s3DataKey,
-        externalUrl: parsed.data.externalUrl,
-      },
-      select: {
-        id: true,
-        filename: true,
-        mimeType: true,
-        category: true,
-        createdAt: true,
-      },
-    });
-
-    logger.info('Patient document uploaded', {
-      documentId: document.id,
-      patientId,
-      category: parsed.data.category,
-      uploadedBy: user.id,
-    });
-
-    await logPHICreate(req, user, 'PatientDocument', String(document.id), patientId, {
-      category: parsed.data.category,
-      filename: parsed.data.filename,
-    });
-
-    return NextResponse.json({ document }, { status: 201 });
-  } catch (error) {
-    return handleApiError(error, {
-      route: 'POST /api/patient-portal/documents',
-      context: { userId: user?.id },
-    });
-  }
-}, { roles: ['patient', 'admin', 'provider', 'staff', 'super_admin'] });
+  },
+  { roles: ['patient', 'admin', 'provider', 'staff', 'super_admin'] }
+);
 
 /**
  * DELETE /api/patient-portal/documents
  * Delete a document (patients can only delete their own uploads)
  */
-export const DELETE = withAuth(async (req: NextRequest, user) => {
-  try {
-    const searchParams = req.nextUrl.searchParams;
-    const documentId = searchParams.get('documentId');
+export const DELETE = withAuth(
+  async (req: NextRequest, user) => {
+    try {
+      const searchParams = req.nextUrl.searchParams;
+      const documentId = searchParams.get('documentId');
 
-    if (!documentId) {
-      return NextResponse.json({ error: 'documentId is required' }, { status: 400 });
-    }
-
-    const document = await prisma.patientDocument.findUnique({
-      where: { id: parseInt(documentId) },
-      select: { id: true, patientId: true, clinicId: true, source: true },
-    });
-
-    if (!document) {
-      return NextResponse.json({ error: 'Document not found' }, { status: 404 });
-    }
-
-    if (user.role === 'patient') {
-      if (document.patientId !== user.patientId) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+      if (!documentId) {
+        return NextResponse.json({ error: 'documentId is required' }, { status: 400 });
       }
-      if (document.source !== 'patient_upload') {
-        return NextResponse.json(
-          { error: 'You can only delete documents you uploaded' },
-          { status: 403 }
-        );
+
+      const document = await prisma.patientDocument.findUnique({
+        where: { id: parseInt(documentId) },
+        select: { id: true, patientId: true, clinicId: true, source: true },
+      });
+
+      if (!document) {
+        return NextResponse.json({ error: 'Document not found' }, { status: 404 });
       }
-    } else if (user.role !== 'super_admin') {
-      if (user.clinicId != null && document.clinicId !== user.clinicId) {
-        return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+
+      if (user.role === 'patient') {
+        if (document.patientId !== user.patientId) {
+          return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+        }
+        if (document.source !== 'patient_upload') {
+          return NextResponse.json(
+            { error: 'You can only delete documents you uploaded' },
+            { status: 403 }
+          );
+        }
+      } else if (user.role !== 'super_admin') {
+        if (user.clinicId != null && document.clinicId !== user.clinicId) {
+          return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+        }
       }
+
+      await prisma.patientDocument.delete({
+        where: { id: parseInt(documentId) },
+      });
+
+      logger.info('Patient document deleted', {
+        documentId,
+        deletedBy: user.id,
+      });
+
+      await logPHIDelete(
+        req,
+        user,
+        'PatientDocument',
+        documentId,
+        document.patientId,
+        'Patient portal deletion'
+      );
+
+      return NextResponse.json({ success: true });
+    } catch (error) {
+      return handleApiError(error, {
+        route: 'DELETE /api/patient-portal/documents',
+        context: { userId: user?.id },
+      });
     }
-
-    await prisma.patientDocument.delete({
-      where: { id: parseInt(documentId) },
-    });
-
-    logger.info('Patient document deleted', {
-      documentId,
-      deletedBy: user.id,
-    });
-
-    await logPHIDelete(req, user, 'PatientDocument', documentId, document.patientId, 'Patient portal deletion');
-
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    return handleApiError(error, {
-      route: 'DELETE /api/patient-portal/documents',
-      context: { userId: user?.id },
-    });
-  }
-}, { roles: ['patient', 'admin', 'provider', 'staff', 'super_admin'] });
+  },
+  { roles: ['patient', 'admin', 'provider', 'staff', 'super_admin'] }
+);

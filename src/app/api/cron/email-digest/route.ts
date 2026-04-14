@@ -67,9 +67,7 @@ async function processEmailDigests(req: NextRequest) {
     const { results, totalDurationMs } = await runCronPerTenant<PerClinicResult>({
       jobName: 'email-digest',
       perClinic: async (clinicId) => {
-        return runWithClinicContext(clinicId, () =>
-          processDigestsForClinic(clinicId, oneWeekAgo)
-        );
+        return runWithClinicContext(clinicId, () => processDigestsForClinic(clinicId, oneWeekAgo));
       },
     });
 
@@ -101,7 +99,10 @@ async function processEmailDigests(req: NextRequest) {
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('[Email Digest] Cron job failed', { error: errorMessage, elapsedMs: Date.now() - startTime });
+    logger.error('[Email Digest] Cron job failed', {
+      error: errorMessage,
+      elapsedMs: Date.now() - startTime,
+    });
     return NextResponse.json(
       { success: false, error: errorMessage, elapsedMs: Date.now() - startTime },
       { status: 500 }
@@ -205,7 +206,11 @@ async function processDigestsForClinic(
           highPriorityCount,
           categorySummaries,
           weekStart: oneWeekAgo.toLocaleDateString('en-US', { month: 'long', day: 'numeric' }),
-          weekEnd: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+          weekEnd: new Date().toLocaleDateString('en-US', {
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric',
+          }),
           dashboardUrl: `${process.env.NEXT_PUBLIC_APP_URL}/notifications`,
           subject: `Weekly Digest: ${notifications.length} unread notification${notifications.length === 1 ? '' : 's'}`,
           content: buildDigestContent(
@@ -237,7 +242,10 @@ async function processDigestsForClinic(
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       result.failed++;
       result.errors.push(`User ${user.id}: ${errorMessage}`);
-      logger.error('[Email Digest] Error processing user', { userId: user.id, error: errorMessage });
+      logger.error('[Email Digest] Error processing user', {
+        userId: user.id,
+        error: errorMessage,
+      });
     }
   }
 

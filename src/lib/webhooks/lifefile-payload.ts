@@ -53,10 +53,7 @@ function normalizeId(value: unknown): string | null {
 /**
  * Extract first non-null string from object for given keys.
  */
-function extractFrom(
-  obj: Record<string, unknown>,
-  keys: readonly string[]
-): string | null {
+function extractFrom(obj: Record<string, unknown>, keys: readonly string[]): string | null {
   for (const key of keys) {
     const s = normalizeId(obj[key]);
     if (s) return s;
@@ -67,7 +64,10 @@ function extractFrom(
 /**
  * Get a nested object from payload; returns null if not a non-array object.
  */
-function getNestedObject(payload: Record<string, unknown>, key: string): Record<string, unknown> | null {
+function getNestedObject(
+  payload: Record<string, unknown>,
+  key: string
+): Record<string, unknown> | null {
   const val = payload[key];
   if (val == null || typeof val !== 'object' || Array.isArray(val)) return null;
   return val as Record<string, unknown>;

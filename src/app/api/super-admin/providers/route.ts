@@ -158,7 +158,10 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
     // When searching, sort by relevance so the best match appears first
     const sortedProviders = search
       ? sortBySearchRelevance(providersWithStats, search, (p) => [
-          p.firstName ?? '', p.lastName ?? '', p.npi ?? '', p.email ?? '',
+          p.firstName ?? '',
+          p.lastName ?? '',
+          p.npi ?? '',
+          p.email ?? '',
         ])
       : providersWithStats;
 
@@ -179,7 +182,10 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
   } catch (error: unknown) {
     logger.error('[SUPER-ADMIN/PROVIDERS] Error fetching providers:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch providers', details: error instanceof Error ? error.message : String(error) },
+      {
+        error: 'Failed to fetch providers',
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 }
     );
   }
@@ -220,12 +226,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
       for (let i = 0; i < body.clinicIds.length; i++) {
         const cId = body.clinicIds[i];
         await runWithClinicContext(cId, () =>
-          providerService.assignToClinic(
-            provider.id,
-            cId,
-            { isPrimary: i === 0 },
-            userContext
-          )
+          providerService.assignToClinic(provider.id, cId, { isPrimary: i === 0 }, userContext)
         );
       }
     }
@@ -233,16 +234,19 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
     // If licenses array provided, create ProviderLicense records
     if (body.licenses && Array.isArray(body.licenses) && body.licenses.length > 0) {
       const validLicenses = body.licenses
-        .filter((l: { state?: string; licenseNumber?: string; expiresAt?: string }) =>
-          l.state && l.licenseNumber && l.expiresAt
+        .filter(
+          (l: { state?: string; licenseNumber?: string; expiresAt?: string }) =>
+            l.state && l.licenseNumber && l.expiresAt
         )
-        .map((l: { state: string; licenseNumber: string; expiresAt: string; issuedAt?: string }) => ({
-          providerId: provider.id,
-          state: l.state.trim().toUpperCase().slice(0, 2),
-          licenseNumber: l.licenseNumber.trim(),
-          expiresAt: new Date(l.expiresAt),
-          issuedAt: l.issuedAt ? new Date(l.issuedAt) : null,
-        }));
+        .map(
+          (l: { state: string; licenseNumber: string; expiresAt: string; issuedAt?: string }) => ({
+            providerId: provider.id,
+            state: l.state.trim().toUpperCase().slice(0, 2),
+            licenseNumber: l.licenseNumber.trim(),
+            expiresAt: new Date(l.expiresAt),
+            issuedAt: l.issuedAt ? new Date(l.issuedAt) : null,
+          })
+        );
 
       if (validLicenses.length > 0) {
         try {
@@ -292,17 +296,28 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
     // Handle specific error types
     if ((error as any).code === 'CONFLICT') {
       return NextResponse.json(
-        { error: error instanceof Error ? error.message : String(error) || 'NPI already registered' },
+        {
+          error: error instanceof Error ? error.message : String(error) || 'NPI already registered',
+        },
         { status: 409 }
       );
     }
 
     if ((error as any).code === 'VALIDATION_ERROR') {
-      return NextResponse.json({ error: error instanceof Error ? error.message : String(error), details: (error as any).details }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: error instanceof Error ? error.message : String(error),
+          details: (error as any).details,
+        },
+        { status: 400 }
+      );
     }
 
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : String(error) || 'Failed to create provider' },
+      {
+        error:
+          error instanceof Error ? error.message : String(error) || 'Failed to create provider',
+      },
       { status: 500 }
     );
   }

@@ -11,11 +11,7 @@ const patchSchema = z.object({
   assignedClinicId: z.number().int().positive().nullable().optional(),
 });
 
-async function patchHandler(
-  req: NextRequest,
-  user: AuthUser,
-  context?: unknown,
-) {
+async function patchHandler(req: NextRequest, user: AuthUser, context?: unknown) {
   try {
     const ctx = context as { params: Promise<{ id: string }> };
     const { id } = await ctx.params;
@@ -54,7 +50,10 @@ async function patchHandler(
           select: { id: true },
         });
         if (!clinic) {
-          return NextResponse.json({ error: 'Assigned clinic not found or inactive' }, { status: 400 });
+          return NextResponse.json(
+            { error: 'Assigned clinic not found or inactive' },
+            { status: 400 }
+          );
         }
       }
       updateData.assignedClinicId = validated.assignedClinicId;

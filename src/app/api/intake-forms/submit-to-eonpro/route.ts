@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { IntakeProcessor } from '@/lib/webhooks/intake-processor';
 import { basePrisma, runWithClinicContext } from '@/lib/db';
-import type { NormalizedIntake, NormalizedPatient, IntakeSection, IntakeEntry } from '@/lib/medlink/types';
+import type {
+  NormalizedIntake,
+  NormalizedPatient,
+  IntakeSection,
+  IntakeEntry,
+} from '@/lib/medlink/types';
 
 /**
  * POST /api/intake-forms/submit-to-eonpro
@@ -128,7 +133,7 @@ const VALUE_TRANSLATIONS: Record<string, Record<string, string>> = {
     es: 'Spanish',
   },
   medication_preference: {
-    recommendation: 'I\'d like a recommendation from a provider',
+    recommendation: "I'd like a recommendation from a provider",
     have_in_mind: 'I already have a medication in mind',
   },
   pregnancy_status: {
@@ -187,7 +192,7 @@ const VALUE_TRANSLATIONS: Record<string, Record<string, string>> = {
     heartburn: 'Chronic heartburn / GERD',
     gastroparesis: 'Gastroparesis',
     ulcer: 'Stomach ulcer',
-    crohns: 'Crohn\'s disease',
+    crohns: "Crohn's disease",
     colitis: 'Ulcerative colitis',
     diverticulitis: 'Diverticulitis',
   },
@@ -256,13 +261,13 @@ const VALUE_TRANSLATIONS: Record<string, Record<string, string>> = {
     reduce: 'I would like to reduce my dosage',
   },
   dosage_interest: {
-    yes: 'Yes, I\'m interested in a personalized dosage plan',
+    yes: "Yes, I'm interested in a personalized dosage plan",
     no: 'No, I prefer a standard dosage',
-    not_sure: 'Not sure yet — I\'d like to discuss with a provider',
+    not_sure: "Not sure yet — I'd like to discuss with a provider",
   },
   alcohol_consumption: {
-    none: 'I don\'t drink alcohol',
-    never: 'I don\'t drink alcohol',
+    none: "I don't drink alcohol",
+    never: "I don't drink alcohol",
     rarely: 'Rarely (a few times a month)',
     few_times_year: 'Rarely (a few times a year)',
     few_times_month: 'Occasionally (a few times a month)',
@@ -275,7 +280,7 @@ const VALUE_TRANSLATIONS: Record<string, Record<string, string>> = {
   common_side_effects: {
     yes: 'Yes, I am concerned about potential side effects',
     no: 'No, I am not concerned about side effects',
-    not_sure: 'I\'d like more information about side effects',
+    not_sure: "I'd like more information about side effects",
     gastrointestinal: 'Gastrointestinal issues',
     abdominal_pain: 'Abdominal pain',
     appetite_decrease: 'Decreased appetite',
@@ -391,9 +396,7 @@ function formatValue(key: string, val: unknown): string {
 }
 
 // Keys to exclude from answers (internal-only, not useful for display)
-const EXCLUDE_KEYS = new Set([
-  'fullAddress', 'addressState', 'lab_file', 'lab_file_type',
-]);
+const EXCLUDE_KEYS = new Set(['fullAddress', 'addressState', 'lab_file', 'lab_file_type']);
 
 export async function POST(req: NextRequest) {
   const requestId = crypto.randomUUID();
@@ -416,19 +419,20 @@ export async function POST(req: NextRequest) {
     }
 
     // Capture IP and user-agent
-    const ipAddress = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-      || req.headers.get('x-real-ip')
-      || 'unknown';
+    const ipAddress =
+      req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+      req.headers.get('x-real-ip') ||
+      'unknown';
     const userAgent = req.headers.get('user-agent') || 'unknown';
 
     // Resolve clinic — support OT, WellMedR, and EONMeds
     const isOtClinic = clinicSlug === 'ot' || clinicSlug === 'otmens';
-    const targetSubdomain = isOtClinic ? OT_SUBDOMAIN
-      : clinicSlug === 'wellmedr' ? WELLMEDR_SUBDOMAIN
-      : EONMEDS_SUBDOMAIN;
-    const targetName = isOtClinic ? 'OVERTIME'
-      : clinicSlug === 'wellmedr' ? 'WELLMEDR'
-      : 'EONMEDS';
+    const targetSubdomain = isOtClinic
+      ? OT_SUBDOMAIN
+      : clinicSlug === 'wellmedr'
+        ? WELLMEDR_SUBDOMAIN
+        : EONMEDS_SUBDOMAIN;
+    const targetName = isOtClinic ? 'OVERTIME' : clinicSlug === 'wellmedr' ? 'WELLMEDR' : 'EONMEDS';
 
     const clinic = await basePrisma.clinic.findFirst({
       where: {
@@ -472,10 +476,17 @@ export async function POST(req: NextRequest) {
     const patient: NormalizedPatient = {
       firstName: String(responses.firstName || 'Unknown'),
       lastName: String(responses.lastName || 'Unknown'),
-      email: String(responses.email || '').toLowerCase().trim(),
+      email: String(responses.email || '')
+        .toLowerCase()
+        .trim(),
       phone: String(responses.phone || '').replace(/\D/g, ''),
       dob: String(responses.dob || ''),
-      gender: responses.sex === 'female' ? 'Female' : responses.sex === 'male' ? 'Male' : String(responses.sex || ''),
+      gender:
+        responses.sex === 'female'
+          ? 'Female'
+          : responses.sex === 'male'
+            ? 'Male'
+            : String(responses.sex || ''),
       address1: apt ? `${streetAddr}, ${apt}` : streetAddr,
       address2: '',
       city,
@@ -500,7 +511,13 @@ export async function POST(req: NextRequest) {
       if (!formatted) continue;
       answers.push({
         id: key,
-        label: FIELD_LABELS[key] || key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()).trim(),
+        label:
+          FIELD_LABELS[key] ||
+          key
+            .replace(/([A-Z])/g, ' $1')
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, (c) => c.toUpperCase())
+            .trim(),
         value: formatted,
         rawValue: value,
       });
@@ -511,7 +528,19 @@ export async function POST(req: NextRequest) {
       {
         title: 'Patient Information',
         entries: answers.filter((a) =>
-          ['firstName', 'lastName', 'email', 'phone', 'dob', 'sex', 'state', 'street', 'apartment', 'addressCity', 'addressZipCode'].includes(a.id)
+          [
+            'firstName',
+            'lastName',
+            'email',
+            'phone',
+            'dob',
+            'sex',
+            'state',
+            'street',
+            'apartment',
+            'addressCity',
+            'addressZipCode',
+          ].includes(a.id)
         ),
       },
       {
@@ -527,58 +556,112 @@ export async function POST(req: NextRequest) {
       {
         title: 'Medical History',
         entries: answers.filter((a) =>
-          ['pregnancy_status', 'activity_level', 'has_mental_health', 'mental_health_conditions',
-           'has_chronic_conditions', 'chronic_conditions_detail', 'digestive_conditions',
-           'has_kidney_conditions', 'had_surgery', 'surgery_types'].includes(a.id)
+          [
+            'pregnancy_status',
+            'activity_level',
+            'has_mental_health',
+            'mental_health_conditions',
+            'has_chronic_conditions',
+            'chronic_conditions_detail',
+            'digestive_conditions',
+            'has_kidney_conditions',
+            'had_surgery',
+            'surgery_types',
+          ].includes(a.id)
         ),
       },
       {
         title: 'GLP-1 Medications',
         entries: answers.filter((a) =>
-          ['glp1_history', 'glp1_type', 'semaglutide_dosage', 'semaglutide_side_effects',
-           'semaglutide_success', 'tirzepatide_dosage', 'tirzepatide_side_effects',
-           'tirzepatide_success', 'dosage_satisfaction', 'medication_preference'].includes(a.id)
+          [
+            'glp1_history',
+            'glp1_type',
+            'semaglutide_dosage',
+            'semaglutide_side_effects',
+            'semaglutide_success',
+            'tirzepatide_dosage',
+            'tirzepatide_side_effects',
+            'tirzepatide_success',
+            'dosage_satisfaction',
+            'medication_preference',
+          ].includes(a.id)
         ),
       },
       {
         title: 'Peptide Therapy',
         entries: answers.filter((a) =>
-          ['peptide_symptoms', 'peptide_therapy', 'sermorelin_goals', 'optimize_goals',
-           'sermorelin_medications', 'has_prescription_meds', 'prescription_details',
-           'vitamin_b12_deficiency', 'has_medical_conditions', 'sermorelin_conditions',
-           'cancer_treatment', 'recent_lab_work'].includes(a.id)
+          [
+            'peptide_symptoms',
+            'peptide_therapy',
+            'sermorelin_goals',
+            'optimize_goals',
+            'sermorelin_medications',
+            'has_prescription_meds',
+            'prescription_details',
+            'vitamin_b12_deficiency',
+            'has_medical_conditions',
+            'sermorelin_conditions',
+            'cancer_treatment',
+            'recent_lab_work',
+          ].includes(a.id)
         ),
       },
       {
         title: 'Testosterone Replacement Therapy',
         entries: answers.filter((a) =>
-          ['trt_symptoms', 'trt_interest', 'trt_goals', 'prior_testosterone',
-           'trt_type', 'trt_dose', 'blood_work_checked', 'blood_work_results',
-           'prostate_health', 'blood_clot_history', 'sleep_apnea',
-           'heart_conditions', 'fertility_concerns', 'lab_file_name'].includes(a.id)
+          [
+            'trt_symptoms',
+            'trt_interest',
+            'trt_goals',
+            'prior_testosterone',
+            'trt_type',
+            'trt_dose',
+            'blood_work_checked',
+            'blood_work_results',
+            'prostate_health',
+            'blood_clot_history',
+            'sleep_apnea',
+            'heart_conditions',
+            'fertility_concerns',
+            'lab_file_name',
+          ].includes(a.id)
         ),
       },
       {
         title: 'Lifestyle',
         entries: answers.filter((a) =>
-          ['recreational_drugs', 'weight_loss_methods', 'weight_loss_support',
-           'dosage_interest', 'alcohol_consumption', 'common_side_effects', 'goals',
-           'health_improvements', 'lifestyle_factors', 'has_allergies', 'allergy_details'].includes(a.id)
+          [
+            'recreational_drugs',
+            'weight_loss_methods',
+            'weight_loss_support',
+            'dosage_interest',
+            'alcohol_consumption',
+            'common_side_effects',
+            'goals',
+            'health_improvements',
+            'lifestyle_factors',
+            'has_allergies',
+            'allergy_details',
+          ].includes(a.id)
         ),
       },
       {
         title: 'Referral',
-        entries: answers.filter((a) =>
-          ['referral_source', 'referrer_name'].includes(a.id)
-        ),
+        entries: answers.filter((a) => ['referral_source', 'referrer_name'].includes(a.id)),
       },
       {
         title: 'Consent & Acknowledgments',
         entries: [
           ...answers.filter((a) =>
-            ['terms_of_use_accepted', 'consent_privacy_policy_accepted', 'telehealth_consent_accepted',
-             'cancellation_policy_accepted', 'smsConsentAccepted', 'contact_consent',
-             'terms_of_use_accepted_at'].includes(a.id)
+            [
+              'terms_of_use_accepted',
+              'consent_privacy_policy_accepted',
+              'telehealth_consent_accepted',
+              'cancellation_policy_accepted',
+              'smsConsentAccepted',
+              'contact_consent',
+              'terms_of_use_accepted_at',
+            ].includes(a.id)
           ),
           { id: 'ipAddress', label: 'IP Address', value: ipAddress, rawValue: ipAddress },
           { id: 'userAgent', label: 'Device/Browser', value: userAgent, rawValue: userAgent },
@@ -594,7 +677,9 @@ export async function POST(req: NextRequest) {
       answers,
     };
 
-    logger.info(`[submit-to-eonpro ${requestId}] Built NormalizedIntake: ${answers.length} answers, patient: ${patient.firstName} ${patient.lastName} <${patient.email}>, address: ${patient.address1}, ${patient.city}, ${patient.state} ${patient.zip}`);
+    logger.info(
+      `[submit-to-eonpro ${requestId}] Built NormalizedIntake: ${answers.length} answers, patient: ${patient.firstName} ${patient.lastName} <${patient.email}>, address: ${patient.address1}, ${patient.city}, ${patient.state} ${patient.zip}`
+    );
 
     const processor = new IntakeProcessor({ source: 'eonpro', requestId });
 
@@ -604,8 +689,8 @@ export async function POST(req: NextRequest) {
     const intakeTypeTags = isPeptideIntake
       ? ['peptide-therapy-intake', 'sermorelin']
       : isTRTIntake
-      ? ['trt-intake', 'testosterone']
-      : ['weightlossintake', 'glp1'];
+        ? ['trt-intake', 'testosterone']
+        : ['weightlossintake', 'glp1'];
 
     const result = await runWithClinicContext(clinic.id, () =>
       processor.process(normalized, {
@@ -622,9 +707,14 @@ export async function POST(req: NextRequest) {
     const duration = Date.now() - startTime;
 
     if (result.success) {
-      logger.info(`[submit-to-eonpro ${requestId}] SUCCESS in ${duration}ms — patient ${result.patient.patientId} (ID: ${result.patient.id}), new: ${result.patient.isNew}, doc: ${result.document?.id}, soap: ${result.soapNote?.id}`);
+      logger.info(
+        `[submit-to-eonpro ${requestId}] SUCCESS in ${duration}ms — patient ${result.patient.patientId} (ID: ${result.patient.id}), new: ${result.patient.isNew}, doc: ${result.document?.id}, soap: ${result.soapNote?.id}`
+      );
     } else {
-      logger.warn(`[submit-to-eonpro ${requestId}] Partial success with ${result.errors.length} errors in ${duration}ms`, { errors: result.errors });
+      logger.warn(
+        `[submit-to-eonpro ${requestId}] Partial success with ${result.errors.length} errors in ${duration}ms`,
+        { errors: result.errors }
+      );
     }
 
     return NextResponse.json({
@@ -647,7 +737,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(
       { error: 'Submission failed', message: errMsg, requestId },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

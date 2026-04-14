@@ -163,10 +163,7 @@ export interface MappedWeightLog {
   notes: string | null;
 }
 
-export function mapBodyToWeightLogs(
-  items: TerraBodyData[],
-  provider: string
-): MappedWeightLog[] {
+export function mapBodyToWeightLogs(items: TerraBodyData[], provider: string): MappedWeightLog[] {
   const results: MappedWeightLog[] = [];
 
   for (const item of items) {
@@ -225,13 +222,10 @@ export function mapActivityToExerciseLogs(
     if (durationMin <= 0) continue;
 
     const cal = safeInt(item.calories);
-    const steps =
-      safeInt(item.movement_data?.steps_data?.steps) ?? null;
-    const dist =
-      metersToMiles(
-        item.distance_data?.summary?.distance_meters ??
-          item.distance_data?.detailed?.distance_meters
-      );
+    const steps = safeInt(item.movement_data?.steps_data?.steps) ?? null;
+    const dist = metersToMiles(
+      item.distance_data?.summary?.distance_meters ?? item.distance_data?.detailed?.distance_meters
+    );
 
     results.push({
       activityType: (item.name || 'workout').toLowerCase(),
@@ -264,15 +258,13 @@ export interface MappedSleepLog {
   recordedAt: Date;
 }
 
-export function mapSleepToSleepLogs(
-  items: TerraSleepData[],
-  provider: string
-): MappedSleepLog[] {
+export function mapSleepToSleepLogs(items: TerraSleepData[], provider: string): MappedSleepLog[] {
   const results: MappedSleepLog[] = [];
 
   for (const item of items) {
-    const durationMin =
-      secondsToMinutes(item.duration_asleep_seconds ?? item.duration_in_bed_seconds);
+    const durationMin = secondsToMinutes(
+      item.duration_asleep_seconds ?? item.duration_in_bed_seconds
+    );
     if (!durationMin || durationMin <= 0) continue;
 
     const durations = item.sleep_durations_data;
@@ -386,8 +378,7 @@ export function mapDailyToExerciseLogs(
   for (const item of items) {
     const steps = safeInt(item.steps);
     const cal = safeInt(
-      item.calories_data?.net_activity_calories ??
-        item.calories_data?.total_burned_calories
+      item.calories_data?.net_activity_calories ?? item.calories_data?.total_burned_calories
     );
 
     if (!steps && !cal) continue;

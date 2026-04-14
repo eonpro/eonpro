@@ -148,9 +148,7 @@ export default function DevicesPage() {
     setDisconnectingId(deviceId);
     const prevDevices = [...devices];
 
-    setDevices((prev) =>
-      prev.map((d) => (d.id === deviceId ? { ...d, isActive: false } : d))
-    );
+    setDevices((prev) => prev.map((d) => (d.id === deviceId ? { ...d, isActive: false } : d)));
 
     try {
       const res = await portalFetch('/api/patient-portal/devices', {
@@ -175,41 +173,37 @@ export default function DevicesPage() {
   const inactiveDevices = devices.filter((d) => !d.isActive);
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-8">
+    <div className="mx-auto max-w-4xl space-y-8 px-4 py-6 sm:px-6">
       {/* Header */}
       <div>
-        <div className="flex items-center gap-2 mb-1">
+        <div className="mb-1 flex items-center gap-2">
           <Link
             href="/patient-portal/settings"
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-gray-400 transition-colors hover:text-gray-600"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="h-5 w-5" />
           </Link>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Connected Devices
-          </h1>
+          <h1 className="text-2xl font-bold text-gray-900">Connected Devices</h1>
         </div>
-        <p className="text-gray-500 ml-7">
+        <p className="ml-7 text-gray-500">
           Sync health data from your wearable devices automatically
         </p>
       </div>
 
       {/* What gets synced */}
-      <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-6 border border-indigo-100">
-        <h2 className="text-sm font-semibold text-indigo-900 mb-3 uppercase tracking-wide">
+      <div className="rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50 to-purple-50 p-6">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-indigo-900">
           What gets synced
         </h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
           {DATA_TYPES.map((dt) => (
             <div
               key={dt.label}
-              className="flex flex-col items-center text-center p-3 bg-white/60 rounded-xl"
+              className="flex flex-col items-center rounded-xl bg-white/60 p-3 text-center"
             >
-              <dt.icon className="w-6 h-6 text-indigo-600 mb-1.5" />
-              <span className="text-sm font-medium text-gray-900">
-                {dt.label}
-              </span>
-              <span className="text-xs text-gray-500 mt-0.5">{dt.desc}</span>
+              <dt.icon className="mb-1.5 h-6 w-6 text-indigo-600" />
+              <span className="text-sm font-medium text-gray-900">{dt.label}</span>
+              <span className="mt-0.5 text-xs text-gray-500">{dt.desc}</span>
             </div>
           ))}
         </div>
@@ -217,13 +211,10 @@ export default function DevicesPage() {
 
       {/* Error state */}
       {error && (
-        <div className="bg-red-50 text-red-700 p-4 rounded-xl flex items-center gap-3">
-          <XCircle className="w-5 h-5 flex-shrink-0" />
+        <div className="flex items-center gap-3 rounded-xl bg-red-50 p-4 text-red-700">
+          <XCircle className="h-5 w-5 flex-shrink-0" />
           <span>{error}</span>
-          <button
-            onClick={loadDevices}
-            className="ml-auto text-sm underline hover:no-underline"
-          >
+          <button onClick={loadDevices} className="ml-auto text-sm underline hover:no-underline">
             Retry
           </button>
         </div>
@@ -232,7 +223,7 @@ export default function DevicesPage() {
       {/* Loading */}
       {loading && (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+          <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
         </div>
       )}
 
@@ -250,33 +241,31 @@ export default function DevicesPage() {
             </h2>
             <button
               onClick={loadDevices}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
+              className="text-gray-400 transition-colors hover:text-gray-600"
               title="Refresh"
             >
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className="h-4 w-4" />
             </button>
           </div>
 
           {activeDevices.length === 0 && !error && (
-            <div className="text-center py-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
-              <Watch className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <h3 className="text-lg font-medium text-gray-700 mb-1">
-                No devices connected
-              </h3>
-              <p className="text-gray-500 text-sm mb-5 max-w-sm mx-auto">
-                Connect your Fitbit, Garmin, Oura Ring, Withings, or other
-                wearable to automatically sync your health data.
+            <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 py-12 text-center">
+              <Watch className="mx-auto mb-3 h-12 w-12 text-gray-300" />
+              <h3 className="mb-1 text-lg font-medium text-gray-700">No devices connected</h3>
+              <p className="mx-auto mb-5 max-w-sm text-sm text-gray-500">
+                Connect your Fitbit, Garmin, Oura Ring, Withings, or other wearable to automatically
+                sync your health data.
               </p>
               <button
                 onClick={handleConnect}
                 disabled={connecting}
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-white font-medium shadow-lg hover:shadow-xl transition-all disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-xl px-6 py-3 font-medium text-white shadow-lg transition-all hover:shadow-xl disabled:opacity-50"
                 style={{ backgroundColor: primaryColor }}
               >
                 {connecting ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
-                  <Plus className="w-5 h-5" />
+                  <Plus className="h-5 w-5" />
                 )}
                 {connecting ? 'Connecting...' : 'Connect Device'}
               </button>
@@ -288,34 +277,32 @@ export default function DevicesPage() {
               {activeDevices.map((device) => (
                 <div
                   key={device.id}
-                  className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow"
+                  className="flex items-center gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
                 >
-                  <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center text-2xl">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-50 text-2xl">
                     {PROVIDER_ICONS[device.provider] || '⌚'}
                   </div>
-                  <div className="flex-1 min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-gray-900">
-                        {device.providerLabel}
-                      </h3>
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
-                        <Wifi className="w-3 h-3" />
+                      <h3 className="font-semibold text-gray-900">{device.providerLabel}</h3>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                        <Wifi className="h-3 w-3" />
                         Connected
                       </span>
                     </div>
-                    <p className="text-sm text-gray-500 mt-0.5">
+                    <p className="mt-0.5 text-sm text-gray-500">
                       Last synced: {formatLastSync(device.lastSyncAt)}
                     </p>
                   </div>
                   <button
                     onClick={() => handleDisconnect(device.id)}
                     disabled={disconnectingId === device.id}
-                    className="flex items-center gap-1.5 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                    className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
                   >
                     {disconnectingId === device.id ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="h-4 w-4" />
                     )}
                     Disconnect
                   </button>
@@ -326,12 +313,12 @@ export default function DevicesPage() {
               <button
                 onClick={handleConnect}
                 disabled={connecting}
-                className="w-full bg-white rounded-xl border-2 border-dashed border-gray-200 p-4 flex items-center justify-center gap-2 text-gray-500 hover:border-indigo-300 hover:text-indigo-600 transition-colors disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 bg-white p-4 text-gray-500 transition-colors hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-50"
               >
                 {connecting ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
-                  <Plus className="w-5 h-5" />
+                  <Plus className="h-5 w-5" />
                 )}
                 {connecting ? 'Connecting...' : 'Connect Another Device'}
               </button>
@@ -341,28 +328,23 @@ export default function DevicesPage() {
           {/* Previously connected (inactive) */}
           {inactiveDevices.length > 0 && (
             <div className="mt-8">
-              <h3 className="text-sm font-medium text-gray-500 mb-3">
-                Previously Connected
-              </h3>
+              <h3 className="mb-3 text-sm font-medium text-gray-500">Previously Connected</h3>
               <div className="space-y-2">
                 {inactiveDevices.map((device) => (
                   <div
                     key={device.id}
-                    className="bg-gray-50 rounded-xl border border-gray-100 p-3 flex items-center gap-3 opacity-60"
+                    className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 p-3 opacity-60"
                   >
-                    <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-lg">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-lg">
                       {PROVIDER_ICONS[device.provider] || '⌚'}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-gray-700 text-sm">
-                        {device.providerLabel}
-                      </h4>
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-sm font-medium text-gray-700">{device.providerLabel}</h4>
                       <p className="text-xs text-gray-400">
-                        Disconnected · Last synced{' '}
-                        {formatLastSync(device.lastSyncAt)}
+                        Disconnected · Last synced {formatLastSync(device.lastSyncAt)}
                       </p>
                     </div>
-                    <WifiOff className="w-4 h-4 text-gray-400" />
+                    <WifiOff className="h-4 w-4 text-gray-400" />
                   </div>
                 ))}
               </div>
@@ -372,11 +354,11 @@ export default function DevicesPage() {
       )}
 
       {/* Supported devices info */}
-      <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
-        <h2 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">
+      <div className="rounded-2xl border border-gray-100 bg-gray-50 p-6">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-700">
           Supported Devices
         </h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
           {[
             'Fitbit',
             'Garmin',
@@ -391,21 +373,15 @@ export default function DevicesPage() {
             'Cronometer',
             'MyFitnessPal',
           ].map((name) => (
-            <div
-              key={name}
-              className="flex items-center gap-2 text-sm text-gray-600 py-1.5"
-            >
-              <CheckCircle2
-                className="w-4 h-4 flex-shrink-0"
-                style={{ color: primaryColor }}
-              />
+            <div key={name} className="flex items-center gap-2 py-1.5 text-sm text-gray-600">
+              <CheckCircle2 className="h-4 w-4 flex-shrink-0" style={{ color: primaryColor }} />
               {name}
             </div>
           ))}
         </div>
-        <p className="text-xs text-gray-400 mt-4">
-          Apple Health requires our companion iOS app (coming soon). All
-          other devices connect instantly via the web.
+        <p className="mt-4 text-xs text-gray-400">
+          Apple Health requires our companion iOS app (coming soon). All other devices connect
+          instantly via the web.
         </p>
       </div>
     </div>

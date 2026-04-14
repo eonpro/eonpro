@@ -9,7 +9,12 @@
  */
 
 import { patientService, type UserContext } from '@/domains/patient';
-import { handleApiError, BadRequestError, NotFoundError, ForbiddenError } from '@/domains/shared/errors';
+import {
+  handleApiError,
+  BadRequestError,
+  NotFoundError,
+  ForbiddenError,
+} from '@/domains/shared/errors';
 import { auditPhiAccess, buildAuditPhiOptions } from '@/lib/audit/hipaa-audit';
 import { PERMISSIONS, hasPermission as hasRolePermission } from '@/lib/auth/permissions';
 import { withAuthParams } from '@/lib/auth/middleware-with-params';
@@ -62,7 +67,9 @@ const getPatientHandler = withAuthParams(
 
       // Sales rep: only allow if assigned or has view_all_patients
       // Check both JWT claims and role defaults (JWT may be stale after permission updates)
-      const canViewAll = (user.permissions ?? []).includes(SALES_REP_VIEW_ALL) || hasRolePermission(user.role, SALES_REP_VIEW_ALL);
+      const canViewAll =
+        (user.permissions ?? []).includes(SALES_REP_VIEW_ALL) ||
+        hasRolePermission(user.role, SALES_REP_VIEW_ALL);
       if (user.role === ROLE_SALES_REP && !canViewAll) {
         const assignment = await prisma.patientSalesRepAssignment.findFirst({
           where: {
@@ -76,7 +83,13 @@ const getPatientHandler = withAuthParams(
         }
       }
 
-      await auditPhiAccess(request, buildAuditPhiOptions(request, user, 'patient:view', { patientId: id, route: 'GET /api/patients/[id]' }));
+      await auditPhiAccess(
+        request,
+        buildAuditPhiOptions(request, user, 'patient:view', {
+          patientId: id,
+          route: 'GET /api/patients/[id]',
+        })
+      );
 
       return Response.json({ patient });
     } catch (error) {
@@ -95,7 +108,17 @@ const getPatientHandler = withAuthParams(
       });
     }
   },
-  { roles: ['super_admin', 'admin', 'provider', 'patient', 'staff', ROLE_SALES_REP, ROLE_PHARMACY_REP] }
+  {
+    roles: [
+      'super_admin',
+      'admin',
+      'provider',
+      'patient',
+      'staff',
+      ROLE_SALES_REP,
+      ROLE_PHARMACY_REP,
+    ],
+  }
 );
 
 // Export directly - rate limiting breaks context passing for dynamic routes
@@ -127,7 +150,9 @@ const updatePatientHandler = withAuthParams(
 
       // Sales rep: only allow update if assigned or has view_all_patients
       // Check both JWT claims and role defaults (JWT may be stale after permission updates)
-      const canViewAll = (user.permissions ?? []).includes(SALES_REP_VIEW_ALL) || hasRolePermission(user.role, SALES_REP_VIEW_ALL);
+      const canViewAll =
+        (user.permissions ?? []).includes(SALES_REP_VIEW_ALL) ||
+        hasRolePermission(user.role, SALES_REP_VIEW_ALL);
       if (user.role === ROLE_SALES_REP && !canViewAll) {
         const assignment = await prisma.patientSalesRepAssignment.findFirst({
           where: {
@@ -164,7 +189,13 @@ const updatePatientHandler = withAuthParams(
         cache.delete(vitalsKey, { namespace: 'patient' }),
       ]).catch(() => {});
 
-      await auditPhiAccess(request, buildAuditPhiOptions(request, user, 'patient:edit', { patientId: id, route: 'PATCH /api/patients/[id]' }));
+      await auditPhiAccess(
+        request,
+        buildAuditPhiOptions(request, user, 'patient:edit', {
+          patientId: id,
+          route: 'PATCH /api/patients/[id]',
+        })
+      );
 
       return Response.json({ patient });
     } catch (error) {

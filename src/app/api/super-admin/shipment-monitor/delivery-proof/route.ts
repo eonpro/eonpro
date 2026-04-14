@@ -2,10 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withSuperAdminAuth, type AuthUser } from '@/lib/auth/middleware';
 import { basePrisma } from '@/lib/db';
 import { handleApiError } from '@/domains/shared/errors';
-import {
-  resolveCredentialsWithAttribution,
-  getProofOfDelivery,
-} from '@/lib/fedex';
+import { resolveCredentialsWithAttribution, getProofOfDelivery } from '@/lib/fedex';
 import { logger } from '@/lib/logger';
 
 export const maxDuration = 30;
@@ -46,7 +43,13 @@ async function handleGet(req: NextRequest, _user: AuthUser) {
       if (clinicId) {
         const clinic = await basePrisma.clinic.findUnique({
           where: { id: clinicId },
-          select: { id: true, fedexClientId: true, fedexClientSecret: true, fedexAccountNumber: true, fedexEnabled: true },
+          select: {
+            id: true,
+            fedexClientId: true,
+            fedexClientSecret: true,
+            fedexAccountNumber: true,
+            fedexEnabled: true,
+          },
         });
         resolution = resolveCredentialsWithAttribution(clinic ?? undefined, { allowEnvFallback });
       } else {

@@ -28,12 +28,17 @@ export async function POST(req: NextRequest) {
       }
       const expectedBuf = Buffer.from(expectedKey);
       const providedBuf = Buffer.from(providedKey);
-      if (expectedBuf.length !== providedBuf.length || !crypto.timingSafeEqual(expectedBuf, providedBuf)) {
+      if (
+        expectedBuf.length !== providedBuf.length ||
+        !crypto.timingSafeEqual(expectedBuf, providedBuf)
+      ) {
         logger.warn('[DOSESPOT WEBHOOK] Invalid Subscription-Key');
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       }
     } else if (process.env.NODE_ENV === 'production') {
-      logger.error('[DOSESPOT WEBHOOK] DOSESPOT_SUBSCRIPTION_KEY not configured — rejecting in production');
+      logger.error(
+        '[DOSESPOT WEBHOOK] DOSESPOT_SUBSCRIPTION_KEY not configured — rejecting in production'
+      );
       return NextResponse.json({ error: 'Webhook not configured' }, { status: 503 });
     }
 

@@ -125,7 +125,6 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
         });
         emailSent = true;
       } catch (error: unknown) {
-
         logger.error('Error sending email:', error);
         errors.push('Failed to send email');
       }
@@ -177,7 +176,6 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
       },
     });
   } catch (error: unknown) {
-
     logger.error('Error sending intake form:', error);
     return NextResponse.json({ error: 'Failed to send intake form' }, { status: 500 });
   }

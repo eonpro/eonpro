@@ -22,10 +22,7 @@ export const GET = withAuth(async (request, user) => {
     const views = await prisma.ticketSavedView.findMany({
       where: {
         ...(clinicId ? { clinicId } : {}),
-        OR: [
-          { isPersonal: false },
-          { createdById: user.id },
-        ],
+        OR: [{ isPersonal: false }, { createdById: user.id }],
       },
       orderBy: [{ position: 'asc' }, { name: 'asc' }],
       take: 200,
@@ -63,7 +60,14 @@ export const POST = withAuth(async (request, user) => {
         filters: body.filters || {},
         sortField: body.sortField || 'createdAt',
         sortOrder: body.sortOrder || 'desc',
-        columns: body.columns || ['ticketNumber', 'title', 'status', 'priority', 'assignedTo', 'createdAt'],
+        columns: body.columns || [
+          'ticketNumber',
+          'title',
+          'status',
+          'priority',
+          'assignedTo',
+          'createdAt',
+        ],
         isPersonal: body.isPersonal ?? true,
         isDefault: false,
         position: body.position || 0,

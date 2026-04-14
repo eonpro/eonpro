@@ -34,7 +34,6 @@ export async function PUT(request: NextRequest) {
       message: 'Default payment method updated',
     });
   } catch (error: unknown) {
-
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[PAYMENT_METHODS_DEFAULT] PUT error:', error);
 

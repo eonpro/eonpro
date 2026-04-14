@@ -184,10 +184,13 @@ async function postHandler(request: NextRequest, user: AuthUser) {
       },
     });
 
-    await auditPhiAccess(request, buildAuditPhiOptions(request, user, 'message:send', {
-      patientId,
-      route: 'POST /api/messages/send',
-    }));
+    await auditPhiAccess(
+      request,
+      buildAuditPhiOptions(request, user, 'message:send', {
+        patientId,
+        route: 'POST /api/messages/send',
+      })
+    );
 
     // Send SMS if requested (outside DB transaction)
     let smsStatus = null;

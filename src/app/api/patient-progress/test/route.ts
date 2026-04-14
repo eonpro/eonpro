@@ -33,7 +33,10 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
       results.tests.databaseConnection = { status: 'PASS', message: 'Database connected' };
       results.summary.passed++;
     } catch (error: unknown) {
-      results.tests.databaseConnection = { status: 'FAIL', message: (error instanceof Error ? error.message : String(error)) };
+      results.tests.databaseConnection = {
+        status: 'FAIL',
+        message: error instanceof Error ? error.message : String(error),
+      };
       results.summary.failed++;
     }
 
@@ -46,7 +49,10 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
       };
       results.summary.passed++;
     } catch (error: unknown) {
-      results.tests.weightLogTable = { status: 'FAIL', message: (error instanceof Error ? error.message : String(error)) };
+      results.tests.weightLogTable = {
+        status: 'FAIL',
+        message: error instanceof Error ? error.message : String(error),
+      };
       results.summary.failed++;
     }
 
@@ -59,7 +65,10 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
       };
       results.summary.passed++;
     } catch (error: unknown) {
-      results.tests.reminderTable = { status: 'FAIL', message: (error instanceof Error ? error.message : String(error)) };
+      results.tests.reminderTable = {
+        status: 'FAIL',
+        message: error instanceof Error ? error.message : String(error),
+      };
       results.summary.failed++;
     }
 
@@ -88,7 +97,10 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
           results.summary.failed++;
         }
       } catch (error: unknown) {
-        results.tests.patientExists = { status: 'FAIL', message: (error instanceof Error ? error.message : String(error)) };
+        results.tests.patientExists = {
+          status: 'FAIL',
+          message: error instanceof Error ? error.message : String(error),
+        };
         results.summary.failed++;
       }
 
@@ -121,7 +133,10 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
         };
         results.summary.passed++;
       } catch (error: unknown) {
-        results.tests.patientWeightLogs = { status: 'FAIL', message: (error instanceof Error ? error.message : String(error)) };
+        results.tests.patientWeightLogs = {
+          status: 'FAIL',
+          message: error instanceof Error ? error.message : String(error),
+        };
         results.summary.failed++;
       }
 
@@ -152,7 +167,10 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
         };
         results.summary.passed++;
       } catch (error: unknown) {
-        results.tests.patientReminders = { status: 'FAIL', message: (error instanceof Error ? error.message : String(error)) };
+        results.tests.patientReminders = {
+          status: 'FAIL',
+          message: error instanceof Error ? error.message : String(error),
+        };
         results.summary.failed++;
       }
 
@@ -186,7 +204,10 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
         };
         results.summary.passed++;
       } catch (error: unknown) {
-        results.tests.weightLogCRUD = { status: 'FAIL', message: (error instanceof Error ? error.message : String(error)) };
+        results.tests.weightLogCRUD = {
+          status: 'FAIL',
+          message: error instanceof Error ? error.message : String(error),
+        };
         results.summary.failed++;
       }
 
@@ -215,7 +236,10 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
         };
         results.summary.passed++;
       } catch (error: unknown) {
-        results.tests.reminderCRUD = { status: 'FAIL', message: (error instanceof Error ? error.message : String(error)) };
+        results.tests.reminderCRUD = {
+          status: 'FAIL',
+          message: error instanceof Error ? error.message : String(error),
+        };
         results.summary.failed++;
       }
     }
@@ -233,7 +257,12 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
       status: results.summary.failed > 0 ? 500 : 200,
     });
   } catch (error) {
-    const errorMessage = error instanceof Error ? (error instanceof Error ? error.message : String(error)) : 'Unknown error';
+    const errorMessage =
+      error instanceof Error
+        ? error instanceof Error
+          ? error.message
+          : String(error)
+        : 'Unknown error';
     logger.error('Test endpoint failed', { error: errorMessage, userId: user.id });
     return NextResponse.json({ error: 'Test endpoint failed' }, { status: 500 });
   }
@@ -324,7 +353,12 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
         } catch (error: unknown) {
           // Skip if already exists (unique constraint)
           logger.warn('[PATIENT-PROGRESS-TEST] Reminder creation skipped (duplicate)', {
-            error: error instanceof Error ? (error instanceof Error ? error.message : String(error)) : 'Unknown error',
+            error:
+              error instanceof Error
+                ? error instanceof Error
+                  ? error.message
+                  : String(error)
+                : 'Unknown error',
           });
         }
       }
@@ -340,7 +374,12 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
       ...results,
     });
   } catch (error) {
-    const errorMessage = error instanceof Error ? (error instanceof Error ? error.message : String(error)) : 'Unknown error';
+    const errorMessage =
+      error instanceof Error
+        ? error instanceof Error
+          ? error.message
+          : String(error)
+        : 'Unknown error';
     logger.error('Failed to create test data', { error: errorMessage, userId: user.id });
     return NextResponse.json({ error: 'Failed to create test data' }, { status: 500 });
   }

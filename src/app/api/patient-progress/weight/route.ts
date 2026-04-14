@@ -35,14 +35,12 @@ const getWeightLogsSchema = z.object({
     .union([z.string(), z.number()])
     .transform((val) => (typeof val === 'string' ? parseInt(val, 10) : val))
     .refine((n) => !isNaN(n) && n > 0, { message: 'patientId must be a positive integer' }),
-  limit: z
-    .union([z.string(), z.number(), z.null(), z.undefined()])
-    .transform((val) => {
-      if (val == null) return 100;
-      const num = typeof val === 'string' ? parseInt(val, 10) : Number(val);
-      if (isNaN(num) || num <= 0) return 100;
-      return Math.min(num, 500);
-    }),
+  limit: z.union([z.string(), z.number(), z.null(), z.undefined()]).transform((val) => {
+    if (val == null) return 100;
+    const num = typeof val === 'string' ? parseInt(val, 10) : Number(val);
+    if (isNaN(num) || num <= 0) return 100;
+    return Math.min(num, 500);
+  }),
 });
 
 const deleteWeightLogSchema = z.object({
@@ -240,7 +238,12 @@ async function getIntakeWeight(
 
     // Parse document data if it exists (includeDocumentData: true ensures data is loaded)
     let parsedData = null;
-    const doc = patient.documents[0] as { data?: Buffer | { type?: string; data?: number[] } | Record<string, unknown>; createdAt: Date } | undefined;
+    const doc = patient.documents[0] as
+      | {
+          data?: Buffer | { type?: string; data?: number[] } | Record<string, unknown>;
+          createdAt: Date;
+        }
+      | undefined;
     if (doc?.data) {
       if (Buffer.isBuffer(doc.data)) {
         try {
@@ -462,10 +465,7 @@ const patchHandler = withAuth(async (request: NextRequest, user) => {
 
     // Require at least one updateable field
     const hasUpdate =
-      weight !== undefined ||
-      unit !== undefined ||
-      notes !== undefined ||
-      recordedAt !== undefined;
+      weight !== undefined || unit !== undefined || notes !== undefined || recordedAt !== undefined;
     if (!hasUpdate) {
       return NextResponse.json(
         { error: 'At least one of weight, unit, notes, or recordedAt must be provided' },

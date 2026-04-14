@@ -19,7 +19,16 @@ export interface UserSession {
   id: number;
   email: string;
   name: string;
-  role: 'admin' | 'provider' | 'patient' | 'affiliate' | 'super_admin' | 'staff' | 'support' | 'sales_rep' | 'pharmacy_rep';
+  role:
+    | 'admin'
+    | 'provider'
+    | 'patient'
+    | 'affiliate'
+    | 'super_admin'
+    | 'staff'
+    | 'support'
+    | 'sales_rep'
+    | 'pharmacy_rep';
   providerId?: number;
   patientId?: number;
   clinicId?: number;
@@ -118,11 +127,11 @@ export async function getUserFromCookies(): Promise<UserSession | null> {
           headerStore.get('x-forwarded-host')?.split(',')[0]?.trim() ??
           headerStore.get('host') ??
           '';
-        const hostname = host ? host.split(':')[0] ?? '' : '';
+        const hostname = host ? (host.split(':')[0] ?? '') : '';
         if (hostname.includes('.')) {
           const parts = hostname.split('.');
           const isLocalhostWithSub = hostname.includes('localhost') && parts.length >= 2;
-          const sub = parts.length >= 3 || isLocalhostWithSub ? parts[0] ?? null : null;
+          const sub = parts.length >= 3 || isLocalhostWithSub ? (parts[0] ?? null) : null;
           const reserved = ['www', 'app', 'api', 'admin', 'staging'];
           if (sub && !reserved.includes(sub.toLowerCase())) {
             subdomainClinicId = await withTimeout(resolveSubdomainClinicId(sub), null);
@@ -164,10 +173,17 @@ export async function getUserFromCookies(): Promise<UserSession | null> {
                     ? selectedClinicId
                     : NaN;
 
-            if (Number.isFinite(targetClinicId) && targetClinicId > 0 && user.clinicId !== targetClinicId) {
+            if (
+              Number.isFinite(targetClinicId) &&
+              targetClinicId > 0 &&
+              user.clinicId !== targetClinicId
+            ) {
               const userHasAccess =
                 user.clinicId === targetClinicId ||
-                (await withTimeout(hasClinicAccess(user.id, targetClinicId, user.providerId), false));
+                (await withTimeout(
+                  hasClinicAccess(user.id, targetClinicId, user.providerId),
+                  false
+                ));
 
               if (userHasAccess) {
                 user.clinicId = targetClinicId;
@@ -281,7 +297,7 @@ class SessionStore {
         }
 
         return Array.from(combined);
-      },
+      }
     );
   }
 
@@ -321,7 +337,7 @@ class SessionStore {
           }
           await redis.set(legacyNsKey, JSON.stringify(existingSessions), { ex: SESSION_TTL });
           return true;
-        },
+        }
       );
       if (!indexed) {
         logger.warn('[SessionStore] Failed to update Redis session indexes', {
@@ -416,7 +432,7 @@ class SessionStore {
             } else {
               await redis.del(legacyNsKey);
             }
-          },
+          }
         );
       }
     } else {
@@ -453,7 +469,7 @@ class SessionStore {
         undefined,
         async (redis) => {
           await redis.del(this.namespacedKey(userSessionsSetKey));
-        },
+        }
       );
     } else {
       // Fallback to in-memory

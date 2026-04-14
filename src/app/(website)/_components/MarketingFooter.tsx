@@ -29,15 +29,10 @@ export default function MarketingFooter() {
       <div className="mx-auto max-w-7xl px-6 py-16">
         <div className="grid gap-12 md:grid-cols-2 lg:grid-cols-5">
           <div className="lg:col-span-2">
-            <img
-              src={EONPRO_LOGO_WHITE}
-              alt="EonPro"
-              className="mb-4 h-8 w-auto"
-            />
+            <img src={EONPRO_LOGO_WHITE} alt="EonPro" className="mb-4 h-8 w-auto" />
             <p className="max-w-sm text-sm leading-relaxed text-white/60">
-              The operating system for modern telehealth clinics. Vertically
-              integrating telehealth, pharmacy, and patient engagement on one
-              HIPAA-compliant platform.
+              The operating system for modern telehealth clinics. Vertically integrating telehealth,
+              pharmacy, and patient engagement on one HIPAA-compliant platform.
             </p>
             <div className="mt-6 flex flex-col gap-1 text-sm text-white/50">
               <a href="mailto:contact@eonpro.io" className="transition hover:text-white/80">
@@ -71,9 +66,7 @@ export default function MarketingFooter() {
         </div>
 
         <div className="mt-16 flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-8 sm:flex-row">
-          <p className="text-xs text-white/40">
-            {year} EonPro. All rights reserved.
-          </p>
+          <p className="text-xs text-white/40">{year} EonPro. All rights reserved.</p>
           <p className="text-xs text-white/40">
             HIPAA Compliant &middot; SOC 2 &middot; Encrypted at Rest
           </p>

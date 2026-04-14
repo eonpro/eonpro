@@ -189,8 +189,18 @@ export default function EarningsPage() {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center px-6">
         <div className="mx-auto max-w-sm text-center">
-          <svg className="mx-auto mb-4 h-12 w-12 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+          <svg
+            className="mx-auto mb-4 h-12 w-12 text-red-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.5}
+              d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
+            />
           </svg>
           <p className="mb-2 text-lg font-medium text-gray-900">Unable to load earnings</p>
           <p className="mb-6 text-sm text-gray-500">{error}</p>
@@ -222,7 +232,12 @@ export default function EarningsPage() {
             className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+              />
             </svg>
             Export CSV
           </button>
@@ -334,7 +349,9 @@ export default function EarningsPage() {
                             ? 'text-white'
                             : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                         }`}
-                        style={filter === f ? { backgroundColor: 'var(--brand-primary)' } : undefined}
+                        style={
+                          filter === f ? { backgroundColor: 'var(--brand-primary)' } : undefined
+                        }
                       >
                         {f.charAt(0).toUpperCase() + f.slice(1)}
                       </button>

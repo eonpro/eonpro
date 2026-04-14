@@ -58,7 +58,6 @@ async function sendAlert(config: WebhookConfig, event: string, detail: Record<st
       body: JSON.stringify({ event, ...detail }),
     });
   } catch (err: unknown) {
-
     logger.error('[LIFEFILE WEBHOOK] Failed to notify alert URL', err);
   }
 }
@@ -185,8 +184,14 @@ export async function POST(request: Request) {
     : undefined;
 
   const orderWhere = lifefileOrderId
-    ? { lifefileOrderId: String(lifefileOrderId), ...(webhookClinicId ? { clinicId: webhookClinicId } : {}) }
-    : { referenceId: String(referenceId), ...(webhookClinicId ? { clinicId: webhookClinicId } : {}) };
+    ? {
+        lifefileOrderId: String(lifefileOrderId),
+        ...(webhookClinicId ? { clinicId: webhookClinicId } : {}),
+      }
+    : {
+        referenceId: String(referenceId),
+        ...(webhookClinicId ? { clinicId: webhookClinicId } : {}),
+      };
 
   const order = await prisma.order.findFirst({
     where: orderWhere,

@@ -33,16 +33,10 @@ function parseIntEnv(value: string | undefined, fallback: number): number {
 
 const REDIS_READY_MAX_FALLBACK_RATE = parseRatioEnv(
   process.env.REDIS_READY_MAX_FALLBACK_RATE,
-  0.05,
+  0.05
 );
-const REDIS_READY_MAX_TIMEOUT_RATE = parseRatioEnv(
-  process.env.REDIS_READY_MAX_TIMEOUT_RATE,
-  0.01,
-);
-const REDIS_READY_MIN_GUARDED_CALLS = parseIntEnv(
-  process.env.REDIS_READY_MIN_GUARDED_CALLS,
-  20,
-);
+const REDIS_READY_MAX_TIMEOUT_RATE = parseRatioEnv(process.env.REDIS_READY_MAX_TIMEOUT_RATE, 0.01);
+const REDIS_READY_MIN_GUARDED_CALLS = parseIntEnv(process.env.REDIS_READY_MIN_GUARDED_CALLS, 20);
 
 /**
  * Check database connectivity
@@ -234,8 +228,7 @@ async function monitoringReadyHandler(req: NextRequest) {
   };
 
   // Return appropriate status code based on overall status
-  const statusCode =
-    overallStatus === 'ready' ? 200 : overallStatus === 'degraded' ? 200 : 503;
+  const statusCode = overallStatus === 'ready' ? 200 : overallStatus === 'degraded' ? 200 : 503;
 
   return NextResponse.json(response, {
     status: statusCode,

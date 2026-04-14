@@ -59,7 +59,9 @@ export default function PatientPrescriptionPanel({
   return (
     <PrescriptionForm
       patientContext={patientContext}
-      redirectPath={onSuccess ? undefined : `${patientBasePath}/${patient.id}?tab=prescriptions&submitted=1`}
+      redirectPath={
+        onSuccess ? undefined : `${patientBasePath}/${patient.id}?tab=prescriptions&submitted=1`
+      }
       patientBasePath={patientBasePath}
       onSuccess={onSuccess}
     />

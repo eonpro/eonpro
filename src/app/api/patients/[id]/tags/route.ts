@@ -55,7 +55,10 @@ const removeTagHandler = withAuthParams(
 
       const normalizedTag = parseResult.data.tag.toLowerCase();
 
-      const patient = await prisma.patient.findUnique({ where: { id }, select: { id: true, clinicId: true, tags: true } });
+      const patient = await prisma.patient.findUnique({
+        where: { id },
+        select: { id: true, clinicId: true, tags: true },
+      });
 
       if (!patient) {
         return Response.json({ error: 'Patient not found' }, { status: 404 });
@@ -153,7 +156,10 @@ const addTagHandler = withAuthParams(
 
       const normalizedTag = parseResult.data.tag;
 
-      const patient = await prisma.patient.findUnique({ where: { id }, select: { id: true, clinicId: true, tags: true } });
+      const patient = await prisma.patient.findUnique({
+        where: { id },
+        select: { id: true, clinicId: true, tags: true },
+      });
 
       if (!patient) {
         return Response.json({ error: 'Patient not found' }, { status: 404 });

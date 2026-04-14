@@ -84,7 +84,7 @@ export default function UserPermissionsPage() {
       setLoading(true);
       setError(null);
       const response = await apiFetch(
-        `/api/super-admin/clinics/${clinicId}/users/${userId}/permissions`,
+        `/api/super-admin/clinics/${clinicId}/users/${userId}/permissions`
       );
       const json = await response.json();
       if (!response.ok) {
@@ -134,11 +134,11 @@ export default function UserPermissionsPage() {
           else if (enabled && wasRoleDefault) source = 'role_default';
           else source = 'not_available';
           return { ...p, enabled, source };
-        }),
+        })
       );
       setSaveSuccess(false);
     },
-    [data],
+    [data]
   );
 
   const handleFeatureToggle = useCallback(
@@ -153,11 +153,11 @@ export default function UserPermissionsPage() {
           else if (enabled && wasRoleDefault) source = 'role_default';
           else source = 'not_available';
           return { ...f, enabled, source };
-        }),
+        })
       );
       setSaveSuccess(false);
     },
-    [data],
+    [data]
   );
 
   const handleResetToDefaults = useCallback(() => {
@@ -170,7 +170,7 @@ export default function UserPermissionsPage() {
           enabled: isDefault,
           source: isDefault ? ('role_default' as const) : ('not_available' as const),
         };
-      }),
+      })
     );
     setLocalFeatures(
       data.features.effective.map((f) => {
@@ -180,7 +180,7 @@ export default function UserPermissionsPage() {
           enabled: isDefault,
           source: isDefault ? ('role_default' as const) : ('not_available' as const),
         };
-      }),
+      })
     );
     setSaveSuccess(false);
   }, [data]);
@@ -191,12 +191,8 @@ export default function UserPermissionsPage() {
       setError(null);
       setSaveSuccess(false);
 
-      const enabledPerms = localPermissions
-        .filter((p) => p.enabled)
-        .map((p) => p.permission);
-      const enabledFeats = localFeatures
-        .filter((f) => f.enabled)
-        .map((f) => f.featureId);
+      const enabledPerms = localPermissions.filter((p) => p.enabled).map((p) => p.permission);
+      const enabledFeats = localFeatures.filter((f) => f.enabled).map((f) => f.featureId);
 
       const response = await apiFetch(
         `/api/super-admin/clinics/${clinicId}/users/${userId}/permissions`,
@@ -207,7 +203,7 @@ export default function UserPermissionsPage() {
             permissions: enabledPerms,
             features: enabledFeats,
           }),
-        },
+        }
       );
 
       const json = await response.json();
@@ -285,9 +281,7 @@ export default function UserPermissionsPage() {
             {/* Left: Back + User Info */}
             <div className="flex items-center gap-4">
               <button
-                onClick={() =>
-                  router.push(`/super-admin/clinics/${clinicId}?tab=users`)
-                }
+                onClick={() => router.push(`/super-admin/clinics/${clinicId}?tab=users`)}
                 className="inline-flex items-center gap-1.5 rounded-lg p-2 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
               >
                 <ArrowLeft className="h-5 w-5" />
@@ -298,9 +292,7 @@ export default function UserPermissionsPage() {
                   <Shield className="h-5 w-5" />
                 </div>
                 <div>
-                  <h1 className="text-lg font-semibold text-gray-900">
-                    Manage Permissions
-                  </h1>
+                  <h1 className="text-lg font-semibold text-gray-900">Manage Permissions</h1>
                   <div className="flex items-center gap-3 text-sm text-gray-500">
                     <span className="flex items-center gap-1">
                       <User className="h-3.5 w-3.5" />
@@ -335,9 +327,7 @@ export default function UserPermissionsPage() {
               )}
 
               <button
-                onClick={() =>
-                  router.push(`/super-admin/clinics/${clinicId}?tab=users`)
-                }
+                onClick={() => router.push(`/super-admin/clinics/${clinicId}?tab=users`)}
                 className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
               >
                 Cancel
@@ -393,9 +383,7 @@ export default function UserPermissionsPage() {
                 {diffSummary.added === 0 && diffSummary.removed === 0 && (
                   <span className="ml-1 text-gray-500">modified from defaults</span>
                 )}
-                <span className="ml-1 text-gray-500">
-                  from {roleDisplay} defaults
-                </span>
+                <span className="ml-1 text-gray-500">from {roleDisplay} defaults</span>
               </span>
             </div>
             <div className="flex items-center gap-3">

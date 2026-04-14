@@ -99,10 +99,7 @@ interface NutritionLog {
 // Helper: safe API fetch for progress data
 // =============================================================================
 
-async function fetchProgressData<T>(
-  url: string,
-  label: string
-): Promise<T[]> {
+async function fetchProgressData<T>(url: string, label: string): Promise<T[]> {
   try {
     const response = await apiFetch(url, {
       headers: getAuthHeaders(),
@@ -129,9 +126,7 @@ async function fetchProgressData<T>(
 function SourceBadge({ source }: { source?: string }) {
   if (source === 'device') {
     return (
-      <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-700">
-        Device
-      </span>
+      <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-700">Device</span>
     );
   }
   if (source === 'intake') {
@@ -143,9 +138,7 @@ function SourceBadge({ source }: { source?: string }) {
   }
   if (source === 'provider') {
     return (
-      <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
-        Provider
-      </span>
+      <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">Provider</span>
     );
   }
   return null;
@@ -166,10 +159,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
     chartInitRef.current = true;
     (async () => {
       try {
-        const [chartjs, rcc] = await Promise.all([
-          import('chart.js'),
-          import('react-chartjs-2'),
-        ]);
+        const [chartjs, rcc] = await Promise.all([import('chart.js'), import('react-chartjs-2')]);
         chartjs.Chart.register(
           chartjs.CategoryScale,
           chartjs.LinearScale,
@@ -178,7 +168,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
           chartjs.Title,
           chartjs.Tooltip,
           chartjs.Legend,
-          chartjs.Filler,
+          chartjs.Filler
         );
         setChartLine(() => rcc.Line);
       } catch (err) {
@@ -276,10 +266,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
     const fetchOpts = { headers: getAuthHeaders(), credentials: 'include' as const };
     let failedEndpoints: string[] = [];
 
-    const waterPromise = apiFetch(
-      `/api/patient-progress/water?patientId=${patient.id}`,
-      fetchOpts
-    )
+    const waterPromise = apiFetch(`/api/patient-progress/water?patientId=${patient.id}`, fetchOpts)
       .then(async (res) => {
         if (res.ok) {
           const result = await res.json();
@@ -298,10 +285,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
         });
       });
 
-    const sleepPromise = apiFetch(
-      `/api/patient-progress/sleep?patientId=${patient.id}`,
-      fetchOpts
-    )
+    const sleepPromise = apiFetch(`/api/patient-progress/sleep?patientId=${patient.id}`, fetchOpts)
       .then(async (res) => {
         if (res.ok) {
           const result = await res.json();
@@ -479,8 +463,8 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
         <Activity className="mx-auto mb-4 h-16 w-16 text-gray-400" />
         <h3 className="mb-2 text-lg font-semibold text-gray-700">No Progress Data</h3>
         <p className="mx-auto max-w-md text-gray-500">
-          No weight, water, exercise, sleep, or nutrition entries have been logged yet.
-          Progress data will appear here once the patient starts logging or their treatment begins.
+          No weight, water, exercise, sleep, or nutrition entries have been logged yet. Progress
+          data will appear here once the patient starts logging or their treatment begins.
         </p>
         <button
           type="button"
@@ -530,12 +514,8 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
             <h3 className="text-sm font-medium text-gray-600">Today&apos;s Water</h3>
             <Droplets className="h-5 w-5 text-blue-500" />
           </div>
-          <p className="text-2xl font-bold text-gray-900">
-            {waterMeta?.todayTotal || 0} oz
-          </p>
-          <p className="mt-1 text-sm text-gray-500">
-            {waterLogs.length} total logs
-          </p>
+          <p className="text-2xl font-bold text-gray-900">{waterMeta?.todayTotal || 0} oz</p>
+          <p className="mt-1 text-sm text-gray-500">{waterLogs.length} total logs</p>
         </div>
 
         {/* Weekly Exercise */}
@@ -544,9 +524,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
             <h3 className="text-sm font-medium text-gray-600">Weekly Exercise</h3>
             <Dumbbell className="h-5 w-5 text-orange-500" />
           </div>
-          <p className="text-2xl font-bold text-gray-900">
-            {exerciseMeta?.weeklyMinutes || 0} min
-          </p>
+          <p className="text-2xl font-bold text-gray-900">{exerciseMeta?.weeklyMinutes || 0} min</p>
           <p className="mt-1 text-sm text-gray-500">
             {exerciseMeta?.weeklyCalories || 0} cal burned
           </p>
@@ -559,9 +537,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
             <Activity className="h-5 w-5 text-[var(--brand-primary,#4fa77e)]" />
           </div>
           <p className="text-2xl font-bold text-gray-900">{totalActivities}</p>
-          <p className="mt-1 text-sm text-gray-500">
-            across all tracking
-          </p>
+          <p className="mt-1 text-sm text-gray-500">across all tracking</p>
         </div>
       </div>
 
@@ -575,7 +551,9 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
         <div className="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-lg font-bold text-gray-900 md:text-xl">Weight Tracker</h2>
-            <p className="mt-0.5 text-xs text-gray-600 sm:text-sm">Track patient&apos;s weight loss journey</p>
+            <p className="mt-0.5 text-xs text-gray-600 sm:text-sm">
+              Track patient&apos;s weight loss journey
+            </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {saveSuccess && (
@@ -602,7 +580,10 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
 
         {/* Add Weight Form */}
         {showWeightForm && (
-          <div className="mb-6 rounded-lg border bg-white p-4" style={{ borderColor: `${brandPrimary}50` }}>
+          <div
+            className="mb-6 rounded-lg border bg-white p-4"
+            style={{ borderColor: `${brandPrimary}50` }}
+          >
             <div className="mb-3 flex items-center justify-between">
               <h3 className="flex items-center gap-2 font-medium text-gray-900">
                 <Scale className="h-4 w-4" />
@@ -686,7 +667,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
 
         {/* Chart */}
         <div
-          className="relative h-64 overflow-hidden rounded-lg border p-4 shadow-sm bg-white"
+          className="relative h-64 overflow-hidden rounded-lg border bg-white p-4 shadow-sm"
           style={{ borderColor: `${brandPrimary}30` }}
         >
           {weightData.length > 0 ? (
@@ -753,44 +734,50 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
           <h3 className="mb-3 text-sm font-medium text-gray-700">Recent Weight Logs</h3>
           <div className="space-y-2">
             {weightData.length > 0 ? (
-              [...weightData].reverse().slice(0, 5).map((entry, idx) => (
-                <div
-                  key={entry.id || idx}
-                  className="flex items-center justify-between rounded-lg px-4 py-3"
-                  style={{ backgroundColor: `${brandPrimary}08` }}
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="h-2 w-2 rounded-full"
-                      style={{ backgroundColor: idx === 0 ? brandPrimary : '#d1d5db' }}
-                    />
-                    <div>
-                      <span className="text-sm font-medium">
-                        {format(entry.date, 'MMM d, yyyy')}
-                      </span>
-                      {entry.notes && <p className="text-xs text-gray-500">{entry.notes}</p>}
+              [...weightData]
+                .reverse()
+                .slice(0, 5)
+                .map((entry, idx) => (
+                  <div
+                    key={entry.id || idx}
+                    className="flex items-center justify-between rounded-lg px-4 py-3"
+                    style={{ backgroundColor: `${brandPrimary}08` }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: idx === 0 ? brandPrimary : '#d1d5db' }}
+                      />
+                      <div>
+                        <span className="text-sm font-medium">
+                          {format(entry.date, 'MMM d, yyyy')}
+                        </span>
+                        {entry.notes && <p className="text-xs text-gray-500">{entry.notes}</p>}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold">{entry.weight} lbs</span>
+                      <SourceBadge source={entry.source} />
+                      {idx === 0 && progress && (
+                        <span
+                          className={`rounded-full px-2 py-1 text-xs ${
+                            progress.change < 0
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-yellow-100 text-yellow-700'
+                          }`}
+                        >
+                          {progress.change > 0 ? '+' : ''}
+                          {progress.change}
+                        </span>
+                      )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold">{entry.weight} lbs</span>
-                    <SourceBadge source={entry.source} />
-                    {idx === 0 && progress && (
-                      <span
-                        className={`rounded-full px-2 py-1 text-xs ${
-                          progress.change < 0
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-yellow-100 text-yellow-700'
-                        }`}
-                      >
-                        {progress.change > 0 ? '+' : ''}
-                        {progress.change}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))
+                ))
             ) : (
-              <div className="rounded-lg py-4 text-center" style={{ backgroundColor: `${brandPrimary}08` }}>
+              <div
+                className="rounded-lg py-4 text-center"
+                style={{ backgroundColor: `${brandPrimary}08` }}
+              >
                 <p className="text-sm text-gray-600">No weight data logged yet</p>
                 <p className="mt-1 text-xs text-gray-500">
                   Click &quot;Add Weight&quot; above or patient can log from their dashboard
@@ -827,11 +814,15 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
               {/* Today's summary */}
               <div className="mb-4 rounded-lg bg-blue-50 p-4">
                 <p className="text-sm text-blue-700">Today&apos;s Total</p>
-                <p className="text-2xl font-bold text-blue-900 md:text-3xl">{waterMeta?.todayTotal || 0} oz</p>
+                <p className="text-2xl font-bold text-blue-900 md:text-3xl">
+                  {waterMeta?.todayTotal || 0} oz
+                </p>
                 <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-blue-200">
                   <div
                     className="h-full rounded-full bg-blue-500 transition-all"
-                    style={{ width: `${Math.min(((waterMeta?.todayTotal || 0) / 64) * 100, 100)}%` }}
+                    style={{
+                      width: `${Math.min(((waterMeta?.todayTotal || 0) / 64) * 100, 100)}%`,
+                    }}
                   />
                 </div>
                 <p className="mt-1 text-xs text-blue-600">Goal: 64 oz</p>
@@ -840,7 +831,10 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
               {/* Recent logs */}
               <div className="space-y-2">
                 {waterLogs.slice(0, 5).map((log) => (
-                  <div key={log.id} className="flex items-center justify-between rounded-lg bg-gray-50 p-3">
+                  <div
+                    key={log.id}
+                    className="flex items-center justify-between rounded-lg bg-gray-50 p-3"
+                  >
                     <div className="flex items-center gap-2">
                       <Droplets className="h-4 w-4 text-blue-400" />
                       <span className="text-sm text-gray-700">
@@ -909,7 +903,10 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
                   const hrs = Math.floor(log.duration / 60);
                   const mins = log.duration % 60;
                   return (
-                    <div key={log.id} className="flex items-center justify-between rounded-lg bg-gray-50 p-3">
+                    <div
+                      key={log.id}
+                      className="flex items-center justify-between rounded-lg bg-gray-50 p-3"
+                    >
                       <div className="flex items-center gap-2">
                         <Moon className="h-4 w-4 text-indigo-400" />
                         <span className="text-sm text-gray-700">
@@ -992,11 +989,14 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
               {/* Recent exercise logs */}
               <div className="space-y-2">
                 {exerciseLogs.slice(0, 5).map((log) => (
-                  <div key={log.id} className="flex items-center justify-between rounded-lg bg-gray-50 p-3">
+                  <div
+                    key={log.id}
+                    className="flex items-center justify-between rounded-lg bg-gray-50 p-3"
+                  >
                     <div className="flex items-center gap-2">
                       <Dumbbell className="h-4 w-4 text-orange-400" />
                       <div>
-                        <span className="text-sm font-medium text-gray-900 capitalize">
+                        <span className="text-sm font-medium capitalize text-gray-900">
                           {log.activityType}
                         </span>
                         <p className="text-xs text-gray-500">
@@ -1090,7 +1090,10 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
                     snack: '🍎',
                   };
                   return (
-                    <div key={log.id} className="flex items-center justify-between rounded-lg bg-gray-50 p-3">
+                    <div
+                      key={log.id}
+                      className="flex items-center justify-between rounded-lg bg-gray-50 p-3"
+                    >
                       <div className="flex items-center gap-2">
                         <span className="text-sm">{mealIcons[log.mealType] || '🍽️'}</span>
                         <div>

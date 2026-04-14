@@ -25,7 +25,7 @@ export const GET = withAuthParams(
       where: { id: patientId },
       select: { id: true, clinicId: true },
     });
-    const clinicId = user.role === 'super_admin' ? undefined : user.clinicId ?? undefined;
+    const clinicId = user.role === 'super_admin' ? undefined : (user.clinicId ?? undefined);
     const notFound = ensureTenantResource(patient, clinicId);
     if (notFound) return notFound;
 
@@ -40,7 +40,10 @@ export const GET = withAuthParams(
         patientId,
         error: err instanceof Error ? err.message : String(err),
       });
-      if (err instanceof Prisma.PrismaClientKnownRequestError && ['P2021', 'P2022', 'P2010'].includes(err.code)) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        ['P2021', 'P2022', 'P2010'].includes(err.code)
+      ) {
         return NextResponse.json(
           { ok: false, error: 'Lab report table is not available. Run database migrations.' },
           { status: 503 }

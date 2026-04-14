@@ -140,7 +140,7 @@ async function getBalanceHandler(request: NextRequest, user: AuthUser) {
 
       const transactions = await stripe.balanceTransactions.list(
         transactionsParams as Stripe.BalanceTransactionListParams,
-        stripeAccountId ? { stripeAccount: stripeAccountId } : undefined,
+        stripeAccountId ? { stripeAccount: stripeAccountId } : undefined
       );
 
       // Calculate summary
@@ -265,7 +265,9 @@ async function getBalanceHandler(request: NextRequest, user: AuthUser) {
     }
 
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : String(error) || 'Failed to fetch balance' },
+      {
+        error: error instanceof Error ? error.message : String(error) || 'Failed to fetch balance',
+      },
       { status: 500 }
     );
   }

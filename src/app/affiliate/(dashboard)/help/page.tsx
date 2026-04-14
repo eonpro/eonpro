@@ -119,7 +119,10 @@ export default function AffiliateHelpPage() {
               href={`mailto:${supportEmail}`}
               className="flex items-center gap-4 rounded-xl border border-gray-200 p-4 transition-colors hover:border-gray-300 hover:bg-gray-50"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-full" style={{ backgroundColor: 'var(--brand-accent-light)' }}>
+              <div
+                className="flex h-10 w-10 items-center justify-center rounded-full"
+                style={{ backgroundColor: 'var(--brand-accent-light)' }}
+              >
                 <Mail className="h-5 w-5" style={{ color: 'var(--brand-accent)' }} />
               </div>
               <div>

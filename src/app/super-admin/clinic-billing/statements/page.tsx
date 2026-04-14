@@ -5,7 +5,10 @@ import { useState, useEffect } from 'react';
 import { FileText, Download, Building2 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 
-interface Clinic { id: number; name: string }
+interface Clinic {
+  id: number;
+  name: string;
+}
 
 interface LineItem {
   date: string;
@@ -56,7 +59,8 @@ export default function StatementsPage() {
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [selectedClinic, setSelectedClinic] = useState('');
   const [startDate, setStartDate] = useState(() => {
-    const d = new Date(); d.setMonth(d.getMonth() - 3);
+    const d = new Date();
+    d.setMonth(d.getMonth() - 3);
     return instantToCalendarDate(d);
   });
   const [endDate, setEndDate] = useState(() => calendarTodayServer());
@@ -71,7 +75,9 @@ export default function StatementsPage() {
           const data = await res.json();
           setClinics(data.clinics?.map((c: { clinic: Clinic }) => c.clinic) || []);
         }
-      } catch { /* silent */ }
+      } catch {
+        /* silent */
+      }
     };
     load();
   }, []);
@@ -83,7 +89,11 @@ export default function StatementsPage() {
       const params = new URLSearchParams({ clinicId: selectedClinic, startDate, endDate });
       const res = await apiFetch(`/api/super-admin/clinic-statements?${params}`);
       if (res.ok) setStatement(await res.json());
-    } catch { /* silent */ } finally { setLoading(false); }
+    } catch {
+      /* silent */
+    } finally {
+      setLoading(false);
+    }
   };
 
   const exportCSV = () => {
@@ -100,7 +110,15 @@ export default function StatementsPage() {
         l.credit ? (l.credit / 100).toFixed(2) : '',
         (l.balance / 100).toFixed(2),
       ]),
-      ['', '', '', 'Closing Balance', (statement.totalDebits / 100).toFixed(2), (statement.totalCredits / 100).toFixed(2), (statement.closingBalance / 100).toFixed(2)],
+      [
+        '',
+        '',
+        '',
+        'Closing Balance',
+        (statement.totalDebits / 100).toFixed(2),
+        (statement.totalCredits / 100).toFixed(2),
+        (statement.closingBalance / 100).toFixed(2),
+      ],
     ];
     const csv = rows.map((r) => r.join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -116,22 +134,44 @@ export default function StatementsPage() {
     <div>
       {/* Filters */}
       <div className="mb-6 flex flex-wrap items-end gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-        <div className="flex-1 min-w-[200px]">
+        <div className="min-w-[200px] flex-1">
           <label className="mb-1 block text-sm font-medium text-gray-700">Clinic</label>
-          <select value={selectedClinic} onChange={(e) => setSelectedClinic(e.target.value)} className="w-full rounded-lg border border-gray-200 px-4 py-2.5 focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20">
+          <select
+            value={selectedClinic}
+            onChange={(e) => setSelectedClinic(e.target.value)}
+            className="w-full rounded-lg border border-gray-200 px-4 py-2.5 focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20"
+          >
             <option value="">Select clinic...</option>
-            {clinics.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            {clinics.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
           </select>
         </div>
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700">From</label>
-          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="rounded-lg border border-gray-200 px-3 py-2.5 focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20" />
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="rounded-lg border border-gray-200 px-3 py-2.5 focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20"
+          />
         </div>
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700">To</label>
-          <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="rounded-lg border border-gray-200 px-3 py-2.5 focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20" />
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="rounded-lg border border-gray-200 px-3 py-2.5 focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20"
+          />
         </div>
-        <button onClick={fetchStatement} disabled={!selectedClinic || loading} className="rounded-lg bg-[#4fa77e] px-6 py-2.5 text-white hover:bg-[#3d9268] disabled:opacity-50">
+        <button
+          onClick={fetchStatement}
+          disabled={!selectedClinic || loading}
+          className="rounded-lg bg-[#4fa77e] px-6 py-2.5 text-white hover:bg-[#3d9268] disabled:opacity-50"
+        >
           {loading ? 'Loading...' : 'Generate'}
         </button>
       </div>
@@ -149,10 +189,14 @@ export default function StatementsPage() {
                   <span className="font-medium">{statement.clinic.name}</span>
                 </div>
                 <p className="mt-1 text-sm text-gray-500">
-                  Period: {formatDate(statement.period.startDate)} - {formatDate(statement.period.endDate)}
+                  Period: {formatDate(statement.period.startDate)} -{' '}
+                  {formatDate(statement.period.endDate)}
                 </p>
               </div>
-              <button onClick={exportCSV} className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+              <button
+                onClick={exportCSV}
+                className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+              >
                 <Download className="h-4 w-4" /> Export CSV
               </button>
             </div>
@@ -162,19 +206,27 @@ export default function StatementsPage() {
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
               <p className="text-sm text-gray-500">Opening Balance</p>
-              <p className="text-xl font-bold text-gray-900">{formatCurrency(statement.openingBalance)}</p>
+              <p className="text-xl font-bold text-gray-900">
+                {formatCurrency(statement.openingBalance)}
+              </p>
             </div>
             <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
               <p className="text-sm text-gray-500">Total Invoiced</p>
-              <p className="text-xl font-bold text-red-600">{formatCurrency(statement.totalDebits)}</p>
+              <p className="text-xl font-bold text-red-600">
+                {formatCurrency(statement.totalDebits)}
+              </p>
             </div>
             <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
               <p className="text-sm text-gray-500">Total Payments</p>
-              <p className="text-xl font-bold text-green-600">{formatCurrency(statement.totalCredits)}</p>
+              <p className="text-xl font-bold text-green-600">
+                {formatCurrency(statement.totalCredits)}
+              </p>
             </div>
             <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
               <p className="text-sm text-gray-500">Closing Balance</p>
-              <p className={`text-xl font-bold ${statement.closingBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+              <p
+                className={`text-xl font-bold ${statement.closingBalance > 0 ? 'text-red-600' : 'text-green-600'}`}
+              >
                 {formatCurrency(statement.closingBalance)}
               </p>
             </div>
@@ -185,41 +237,70 @@ export default function StatementsPage() {
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  {['Date', 'Type', 'Reference', 'Description', 'Debit', 'Credit', 'Balance'].map((h) => (
-                    <th key={h} className={`px-4 py-3 text-xs font-medium uppercase text-gray-500 ${['Debit', 'Credit', 'Balance'].includes(h) ? 'text-right' : 'text-left'}`}>{h}</th>
-                  ))}
+                  {['Date', 'Type', 'Reference', 'Description', 'Debit', 'Credit', 'Balance'].map(
+                    (h) => (
+                      <th
+                        key={h}
+                        className={`px-4 py-3 text-xs font-medium uppercase text-gray-500 ${['Debit', 'Credit', 'Balance'].includes(h) ? 'text-right' : 'text-left'}`}
+                      >
+                        {h}
+                      </th>
+                    )
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {/* Opening Balance Row */}
                 <tr className="bg-gray-50/50">
-                  <td className="px-4 py-3 text-sm text-gray-500">{formatDate(statement.period.startDate)}</td>
-                  <td className="px-4 py-3 text-sm text-gray-500" colSpan={3}>Opening Balance</td>
+                  <td className="px-4 py-3 text-sm text-gray-500">
+                    {formatDate(statement.period.startDate)}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-500" colSpan={3}>
+                    Opening Balance
+                  </td>
                   <td className="px-4 py-3 text-right text-sm text-gray-500" />
                   <td className="px-4 py-3 text-right text-sm text-gray-500" />
-                  <td className="px-4 py-3 text-right text-sm font-medium text-gray-900">{formatCurrency(statement.openingBalance)}</td>
+                  <td className="px-4 py-3 text-right text-sm font-medium text-gray-900">
+                    {formatCurrency(statement.openingBalance)}
+                  </td>
                 </tr>
                 {statement.lineItems.map((item, i) => (
                   <tr key={i} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-sm text-gray-600">{formatDate(item.date)}</td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${item.type === 'invoice' ? 'bg-blue-100 text-blue-700' : item.type === 'credit' ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700'}`}>
+                      <span
+                        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${item.type === 'invoice' ? 'bg-blue-100 text-blue-700' : item.type === 'credit' ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700'}`}
+                      >
                         {item.type}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">{item.reference}</td>
                     <td className="px-4 py-3 text-sm text-gray-900">{item.description}</td>
-                    <td className="px-4 py-3 text-right text-sm text-red-600">{item.debit > 0 ? formatCurrency(item.debit) : ''}</td>
-                    <td className="px-4 py-3 text-right text-sm text-green-600">{item.credit > 0 ? formatCurrency(item.credit) : ''}</td>
-                    <td className="px-4 py-3 text-right text-sm font-medium text-gray-900">{formatCurrency(item.balance)}</td>
+                    <td className="px-4 py-3 text-right text-sm text-red-600">
+                      {item.debit > 0 ? formatCurrency(item.debit) : ''}
+                    </td>
+                    <td className="px-4 py-3 text-right text-sm text-green-600">
+                      {item.credit > 0 ? formatCurrency(item.credit) : ''}
+                    </td>
+                    <td className="px-4 py-3 text-right text-sm font-medium text-gray-900">
+                      {formatCurrency(item.balance)}
+                    </td>
                   </tr>
                 ))}
                 {/* Closing Balance Row */}
                 <tr className="bg-gray-50 font-semibold">
-                  <td className="px-4 py-3 text-sm text-gray-900" colSpan={4}>Closing Balance</td>
-                  <td className="px-4 py-3 text-right text-sm text-red-600">{formatCurrency(statement.totalDebits)}</td>
-                  <td className="px-4 py-3 text-right text-sm text-green-600">{formatCurrency(statement.totalCredits)}</td>
-                  <td className="px-4 py-3 text-right text-sm text-gray-900">{formatCurrency(statement.closingBalance)}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900" colSpan={4}>
+                    Closing Balance
+                  </td>
+                  <td className="px-4 py-3 text-right text-sm text-red-600">
+                    {formatCurrency(statement.totalDebits)}
+                  </td>
+                  <td className="px-4 py-3 text-right text-sm text-green-600">
+                    {formatCurrency(statement.totalCredits)}
+                  </td>
+                  <td className="px-4 py-3 text-right text-sm text-gray-900">
+                    {formatCurrency(statement.closingBalance)}
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -232,30 +313,39 @@ export default function StatementsPage() {
                 <div>
                   <h3 className="text-lg font-bold text-gray-900">Pending Fees (Uninvoiced)</h3>
                   <p className="text-sm text-gray-500">
-                    {statement.pendingFees.count} fee event{statement.pendingFees.count !== 1 ? 's' : ''} not yet included in an invoice
+                    {statement.pendingFees.count} fee event
+                    {statement.pendingFees.count !== 1 ? 's' : ''} not yet included in an invoice
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-2xl font-bold text-yellow-700">{formatCurrency(statement.pendingFees.totalCents)}</p>
+                  <p className="text-2xl font-bold text-yellow-700">
+                    {formatCurrency(statement.pendingFees.totalCents)}
+                  </p>
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-4 mb-4">
+              <div className="mb-4 grid grid-cols-3 gap-4">
                 {statement.pendingFees.prescriptionCount > 0 && (
                   <div className="rounded-xl bg-white p-3 text-center">
                     <p className="text-xs text-gray-500">Prescription</p>
-                    <p className="text-lg font-bold text-gray-900">{statement.pendingFees.prescriptionCount}</p>
+                    <p className="text-lg font-bold text-gray-900">
+                      {statement.pendingFees.prescriptionCount}
+                    </p>
                   </div>
                 )}
                 {statement.pendingFees.transmissionCount > 0 && (
                   <div className="rounded-xl bg-white p-3 text-center">
                     <p className="text-xs text-gray-500">Transmission</p>
-                    <p className="text-lg font-bold text-gray-900">{statement.pendingFees.transmissionCount}</p>
+                    <p className="text-lg font-bold text-gray-900">
+                      {statement.pendingFees.transmissionCount}
+                    </p>
                   </div>
                 )}
                 {statement.pendingFees.adminCount > 0 && (
                   <div className="rounded-xl bg-white p-3 text-center">
                     <p className="text-xs text-gray-500">Admin</p>
-                    <p className="text-lg font-bold text-gray-900">{statement.pendingFees.adminCount}</p>
+                    <p className="text-lg font-bold text-gray-900">
+                      {statement.pendingFees.adminCount}
+                    </p>
                   </div>
                 )}
               </div>
@@ -263,23 +353,37 @@ export default function StatementsPage() {
                 <table className="w-full">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Date</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Type</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Description</th>
-                      <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Amount</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">
+                        Date
+                      </th>
+                      <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">
+                        Type
+                      </th>
+                      <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">
+                        Description
+                      </th>
+                      <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">
+                        Amount
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {statement.pendingFees.events.map((evt) => (
                       <tr key={evt.id}>
-                        <td className="px-4 py-2 text-sm text-gray-600">{formatDate(evt.createdAt)}</td>
+                        <td className="px-4 py-2 text-sm text-gray-600">
+                          {formatDate(evt.createdAt)}
+                        </td>
                         <td className="px-4 py-2">
                           <span className="inline-flex rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">
                             {evt.feeType}
                           </span>
                         </td>
-                        <td className="px-4 py-2 text-sm text-gray-900">{evt.description || `${evt.feeType} fee`}</td>
-                        <td className="px-4 py-2 text-right text-sm font-medium text-gray-900">{formatCurrency(evt.amountCents)}</td>
+                        <td className="px-4 py-2 text-sm text-gray-900">
+                          {evt.description || `${evt.feeType} fee`}
+                        </td>
+                        <td className="px-4 py-2 text-right text-sm font-medium text-gray-900">
+                          {formatCurrency(evt.amountCents)}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

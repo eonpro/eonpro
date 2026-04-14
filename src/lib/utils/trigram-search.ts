@@ -41,7 +41,7 @@ interface TrigramMatch {
  * @returns Array of {id, similarity} ordered by similarity descending
  */
 export async function searchPatientsByTrigram(
-  options: TrigramSearchOptions,
+  options: TrigramSearchOptions
 ): Promise<TrigramMatch[]> {
   const { search, clinicId, limit = 20, threshold = 0.25 } = options;
 
@@ -78,7 +78,7 @@ export async function searchPatientsByTrigram(
  * @returns { id: { in: [...matchedIds] } } or empty object if no matches
  */
 export async function buildTrigramFallbackWhere(
-  options: TrigramSearchOptions,
+  options: TrigramSearchOptions
 ): Promise<{ id?: { in: number[] } }> {
   const matches = await searchPatientsByTrigram(options);
   if (matches.length === 0) return {};

@@ -160,7 +160,9 @@ export default function TicketDashboardPage() {
       <div className="flex h-96 flex-col items-center justify-center gap-3">
         <AlertTriangle className="h-10 w-10 text-red-400" />
         <p className="text-gray-500">{error}</p>
-        <button onClick={fetchAll} className="text-blue-600 hover:text-blue-700">Retry</button>
+        <button onClick={fetchAll} className="text-blue-600 hover:text-blue-700">
+          Retry
+        </button>
       </div>
     );
   }
@@ -176,14 +178,19 @@ export default function TicketDashboardPage() {
       (stats.byStatus['REOPENED'] || 0)
     : 0;
 
-  const slaCompliance = stats && stats.total > 0
-    ? Math.round(((stats.total - stats.slaBreach) / stats.total) * 100)
-    : 100;
+  const slaCompliance =
+    stats && stats.total > 0
+      ? Math.round(((stats.total - stats.slaBreach) / stats.total) * 100)
+      : 100;
 
   const statusData = stats
     ? Object.entries(stats.byStatus)
         .filter(([, v]) => v > 0)
-        .map(([name, value]) => ({ name: name.replace(/_/g, ' '), value, fill: STATUS_COLORS[name] || '#9ca3af' }))
+        .map(([name, value]) => ({
+          name: name.replace(/_/g, ' '),
+          value,
+          fill: STATUS_COLORS[name] || '#9ca3af',
+        }))
     : [];
 
   const priorityData = stats
@@ -305,8 +312,22 @@ export default function TicketDashboardPage() {
               <YAxis tick={{ fontSize: 12 }} />
               <Tooltip labelFormatter={(label) => formatShortDate(String(label))} />
               <Legend />
-              <Area type="monotone" dataKey="created" name="Created" stroke="#3b82f6" fill="#3b82f680" strokeWidth={2} />
-              <Area type="monotone" dataKey="resolved" name="Resolved" stroke="#22c55e" fill="#22c55e80" strokeWidth={2} />
+              <Area
+                type="monotone"
+                dataKey="created"
+                name="Created"
+                stroke="#3b82f6"
+                fill="#3b82f680"
+                strokeWidth={2}
+              />
+              <Area
+                type="monotone"
+                dataKey="resolved"
+                name="Resolved"
+                stroke="#22c55e"
+                fill="#22c55e80"
+                strokeWidth={2}
+              />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -320,7 +341,15 @@ export default function TicketDashboardPage() {
             <h2 className="mb-4 text-sm font-semibold text-gray-900">Status Distribution</h2>
             <ResponsiveContainer width="100%" height={250}>
               <PieChart>
-                <Pie data={statusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={({ name, value }) => `${name} (${value})`}>
+                <Pie
+                  data={statusData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={90}
+                  label={({ name, value }) => `${name} (${value})`}
+                >
                   {statusData.map((entry, i) => (
                     <Cell key={i} fill={entry.fill} />
                   ))}
@@ -379,21 +408,41 @@ export default function TicketDashboardPage() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Agent</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Role</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Open</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Resolved</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Avg Resolution</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                    Agent
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                    Role
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
+                    Open
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
+                    Resolved
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
+                    Avg Resolution
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
                 {agents.map((agent) => (
                   <tr key={agent.userId}>
-                    <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900">{agent.name}</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-500">{agent.role}</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-gray-900">{agent.openTickets}</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-gray-900">{agent.resolvedTickets}</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-gray-900">{formatDuration(agent.avgResolutionMinutes)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900">
+                      {agent.name}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-500">
+                      {agent.role}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-gray-900">
+                      {agent.openTickets}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-gray-900">
+                      {agent.resolvedTickets}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-gray-900">
+                      {formatDuration(agent.avgResolutionMinutes)}
+                    </td>
                   </tr>
                 ))}
               </tbody>

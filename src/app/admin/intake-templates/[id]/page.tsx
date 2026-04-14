@@ -11,7 +11,13 @@ interface TemplateDetail {
   isActive: boolean;
   version: number;
   metadata: Record<string, unknown> | null;
-  questions: { id: number; questionText: string; questionType: string; orderIndex: number; section?: string }[];
+  questions: {
+    id: number;
+    questionText: string;
+    questionType: string;
+    orderIndex: number;
+    section?: string;
+  }[];
 }
 
 export default function IntakeTemplateEditorPage() {
@@ -85,16 +91,16 @@ export default function IntakeTemplateEditorPage() {
       body: JSON.stringify({ isActive: !template.isActive }),
     });
     if (res.ok) {
-      setTemplate((t) => t ? { ...t, isActive: !t.isActive } : t);
+      setTemplate((t) => (t ? { ...t, isActive: !t.isActive } : t));
     }
   }, [template, templateId]);
 
   if (loading) {
     return (
-      <div className="p-8 max-w-5xl mx-auto">
+      <div className="mx-auto max-w-5xl p-8">
         <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-100 rounded w-64" />
-          <div className="h-96 bg-gray-100 rounded-xl" />
+          <div className="h-8 w-64 rounded bg-gray-100" />
+          <div className="h-96 rounded-xl bg-gray-100" />
         </div>
       </div>
     );
@@ -102,25 +108,25 @@ export default function IntakeTemplateEditorPage() {
 
   if (!template) {
     return (
-      <div className="p-8 max-w-5xl mx-auto">
+      <div className="mx-auto max-w-5xl p-8">
         <p className="text-gray-500">Template not found</p>
       </div>
     );
   }
 
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-6">
+    <div className="mx-auto max-w-5xl space-y-6 p-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <button
             onClick={() => router.push('/admin/intake-templates')}
-            className="text-sm text-gray-500 hover:text-gray-700 mb-1"
+            className="mb-1 text-sm text-gray-500 hover:text-gray-700"
           >
             &larr; Back to templates
           </button>
           <h1 className="text-2xl font-bold text-gray-900">{template.name}</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
+          <p className="mt-0.5 text-sm text-gray-500">
             v{template.version} &middot; {template.treatmentType} &middot;{' '}
             {template.isActive ? 'Active' : 'Inactive'}
           </p>
@@ -128,7 +134,7 @@ export default function IntakeTemplateEditorPage() {
         <div className="flex gap-3">
           <button
             onClick={handleToggleActive}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
               template.isActive
                 ? 'bg-red-50 text-red-600 hover:bg-red-100'
                 : 'bg-green-50 text-green-600 hover:bg-green-100'
@@ -139,7 +145,7 @@ export default function IntakeTemplateEditorPage() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
           >
             {saving ? 'Saving...' : 'Save Changes'}
           </button>
@@ -152,7 +158,7 @@ export default function IntakeTemplateEditorPage() {
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            className={`border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
               activeTab === tab
                 ? 'border-indigo-600 text-indigo-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -167,30 +173,24 @@ export default function IntakeTemplateEditorPage() {
       {activeTab === 'overview' && (
         <div className="space-y-4">
           <div>
-            <label className="block text-sm text-gray-600 mb-1">
-              Template Name
-            </label>
+            <label className="mb-1 block text-sm text-gray-600">Template Name</label>
             <input
               value={editName}
               onChange={(e) => setEditName(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg text-sm"
+              className="w-full rounded-lg border px-3 py-2 text-sm"
             />
           </div>
           <div>
-            <label className="block text-sm text-gray-600 mb-1">
-              Description
-            </label>
+            <label className="mb-1 block text-sm text-gray-600">Description</label>
             <textarea
               value={editDescription}
               onChange={(e) => setEditDescription(e.target.value)}
               rows={3}
-              className="w-full px-3 py-2 border rounded-lg text-sm"
+              className="w-full rounded-lg border px-3 py-2 text-sm"
             />
           </div>
           <div className="rounded-xl bg-gray-50 p-4">
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">
-              Statistics
-            </h3>
+            <h3 className="mb-2 text-sm font-semibold text-gray-700">Statistics</h3>
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
                 <p className="text-2xl font-bold text-gray-900">
@@ -199,9 +199,7 @@ export default function IntakeTemplateEditorPage() {
                 <p className="text-xs text-gray-500">Questions</p>
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900">
-                  {template.version}
-                </p>
+                <p className="text-2xl font-bold text-gray-900">{template.version}</p>
                 <p className="text-xs text-gray-500">Version</p>
               </div>
               <div>
@@ -219,12 +217,8 @@ export default function IntakeTemplateEditorPage() {
       {activeTab === 'config' && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <label className="text-sm font-medium text-gray-700">
-              Form Configuration (JSON)
-            </label>
-            {jsonError && (
-              <span className="text-sm text-red-500">{jsonError}</span>
-            )}
+            <label className="text-sm font-medium text-gray-700">Form Configuration (JSON)</label>
+            {jsonError && <span className="text-sm text-red-500">{jsonError}</span>}
           </div>
           <textarea
             value={configJson}
@@ -234,26 +228,25 @@ export default function IntakeTemplateEditorPage() {
             }}
             rows={30}
             spellCheck={false}
-            className="w-full px-4 py-3 border rounded-xl text-xs font-mono bg-gray-900 text-green-400 resize-y"
+            className="w-full resize-y rounded-xl border bg-gray-900 px-4 py-3 font-mono text-xs text-green-400"
           />
           <p className="text-xs text-gray-400">
-            Editing the config JSON creates a new version. Existing drafts
-            continue using their started version.
+            Editing the config JSON creates a new version. Existing drafts continue using their
+            started version.
           </p>
         </div>
       )}
 
       {/* Preview tab */}
       {activeTab === 'preview' && (
-        <div className="rounded-xl border border-gray-200 overflow-hidden">
-          <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+        <div className="overflow-hidden rounded-xl border border-gray-200">
+          <div className="border-b border-gray-200 bg-gray-50 px-4 py-3">
             <p className="text-sm text-gray-600">
               Preview opens the form in an iframe. Changes must be saved first.
             </p>
           </div>
-          <div className="bg-white p-4 text-center py-16 text-gray-400">
-            Preview functionality coming soon. Save the template and visit the
-            form URL to preview.
+          <div className="bg-white p-4 py-16 text-center text-gray-400">
+            Preview functionality coming soon. Save the template and visit the form URL to preview.
           </div>
         </div>
       )}

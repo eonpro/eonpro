@@ -150,11 +150,7 @@ export const GET = withSuperAdminAuth(async (request: NextRequest) => {
       if (patient) {
         crossTenant = clinic != null && patient.clinicId != null && patient.clinicId !== clinic.id;
         const patientClinicFeatures = patient.clinic?.features;
-        showLabsTab = getClinicFeatureBoolean(
-          patientClinicFeatures,
-          'BLOODWORK_LABS',
-          true
-        );
+        showLabsTab = getClinicFeatureBoolean(patientClinicFeatures, 'BLOODWORK_LABS', true);
         const pcRaw =
           patientClinicFeatures &&
           typeof patientClinicFeatures === 'object' &&

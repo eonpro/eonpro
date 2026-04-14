@@ -137,7 +137,9 @@ export default function InvoicesPage() {
   }, []);
 
   useEffect(() => {
-    return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    };
   }, []);
 
   // Fetch invoices
@@ -274,9 +276,7 @@ export default function InvoicesPage() {
 
   const getTreatmentSummary = (invoice: Invoice): string => {
     if (invoice.lineItems && invoice.lineItems.length > 0) {
-      const descriptions = invoice.lineItems
-        .map((item) => item.description)
-        .filter(Boolean);
+      const descriptions = invoice.lineItems.map((item) => item.description).filter(Boolean);
       if (descriptions.length > 0) {
         return descriptions.length === 1
           ? descriptions[0]
@@ -512,7 +512,10 @@ export default function InvoicesPage() {
                     </div>
 
                     <div className="col-span-3">
-                      <p className="truncate text-sm text-slate-700" title={getTreatmentSummary(invoice)}>
+                      <p
+                        className="truncate text-sm text-slate-700"
+                        title={getTreatmentSummary(invoice)}
+                      >
                         {getTreatmentSummary(invoice)}
                       </p>
                     </div>
@@ -543,9 +546,7 @@ export default function InvoicesPage() {
                     <div className="col-span-2">
                       <p className="text-sm text-slate-900">{formatDate(invoice.createdAt)}</p>
                       {invoice.dueDate && (
-                        <p className="text-xs text-slate-400">
-                          Due: {formatDate(invoice.dueDate)}
-                        </p>
+                        <p className="text-xs text-slate-400">Due: {formatDate(invoice.dueDate)}</p>
                       )}
                     </div>
 
@@ -1068,18 +1069,24 @@ function InvoiceDetailModal({
           <div className="grid grid-cols-3 gap-4">
             <div>
               <h3 className="mb-1 text-sm font-medium text-slate-500">Date Posted</h3>
-              <p className="font-medium text-slate-900">{new Date(invoice.createdAt).toLocaleDateString()}</p>
+              <p className="font-medium text-slate-900">
+                {new Date(invoice.createdAt).toLocaleDateString()}
+              </p>
             </div>
             {invoice.dueDate && (
               <div>
                 <h3 className="mb-1 text-sm font-medium text-slate-500">Due Date</h3>
-                <p className="font-medium text-slate-700">{new Date(invoice.dueDate).toLocaleDateString()}</p>
+                <p className="font-medium text-slate-700">
+                  {new Date(invoice.dueDate).toLocaleDateString()}
+                </p>
               </div>
             )}
             {invoice.metadata?.paymentDate && (
               <div>
                 <h3 className="mb-1 text-sm font-medium text-slate-500">Payment Date</h3>
-                <p className="font-medium text-emerald-600">{new Date(invoice.metadata.paymentDate).toLocaleDateString()}</p>
+                <p className="font-medium text-emerald-600">
+                  {new Date(invoice.metadata.paymentDate).toLocaleDateString()}
+                </p>
               </div>
             )}
           </div>
@@ -1105,29 +1112,39 @@ function InvoiceDetailModal({
           </div>
 
           {/* Treatment Details */}
-          {(invoice.lineItems && invoice.lineItems.length > 0) || invoice.metadata?.product || invoice.metadata?.plan ? (
+          {(invoice.lineItems && invoice.lineItems.length > 0) ||
+          invoice.metadata?.product ||
+          invoice.metadata?.plan ? (
             <div>
               <h3 className="mb-2 text-sm font-medium text-slate-500">Treatment Details</h3>
               <div className="rounded-lg bg-emerald-50 p-4">
                 {/* Metadata-driven treatment info */}
-                {(invoice.metadata?.product || invoice.metadata?.medicationType || invoice.metadata?.plan) && (
+                {(invoice.metadata?.product ||
+                  invoice.metadata?.medicationType ||
+                  invoice.metadata?.plan) && (
                   <div className="mb-3 grid grid-cols-2 gap-3 text-sm md:grid-cols-3">
                     {invoice.metadata?.product && (
                       <div>
                         <p className="text-emerald-600">Product</p>
-                        <p className="font-medium capitalize text-emerald-900">{invoice.metadata.product}</p>
+                        <p className="font-medium capitalize text-emerald-900">
+                          {invoice.metadata.product}
+                        </p>
                       </div>
                     )}
                     {invoice.metadata?.medicationType && (
                       <div>
                         <p className="text-emerald-600">Medication Type</p>
-                        <p className="font-medium capitalize text-emerald-900">{invoice.metadata.medicationType}</p>
+                        <p className="font-medium capitalize text-emerald-900">
+                          {invoice.metadata.medicationType}
+                        </p>
                       </div>
                     )}
                     {invoice.metadata?.plan && (
                       <div>
                         <p className="text-emerald-600">Plan</p>
-                        <p className="font-medium capitalize text-emerald-900">{invoice.metadata.plan}</p>
+                        <p className="font-medium capitalize text-emerald-900">
+                          {invoice.metadata.plan}
+                        </p>
                       </div>
                     )}
                   </div>
@@ -1137,15 +1154,24 @@ function InvoiceDetailModal({
                 {invoice.lineItems && invoice.lineItems.length > 0 && (
                   <div className="space-y-2">
                     {invoice.lineItems.map((item, i) => {
-                      const lineAmount = (item.unitPrice || item.amount || 0) * (item.quantity || 1);
+                      const lineAmount =
+                        (item.unitPrice || item.amount || 0) * (item.quantity || 1);
                       const isDiscount = lineAmount < 0 || (item.amount != null && item.amount < 0);
                       return (
-                        <div key={i} className={`flex justify-between text-sm ${isDiscount ? 'text-red-600' : ''}`}>
+                        <div
+                          key={i}
+                          className={`flex justify-between text-sm ${isDiscount ? 'text-red-600' : ''}`}
+                        >
                           <span className={isDiscount ? 'italic text-red-600' : 'text-emerald-800'}>
                             {item.description}
-                            {!isDiscount && item.quantity && item.quantity > 1 && ` (x${item.quantity})`}
+                            {!isDiscount &&
+                              item.quantity &&
+                              item.quantity > 1 &&
+                              ` (x${item.quantity})`}
                           </span>
-                          <span className={`font-medium ${isDiscount ? 'text-red-600' : 'text-emerald-900'}`}>
+                          <span
+                            className={`font-medium ${isDiscount ? 'text-red-600' : 'text-emerald-900'}`}
+                          >
                             {formatCurrency(lineAmount)}
                           </span>
                         </div>

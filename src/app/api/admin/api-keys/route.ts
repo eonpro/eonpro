@@ -144,7 +144,6 @@ export const GET = withAuth(
         },
       });
     } catch (error: unknown) {
-
       logger.error('Error fetching API keys:', error);
       return NextResponse.json({ error: 'Failed to fetch API keys' }, { status: 500 });
     }
@@ -340,7 +339,6 @@ export const PUT = withAuth(
         },
       });
     } catch (error: unknown) {
-
       logger.error('Error updating API key:', error);
       return NextResponse.json({ error: 'Failed to update API key' }, { status: 500 });
     }
@@ -431,7 +429,6 @@ export const DELETE = withAuth(
         });
       }
     } catch (error: unknown) {
-
       logger.error('Error revoking API key:', error);
       return NextResponse.json({ error: 'Failed to revoke API key' }, { status: 500 });
     }

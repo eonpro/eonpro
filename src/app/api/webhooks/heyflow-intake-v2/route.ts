@@ -7,7 +7,11 @@ import { generateIntakePdf } from '@/services/intakePdfService';
 import { storeIntakePdf } from '@/services/storage/intakeStorage';
 import { generateSOAPFromIntake } from '@/services/ai/soapNoteService';
 import { logWebhookAttempt } from '@/lib/webhookLogger';
-import { attributeFromIntake, tagPatientWithReferralCodeOnly, attributeByRecentTouch } from '@/services/affiliate/attributionService';
+import {
+  attributeFromIntake,
+  tagPatientWithReferralCodeOnly,
+  attributeByRecentTouch,
+} from '@/services/affiliate/attributionService';
 import { extractPromoCode } from '@/lib/overtime/intakeNormalizer';
 import * as Sentry from '@sentry/nextjs';
 import { logger } from '@/lib/logger';
@@ -26,9 +30,7 @@ function authenticateWebhook(req: NextRequest): {
 
   if (!configuredSecret) {
     // Enterprise audit P0: never accept when secret is required but unset (all environments)
-    logger.error(
-      '[HEYFLOW V2] SECURITY: No webhook secret configured - rejecting request'
-    );
+    logger.error('[HEYFLOW V2] SECURITY: No webhook secret configured - rejecting request');
     return { isValid: false, errorDetails: 'Webhook secret not configured' };
   }
 
@@ -43,10 +45,11 @@ function authenticateWebhook(req: NextRequest): {
   };
 
   // Log which headers are present
-  logger.debug(
-    '[HEYFLOW V2] Auth headers present:',
-    { headers: Object.entries(authHeaders).filter(([_, value]) => value).map(([key]) => key) }
-  );
+  logger.debug('[HEYFLOW V2] Auth headers present:', {
+    headers: Object.entries(authHeaders)
+      .filter(([_, value]) => value)
+      .map(([key]) => key),
+  });
 
   // Check each possible authentication method
   for (const [header, value] of Object.entries(authHeaders)) {
@@ -124,12 +127,16 @@ export async function POST(req: NextRequest) {
     const bodyHash = createHash('sha256').update(rawBody).digest('hex');
     const idempotencyKey = `heyflow-intake-v2_${bodyHash}`;
 
-    const existingIdempotencyRecord = await prisma.idempotencyRecord.findUnique({
-      where: { key: idempotencyKey },
-    }).catch((err) => {
-      logger.warn('[HEYFLOW V2] Idempotency lookup failed, proceeding', { error: err instanceof Error ? err.message : String(err) });
-      return null;
-    });
+    const existingIdempotencyRecord = await prisma.idempotencyRecord
+      .findUnique({
+        where: { key: idempotencyKey },
+      })
+      .catch((err) => {
+        logger.warn('[HEYFLOW V2] Idempotency lookup failed, proceeding', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+        return null;
+      });
 
     if (existingIdempotencyRecord) {
       logger.info('[HEYFLOW V2] Duplicate webhook detected, returning cached response', {
@@ -137,7 +144,11 @@ export async function POST(req: NextRequest) {
         originalCreatedAt: existingIdempotencyRecord.createdAt,
       });
       return Response.json(
-        { received: true, status: 'duplicate', originalResponse: existingIdempotencyRecord.responseBody },
+        {
+          received: true,
+          status: 'duplicate',
+          originalResponse: existingIdempotencyRecord.responseBody,
+        },
         { status: existingIdempotencyRecord.responseStatus }
       );
     }
@@ -285,7 +296,11 @@ export async function POST(req: NextRequest) {
             if (result) {
               logger.debug(`[HEYFLOW V2] Affiliate attribution created: ${result.refCode}`);
             } else {
-              const tagged = await tagPatientWithReferralCodeOnly(patient.id, promoCode, patientRecord.clinicId);
+              const tagged = await tagPatientWithReferralCodeOnly(
+                patient.id,
+                promoCode,
+                patientRecord.clinicId
+              );
               if (tagged) {
                 logger.debug(`[HEYFLOW V2] Profile tagged with referral code: ${promoCode}`);
               }
@@ -303,7 +318,11 @@ export async function POST(req: NextRequest) {
           });
           if (patientRecord?.clinicId && !patientRecord.attributionAffiliateId) {
             const referrerUrl = (payload['Referrer'] || payload['referrer'] || '') as string;
-            const fallback = await attributeByRecentTouch(patient.id, referrerUrl || null, patientRecord.clinicId);
+            const fallback = await attributeByRecentTouch(
+              patient.id,
+              referrerUrl || null,
+              patientRecord.clinicId
+            );
             if (fallback) {
               logger.info(`[HEYFLOW V2] Fallback affiliate attribution: ${fallback.refCode}`);
             }
@@ -337,10 +356,11 @@ export async function POST(req: NextRequest) {
       });
 
       // Dual-write: S3 + DB `data` column (Phase 3.3)
-      const { s3DataKey, dataBuffer: intakeDataBuffer } = await storeIntakeData(
-        intakeDataToStore,
-        { documentId: existingDocument?.id, patientId: patient.id, clinicId: null }
-      );
+      const { s3DataKey, dataBuffer: intakeDataBuffer } = await storeIntakeData(intakeDataToStore, {
+        documentId: existingDocument?.id,
+        patientId: patient.id,
+        clinicId: null,
+      });
 
       let patientDocument;
       if (existingDocument) {
@@ -422,16 +442,20 @@ export async function POST(req: NextRequest) {
       }
 
       // Record idempotency key for duplicate detection
-      await prisma.idempotencyRecord.create({
-        data: {
-          key: idempotencyKey,
-          resource: 'heyflow-intake-v2',
-          responseStatus: 200,
-          responseBody: responseData,
-        },
-      }).catch((err) => {
-        logger.warn('[HEYFLOW V2] Failed to store idempotency record', { error: err instanceof Error ? err.message : String(err) });
-      });
+      await prisma.idempotencyRecord
+        .create({
+          data: {
+            key: idempotencyKey,
+            resource: 'heyflow-intake-v2',
+            responseStatus: 200,
+            responseBody: responseData,
+          },
+        })
+        .catch((err) => {
+          logger.warn('[HEYFLOW V2] Failed to store idempotency record', {
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
 
       logger.debug(`${'='.repeat(60)}\n`);
       return Response.json(responseData, { status: 200 });

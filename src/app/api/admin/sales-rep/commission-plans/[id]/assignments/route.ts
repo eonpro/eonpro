@@ -124,10 +124,7 @@ export const POST = withAuth(
           where: {
             id: repId,
             role: { in: [...COMMISSION_ELIGIBLE_ROLES] },
-            OR: [
-              { clinicId },
-              { userClinics: { some: { clinicId, isActive: true } } },
-            ],
+            OR: [{ clinicId }, { userClinics: { some: { clinicId, isActive: true } } }],
           },
         })
       );

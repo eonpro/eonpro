@@ -164,9 +164,10 @@ function buildReminderEmail(
   });
 
   const urgencyColor = type === 'overdue' ? '#EF4444' : '#F59E0B';
-  const heading = type === 'overdue'
-    ? `Invoice ${invoice.invoiceNumber} is ${days} day${days === 1 ? '' : 's'} overdue`
-    : `Invoice ${invoice.invoiceNumber} is due in ${days} day${days === 1 ? '' : 's'}`;
+  const heading =
+    type === 'overdue'
+      ? `Invoice ${invoice.invoiceNumber} is ${days} day${days === 1 ? '' : 's'} overdue`
+      : `Invoice ${invoice.invoiceNumber} is due in ${days} day${days === 1 ? '' : 's'}`;
 
   return `
     <!DOCTYPE html>

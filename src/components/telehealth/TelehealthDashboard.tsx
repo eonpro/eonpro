@@ -60,7 +60,9 @@ export default function TelehealthDashboard({
         );
 
         if (!match) {
-          const aptRes = await apiFetch(`/api/scheduling/appointments?appointmentId=${appointmentId}`);
+          const aptRes = await apiFetch(
+            `/api/scheduling/appointments?appointmentId=${appointmentId}`
+          );
           if (aptRes.ok) {
             const aptData = await aptRes.json();
             const apt = aptData.appointment ?? aptData;
@@ -73,7 +75,11 @@ export default function TelehealthDashboard({
                 status: 'COMPLETED',
                 joinUrl: apt.zoomJoinUrl || apt.videoLink || '',
                 patient: apt.patient
-                  ? { id: apt.patient.id, firstName: apt.patient.firstName || '', lastName: apt.patient.lastName || '' }
+                  ? {
+                      id: apt.patient.id,
+                      firstName: apt.patient.firstName || '',
+                      lastName: apt.patient.lastName || '',
+                    }
                   : { id: 0, firstName: 'Unknown', lastName: 'Patient' },
                 appointment: { id: apt.id, title: apt.title || '', reason: apt.reason || '' },
               };
@@ -95,7 +101,9 @@ export default function TelehealthDashboard({
     };
 
     void loadPostCall();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-open lobby when navigated with ?consultationId=X (from consultations page)
@@ -135,7 +143,11 @@ export default function TelehealthDashboard({
                   meetingId: apt.zoomMeetingId || undefined,
                   password: undefined,
                   patient: apt.patient
-                    ? { id: apt.patient.id, firstName: apt.patient.firstName || '', lastName: apt.patient.lastName || '' }
+                    ? {
+                        id: apt.patient.id,
+                        firstName: apt.patient.firstName || '',
+                        lastName: apt.patient.lastName || '',
+                      }
                     : { id: 0, firstName: 'Unknown', lastName: 'Patient' },
                   appointment: { id: apt.id, title: apt.title || '', reason: apt.reason || '' },
                 };
@@ -210,7 +222,9 @@ export default function TelehealthDashboard({
               return;
             }
           }
-        } catch { /* fall through to lobby */ }
+        } catch {
+          /* fall through to lobby */
+        }
       }
 
       changePhase('lobby');
@@ -232,13 +246,15 @@ export default function TelehealthDashboard({
         const data = await res.json();
         if (data.appointment?.zoomMeetingId) {
           setSelectedSession((prev) =>
-            prev ? {
-              ...prev,
-              meetingId: data.appointment.zoomMeetingId,
-              joinUrl: data.appointment.zoomJoinUrl || prev.joinUrl,
-              hostUrl: data.appointment.hostUrl || prev.hostUrl,
-              password: data.appointment.password || prev.password,
-            } : prev
+            prev
+              ? {
+                  ...prev,
+                  meetingId: data.appointment.zoomMeetingId,
+                  joinUrl: data.appointment.zoomJoinUrl || prev.joinUrl,
+                  hostUrl: data.appointment.hostUrl || prev.hostUrl,
+                  password: data.appointment.password || prev.password,
+                }
+              : prev
           );
           setJoinError(null);
           return;
@@ -252,16 +268,19 @@ export default function TelehealthDashboard({
     }
   }, [selectedSession]);
 
-  const handleJoinCall = useCallback((enableScribe: boolean) => {
-    if (!selectedSession?.meetingId || !selectedSession?.joinUrl) {
-      setJoinError('Video link is not ready yet. Generating it now...');
-      void handleProvisionAndJoin();
-      return;
-    }
-    setJoinError(null);
-    setScribeEnabled(enableScribe);
-    changePhase('call');
-  }, [changePhase, selectedSession, handleProvisionAndJoin]);
+  const handleJoinCall = useCallback(
+    (enableScribe: boolean) => {
+      if (!selectedSession?.meetingId || !selectedSession?.joinUrl) {
+        setJoinError('Video link is not ready yet. Generating it now...');
+        void handleProvisionAndJoin();
+        return;
+      }
+      setJoinError(null);
+      setScribeEnabled(enableScribe);
+      changePhase('call');
+    },
+    [changePhase, selectedSession, handleProvisionAndJoin]
+  );
 
   const handleCallEnd = useCallback(
     (data: PostCallData) => {
@@ -342,9 +361,7 @@ export default function TelehealthDashboard({
                   onJoinCall={handleJoinCall}
                   onBack={handleBackToQueue}
                   onSessionUpdated={(updates) => {
-                    setSelectedSession((prev) =>
-                      prev ? { ...prev, ...updates } : prev
-                    );
+                    setSelectedSession((prev) => (prev ? { ...prev, ...updates } : prev));
                   }}
                 />
               )}

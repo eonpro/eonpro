@@ -16,7 +16,7 @@ export const GET = withAuth(async (_req: NextRequest, user: AuthUser) => {
     if (!user.patientId) {
       return NextResponse.json(
         { error: 'Patient ID required', code: 'PATIENT_ID_REQUIRED' },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -38,9 +38,7 @@ export const GET = withAuth(async (_req: NextRequest, user: AuthUser) => {
     });
 
     const drafts = rawDrafts.map((d) => {
-      const completedSteps = Array.isArray(d.completedSteps)
-        ? (d.completedSteps as string[])
-        : [];
+      const completedSteps = Array.isArray(d.completedSteps) ? (d.completedSteps as string[]) : [];
 
       return {
         sessionId: d.sessionId,

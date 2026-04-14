@@ -14,7 +14,7 @@ export const testimonials: TestimonialType[] = [
   {
     title: "I've lost 37 lbs in 4 months",
     testimonial:
-      'When I started Tirzepatide, I weighed 178 lbs. Four months later, I\'m down to 141 lbs — that\'s almost 40 pounds gone. It became so much easier to make healthier choices. I finally feel in control of my appetite.',
+      "When I started Tirzepatide, I weighed 178 lbs. Four months later, I'm down to 141 lbs — that's almost 40 pounds gone. It became so much easier to make healthier choices. I finally feel in control of my appetite.",
     personName: 'Melissa',
     personAge: 44,
     startWeight: 178,

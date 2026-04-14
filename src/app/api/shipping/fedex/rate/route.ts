@@ -79,13 +79,11 @@ async function handleGetRate(req: NextRequest, user: AuthUser) {
     }
     const parsed = rateRequestSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: 'Validation failed' },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: 'Validation failed' }, { status: 400 });
     }
 
-    const { patientId, origin, destination, serviceType, packagingType, weightLbs, oneRate } = parsed.data;
+    const { patientId, origin, destination, serviceType, packagingType, weightLbs, oneRate } =
+      parsed.data;
 
     const patient = await prisma.patient.findUnique({
       where: { id: patientId },
@@ -119,16 +117,22 @@ async function handleGetRate(req: NextRequest, user: AuthUser) {
         (dbErr.code === 'P2021' || dbErr.code === 'P2022')
       ) {
         return NextResponse.json(
-          { error: 'FedEx shipping is not yet configured for this clinic. Please contact your administrator to complete the setup.' },
-          { status: 422 },
+          {
+            error:
+              'FedEx shipping is not yet configured for this clinic. Please contact your administrator to complete the setup.',
+          },
+          { status: 422 }
         );
       }
       if (dbErr instanceof Prisma.PrismaClientValidationError) {
         const msg = dbErr.message.toLowerCase();
         if (msg.includes('unknown field') || msg.includes('does not exist')) {
           return NextResponse.json(
-            { error: 'FedEx shipping is not yet configured for this clinic. Please contact your administrator to complete the setup.' },
-            { status: 422 },
+            {
+              error:
+                'FedEx shipping is not yet configured for this clinic. Please contact your administrator to complete the setup.',
+            },
+            { status: 422 }
           );
         }
       }
@@ -144,7 +148,7 @@ async function handleGetRate(req: NextRequest, user: AuthUser) {
     } catch {
       return NextResponse.json(
         { error: 'FedEx credentials not configured. Contact your administrator.' },
-        { status: 422 },
+        { status: 422 }
       );
     }
 

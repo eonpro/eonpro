@@ -36,7 +36,10 @@ interface Invoice {
   clinic: { id: number; name: string };
 }
 
-interface SummaryBucket { count: number; amount: number }
+interface SummaryBucket {
+  count: number;
+  amount: number;
+}
 interface Summary {
   draft: SummaryBucket;
   pending: SummaryBucket;
@@ -49,7 +52,10 @@ interface Summary {
   outstandingAmountCents: number;
 }
 
-interface Clinic { id: number; name: string }
+interface Clinic {
+  id: number;
+  name: string;
+}
 
 interface PreviewData {
   feeCount: number;
@@ -76,7 +82,11 @@ const formatCurrency = (cents: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
 
 const formatDate = (dateStr: string) =>
-  new Date(dateStr).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  new Date(dateStr).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
 
 export default function InvoicesPage() {
   const router = useRouter();
@@ -111,14 +121,23 @@ export default function InvoicesPage() {
     createStripeInvoice: true,
   });
   const [batchResults, setBatchResults] = useState<{
-    summary: { total: number; created: number; skipped: number; errors: number; totalAmountCents: number };
+    summary: {
+      total: number;
+      created: number;
+      skipped: number;
+      errors: number;
+      totalAmountCents: number;
+    };
     results: BatchResult[];
   } | null>(null);
 
   const fetchInvoices = useCallback(async () => {
     try {
       const token = localStorage.getItem('auth-token');
-      if (!token) { router.push('/login'); return; }
+      if (!token) {
+        router.push('/login');
+        return;
+      }
       const params = new URLSearchParams();
       if (statusFilter) params.set('status', statusFilter);
       if (clinicFilter) params.set('clinicId', clinicFilter);
@@ -128,7 +147,11 @@ export default function InvoicesPage() {
         setInvoices(data.invoices || []);
         setSummary(data.summary || null);
       }
-    } catch { /* silent */ } finally { setLoading(false); }
+    } catch {
+      /* silent */
+    } finally {
+      setLoading(false);
+    }
   }, [router, statusFilter, clinicFilter]);
 
   const fetchClinics = async () => {
@@ -138,10 +161,15 @@ export default function InvoicesPage() {
         const data = await response.json();
         setClinics(data.clinics?.map((c: { clinic: Clinic }) => c.clinic) || []);
       }
-    } catch { /* silent */ }
+    } catch {
+      /* silent */
+    }
   };
 
-  useEffect(() => { fetchInvoices(); fetchClinics(); }, [fetchInvoices]);
+  useEffect(() => {
+    fetchInvoices();
+    fetchClinics();
+  }, [fetchInvoices]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -175,12 +203,17 @@ export default function InvoicesPage() {
           const json = await res.json();
           setPreview(json);
         }
-      } catch { /* aborted or error */ } finally {
+      } catch {
+        /* aborted or error */
+      } finally {
         setPreviewLoading(false);
       }
     };
     const timer = setTimeout(fetchPreview, 300);
-    return () => { clearTimeout(timer); controller.abort(); };
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [createForm.clinicId, createForm.periodStart, createForm.periodEnd]);
 
   const createInvoice = async () => {
@@ -204,7 +237,13 @@ export default function InvoicesPage() {
       if (response.ok) {
         const data = await response.json();
         setCreateModalOpen(false);
-        setCreateForm({ clinicId: '', periodType: 'MONTHLY', periodStart: '', periodEnd: '', createStripeInvoice: true });
+        setCreateForm({
+          clinicId: '',
+          periodType: 'MONTHLY',
+          periodStart: '',
+          periodEnd: '',
+          createStripeInvoice: true,
+        });
         setPreview(null);
         fetchInvoices();
         router.push(`/super-admin/clinic-billing/invoices/${data.invoice.id}`);
@@ -214,7 +253,9 @@ export default function InvoicesPage() {
       }
     } catch {
       alert('Failed to create invoice');
-    } finally { setCreating(false); }
+    } finally {
+      setCreating(false);
+    }
   };
 
   const runBatchGeneration = async () => {
@@ -240,7 +281,9 @@ export default function InvoicesPage() {
       }
     } catch {
       alert('Batch generation failed');
-    } finally { setBatchRunning(false); }
+    } finally {
+      setBatchRunning(false);
+    }
   };
 
   const setPresetDates = (preset: string, target: 'create' | 'batch' = 'create') => {
@@ -298,7 +341,9 @@ export default function InvoicesPage() {
     const style = styles[status] || styles.DRAFT;
     const Icon = style.icon;
     return (
-      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${style.bg} ${style.text}`}>
+      <span
+        className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${style.bg} ${style.text}`}
+      >
         <Icon className="h-3 w-3" />
         {status.replace('_', ' ')}
       </span>
@@ -306,7 +351,9 @@ export default function InvoicesPage() {
   };
 
   const filteredInvoices = invoices.filter(
-    (inv) => normalizedIncludes(inv.invoiceNumber, searchTerm) || normalizedIncludes(inv.clinic.name, searchTerm)
+    (inv) =>
+      normalizedIncludes(inv.invoiceNumber, searchTerm) ||
+      normalizedIncludes(inv.clinic.name, searchTerm)
   );
 
   return (
@@ -315,14 +362,20 @@ export default function InvoicesPage() {
       <div className="mb-6 flex items-center justify-end">
         <div className="flex gap-2">
           <button
-            onClick={() => { setBatchResults(null); setBatchModalOpen(true); }}
+            onClick={() => {
+              setBatchResults(null);
+              setBatchModalOpen(true);
+            }}
             className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
           >
             <Layers className="h-5 w-5" />
             Batch Generate
           </button>
           <button
-            onClick={() => { setPreview(null); setCreateModalOpen(true); }}
+            onClick={() => {
+              setPreview(null);
+              setCreateModalOpen(true);
+            }}
             className="flex items-center gap-2 rounded-xl bg-[#4fa77e] px-4 py-2 text-white shadow-sm transition-colors hover:bg-[#3d9268]"
           >
             <Plus className="h-5 w-5" />
@@ -362,15 +415,31 @@ export default function InvoicesPage() {
               className="w-full rounded-xl border border-gray-200 py-2.5 pl-4 pr-4 focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20"
             />
           </div>
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="rounded-xl border border-gray-200 px-4 py-2.5 focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="rounded-xl border border-gray-200 px-4 py-2.5 focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20"
+          >
             <option value="">All Statuses</option>
-            {['DRAFT', 'PENDING', 'SENT', 'PAID', 'PARTIALLY_PAID', 'OVERDUE', 'CANCELLED'].map((s) => (
-              <option key={s} value={s}>{s.replace('_', ' ')}</option>
-            ))}
+            {['DRAFT', 'PENDING', 'SENT', 'PAID', 'PARTIALLY_PAID', 'OVERDUE', 'CANCELLED'].map(
+              (s) => (
+                <option key={s} value={s}>
+                  {s.replace('_', ' ')}
+                </option>
+              )
+            )}
           </select>
-          <select value={clinicFilter} onChange={(e) => setClinicFilter(e.target.value)} className="rounded-xl border border-gray-200 px-4 py-2.5 focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20">
+          <select
+            value={clinicFilter}
+            onChange={(e) => setClinicFilter(e.target.value)}
+            className="rounded-xl border border-gray-200 px-4 py-2.5 focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20"
+          >
             <option value="">All Clinics</option>
-            {clinics.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            {clinics.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
           </select>
         </div>
       </div>
@@ -390,29 +459,56 @@ export default function InvoicesPage() {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                {['Invoice', 'Clinic', 'Period', 'Items', 'Amount', 'Status', 'Due Date', ''].map((h, i) => (
-                  <th key={i} className={`px-6 py-3 text-xs font-medium uppercase tracking-wider text-gray-500 ${i === 7 ? 'text-right' : 'text-left'}`}>
-                    {h}
-                  </th>
-                ))}
+                {['Invoice', 'Clinic', 'Period', 'Items', 'Amount', 'Status', 'Due Date', ''].map(
+                  (h, i) => (
+                    <th
+                      key={i}
+                      className={`px-6 py-3 text-xs font-medium uppercase tracking-wider text-gray-500 ${i === 7 ? 'text-right' : 'text-left'}`}
+                    >
+                      {h}
+                    </th>
+                  )
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filteredInvoices.map((inv) => (
-                <tr key={inv.id} className="cursor-pointer hover:bg-gray-50" onClick={() => router.push(`/super-admin/clinic-billing/invoices/${inv.id}`)}>
+                <tr
+                  key={inv.id}
+                  className="cursor-pointer hover:bg-gray-50"
+                  onClick={() => router.push(`/super-admin/clinic-billing/invoices/${inv.id}`)}
+                >
                   <td className="whitespace-nowrap px-6 py-4">
                     <p className="font-medium text-gray-900">{inv.invoiceNumber}</p>
                     <p className="text-xs text-gray-500">{formatDate(inv.createdAt)}</p>
                   </td>
-                  <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">{inv.clinic.name}</td>
-                  <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">{formatDate(inv.periodStart)} - {formatDate(inv.periodEnd)}</td>
-                  <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">{inv.prescriptionCount + inv.transmissionCount} fees</td>
-                  <td className="whitespace-nowrap px-6 py-4 font-medium text-gray-900">{formatCurrency(inv.totalAmountCents)}</td>
+                  <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
+                    {inv.clinic.name}
+                  </td>
+                  <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
+                    {formatDate(inv.periodStart)} - {formatDate(inv.periodEnd)}
+                  </td>
+                  <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
+                    {inv.prescriptionCount + inv.transmissionCount} fees
+                  </td>
+                  <td className="whitespace-nowrap px-6 py-4 font-medium text-gray-900">
+                    {formatCurrency(inv.totalAmountCents)}
+                  </td>
                   <td className="whitespace-nowrap px-6 py-4">{getStatusBadge(inv.status)}</td>
-                  <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">{formatDate(inv.dueDate)}</td>
-                  <td className="whitespace-nowrap px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                  <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
+                    {formatDate(inv.dueDate)}
+                  </td>
+                  <td
+                    className="whitespace-nowrap px-6 py-4 text-right"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     {inv.pdfUrl && (
-                      <a href={inv.pdfUrl} target="_blank" rel="noopener noreferrer" className="rounded-lg p-2 text-gray-500 hover:bg-[#4fa77e]/10 hover:text-[#4fa77e]">
+                      <a
+                        href={inv.pdfUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-lg p-2 text-gray-500 hover:bg-[#4fa77e]/10 hover:text-[#4fa77e]"
+                      >
                         <Download className="inline h-4 w-4" />
                       </a>
                     )}
@@ -434,22 +530,50 @@ export default function InvoicesPage() {
             <div className="space-y-5 p-6">
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-700">Clinic</label>
-                <select value={createForm.clinicId} onChange={(e) => setCreateForm({ ...createForm, clinicId: e.target.value })} className="w-full rounded-lg border border-gray-200 px-4 py-2.5 focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20">
+                <select
+                  value={createForm.clinicId}
+                  onChange={(e) => setCreateForm({ ...createForm, clinicId: e.target.value })}
+                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20"
+                >
                   <option value="">Select clinic...</option>
-                  {clinics.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {clinics.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-700">Period Type</label>
-                <select value={createForm.periodType} onChange={(e) => setCreateForm({ ...createForm, periodType: e.target.value as typeof createForm.periodType })} className="w-full rounded-lg border border-gray-200 px-4 py-2.5 focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20">
-                  {['WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY', 'CUSTOM'].map((t) => <option key={t} value={t}>{t}</option>)}
+                <select
+                  value={createForm.periodType}
+                  onChange={(e) =>
+                    setCreateForm({
+                      ...createForm,
+                      periodType: e.target.value as typeof createForm.periodType,
+                    })
+                  }
+                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20"
+                >
+                  {['WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY', 'CUSTOM'].map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">Quick Presets</label>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Quick Presets
+                </label>
                 <div className="flex flex-wrap gap-2">
                   {['this-month', 'last-month', 'this-quarter', 'last-quarter'].map((p) => (
-                    <button key={p} type="button" onClick={() => setPresetDates(p, 'create')} className="rounded-lg border border-gray-200 px-3 py-1 text-sm hover:bg-gray-50">
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setPresetDates(p, 'create')}
+                      className="rounded-lg border border-gray-200 px-3 py-1 text-sm hover:bg-gray-50"
+                    >
                       {p.replace('-', ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
                     </button>
                   ))}
@@ -458,11 +582,21 @@ export default function InvoicesPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700">Start Date</label>
-                  <input type="date" value={createForm.periodStart} onChange={(e) => setCreateForm({ ...createForm, periodStart: e.target.value })} className="w-full rounded-lg border border-gray-200 px-4 py-2.5 focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20" />
+                  <input
+                    type="date"
+                    value={createForm.periodStart}
+                    onChange={(e) => setCreateForm({ ...createForm, periodStart: e.target.value })}
+                    className="w-full rounded-lg border border-gray-200 px-4 py-2.5 focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20"
+                  />
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700">End Date</label>
-                  <input type="date" value={createForm.periodEnd} onChange={(e) => setCreateForm({ ...createForm, periodEnd: e.target.value })} className="w-full rounded-lg border border-gray-200 px-4 py-2.5 focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20" />
+                  <input
+                    type="date"
+                    value={createForm.periodEnd}
+                    onChange={(e) => setCreateForm({ ...createForm, periodEnd: e.target.value })}
+                    className="w-full rounded-lg border border-gray-200 px-4 py-2.5 focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20"
+                  />
                 </div>
               </div>
 
@@ -476,15 +610,39 @@ export default function InvoicesPage() {
                     </div>
                   ) : preview && preview.feeCount > 0 ? (
                     <div className="space-y-1 text-sm">
-                      <div className="flex justify-between"><span className="text-gray-600">Prescription fees ({preview.prescriptionCount})</span><span className="font-medium">{formatCurrency(preview.prescriptionFeeTotal ?? 0)}</span></div>
-                      <div className="flex justify-between"><span className="text-gray-600">Transmission fees ({preview.transmissionCount})</span><span className="font-medium">{formatCurrency(preview.transmissionFeeTotal ?? 0)}</span></div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">
+                          Prescription fees ({preview.prescriptionCount})
+                        </span>
+                        <span className="font-medium">
+                          {formatCurrency(preview.prescriptionFeeTotal ?? 0)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">
+                          Transmission fees ({preview.transmissionCount})
+                        </span>
+                        <span className="font-medium">
+                          {formatCurrency(preview.transmissionFeeTotal ?? 0)}
+                        </span>
+                      </div>
                       {(preview.adminFeeTotal ?? 0) > 0 && (
-                        <div className="flex justify-between"><span className="text-gray-600">Admin fees</span><span className="font-medium">{formatCurrency(preview.adminFeeTotal)}</span></div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Admin fees</span>
+                          <span className="font-medium">
+                            {formatCurrency(preview.adminFeeTotal)}
+                          </span>
+                        </div>
                       )}
-                      <div className="flex justify-between border-t border-gray-200 pt-1 font-semibold"><span>Total ({preview.feeCount} fees)</span><span>{formatCurrency(preview.totalAmountCents)}</span></div>
+                      <div className="flex justify-between border-t border-gray-200 pt-1 font-semibold">
+                        <span>Total ({preview.feeCount} fees)</span>
+                        <span>{formatCurrency(preview.totalAmountCents)}</span>
+                      </div>
                     </div>
                   ) : (
-                    <p className="text-sm text-yellow-600">No pending fees found for this clinic/period.</p>
+                    <p className="text-sm text-yellow-600">
+                      No pending fees found for this clinic/period.
+                    </p>
                   )}
                 </div>
               )}
@@ -492,17 +650,35 @@ export default function InvoicesPage() {
               <div className="flex items-center justify-between border-t border-gray-100 pt-3">
                 <div>
                   <p className="font-medium text-gray-900">Create Stripe Invoice</p>
-                  <p className="text-sm text-gray-500">Also create in Stripe for payment collection</p>
+                  <p className="text-sm text-gray-500">
+                    Also create in Stripe for payment collection
+                  </p>
                 </div>
                 <label className="relative inline-flex cursor-pointer items-center">
-                  <input type="checkbox" checked={createForm.createStripeInvoice} onChange={(e) => setCreateForm({ ...createForm, createStripeInvoice: e.target.checked })} className="peer sr-only" />
+                  <input
+                    type="checkbox"
+                    checked={createForm.createStripeInvoice}
+                    onChange={(e) =>
+                      setCreateForm({ ...createForm, createStripeInvoice: e.target.checked })
+                    }
+                    className="peer sr-only"
+                  />
                   <div className="peer h-6 w-11 rounded-full bg-gray-200 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-[#4fa77e] peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#4fa77e]/20" />
                 </label>
               </div>
             </div>
             <div className="flex justify-end gap-3 border-t border-gray-100 p-6">
-              <button onClick={() => setCreateModalOpen(false)} className="rounded-lg px-4 py-2 text-gray-700 hover:bg-gray-100">Cancel</button>
-              <button onClick={createInvoice} disabled={creating || !preview || preview.feeCount === 0} className="rounded-lg bg-[#4fa77e] px-4 py-2 text-white hover:bg-[#3d9268] disabled:opacity-50">
+              <button
+                onClick={() => setCreateModalOpen(false)}
+                className="rounded-lg px-4 py-2 text-gray-700 hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={createInvoice}
+                disabled={creating || !preview || preview.feeCount === 0}
+                className="rounded-lg bg-[#4fa77e] px-4 py-2 text-white hover:bg-[#3d9268] disabled:opacity-50"
+              >
                 {creating ? 'Creating...' : 'Generate Invoice'}
               </button>
             </div>
@@ -516,20 +692,42 @@ export default function InvoicesPage() {
           <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white shadow-xl">
             <div className="border-b border-gray-100 p-6">
               <h2 className="text-xl font-bold text-gray-900">Batch Invoice Generation</h2>
-              <p className="mt-1 text-sm text-gray-500">Generate invoices for all clinics with pending fees</p>
+              <p className="mt-1 text-sm text-gray-500">
+                Generate invoices for all clinics with pending fees
+              </p>
             </div>
             <div className="space-y-5 p-6">
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-700">Period Type</label>
-                <select value={batchForm.periodType} onChange={(e) => setBatchForm({ ...batchForm, periodType: e.target.value as typeof batchForm.periodType })} className="w-full rounded-lg border border-gray-200 px-4 py-2.5 focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20">
-                  {['WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY', 'CUSTOM'].map((t) => <option key={t} value={t}>{t}</option>)}
+                <select
+                  value={batchForm.periodType}
+                  onChange={(e) =>
+                    setBatchForm({
+                      ...batchForm,
+                      periodType: e.target.value as typeof batchForm.periodType,
+                    })
+                  }
+                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20"
+                >
+                  {['WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY', 'CUSTOM'].map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">Quick Presets</label>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Quick Presets
+                </label>
                 <div className="flex flex-wrap gap-2">
                   {['this-month', 'last-month', 'this-quarter', 'last-quarter'].map((p) => (
-                    <button key={p} type="button" onClick={() => setPresetDates(p, 'batch')} className="rounded-lg border border-gray-200 px-3 py-1 text-sm hover:bg-gray-50">
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setPresetDates(p, 'batch')}
+                      className="rounded-lg border border-gray-200 px-3 py-1 text-sm hover:bg-gray-50"
+                    >
                       {p.replace('-', ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
                     </button>
                   ))}
@@ -538,11 +736,21 @@ export default function InvoicesPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700">Start Date</label>
-                  <input type="date" value={batchForm.periodStart} onChange={(e) => setBatchForm({ ...batchForm, periodStart: e.target.value })} className="w-full rounded-lg border border-gray-200 px-4 py-2.5 focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20" />
+                  <input
+                    type="date"
+                    value={batchForm.periodStart}
+                    onChange={(e) => setBatchForm({ ...batchForm, periodStart: e.target.value })}
+                    className="w-full rounded-lg border border-gray-200 px-4 py-2.5 focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20"
+                  />
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700">End Date</label>
-                  <input type="date" value={batchForm.periodEnd} onChange={(e) => setBatchForm({ ...batchForm, periodEnd: e.target.value })} className="w-full rounded-lg border border-gray-200 px-4 py-2.5 focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20" />
+                  <input
+                    type="date"
+                    value={batchForm.periodEnd}
+                    onChange={(e) => setBatchForm({ ...batchForm, periodEnd: e.target.value })}
+                    className="w-full rounded-lg border border-gray-200 px-4 py-2.5 focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20"
+                  />
                 </div>
               </div>
               <div className="flex items-center justify-between border-t border-gray-100 pt-3">
@@ -551,7 +759,14 @@ export default function InvoicesPage() {
                   <p className="text-sm text-gray-500">Create Stripe invoices for each clinic</p>
                 </div>
                 <label className="relative inline-flex cursor-pointer items-center">
-                  <input type="checkbox" checked={batchForm.createStripeInvoice} onChange={(e) => setBatchForm({ ...batchForm, createStripeInvoice: e.target.checked })} className="peer sr-only" />
+                  <input
+                    type="checkbox"
+                    checked={batchForm.createStripeInvoice}
+                    onChange={(e) =>
+                      setBatchForm({ ...batchForm, createStripeInvoice: e.target.checked })
+                    }
+                    className="peer sr-only"
+                  />
                   <div className="peer h-6 w-11 rounded-full bg-gray-200 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-[#4fa77e] peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#4fa77e]/20" />
                 </label>
               </div>
@@ -560,10 +775,28 @@ export default function InvoicesPage() {
               {batchResults && (
                 <div className="space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-4">
                   <div className="grid grid-cols-4 gap-3 text-center text-sm">
-                    <div><p className="text-gray-500">Total</p><p className="text-lg font-bold">{batchResults.summary.total}</p></div>
-                    <div><p className="text-gray-500">Created</p><p className="text-lg font-bold text-green-600">{batchResults.summary.created}</p></div>
-                    <div><p className="text-gray-500">Skipped</p><p className="text-lg font-bold text-yellow-600">{batchResults.summary.skipped}</p></div>
-                    <div><p className="text-gray-500">Errors</p><p className="text-lg font-bold text-red-600">{batchResults.summary.errors}</p></div>
+                    <div>
+                      <p className="text-gray-500">Total</p>
+                      <p className="text-lg font-bold">{batchResults.summary.total}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Created</p>
+                      <p className="text-lg font-bold text-green-600">
+                        {batchResults.summary.created}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Skipped</p>
+                      <p className="text-lg font-bold text-yellow-600">
+                        {batchResults.summary.skipped}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Errors</p>
+                      <p className="text-lg font-bold text-red-600">
+                        {batchResults.summary.errors}
+                      </p>
+                    </div>
                   </div>
                   {batchResults.summary.created > 0 && (
                     <p className="text-center text-sm font-medium text-gray-700">
@@ -572,10 +805,15 @@ export default function InvoicesPage() {
                   )}
                   <div className="max-h-48 overflow-y-auto">
                     {batchResults.results.map((r, i) => (
-                      <div key={i} className="flex items-center justify-between border-b border-gray-200 py-2 text-sm last:border-0">
+                      <div
+                        key={i}
+                        className="flex items-center justify-between border-b border-gray-200 py-2 text-sm last:border-0"
+                      >
                         <span className="text-gray-700">{r.clinicName}</span>
                         {r.status === 'created' ? (
-                          <span className="text-green-600">{r.invoiceNumber} - {formatCurrency(r.totalAmountCents ?? 0)}</span>
+                          <span className="text-green-600">
+                            {r.invoiceNumber} - {formatCurrency(r.totalAmountCents ?? 0)}
+                          </span>
                         ) : r.status === 'skipped' ? (
                           <span className="text-yellow-600">{r.reason}</span>
                         ) : (
@@ -588,12 +826,27 @@ export default function InvoicesPage() {
               )}
             </div>
             <div className="flex justify-end gap-3 border-t border-gray-100 p-6">
-              <button onClick={() => setBatchModalOpen(false)} className="rounded-lg px-4 py-2 text-gray-700 hover:bg-gray-100">
+              <button
+                onClick={() => setBatchModalOpen(false)}
+                className="rounded-lg px-4 py-2 text-gray-700 hover:bg-gray-100"
+              >
                 {batchResults ? 'Close' : 'Cancel'}
               </button>
               {!batchResults && (
-                <button onClick={runBatchGeneration} disabled={batchRunning} className="flex items-center gap-2 rounded-lg bg-[#4fa77e] px-4 py-2 text-white hover:bg-[#3d9268] disabled:opacity-50">
-                  {batchRunning ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating...</> : <><Layers className="h-4 w-4" /> Generate All</>}
+                <button
+                  onClick={runBatchGeneration}
+                  disabled={batchRunning}
+                  className="flex items-center gap-2 rounded-lg bg-[#4fa77e] px-4 py-2 text-white hover:bg-[#3d9268] disabled:opacity-50"
+                >
+                  {batchRunning ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" /> Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Layers className="h-4 w-4" /> Generate All
+                    </>
+                  )}
                 </button>
               )}
             </div>

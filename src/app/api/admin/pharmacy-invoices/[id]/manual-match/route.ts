@@ -18,14 +18,15 @@ import {
 } from '@/services/invoices/pharmacyInvoiceService';
 import { requirePermission, toPermissionContext } from '@/lib/rbac/permissions';
 
-const matchSchema = z.object({
-  lineItemIds: z.array(z.number().int().positive()).min(1),
-  orderId: z.number().int().positive().optional(),
-  lifefileOrderId: z.string().min(1).optional(),
-}).refine(
-  (data) => data.orderId || data.lifefileOrderId,
-  { message: 'Either orderId or lifefileOrderId is required' }
-);
+const matchSchema = z
+  .object({
+    lineItemIds: z.array(z.number().int().positive()).min(1),
+    orderId: z.number().int().positive().optional(),
+    lifefileOrderId: z.string().min(1).optional(),
+  })
+  .refine((data) => data.orderId || data.lifefileOrderId, {
+    message: 'Either orderId or lifefileOrderId is required',
+  });
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -53,12 +54,20 @@ export const POST = withAuth(
       const body = await req.json();
       const parsed = matchSchema.safeParse(body);
       if (!parsed.success) {
-        return NextResponse.json({ error: 'Invalid data', details: parsed.error.flatten() }, { status: 400 });
+        return NextResponse.json(
+          { error: 'Invalid data', details: parsed.error.flatten() },
+          { status: 400 }
+        );
       }
 
       let result;
       if (parsed.data.orderId) {
-        result = await manualMatchLineItems(uploadId, parsed.data.lineItemIds, parsed.data.orderId, user.id);
+        result = await manualMatchLineItems(
+          uploadId,
+          parsed.data.lineItemIds,
+          parsed.data.orderId,
+          user.id
+        );
       } else {
         result = await manualMatchByLifefileOrderId(
           uploadId,

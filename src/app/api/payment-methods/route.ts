@@ -66,7 +66,7 @@ async function handleGet(request: NextRequest, _user: AuthUser) {
         try {
           const sources = await stripeContext.stripe.customers.listSources(
             patient.stripeCustomerId,
-            { object: 'card', limit: 100 } as any,
+            { object: 'card', limit: 100 } as any
           );
           for (const src of sources.data) {
             validStripeIds.add(src.id);
@@ -76,9 +76,7 @@ async function handleGet(request: NextRequest, _user: AuthUser) {
         }
 
         const localStripeIds = new Set(
-          (patient.paymentMethods || [])
-            .map((pm) => pm.stripePaymentMethodId)
-            .filter(Boolean)
+          (patient.paymentMethods || []).map((pm) => pm.stripePaymentMethodId).filter(Boolean)
         );
 
         stripeCards = methods.data
@@ -243,7 +241,8 @@ async function handlePost(_request: NextRequest, _user: AuthUser) {
     {
       error: 'Direct card submission is no longer supported. Use the secure Stripe Elements flow.',
       code: 'PCI_DSS_VIOLATION',
-      migration: 'Use POST /api/payment-methods/setup-intent then POST /api/payment-methods/save-stripe',
+      migration:
+        'Use POST /api/payment-methods/setup-intent then POST /api/payment-methods/save-stripe',
     },
     { status: 400 }
   );

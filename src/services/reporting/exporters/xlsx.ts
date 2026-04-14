@@ -5,7 +5,11 @@ import type { ReportResult, ColumnDef } from '../types';
  * Uses a lightweight TSV approach that Excel/Google Sheets can open directly,
  * avoiding heavy xlsx library dependency on serverless.
  */
-export function exportToXlsx(result: ReportResult, columns: ColumnDef[], reportName: string): Buffer {
+export function exportToXlsx(
+  result: ReportResult,
+  columns: ColumnDef[],
+  reportName: string
+): Buffer {
   const visibleCols = columns.filter((c) => result.rows[0] && c.id in result.rows[0]);
 
   const fmtVal = (val: any, col: ColumnDef): string => {

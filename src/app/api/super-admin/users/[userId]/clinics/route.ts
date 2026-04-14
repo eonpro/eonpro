@@ -82,7 +82,14 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         });
       }
     } catch (ucError) {
-      logger.warn('UserClinic table may not exist', { error: ucError instanceof Error ? (ucError instanceof Error ? ucError.message : String(ucError)) : String(ucError) });
+      logger.warn('UserClinic table may not exist', {
+        error:
+          ucError instanceof Error
+            ? ucError instanceof Error
+              ? ucError.message
+              : String(ucError)
+            : String(ucError),
+      });
       // Fall back to legacy clinic assignment
     }
 
@@ -120,7 +127,14 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         };
       }
     } catch (sessionError) {
-      logger.warn('Could not fetch session data', { error: sessionError instanceof Error ? (sessionError instanceof Error ? sessionError.message : String(sessionError)) : String(sessionError) });
+      logger.warn('Could not fetch session data', {
+        error:
+          sessionError instanceof Error
+            ? sessionError instanceof Error
+              ? sessionError.message
+              : String(sessionError)
+            : String(sessionError),
+      });
     }
 
     // Get login history (last 10 logins)
@@ -141,7 +155,14 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         },
       });
     } catch (historyError) {
-      logger.warn('Could not fetch login history', { error: historyError instanceof Error ? (historyError instanceof Error ? historyError.message : String(historyError)) : String(historyError) });
+      logger.warn('Could not fetch login history', {
+        error:
+          historyError instanceof Error
+            ? historyError instanceof Error
+              ? historyError.message
+              : String(historyError)
+            : String(historyError),
+      });
     }
 
     // Get user stats
@@ -162,7 +183,14 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         accountCreated: lastLogin?.createdAt,
       };
     } catch (statsError) {
-      logger.warn('Could not fetch user stats', { error: statsError instanceof Error ? (statsError instanceof Error ? statsError.message : String(statsError)) : String(statsError) });
+      logger.warn('Could not fetch user stats', {
+        error:
+          statsError instanceof Error
+            ? statsError instanceof Error
+              ? statsError.message
+              : String(statsError)
+            : String(statsError),
+      });
     }
 
     return NextResponse.json({
@@ -180,7 +208,9 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       stats: userStats,
     });
   } catch (error: unknown) {
-    logger.error('Error fetching user clinics', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('Error fetching user clinics', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json(
       { error: (error as any).message || 'Failed to fetch user clinics' },
       { status: 500 }
@@ -325,7 +355,9 @@ async function handlePost(req: NextRequest, user: AuthUser) {
       message: `User added to ${clinic.name}`,
     });
   } catch (error: unknown) {
-    logger.error('Error adding user to clinic', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('Error adding user to clinic', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json(
       { error: (error as any).message || 'Failed to add user to clinic' },
       { status: 500 }
@@ -377,7 +409,9 @@ async function handleDelete(req: NextRequest, user: AuthUser) {
       message: 'User removed from clinic',
     });
   } catch (error: unknown) {
-    logger.error('Error removing user from clinic', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('Error removing user from clinic', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json(
       { error: (error as any).message || 'Failed to remove user from clinic' },
       { status: 500 }

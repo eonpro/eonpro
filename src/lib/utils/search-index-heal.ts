@@ -23,7 +23,7 @@ import { buildPatientSearchIndex } from './search';
  */
 export async function healPatientSearchIndex(
   db: { patient: { findUnique: Function; update: Function } },
-  patientId: number,
+  patientId: number
 ): Promise<void> {
   try {
     const patient = await db.patient.findUnique({
@@ -46,7 +46,10 @@ export async function healPatientSearchIndex(
       try {
         const s = String(v);
         const parts = s.split(':');
-        if (parts.length === 3 && parts.every((p: string) => /^[A-Za-z0-9+/]+=*$/.test(p) && p.length >= 2)) {
+        if (
+          parts.length === 3 &&
+          parts.every((p: string) => /^[A-Za-z0-9+/]+=*$/.test(p) && p.length >= 2)
+        ) {
           return decryptPHI(s) ?? '';
         }
         return s;

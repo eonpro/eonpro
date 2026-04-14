@@ -22,7 +22,7 @@ const getSubscriptionsHandler = withAuthParams(
         where: { id: patientId },
         select: { id: true, clinicId: true },
       });
-      const clinicId = user.role === 'super_admin' ? undefined : user.clinicId ?? undefined;
+      const clinicId = user.role === 'super_admin' ? undefined : (user.clinicId ?? undefined);
       if (ensureTenantResource(patient, clinicId)) return tenantNotFoundResponse();
       if (user.role === 'patient' && user.patientId !== patientId) {
         return NextResponse.json({ error: 'Not found' }, { status: 404 });

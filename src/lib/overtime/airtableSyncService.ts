@@ -98,7 +98,10 @@ export class AirtableSyncService {
         successCount += result.recordIds.length;
         errorCount += result.errors.length;
       } catch (error) {
-        logger.error('[AirtableSync] Failed to sync table', { tableName: table.name, error: error instanceof Error ? error.message : String(error) });
+        logger.error('[AirtableSync] Failed to sync table', {
+          tableName: table.name,
+          error: error instanceof Error ? error.message : String(error),
+        });
         results.push({
           table: table.name,
           treatmentType: table.treatmentType,
@@ -115,7 +118,12 @@ export class AirtableSyncService {
 
     const completedAt = new Date();
 
-    logger.info('[AirtableSync] Completed', { totalRecords, successCount, errorCount, skippedCount });
+    logger.info('[AirtableSync] Completed', {
+      totalRecords,
+      successCount,
+      errorCount,
+      skippedCount,
+    });
 
     return {
       startedAt,
@@ -166,7 +174,10 @@ export class AirtableSyncService {
       ? records.slice(0, options.maxRecordsPerTable)
       : records;
 
-    logger.info('[AirtableSync] Found records', { totalFound: records.length, processing: recordsToProcess.length });
+    logger.info('[AirtableSync] Found records', {
+      totalFound: records.length,
+      processing: recordsToProcess.length,
+    });
 
     const processedIds: string[] = [];
     const errors: Array<{ recordId: string; error: string }> = [];
@@ -191,12 +202,18 @@ export class AirtableSyncService {
             });
           }
 
-          logger.info('[AirtableSync] Processed record', { recordId: record.id, eonproPatientId: result.eonproPatientId });
+          logger.info('[AirtableSync] Processed record', {
+            recordId: record.id,
+            eonproPatientId: result.eonproPatientId,
+          });
         } else {
           errors.push({ recordId: record.id, error: result.error || 'Unknown error' });
         }
       } catch (error) {
-        logger.error('[AirtableSync] Error processing record', { recordId: record.id, error: error instanceof Error ? error.message : String(error) });
+        logger.error('[AirtableSync] Error processing record', {
+          recordId: record.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
         errors.push({ recordId: record.id, error: String(error) });
       }
 
@@ -251,7 +268,9 @@ export class AirtableSyncService {
       result = JSON.parse(responseText);
     } catch {
       // If not JSON, return the raw text as error
-      logger.error('[AirtableSync] Non-JSON response from webhook', { responsePreview: responseText.substring(0, 200) });
+      logger.error('[AirtableSync] Non-JSON response from webhook', {
+        responsePreview: responseText.substring(0, 200),
+      });
       return {
         success: false,
         error: `Webhook returned non-JSON: ${responseText.substring(0, 100)}`,

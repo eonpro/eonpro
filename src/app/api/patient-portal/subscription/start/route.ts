@@ -49,10 +49,7 @@ async function handler(req: NextRequest, user: AuthUser) {
     });
 
     if (!patient?.clinicId) {
-      return NextResponse.json(
-        { error: 'Patient clinic not found' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Patient clinic not found' }, { status: 400 });
     }
 
     // Check no active subscription exists

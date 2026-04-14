@@ -22,39 +22,42 @@ import { logPHIAccess } from '@/lib/audit/hipaa-audit';
  * Rate limited: 10 requests per minute per IP
  */
 export const GET = withRateLimit(
-  withAuth(async (req: NextRequest, user: AuthUser) => {
-    try {
-      if (!user.patientId) {
-        return NextResponse.json({ error: 'Patient ID required' }, { status: 400 });
-      }
+  withAuth(
+    async (req: NextRequest, user: AuthUser) => {
+      try {
+        if (!user.patientId) {
+          return NextResponse.json({ error: 'Patient ID required' }, { status: 400 });
+        }
 
-      const searchParams = req.nextUrl.searchParams;
-      const type = searchParams.get('type');
+        const searchParams = req.nextUrl.searchParams;
+        const type = searchParams.get('type');
 
-      if (type === 'weekly-summary') {
-        const summary = await generateWeeklySummary(user.patientId);
+        if (type === 'weekly-summary') {
+          const summary = await generateWeeklySummary(user.patientId);
+
+          await logPHIAccess(req, user, 'AIInsights', String(user.patientId), user.patientId, {
+            insightType: 'weekly-summary',
+          });
+
+          return NextResponse.json({ summary });
+        }
+
+        const insights = await generatePatientInsights(user.patientId);
 
         await logPHIAccess(req, user, 'AIInsights', String(user.patientId), user.patientId, {
-          insightType: 'weekly-summary',
+          insightType: 'general',
         });
 
-        return NextResponse.json({ summary });
+        return NextResponse.json({ insights });
+      } catch (error) {
+        logger.error('Patient insights error', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          patientId: user.patientId,
+        });
+        return NextResponse.json({ error: 'Failed to generate insights' }, { status: 500 });
       }
-
-      const insights = await generatePatientInsights(user.patientId);
-
-      await logPHIAccess(req, user, 'AIInsights', String(user.patientId), user.patientId, {
-        insightType: 'general',
-      });
-
-      return NextResponse.json({ insights });
-    } catch (error) {
-      logger.error('Patient insights error', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-        patientId: user.patientId,
-      });
-      return NextResponse.json({ error: 'Failed to generate insights' }, { status: 500 });
-    }
-  }, { roles: ['patient'] }),
+    },
+    { roles: ['patient'] }
+  ),
   RATE_LIMIT_CONFIGS.ai
 );

@@ -210,9 +210,9 @@ export async function POST(req: NextRequest) {
     // Resolve clinicId from trusted source mapping — never trust payload.clinicId
     const trustedClinicId = SOURCE_CLINICS[source]
       ? undefined // Will be resolved from clinicSubdomain inside processor
-      : (process.env[`INTAKE_CLINIC_ID_${source.toUpperCase()}`]
-          ? parseInt(process.env[`INTAKE_CLINIC_ID_${source.toUpperCase()}`]!, 10)
-          : undefined);
+      : process.env[`INTAKE_CLINIC_ID_${source.toUpperCase()}`]
+        ? parseInt(process.env[`INTAKE_CLINIC_ID_${source.toUpperCase()}`]!, 10)
+        : undefined;
 
     const processor = new IntakeProcessor({ source, requestId });
     const result = await processor.process(normalized, {

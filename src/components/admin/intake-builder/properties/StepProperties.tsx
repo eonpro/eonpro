@@ -32,11 +32,7 @@ interface StepPropertiesProps {
   onSetNextStep: (stepId: string, nextStep: StepNavigation) => void;
   onAddConditionalNav: (stepId: string, nav: ConditionalNavigation) => void;
   onDeleteConditionalNav: (stepId: string, index: number) => void;
-  onUpdateConditionalNav: (
-    stepId: string,
-    index: number,
-    nav: ConditionalNavigation
-  ) => void;
+  onUpdateConditionalNav: (stepId: string, index: number, nav: ConditionalNavigation) => void;
 }
 
 function getOtherSteps(steps: FormStep[], currentStepId: string): FormStep[] {
@@ -85,8 +81,7 @@ export default function StepProperties({
     });
   };
 
-  const defaultNextStepId =
-    typeof step.nextStep === 'string' ? step.nextStep : '';
+  const defaultNextStepId = typeof step.nextStep === 'string' ? step.nextStep : '';
 
   return (
     <div className="space-y-4">
@@ -105,13 +100,13 @@ export default function StepProperties({
       />
 
       <div>
-        <label className="block text-xs font-medium text-gray-600 uppercase tracking-wider mb-1.5">
+        <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-gray-600">
           Step Type
         </label>
         <select
           value={step.type}
           onChange={(e) => update({ type: e.target.value as StepType })}
-          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
+          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
         >
           {STEP_TYPES.map((t) => (
             <option key={t.value} value={t.value}>
@@ -122,7 +117,7 @@ export default function StepProperties({
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-gray-600 uppercase tracking-wider mb-1.5">
+        <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-gray-600">
           Layout
         </label>
         <select
@@ -132,7 +127,7 @@ export default function StepProperties({
               layout: e.target.value as 'default' | 'compact' | 'centered',
             })
           }
-          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
+          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
         >
           {LAYOUTS.map((l) => (
             <option key={l.value} value={l.value}>
@@ -144,7 +139,7 @@ export default function StepProperties({
 
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <label className="text-xs font-medium text-gray-600 uppercase tracking-wider">
+          <label className="text-xs font-medium uppercase tracking-wider text-gray-600">
             Auto Advance
           </label>
           <button
@@ -164,16 +159,14 @@ export default function StepProperties({
           </button>
         </div>
         <div className="flex items-center justify-between">
-          <label className="text-xs font-medium text-gray-600 uppercase tracking-wider">
+          <label className="text-xs font-medium uppercase tracking-wider text-gray-600">
             Show Continue Button
           </label>
           <button
             type="button"
             role="switch"
             aria-checked={step.showContinueButton}
-            onClick={() =>
-              update({ showContinueButton: !step.showContinueButton })
-            }
+            onClick={() => update({ showContinueButton: !step.showContinueButton })}
             className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/20 ${
               step.showContinueButton ? 'bg-indigo-600' : 'bg-gray-200'
             }`}
@@ -186,16 +179,14 @@ export default function StepProperties({
           </button>
         </div>
         <div className="flex items-center justify-between">
-          <label className="text-xs font-medium text-gray-600 uppercase tracking-wider">
+          <label className="text-xs font-medium uppercase tracking-wider text-gray-600">
             Show Progress Bar
           </label>
           <button
             type="button"
             role="switch"
             aria-checked={step.showProgress ?? true}
-            onClick={() =>
-              update({ showProgress: !(step.showProgress ?? true) })
-            }
+            onClick={() => update({ showProgress: !(step.showProgress ?? true) })}
             className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/20 ${
               step.showProgress !== false ? 'bg-indigo-600' : 'bg-gray-200'
             }`}
@@ -208,16 +199,14 @@ export default function StepProperties({
           </button>
         </div>
         <div className="flex items-center justify-between">
-          <label className="text-xs font-medium text-gray-600 uppercase tracking-wider">
+          <label className="text-xs font-medium uppercase tracking-wider text-gray-600">
             Show Back Button
           </label>
           <button
             type="button"
             role="switch"
             aria-checked={step.showBackButton ?? false}
-            onClick={() =>
-              update({ showBackButton: !(step.showBackButton ?? false) })
-            }
+            onClick={() => update({ showBackButton: !(step.showBackButton ?? false) })}
             className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/20 ${
               step.showBackButton ? 'bg-indigo-600' : 'bg-gray-200'
             }`}
@@ -231,8 +220,8 @@ export default function StepProperties({
         </div>
       </div>
 
-      <div className="pt-2 border-t border-gray-200">
-        <label className="block text-xs font-medium text-gray-600 uppercase tracking-wider mb-2">
+      <div className="border-t border-gray-200 pt-2">
+        <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-gray-600">
           Navigation
         </label>
 
@@ -241,7 +230,7 @@ export default function StepProperties({
             <select
               value={defaultNextStepId}
               onChange={(e) => handleDefaultNextChange(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
             >
               <option value="">— End of form —</option>
               {otherSteps.map((s) => (
@@ -254,9 +243,9 @@ export default function StepProperties({
               type="button"
               onClick={handleAddConditionalRule}
               disabled={step.fields.length === 0 || otherSteps.length === 0}
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <Plus className="w-3.5 h-3.5" />
+              <Plus className="h-3.5 w-3.5" />
               Add conditional rule
             </button>
           </div>
@@ -265,18 +254,16 @@ export default function StepProperties({
             {conditionalNavs.map((nav: ConditionalNavigation, idx: number) => (
               <div
                 key={idx}
-                className="p-3 rounded-lg border border-gray-200 bg-gray-50/50 space-y-2"
+                className="space-y-2 rounded-lg border border-gray-200 bg-gray-50/50 p-3"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-gray-600">
-                    Rule {idx + 1}
-                  </span>
+                  <span className="text-xs font-medium text-gray-600">Rule {idx + 1}</span>
                   <button
                     type="button"
                     onClick={() => onDeleteConditionalNav(step.id, idx)}
-                    className="p-1 text-gray-400 hover:text-red-600 rounded"
+                    className="rounded p-1 text-gray-400 hover:text-red-600"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
                 <select
@@ -287,7 +274,7 @@ export default function StepProperties({
                       target: e.target.value,
                     })
                   }
-                  className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded bg-white"
+                  className="w-full rounded border border-gray-200 bg-white px-2 py-1.5 text-sm"
                 >
                   {otherSteps.map((s) => (
                     <option key={s.id} value={s.id}>
@@ -307,7 +294,7 @@ export default function StepProperties({
                           conditions: newConds,
                         });
                       }}
-                      className="flex-1 px-2 py-1 border border-gray-200 rounded"
+                      className="flex-1 rounded border border-gray-200 px-2 py-1"
                     >
                       {step.fields.map((f) => (
                         <option key={f.id} value={f.storageKey}>
@@ -327,7 +314,7 @@ export default function StepProperties({
                         });
                       }}
                       placeholder="Value"
-                      className="flex-1 px-2 py-1 border border-gray-200 rounded"
+                      className="flex-1 rounded border border-gray-200 px-2 py-1"
                     />
                   </div>
                 ))}
@@ -338,7 +325,7 @@ export default function StepProperties({
               onClick={handleAddConditionalRule}
               className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-700"
             >
-              <Plus className="w-3.5 h-3.5" />
+              <Plus className="h-3.5 w-3.5" />
               Add another rule
             </button>
           </div>

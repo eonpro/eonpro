@@ -72,7 +72,9 @@ function collectStorageKeys(config: FormConfig): Set<string> {
 // Step/field factory helpers
 // ---------------------------------------------------------------------------
 
-function createDefaultStep(stepType: StepType): Omit<FormStep, 'nextStep' | 'prevStep' | 'progressPercent'> {
+function createDefaultStep(
+  stepType: StepType
+): Omit<FormStep, 'nextStep' | 'prevStep' | 'progressPercent'> {
   const id = genStepId();
   const titles: Record<StepType, string> = {
     'single-select': 'New Question',
@@ -157,11 +159,7 @@ function recalcLinearNav(steps: FormStep[]): FormStep[] {
     return {
       ...step,
       prevStep: i === 0 ? null : steps[i - 1].id,
-      nextStep: hasConditionalNav
-        ? step.nextStep
-        : i < steps.length - 1
-          ? steps[i + 1].id
-          : null,
+      nextStep: hasConditionalNav ? step.nextStep : i < steps.length - 1 ? steps[i + 1].id : null,
     };
   });
 }
@@ -214,9 +212,8 @@ function applyAction(config: FormConfig, action: BuilderAction): FormConfig {
 
     case 'DELETE_STEP': {
       const steps = config.steps.filter((s) => s.id !== action.stepId);
-      const startStep = config.startStep === action.stepId
-        ? (steps[0]?.id ?? '')
-        : config.startStep;
+      const startStep =
+        config.startStep === action.stepId ? (steps[0]?.id ?? '') : config.startStep;
 
       return { ...config, steps: recalcSteps(steps), startStep };
     }
@@ -266,7 +263,7 @@ function applyAction(config: FormConfig, action: BuilderAction): FormConfig {
 
     case 'UPDATE_STEP': {
       const steps = config.steps.map((s) =>
-        s.id === action.stepId ? { ...s, ...action.updates } : s,
+        s.id === action.stepId ? { ...s, ...action.updates } : s
       );
       return { ...config, steps };
     }
@@ -340,7 +337,7 @@ function applyAction(config: FormConfig, action: BuilderAction): FormConfig {
       const steps = config.steps.map((s) => {
         if (s.id !== action.stepId) return s;
         const fields = s.fields.map((f) =>
-          f.id === action.fieldId ? { ...f, ...action.updates } : f,
+          f.id === action.fieldId ? { ...f, ...action.updates } : f
         );
         return { ...s, fields };
       });
@@ -411,7 +408,7 @@ function applyAction(config: FormConfig, action: BuilderAction): FormConfig {
         const fields = s.fields.map((f) => {
           if (f.id !== action.fieldId) return f;
           const options = f.options?.map((o) =>
-            o.id === action.optionId ? { ...o, ...action.updates } : o,
+            o.id === action.optionId ? { ...o, ...action.updates } : o
           );
           return { ...f, options };
         });
@@ -439,7 +436,7 @@ function applyAction(config: FormConfig, action: BuilderAction): FormConfig {
 
     case 'SET_NEXT_STEP': {
       const steps = config.steps.map((s) =>
-        s.id === action.stepId ? { ...s, nextStep: action.nextStep } : s,
+        s.id === action.stepId ? { ...s, nextStep: action.nextStep } : s
       );
       return { ...config, steps };
     }
@@ -457,7 +454,11 @@ function applyAction(config: FormConfig, action: BuilderAction): FormConfig {
       const steps = config.steps.map((s) => {
         if (s.id !== action.stepId || !Array.isArray(s.nextStep)) return s;
         const navs = s.nextStep.filter((_, i) => i !== action.index);
-        return { ...s, nextStep: navs.length > 0 ? navs : config.steps[config.steps.indexOf(s) + 1]?.id ?? null };
+        return {
+          ...s,
+          nextStep:
+            navs.length > 0 ? navs : (config.steps[config.steps.indexOf(s) + 1]?.id ?? null),
+        };
       });
       return { ...config, steps };
     }

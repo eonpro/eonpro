@@ -81,9 +81,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     logger.error('[CircuitBreakerHealth] Failed to get snapshot', error);
-    return NextResponse.json(
-      { error: 'Failed to read circuit breaker state' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to read circuit breaker state' }, { status: 500 });
   }
 }

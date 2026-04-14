@@ -65,10 +65,7 @@ export async function POST(request: NextRequest) {
 
     const ot = await basePrisma.clinic.findFirst({
       where: {
-        OR: [
-          { subdomain: 'ot' },
-          { name: { contains: 'OT', mode: 'insensitive' } },
-        ],
+        OR: [{ subdomain: 'ot' }, { name: { contains: 'OT', mode: 'insensitive' } }],
       },
       select: { id: true, name: true, subdomain: true },
     });
@@ -100,9 +97,7 @@ export async function POST(request: NextRequest) {
           plan.isRecurring || (plan.months && plan.months > 1) ? 'RECURRING' : 'ONE_TIME';
         const billingInterval = mapBillingInterval(plan.months);
         const billingIntervalCount = plan.months || 1;
-        const stripePriceId = isValidStripePriceId(plan.stripePriceId)
-          ? plan.stripePriceId!
-          : null;
+        const stripePriceId = isValidStripePriceId(plan.stripePriceId) ? plan.stripePriceId! : null;
         const rawStripeProductId = isValidStripeProductId(plan.stripeProductId)
           ? plan.stripeProductId!
           : null;

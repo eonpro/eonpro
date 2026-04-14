@@ -74,7 +74,6 @@ export const GET = withAuth(
         },
       });
     } catch (error: unknown) {
-
       logger.error('Error fetching API keys:', error);
       return NextResponse.json({ error: 'Failed to fetch API keys' }, { status: 500 });
     }
@@ -141,7 +140,9 @@ export const POST = withAuth(
           },
         })
         .catch((error: Error) => {
-          logger.warn('Failed to create audit log:', { error: error instanceof Error ? error.message : String(error) });
+          logger.warn('Failed to create audit log:', {
+            error: error instanceof Error ? error.message : String(error),
+          });
         });
 
       logger.info('API key created', { keyName: validated.name, userId: user.id });
@@ -208,7 +209,9 @@ export const DELETE = withAuth(
           },
         })
         .catch((error: Error) => {
-          logger.warn('Failed to create audit log:', { error: error instanceof Error ? error.message : String(error) });
+          logger.warn('Failed to create audit log:', {
+            error: error instanceof Error ? error.message : String(error),
+          });
         });
 
       logger.info('API key revoked', { keyId, userId: user.id });
@@ -218,7 +221,6 @@ export const DELETE = withAuth(
         message: 'API key revoked successfully',
       });
     } catch (error: unknown) {
-
       logger.error('Error revoking API key:', error);
       return NextResponse.json({ error: 'Failed to revoke API key' }, { status: 500 });
     }
@@ -303,12 +305,13 @@ export const PUT = withAuth(
           },
         })
         .catch((error: Error) => {
-          logger.warn('Failed to create audit log:', { error: error instanceof Error ? error.message : String(error) });
+          logger.warn('Failed to create audit log:', {
+            error: error instanceof Error ? error.message : String(error),
+          });
         });
 
       return NextResponse.json(responseData);
     } catch (error: unknown) {
-
       logger.error('Error updating API key:', error);
       return NextResponse.json({ error: 'Failed to update API key' }, { status: 500 });
     }

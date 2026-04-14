@@ -82,9 +82,7 @@ export function PatientSubscriptionManager({
   // Manual enrollment form state
   const [showManualForm, setShowManualForm] = useState(false);
   const [manualPlanId, setManualPlanId] = useState('');
-  const [manualStartDate, setManualStartDate] = useState(
-    calendarTodayServer()
-  );
+  const [manualStartDate, setManualStartDate] = useState(calendarTodayServer());
   const [manualNotes, setManualNotes] = useState('');
   const [manualQueueRefill, setManualQueueRefill] = useState(true);
   const [manualRefillFrequency, setManualRefillFrequency] = useState<
@@ -365,18 +363,15 @@ export function PatientSubscriptionManager({
     if (editingShipmentId == null) return;
     setShipmentActionId(editingShipmentId);
     try {
-      const res = await apiFetch(
-        `/api/patients/${patientId}/refill-queue/${editingShipmentId}`,
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            nextRefillDate: editDate || undefined,
-            planName: editPlanName || undefined,
-            medicationName: editMedicationName || undefined,
-          }),
-        }
-      );
+      const res = await apiFetch(`/api/patients/${patientId}/refill-queue/${editingShipmentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nextRefillDate: editDate || undefined,
+          planName: editPlanName || undefined,
+          medicationName: editMedicationName || undefined,
+        }),
+      });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || 'Failed to update shipment');
@@ -392,13 +387,19 @@ export function PatientSubscriptionManager({
   };
 
   const handleDeleteShipment = async (s: ShipmentEntry) => {
-    if (!confirm(`Remove shipment ${s.shipmentNumber} (${new Date(s.nextRefillDate).toLocaleDateString()})? This will cancel the refill.`)) return;
+    if (
+      !confirm(
+        `Remove shipment ${s.shipmentNumber} (${new Date(s.nextRefillDate).toLocaleDateString()})? This will cancel the refill.`
+      )
+    )
+      return;
     setShipmentActionId(s.id);
     try {
-      const res = await apiFetch(
-        `/api/patients/${patientId}/refill-queue/${s.id}`,
-        { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: 'Deleted from patient billing' }) }
-      );
+      const res = await apiFetch(`/api/patients/${patientId}/refill-queue/${s.id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: 'Deleted from patient billing' }),
+      });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || 'Failed to remove shipment');
@@ -419,7 +420,11 @@ export function PatientSubscriptionManager({
           <h4 className="text-sm font-semibold text-gray-700">Manual Enrollment</h4>
           <button
             type="button"
-            onClick={() => { setShowManualForm(false); setManualError(null); setManualSuccess(null); }}
+            onClick={() => {
+              setShowManualForm(false);
+              setManualError(null);
+              setManualSuccess(null);
+            }}
             className="text-xs text-gray-400 hover:text-gray-600"
           >
             Cancel
@@ -464,7 +469,10 @@ export function PatientSubscriptionManager({
 
         <div>
           <label className="mb-1 block text-xs font-medium text-gray-600">
-            Notes <span className="font-normal text-gray-400">(e.g., &quot;Paid via old EMR through 03/2026&quot;)</span>
+            Notes{' '}
+            <span className="font-normal text-gray-400">
+              (e.g., &quot;Paid via old EMR through 03/2026&quot;)
+            </span>
           </label>
           <textarea
             value={manualNotes}
@@ -516,9 +524,7 @@ export function PatientSubscriptionManager({
                 max={24}
                 value={manualRefillCount}
                 onChange={(e) =>
-                  setManualRefillCount(
-                    Math.min(24, Math.max(1, parseInt(e.target.value, 10) || 1))
-                  )
+                  setManualRefillCount(Math.min(24, Math.max(1, parseInt(e.target.value, 10) || 1)))
                 }
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
               />
@@ -527,7 +533,7 @@ export function PatientSubscriptionManager({
                 is cancelled or paused. Each goes to admin for approval.
               </p>
               {manualRefillHint && (
-                <p className="mt-1.5 text-xs text-[#4fa77e] bg-[#4fa77e]/10 rounded px-2 py-1.5">
+                <p className="mt-1.5 rounded bg-[#4fa77e]/10 px-2 py-1.5 text-xs text-[#4fa77e]">
                   {manualRefillHint}
                 </p>
               )}
@@ -563,7 +569,9 @@ export function PatientSubscriptionManager({
         {manualSuccess && (
           <div className="mb-4 rounded bg-green-50 p-2 text-sm text-green-700">{manualSuccess}</div>
         )}
-        {showManualForm ? manualEnrollmentForm : (
+        {showManualForm ? (
+          manualEnrollmentForm
+        ) : (
           <p className="text-gray-500">No active subscriptions or prepaid treatment plans</p>
         )}
       </div>
@@ -594,20 +602,32 @@ export function PatientSubscriptionManager({
         {/* Prepaid Shipment Schedules (WellMedR multi-month plans) */}
         {hasShipments && (
           <div className="mb-6">
-            <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-indigo-700 uppercase tracking-wider">
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+            <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-indigo-700">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
+              </svg>
               Prepaid Shipment Plans
             </h4>
             <div className="space-y-4">
               {Object.values(shipmentSeries).map((series) => {
                 const first = series[0];
                 const sorted = [...series].sort((a, b) => a.shipmentNumber - b.shipmentNumber);
-                const completed = sorted.filter((s) => s.status === 'COMPLETED' || s.status === 'PRESCRIBED').length;
+                const completed = sorted.filter(
+                  (s) => s.status === 'COMPLETED' || s.status === 'PRESCRIBED'
+                ).length;
                 const total = first.totalShipments;
                 const progressPct = total > 0 ? Math.round((completed / total) * 100) : 0;
 
                 return (
-                  <div key={first.id} className="rounded-lg border border-indigo-100 bg-indigo-50/30 p-4">
+                  <div
+                    key={first.id}
+                    className="rounded-lg border border-indigo-100 bg-indigo-50/30 p-4"
+                  >
                     <div className="mb-3 flex items-start justify-between">
                       <div>
                         <h5 className="font-medium text-gray-900">
@@ -634,14 +654,19 @@ export function PatientSubscriptionManager({
                     <div className="space-y-2">
                       {sorted.map((s) => (
                         <div key={s.id} className="flex items-center justify-between gap-2 text-sm">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <div className={`h-2.5 w-2.5 shrink-0 rounded-full border ${shipmentStatusColor(s.status)}`} />
+                          <div className="flex min-w-0 items-center gap-2">
+                            <div
+                              className={`h-2.5 w-2.5 shrink-0 rounded-full border ${shipmentStatusColor(s.status)}`}
+                            />
                             <span className="text-gray-700">
-                              Shipment {s.shipmentNumber} — {new Date(s.nextRefillDate).toLocaleDateString()}
+                              Shipment {s.shipmentNumber} —{' '}
+                              {new Date(s.nextRefillDate).toLocaleDateString()}
                             </span>
                           </div>
-                          <div className="flex items-center gap-1 shrink-0">
-                            <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${shipmentStatusColor(s.status)}`}>
+                          <div className="flex shrink-0 items-center gap-1">
+                            <span
+                              className={`rounded-full border px-2 py-0.5 text-xs font-medium ${shipmentStatusColor(s.status)}`}
+                            >
                               {s.status.replace(/_/g, ' ')}
                             </span>
                             {canEditOrDeleteShipment(s.status) && (
@@ -653,7 +678,19 @@ export function PatientSubscriptionManager({
                                   className="rounded p-1 text-gray-500 hover:bg-gray-200 hover:text-gray-700 disabled:opacity-50"
                                   title="Edit"
                                 >
-                                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                  <svg
+                                    className="h-4 w-4"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                    />
+                                  </svg>
                                 </button>
                                 <button
                                   type="button"
@@ -662,7 +699,19 @@ export function PatientSubscriptionManager({
                                   className="rounded p-1 text-gray-500 hover:bg-red-100 hover:text-red-700 disabled:opacity-50"
                                   title="Remove"
                                 >
-                                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                  <svg
+                                    className="h-4 w-4"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                    />
+                                  </svg>
                                 </button>
                               </>
                             )}
@@ -679,8 +728,14 @@ export function PatientSubscriptionManager({
 
         {/* Edit shipment modal */}
         {editingShipmentId != null && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={closeEditShipment}>
-            <div className="w-full max-w-sm rounded-lg bg-white p-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            onClick={closeEditShipment}
+          >
+            <div
+              className="w-full max-w-sm rounded-lg bg-white p-4 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
               <h4 className="mb-3 font-semibold text-gray-900">Edit shipment date</h4>
               <div className="space-y-3">
                 <div>
@@ -693,7 +748,9 @@ export function PatientSubscriptionManager({
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-600">Plan name (optional)</label>
+                  <label className="mb-1 block text-xs font-medium text-gray-600">
+                    Plan name (optional)
+                  </label>
                   <input
                     type="text"
                     value={editPlanName}
@@ -703,7 +760,9 @@ export function PatientSubscriptionManager({
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-600">Medication (optional)</label>
+                  <label className="mb-1 block text-xs font-medium text-gray-600">
+                    Medication (optional)
+                  </label>
                   <input
                     type="text"
                     value={editMedicationName}
@@ -736,116 +795,121 @@ export function PatientSubscriptionManager({
 
         {/* Recurring Stripe Subscriptions */}
         {subscriptions.length > 0 && (
-        <div>
-        <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-500 uppercase tracking-wider">
-          Recurring Subscriptions
-        </h4>
-        <div className="space-y-4">
-          {subscriptions.map((subscription: any) => (
-            <div key={subscription.id} className="rounded-lg border p-4">
-              <div className="mb-3 flex items-start justify-between">
-                <div className="flex-1">
-                  <h4 className="font-medium text-gray-900">{subscription.planName}</h4>
-                  <p className="text-sm text-gray-600">{subscription.planDescription}</p>
-                </div>
-                <div className="ml-4 flex items-center gap-2">
-                  {getStatusBadge(subscription)}
-                  {!subscription.stripeSubscriptionId && (
-                    <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
-                      Manual
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="mb-4 grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
-                <div>
-                  <span className="text-gray-600">Amount:</span>
-                  <p className="font-medium text-[#4fa77e]">
-                    {formatPlanPrice(subscription.amount)}/{formatBillingInterval(subscription.interval, subscription.intervalCount)}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-gray-600">Started:</span>
-                  <p className="font-medium">
-                    {isValidDate(subscription.startDate) ? new Date(subscription.startDate).toLocaleDateString() : '—'}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-gray-600">Current Period:</span>
-                  <p className="font-medium">
-                    {isValidDate(subscription.currentPeriodEnd) ? `Until ${new Date(subscription.currentPeriodEnd).toLocaleDateString()}` : '—'}
-                  </p>
-                </div>
-                {subscription.nextBillingDate && isValidDate(subscription.nextBillingDate) && (
-                  <div>
-                    <span className="text-gray-600">Next Billing:</span>
-                    <p className="font-medium">
-                      {new Date(subscription.nextBillingDate).toLocaleDateString()}
-                    </p>
+          <div>
+            <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-gray-500">
+              Recurring Subscriptions
+            </h4>
+            <div className="space-y-4">
+              {subscriptions.map((subscription: any) => (
+                <div key={subscription.id} className="rounded-lg border p-4">
+                  <div className="mb-3 flex items-start justify-between">
+                    <div className="flex-1">
+                      <h4 className="font-medium text-gray-900">{subscription.planName}</h4>
+                      <p className="text-sm text-gray-600">{subscription.planDescription}</p>
+                    </div>
+                    <div className="ml-4 flex items-center gap-2">
+                      {getStatusBadge(subscription)}
+                      {!subscription.stripeSubscriptionId && (
+                        <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
+                          Manual
+                        </span>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
 
-              {subscription.pausedAt && (
-                <div className="mb-3 rounded bg-yellow-50 p-2 text-sm">
-                  <span className="text-yellow-800">
-                    Paused since {new Date(subscription.pausedAt).toLocaleDateString()}
-                  </span>
+                  <div className="mb-4 grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
+                    <div>
+                      <span className="text-gray-600">Amount:</span>
+                      <p className="font-medium text-[#4fa77e]">
+                        {formatPlanPrice(subscription.amount)}/
+                        {formatBillingInterval(subscription.interval, subscription.intervalCount)}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">Started:</span>
+                      <p className="font-medium">
+                        {isValidDate(subscription.startDate)
+                          ? new Date(subscription.startDate).toLocaleDateString()
+                          : '—'}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">Current Period:</span>
+                      <p className="font-medium">
+                        {isValidDate(subscription.currentPeriodEnd)
+                          ? `Until ${new Date(subscription.currentPeriodEnd).toLocaleDateString()}`
+                          : '—'}
+                      </p>
+                    </div>
+                    {subscription.nextBillingDate && isValidDate(subscription.nextBillingDate) && (
+                      <div>
+                        <span className="text-gray-600">Next Billing:</span>
+                        <p className="font-medium">
+                          {new Date(subscription.nextBillingDate).toLocaleDateString()}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {subscription.pausedAt && (
+                    <div className="mb-3 rounded bg-yellow-50 p-2 text-sm">
+                      <span className="text-yellow-800">
+                        Paused since {new Date(subscription.pausedAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  )}
+
+                  {subscription.canceledAt && (
+                    <div className="mb-3 rounded bg-red-50 p-2 text-sm">
+                      <span className="text-red-800">
+                        Canceled on {new Date(subscription.canceledAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2">
+                    {subscription.status === 'ACTIVE' && (
+                      <>
+                        <button
+                          onClick={() => handlePause(subscription.id)}
+                          disabled={processingId === subscription.id}
+                          className="rounded-lg bg-yellow-100 px-3 py-1.5 text-sm text-yellow-800 hover:bg-yellow-200 disabled:opacity-50"
+                        >
+                          {processingId === subscription.id ? 'Processing...' : 'Pause'}
+                        </button>
+                        <button
+                          onClick={() => handleCancel(subscription.id)}
+                          disabled={processingId === subscription.id}
+                          className="rounded-lg bg-red-100 px-3 py-1.5 text-sm text-red-800 hover:bg-red-200 disabled:opacity-50"
+                        >
+                          {processingId === subscription.id ? 'Processing...' : 'Cancel'}
+                        </button>
+                      </>
+                    )}
+
+                    {subscription.status === 'PAUSED' && (
+                      <>
+                        <button
+                          onClick={() => handleResume(subscription.id)}
+                          disabled={processingId === subscription.id}
+                          className="rounded-lg bg-green-100 px-3 py-1.5 text-sm text-green-800 hover:bg-green-200 disabled:opacity-50"
+                        >
+                          {processingId === subscription.id ? 'Processing...' : 'Resume'}
+                        </button>
+                        <button
+                          onClick={() => handleCancel(subscription.id)}
+                          disabled={processingId === subscription.id}
+                          className="rounded-lg bg-red-100 px-3 py-1.5 text-sm text-red-800 hover:bg-red-200 disabled:opacity-50"
+                        >
+                          {processingId === subscription.id ? 'Processing...' : 'Cancel'}
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
-              )}
-
-              {subscription.canceledAt && (
-                <div className="mb-3 rounded bg-red-50 p-2 text-sm">
-                  <span className="text-red-800">
-                    Canceled on {new Date(subscription.canceledAt).toLocaleDateString()}
-                  </span>
-                </div>
-              )}
-
-              <div className="flex gap-2">
-                {subscription.status === 'ACTIVE' && (
-                  <>
-                    <button
-                      onClick={() => handlePause(subscription.id)}
-                      disabled={processingId === subscription.id}
-                      className="rounded-lg bg-yellow-100 px-3 py-1.5 text-sm text-yellow-800 hover:bg-yellow-200 disabled:opacity-50"
-                    >
-                      {processingId === subscription.id ? 'Processing...' : 'Pause'}
-                    </button>
-                    <button
-                      onClick={() => handleCancel(subscription.id)}
-                      disabled={processingId === subscription.id}
-                      className="rounded-lg bg-red-100 px-3 py-1.5 text-sm text-red-800 hover:bg-red-200 disabled:opacity-50"
-                    >
-                      {processingId === subscription.id ? 'Processing...' : 'Cancel'}
-                    </button>
-                  </>
-                )}
-
-                {subscription.status === 'PAUSED' && (
-                  <>
-                    <button
-                      onClick={() => handleResume(subscription.id)}
-                      disabled={processingId === subscription.id}
-                      className="rounded-lg bg-green-100 px-3 py-1.5 text-sm text-green-800 hover:bg-green-200 disabled:opacity-50"
-                    >
-                      {processingId === subscription.id ? 'Processing...' : 'Resume'}
-                    </button>
-                    <button
-                      onClick={() => handleCancel(subscription.id)}
-                      disabled={processingId === subscription.id}
-                      className="rounded-lg bg-red-100 px-3 py-1.5 text-sm text-red-800 hover:bg-red-200 disabled:opacity-50"
-                    >
-                      {processingId === subscription.id ? 'Processing...' : 'Cancel'}
-                    </button>
-                  </>
-                )}
-              </div>
+              ))}
             </div>
-          ))}
-        </div>
-        </div>
+          </div>
         )}
       </div>
     </div>

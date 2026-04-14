@@ -52,7 +52,4 @@ export { resolveNextStep, evaluateCondition } from './types/form-engine';
 // Lead transition service (server-side)
 // ---------------------------------------------------------------------------
 
-export {
-  transitionLeadToActive,
-  shouldShowLeadPortal,
-} from './services/lead-transition.service';
+export { transitionLeadToActive, shouldShowLeadPortal } from './services/lead-transition.service';

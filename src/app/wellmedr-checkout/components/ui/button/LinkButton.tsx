@@ -23,11 +23,7 @@ const LinkButton = ({
   target = '_self',
 }: LinkButtonProps) => {
   return (
-    <Link
-      href={href}
-      className={getButtonStyles({ variant, className })}
-      target={target}
-    >
+    <Link href={href} className={getButtonStyles({ variant, className })} target={target}>
       {prefix ? prefix : null}
       {text}
       {suffix ? suffix : null}

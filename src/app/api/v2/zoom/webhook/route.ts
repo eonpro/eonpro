@@ -78,10 +78,7 @@ export async function POST(req: NextRequest) {
       }
     } else {
       logger.error('Zoom webhook: No webhook secret configured — rejecting request');
-      return NextResponse.json(
-        { error: 'Webhook secret not configured' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 });
     }
 
     // Log the event
@@ -105,9 +102,8 @@ export async function POST(req: NextRequest) {
     // Also trigger AI Scribe session management from Zoom events (non-blocking).
     // This auto-starts/stops the scribe based on meeting lifecycle events.
     try {
-      const { handleZoomWebhook: handleScribeWebhook } = await import(
-        '@/lib/ai-scribe/telehealth-integration'
-      );
+      const { handleZoomWebhook: handleScribeWebhook } =
+        await import('@/lib/ai-scribe/telehealth-integration');
       await handleScribeWebhook(payload.event, payload.payload);
     } catch (error) {
       logger.debug('AI Scribe webhook handler skipped', {

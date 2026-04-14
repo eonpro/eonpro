@@ -50,7 +50,10 @@ export async function GET(
       return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
     }
 
-    let patientDisplay = { firstName: invoice.patient.firstName, lastName: invoice.patient.lastName };
+    let patientDisplay = {
+      firstName: invoice.patient.firstName,
+      lastName: invoice.patient.lastName,
+    };
     try {
       const decrypted = decryptPatientPHI(invoice.patient as Record<string, unknown>, [
         'firstName',

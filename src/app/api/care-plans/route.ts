@@ -73,9 +73,8 @@ export const GET = withAuth(async (req: NextRequest, user) => {
     const templates = searchParams.get('templates');
 
     // Only super_admin may query another clinic's templates
-    const resolvedClinicId = (clinicId && user.role === 'super_admin')
-      ? parseInt(clinicId)
-      : user.clinicId ?? undefined;
+    const resolvedClinicId =
+      clinicId && user.role === 'super_admin' ? parseInt(clinicId) : (user.clinicId ?? undefined);
 
     // Get available templates
     if (templates === 'true') {

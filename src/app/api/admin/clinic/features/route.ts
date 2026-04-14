@@ -9,7 +9,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { basePrisma as prisma } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
-import { handleApiError, BadRequestError, NotFoundError, ForbiddenError } from '@/domains/shared/errors';
+import {
+  handleApiError,
+  BadRequestError,
+  NotFoundError,
+  ForbiddenError,
+} from '@/domains/shared/errors';
 
 interface ClinicFeatures {
   // Core Features
@@ -172,9 +177,7 @@ export const PATCH = withAuth(
       const { clinicId: bodyClinicId, ...featureUpdates } = body;
 
       const clinicId =
-        user.role === 'super_admin' && bodyClinicId != null
-          ? Number(bodyClinicId)
-          : user.clinicId;
+        user.role === 'super_admin' && bodyClinicId != null ? Number(bodyClinicId) : user.clinicId;
 
       if (!clinicId) {
         throw new BadRequestError('Clinic not found or not associated');
@@ -188,7 +191,13 @@ export const PATCH = withAuth(
 
       const clinic = await prisma.clinic.findUnique({
         where: { id: clinicId },
-        select: { id: true, name: true, features: true, lifefileEnabled: true, stripeAccountId: true },
+        select: {
+          id: true,
+          name: true,
+          features: true,
+          lifefileEnabled: true,
+          stripeAccountId: true,
+        },
       });
 
       if (!clinic) {

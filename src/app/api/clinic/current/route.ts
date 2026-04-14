@@ -9,7 +9,7 @@ function extractSubdomain(host: string): string | null {
   if (!host || !host.includes('.')) return null;
   const parts = host.split('.');
   const isLocalhostWithSub = host.includes('localhost') && parts.length >= 2;
-  const sub = parts.length >= 3 || isLocalhostWithSub ? parts[0] ?? null : null;
+  const sub = parts.length >= 3 || isLocalhostWithSub ? (parts[0] ?? null) : null;
   const reserved = ['www', 'app', 'api', 'admin', 'staging'];
   return sub && !reserved.includes(sub.toLowerCase()) ? sub : null;
 }

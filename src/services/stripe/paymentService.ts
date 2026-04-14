@@ -58,7 +58,8 @@ export class StripePaymentService {
     payment: any;
     clientSecret: string;
   }> {
-    const stripeContext = preResolvedStripe ?? (await this.getStripeContextForPatient(options.patientId));
+    const stripeContext =
+      preResolvedStripe ?? (await this.getStripeContextForPatient(options.patientId));
 
     // ENTERPRISE: Generate idempotency key for deduplication
     // SOC 2 Compliance: Use crypto.randomUUID() to prevent collision under high concurrency
@@ -88,7 +89,7 @@ export class StripePaymentService {
       const customer = await StripeCustomerService.getOrCreateCustomerForContext(
         options.patientId,
         stripeContext.stripe,
-        stripeRequestOptions(stripeContext),
+        stripeRequestOptions(stripeContext)
       );
 
       // 2. Create payment intent in Stripe with idempotency key
@@ -230,42 +231,47 @@ export class StripePaymentService {
 
     // Wrap payment and invoice updates in a transaction for atomicity
     try {
-      await prisma.$transaction(async (tx) => {
-        // Update payment
-        await tx.payment.update({
-          where: { id: payment.id },
-          data: {
-            status: newStatus,
-            stripePaymentIntentId: payment.stripePaymentIntentId ?? paymentIntent.id,
-            stripeChargeId: paymentIntent.latest_charge?.toString(),
-            paymentMethod: paymentIntent.payment_method?.toString(),
-            failureReason: paymentIntent.last_payment_error?.message,
-          },
-        });
-
-        // Only increment amountPaid when payment is TRANSITIONING to succeeded,
-        // not when it was already created as SUCCEEDED (e.g. by paymentMatchingService).
-        // This prevents double-counting when processStripePayment() already sets
-        // amountPaid on the invoice and then this method is called from the webhook.
-        if (
-          paymentIntent.status === 'succeeded' &&
-          payment.invoiceId &&
-          !wasAlreadySucceeded
-        ) {
-          await tx.invoice.update({
-            where: { id: payment.invoiceId },
+      await prisma.$transaction(
+        async (tx) => {
+          // Update payment
+          await tx.payment.update({
+            where: { id: payment.id },
             data: {
-              amountPaid: {
-                increment: payment.amount,
-              },
-              status: 'PAID',
-              paidAt: new Date(),
+              status: newStatus,
+              stripePaymentIntentId: payment.stripePaymentIntentId ?? paymentIntent.id,
+              stripeChargeId: paymentIntent.latest_charge?.toString(),
+              paymentMethod: paymentIntent.payment_method?.toString(),
+              failureReason: paymentIntent.last_payment_error?.message,
             },
           });
-        } else if (paymentIntent.status === 'succeeded' && payment.invoiceId && wasAlreadySucceeded) {
-          logger.debug(`[STRIPE] Skipping amountPaid increment for ${paymentIntent.id} - payment already SUCCEEDED (idempotent guard)`);
-        }
-      }, { timeout: 15000 });
+
+          // Only increment amountPaid when payment is TRANSITIONING to succeeded,
+          // not when it was already created as SUCCEEDED (e.g. by paymentMatchingService).
+          // This prevents double-counting when processStripePayment() already sets
+          // amountPaid on the invoice and then this method is called from the webhook.
+          if (paymentIntent.status === 'succeeded' && payment.invoiceId && !wasAlreadySucceeded) {
+            await tx.invoice.update({
+              where: { id: payment.invoiceId },
+              data: {
+                amountPaid: {
+                  increment: payment.amount,
+                },
+                status: 'PAID',
+                paidAt: new Date(),
+              },
+            });
+          } else if (
+            paymentIntent.status === 'succeeded' &&
+            payment.invoiceId &&
+            wasAlreadySucceeded
+          ) {
+            logger.debug(
+              `[STRIPE] Skipping amountPaid increment for ${paymentIntent.id} - payment already SUCCEEDED (idempotent guard)`
+            );
+          }
+        },
+        { timeout: 15000 }
+      );
     } catch (error: unknown) {
       // If another row already owns this Stripe intent, mark this fallback row failed.
       if (this.isStripePaymentIntentUniqueConstraint(error)) {
@@ -281,11 +287,14 @@ export class StripePaymentService {
               failureReason: `Duplicate Stripe PaymentIntent recorded as payment ${canonical.id}`,
             },
           });
-          logger.warn('[STRIPE] Duplicate payment intent race in webhook update; canonical payment preserved', {
-            stripePaymentIntentId: paymentIntent.id,
-            supersededPaymentId: payment.id,
-            canonicalPaymentId: canonical.id,
-          });
+          logger.warn(
+            '[STRIPE] Duplicate payment intent race in webhook update; canonical payment preserved',
+            {
+              stripePaymentIntentId: paymentIntent.id,
+              supersededPaymentId: payment.id,
+              canonicalPaymentId: canonical.id,
+            }
+          );
           return;
         }
       }
@@ -425,7 +434,7 @@ export class StripePaymentService {
     const customer = await StripeCustomerService.getOrCreateCustomerForContext(
       patientId,
       stripeContext.stripe,
-      stripeRequestOptions(stripeContext),
+      stripeRequestOptions(stripeContext)
     );
 
     // List payment methods
@@ -452,7 +461,7 @@ export class StripePaymentService {
     const customer = await StripeCustomerService.getOrCreateCustomerForContext(
       patientId,
       stripeContext.stripe,
-      stripeRequestOptions(stripeContext),
+      stripeRequestOptions(stripeContext)
     );
 
     // Attach payment method to customer

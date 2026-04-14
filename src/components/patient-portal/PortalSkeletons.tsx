@@ -99,7 +99,10 @@ export function MedicationsPageSkeleton() {
         </div>
         <div className="space-y-4">
           {Array.from({ length: 2 }).map((_, i) => (
-            <div key={i} className="overflow-hidden rounded-2xl bg-white shadow-lg shadow-gray-200/40">
+            <div
+              key={i}
+              className="overflow-hidden rounded-2xl bg-white shadow-lg shadow-gray-200/40"
+            >
               <div className="p-4 sm:p-5">
                 <div className="flex items-start gap-3">
                   <Skeleton className="mt-0.5 h-10 w-10 shrink-0 rounded-xl sm:h-12 sm:w-12" />

@@ -255,7 +255,9 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
             </div>
 
             {/* Treatment Details */}
-            {(invoice.metadata?.product || invoice.metadata?.medicationType || invoice.metadata?.plan) && (
+            {(invoice.metadata?.product ||
+              invoice.metadata?.medicationType ||
+              invoice.metadata?.plan) && (
               <div className="mb-8 rounded-lg bg-emerald-50 p-4">
                 <h3 className="mb-3 text-sm font-medium uppercase text-emerald-800">
                   Treatment Details
@@ -321,16 +323,29 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
                 {lineItems.map((item: any) => {
                   const isDiscount = item.amount < 0 || item.unitPrice < 0;
                   return (
-                    <tr key={item.id} className={`border-b border-gray-100 ${isDiscount ? 'text-red-600' : ''}`}>
+                    <tr
+                      key={item.id}
+                      className={`border-b border-gray-100 ${isDiscount ? 'text-red-600' : ''}`}
+                    >
                       <td className="py-4">
-                        <p className={`font-medium ${isDiscount ? 'text-red-600 italic' : 'text-gray-900'}`}>{item.description}</p>
-                        {item.product && <p className="text-sm text-gray-500">{item.product.name}</p>}
+                        <p
+                          className={`font-medium ${isDiscount ? 'italic text-red-600' : 'text-gray-900'}`}
+                        >
+                          {item.description}
+                        </p>
+                        {item.product && (
+                          <p className="text-sm text-gray-500">{item.product.name}</p>
+                        )}
                       </td>
-                      <td className="py-4 text-right text-gray-600">{isDiscount ? '' : item.quantity}</td>
+                      <td className="py-4 text-right text-gray-600">
+                        {isDiscount ? '' : item.quantity}
+                      </td>
                       <td className="py-4 text-right text-gray-600">
                         {isDiscount ? '' : formatCurrency(item.unitPrice)}
                       </td>
-                      <td className={`py-4 text-right font-medium ${isDiscount ? 'text-red-600' : 'text-gray-900'}`}>
+                      <td
+                        className={`py-4 text-right font-medium ${isDiscount ? 'text-red-600' : 'text-gray-900'}`}
+                      >
                         {formatCurrency(item.amount)}
                       </td>
                     </tr>
@@ -346,11 +361,15 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
                   <>
                     <div className="flex justify-between py-2">
                       <span className="text-gray-600">Subtotal</span>
-                      <span className="font-medium">{formatCurrency(invoice.metadata.summary.subtotal)}</span>
+                      <span className="font-medium">
+                        {formatCurrency(invoice.metadata.summary.subtotal)}
+                      </span>
                     </div>
                     <div className="flex justify-between py-2 text-red-600">
                       <span>Discount</span>
-                      <span className="font-medium">-{formatCurrency(invoice.metadata.summary.discountAmount)}</span>
+                      <span className="font-medium">
+                        -{formatCurrency(invoice.metadata.summary.discountAmount)}
+                      </span>
                     </div>
                     <div className="flex justify-between border-t border-gray-200 py-2">
                       <span className="font-semibold text-gray-900">Total</span>

@@ -223,7 +223,10 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
     fetchPhotos();
   }, [fetchPhotos]);
 
-  const handleVerify = async (photoId: number, action: 'approve' | 'reject' | 'request_resubmit') => {
+  const handleVerify = async (
+    photoId: number,
+    action: 'approve' | 'reject' | 'request_resubmit'
+  ) => {
     setVerifying(true);
     setVerificationSuccess(null);
 
@@ -239,7 +242,11 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
 
       if (response.ok) {
         const statusLabel =
-          action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : 'marked for resubmission';
+          action === 'approve'
+            ? 'approved'
+            : action === 'reject'
+              ? 'rejected'
+              : 'marked for resubmission';
         setVerificationSuccess(`Photo ${statusLabel} successfully`);
         setVerificationNotes('');
 
@@ -256,7 +263,9 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
 
         if (selectedPhoto?.id === photoId) {
           setSelectedPhoto((prev) =>
-            prev ? { ...prev, verificationStatus: newStatus, verifiedAt: new Date().toISOString() } : prev
+            prev
+              ? { ...prev, verificationStatus: newStatus, verifiedAt: new Date().toISOString() }
+              : prev
           );
         }
 
@@ -275,10 +284,9 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
   const handleDeletePhoto = async (photo: Photo) => {
     setIsDeleting(true);
     try {
-      const response = await apiFetch(
-        `/api/patient-portal/photos/${photo.id}`,
-        { method: 'DELETE' },
-      );
+      const response = await apiFetch(`/api/patient-portal/photos/${photo.id}`, {
+        method: 'DELETE',
+      });
       if (response.ok) {
         setPhotos((prev) => prev.filter((p) => p.id !== photo.id));
         if (selectedPhoto?.id === photo.id) setSelectedPhoto(null);
@@ -349,9 +357,7 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
           <p className="text-sm text-gray-500">
             {totalCount} photo{totalCount !== 1 ? 's' : ''} for {patientName}
             {packagePhotos.length > 0 && (
-              <span className="ml-1 text-indigo-600">
-                ({packagePhotos.length} package)
-              </span>
+              <span className="ml-1 text-indigo-600">({packagePhotos.length} package)</span>
             )}
           </p>
         </div>
@@ -367,7 +373,8 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
       {/* Category Summary Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {Object.entries(categoryLabels).map(([key, config]) => {
-          const count = categorizedWithPharmacy[key as keyof typeof categorizedWithPharmacy]?.length || 0;
+          const count =
+            categorizedWithPharmacy[key as keyof typeof categorizedWithPharmacy]?.length || 0;
           const Icon = config.icon;
           const isActive = activeCategory === key;
 
@@ -395,7 +402,10 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
       </div>
 
       {/* Category Filter Tabs */}
-      <div className="flex gap-2 overflow-x-auto border-b border-gray-200 pb-2 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' as any }}>
+      <div
+        className="flex gap-2 overflow-x-auto border-b border-gray-200 pb-2 [&::-webkit-scrollbar]:hidden"
+        style={{ scrollbarWidth: 'none' as any }}
+      >
         {['all', 'progress', 'verification', 'medical', 'pharmacy'].map((cat) => (
           <button
             key={cat}
@@ -417,9 +427,7 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
           {activeCategory === 'all' && (
             <div className="flex items-center gap-2">
               <Package className="h-4 w-4 text-indigo-600" />
-              <h3 className="text-sm font-semibold text-gray-900">
-                Package Photos from Pharmacy
-              </h3>
+              <h3 className="text-sm font-semibold text-gray-900">Package Photos from Pharmacy</h3>
               <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">
                 {packagePhotos.length}
               </span>
@@ -531,7 +539,8 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
           ) : filteredPhotos.length > 0 ? (
             <div className="grid gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
               {filteredPhotos.map((photo) => {
-                const status = statusConfig[photo.verificationStatus] || statusConfig.NOT_APPLICABLE;
+                const status =
+                  statusConfig[photo.verificationStatus] || statusConfig.NOT_APPLICABLE;
                 const StatusIcon = status.icon;
 
                 return (
@@ -586,7 +595,9 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
                         {format(parseISO(photo.takenAt), 'MMM d, yyyy')}
                       </p>
                       {photo.weight && (
-                        <p className="mt-1 text-xs font-medium text-[var(--brand-primary)]">{photo.weight} lbs</p>
+                        <p className="mt-1 text-xs font-medium text-[var(--brand-primary)]">
+                          {photo.weight} lbs
+                        </p>
                       )}
                     </div>
                   </div>
@@ -678,7 +689,9 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
                   <div className="flex h-96 flex-col items-center justify-center gap-2">
                     <AlertCircle className="h-12 w-12 text-gray-500" />
                     <p className="text-sm text-gray-400">Image not available</p>
-                    <p className="text-xs text-gray-500">The signed URL may have expired. Try refreshing.</p>
+                    <p className="text-xs text-gray-500">
+                      The signed URL may have expired. Try refreshing.
+                    </p>
                   </div>
                 )}
               </div>
@@ -878,7 +891,8 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
                     <div>
                       <p className="text-xs font-medium uppercase text-gray-500">Captured By</p>
                       <p className="text-gray-900">
-                        {selectedPackagePhoto.capturedBy.firstName} {selectedPackagePhoto.capturedBy.lastName}
+                        {selectedPackagePhoto.capturedBy.firstName}{' '}
+                        {selectedPackagePhoto.capturedBy.lastName}
                       </p>
                     </div>
                   )}
@@ -903,7 +917,9 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
                   {selectedPackagePhoto.matched && (
                     <div className="flex items-center gap-1.5 rounded-lg bg-green-50 px-3 py-2">
                       <CheckCircle className="h-4 w-4 text-green-600" />
-                      <span className="text-sm font-medium text-green-700">Matched to patient record</span>
+                      <span className="text-sm font-medium text-green-700">
+                        Matched to patient record
+                      </span>
                     </div>
                   )}
 
@@ -945,20 +961,24 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
 
                         {selectedPackagePhoto.order.status && (
                           <div>
-                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                              selectedPackagePhoto.order.status === 'completed' || selectedPackagePhoto.order.status === 'Shipped'
-                                ? 'bg-green-100 text-green-700'
-                                : selectedPackagePhoto.order.status === 'cancelled'
-                                  ? 'bg-red-100 text-red-700'
-                                  : 'bg-gray-100 text-gray-700'
-                            }`}>
+                            <span
+                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                                selectedPackagePhoto.order.status === 'completed' ||
+                                selectedPackagePhoto.order.status === 'Shipped'
+                                  ? 'bg-green-100 text-green-700'
+                                  : selectedPackagePhoto.order.status === 'cancelled'
+                                    ? 'bg-red-100 text-red-700'
+                                    : 'bg-gray-100 text-gray-700'
+                              }`}
+                            >
                               {selectedPackagePhoto.order.status}
                             </span>
                           </div>
                         )}
 
                         <p className="text-xs text-gray-500">
-                          Prescribed: {format(parseISO(selectedPackagePhoto.order.createdAt), 'MMM d, yyyy')}
+                          Prescribed:{' '}
+                          {format(parseISO(selectedPackagePhoto.order.createdAt), 'MMM d, yyyy')}
                         </p>
 
                         {/* Rx line items */}
@@ -969,19 +989,14 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
                             </p>
                             <div className="space-y-1.5">
                               {selectedPackagePhoto.order.rxs.map((rx) => (
-                                <div
-                                  key={rx.id}
-                                  className="rounded-lg bg-white p-2 text-xs"
-                                >
+                                <div key={rx.id} className="rounded-lg bg-white p-2 text-xs">
                                   <p className="font-medium text-gray-900">
                                     {rx.medName} {rx.strength}
                                   </p>
                                   <p className="text-gray-500">
                                     {rx.form} &middot; Qty: {rx.quantity}
                                   </p>
-                                  <p className="mt-0.5 italic text-gray-400">
-                                    {rx.sig}
-                                  </p>
+                                  <p className="mt-0.5 italic text-gray-400">{rx.sig}</p>
                                 </div>
                               ))}
                             </div>
@@ -1020,7 +1035,8 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
               </div>
             </div>
             <p className="mb-4 text-sm text-gray-600">
-              This will permanently remove this photo from the patient&apos;s record. This action cannot be undone.
+              This will permanently remove this photo from the patient&apos;s record. This action
+              cannot be undone.
             </p>
             {(deleteConfirmPhoto.thumbnailUrl || deleteConfirmPhoto.s3Url) && (
               <div className="mb-4 overflow-hidden rounded-xl">
@@ -1044,11 +1060,7 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
                 disabled={isDeleting}
                 className="flex-1 rounded-xl bg-red-600 py-3 font-semibold text-white transition-colors hover:bg-red-700"
               >
-                {isDeleting ? (
-                  <Loader2 className="mx-auto h-5 w-5 animate-spin" />
-                ) : (
-                  'Delete'
-                )}
+                {isDeleting ? <Loader2 className="mx-auto h-5 w-5 animate-spin" /> : 'Delete'}
               </button>
             </div>
           </div>

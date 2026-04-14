@@ -10,14 +10,12 @@ const InfoCard = ({
   valueClassName?: string;
 }) => {
   return (
-    <div className="flex-1 rounded-smooth py-2 sm:py-5 px-4 sm:px-6 bg-white flex flex-col gap-1 sm:gap-4 items-center justify-center border-2 border-primary">
-      <span className="description-text uppercase block text-foreground">
-        {label}
-      </span>
+    <div className="rounded-smooth border-primary flex flex-1 flex-col items-center justify-center gap-1 border-2 bg-white px-4 py-2 sm:gap-4 sm:px-6 sm:py-5">
+      <span className="description-text text-foreground block uppercase">{label}</span>
       <span
         className={cn(
-          'label font-medium text-base sm:text-[1.5rem] block whitespace-nowrap',
-          valueClassName,
+          'label block whitespace-nowrap text-base font-medium sm:text-[1.5rem]',
+          valueClassName
         )}
       >
         {value}

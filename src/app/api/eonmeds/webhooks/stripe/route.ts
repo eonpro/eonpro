@@ -2,12 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { logger } from '@/lib/logger';
 
-const webhookSecret = process.env.EONMEDS_STRIPE_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_SECRET;
+const webhookSecret =
+  process.env.EONMEDS_STRIPE_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_SECRET;
 const stripeSecret = process.env.EONMEDS_STRIPE_SECRET_KEY || process.env.STRIPE_SECRET_KEY;
 
-const stripe = stripeSecret
-  ? new Stripe(stripeSecret, { apiVersion: '2026-03-25.dahlia' })
-  : null;
+const stripe = stripeSecret ? new Stripe(stripeSecret, { apiVersion: '2026-03-25.dahlia' }) : null;
 
 export async function POST(req: NextRequest) {
   if (!stripe || !webhookSecret) {
@@ -58,7 +57,10 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ received: true });
   } catch (error: any) {
-    logger.error('[EONMeds Webhook] Processing error:', { error: error.message, eventType: event.type });
+    logger.error('[EONMeds Webhook] Processing error:', {
+      error: error.message,
+      eventType: event.type,
+    });
     return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 });
   }
 }

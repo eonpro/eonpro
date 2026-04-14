@@ -373,11 +373,14 @@ export async function POST(req: NextRequest) {
         carrier: data.carrier,
         trackingUrl: undefined as string | undefined,
         status: shippingStatus,
-        statusNote: data.rxItems.map((r) => r.rxNumber).filter(Boolean).join(', ') || undefined,
+        statusNote:
+          data.rxItems
+            .map((r) => r.rxNumber)
+            .filter(Boolean)
+            .join(', ') || undefined,
         shippedAt: shippingStatus === ShippingStatus.SHIPPED ? new Date() : undefined,
         estimatedDelivery: parseDate(data.statusDateTime),
-        actualDelivery:
-          shippingStatus === ShippingStatus.DELIVERED ? new Date() : undefined,
+        actualDelivery: shippingStatus === ShippingStatus.DELIVERED ? new Date() : undefined,
         lifefileOrderId: data.orderId,
         brand: BRAND,
         rawPayload: rawPayload as any,
@@ -434,9 +437,7 @@ export async function POST(req: NextRequest) {
 
         if (!order.lifefileOrderId && data.orderId) {
           orderUpdateData.lifefileOrderId = data.orderId;
-          logger.info(
-            `${LOG_PREFIX} Saving lifefileOrderId ${data.orderId} to order ${order.id}`
-          );
+          logger.info(`${LOG_PREFIX} Saving lifefileOrderId ${data.orderId} to order ${order.id}`);
         }
 
         await prisma.order.update({

@@ -157,7 +157,8 @@ export default function AccountPage() {
         alert(data.error || 'Failed to update preference');
       }
     } catch (error) {
-      process.env.NODE_ENV === 'development' && console.error('Failed to update preference:', error);
+      process.env.NODE_ENV === 'development' &&
+        console.error('Failed to update preference:', error);
       alert('Failed to update preference. Please try again.');
     } finally {
       setIsSavingPreferences(false);
@@ -176,7 +177,8 @@ export default function AccountPage() {
         setLeaderboardOptIn(!leaderboardOptIn);
       }
     } catch (error) {
-      process.env.NODE_ENV === 'development' && console.error('Failed to update leaderboard opt-in:', error);
+      process.env.NODE_ENV === 'development' &&
+        console.error('Failed to update leaderboard opt-in:', error);
     } finally {
       setIsSavingLeaderboard(false);
     }
@@ -195,7 +197,8 @@ export default function AccountPage() {
         alert(data.error || 'Failed to save alias');
       }
     } catch (error) {
-      process.env.NODE_ENV === 'development' && console.error('Failed to update leaderboard alias:', error);
+      process.env.NODE_ENV === 'development' &&
+        console.error('Failed to update leaderboard alias:', error);
     } finally {
       setIsSavingLeaderboard(false);
     }
@@ -312,7 +315,12 @@ export default function AccountPage() {
                     />
                   </svg>
                 ) : (
-                  <svg className="h-5 w-5" style={{ color: 'var(--brand-accent)' }} fill="currentColor" viewBox="0 0 24 24">
+                  <svg
+                    className="h-5 w-5"
+                    style={{ color: 'var(--brand-accent)' }}
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  >
                     <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.983 5.05-4.349 6.797-8.647 6.797h-2.19c-.524 0-.968.382-1.05.9l-1.12 7.106z" />
                   </svg>
                 )}

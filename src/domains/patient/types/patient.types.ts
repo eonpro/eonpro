@@ -79,7 +79,19 @@ export interface PatientWithClinic extends PatientEntity {
 /**
  * Patient source types
  */
-export type PatientSource = 'manual' | 'webhook' | 'api' | 'referral' | 'import' | 'migration' | 'intakeq' | 'stripe' | 'self_registration' | 'heyflow' | 'lifefile' | 'sms';
+export type PatientSource =
+  | 'manual'
+  | 'webhook'
+  | 'api'
+  | 'referral'
+  | 'import'
+  | 'migration'
+  | 'intakeq'
+  | 'stripe'
+  | 'self_registration'
+  | 'heyflow'
+  | 'lifefile'
+  | 'sms';
 
 /**
  * Metadata about how patient was created

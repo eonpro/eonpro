@@ -1,9 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import {
-  PLATFORM_TIMEZONE_COOKIE_NAME,
-} from '@/lib/utils/platform-calendar';
+import { PLATFORM_TIMEZONE_COOKIE_NAME } from '@/lib/utils/platform-calendar';
 import { normalizeIANATimeZone } from '@/lib/utils/timezone';
 
 /**

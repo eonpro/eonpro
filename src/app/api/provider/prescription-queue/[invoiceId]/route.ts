@@ -216,9 +216,19 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
       contraindications: string[];
       currentMedications: string | null;
       allergies: string | null;
-      vitals: { heightFt: string | null; heightIn: string | null; weightLbs: string | null; bmi: string | null };
+      vitals: {
+        heightFt: string | null;
+        heightIn: string | null;
+        weightLbs: string | null;
+        bmi: string | null;
+      };
       reproductiveStatus: string | null;
-      glp1History: { used: boolean; type: string | null; dose: string | null; sideEffects: string | null };
+      glp1History: {
+        used: boolean;
+        type: string | null;
+        dose: string | null;
+        sideEffects: string | null;
+      };
       preferredMedication: string | null;
       previousGlp1Details: string | null;
       thyroidIssues: string | null;
@@ -278,28 +288,66 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
         };
 
         // Extract clinical fields from WellMedR Airtable intake
-        const healthCond1 = getField(['health-conditions', 'healthConditions', 'health_conditions']);
-        const healthCond2 = getField(['health-conditions-2', 'healthConditions2', 'health_conditions_2']);
-        if (healthCond1) clinicalContext.healthConditions.push(...healthCond1.split(',').map((s: string) => s.trim()).filter(Boolean));
-        if (healthCond2) clinicalContext.healthConditions.push(...healthCond2.split(',').map((s: string) => s.trim()).filter(Boolean));
+        const healthCond1 = getField([
+          'health-conditions',
+          'healthConditions',
+          'health_conditions',
+        ]);
+        const healthCond2 = getField([
+          'health-conditions-2',
+          'healthConditions2',
+          'health_conditions_2',
+        ]);
+        if (healthCond1)
+          clinicalContext.healthConditions.push(
+            ...healthCond1
+              .split(',')
+              .map((s: string) => s.trim())
+              .filter(Boolean)
+          );
+        if (healthCond2)
+          clinicalContext.healthConditions.push(
+            ...healthCond2
+              .split(',')
+              .map((s: string) => s.trim())
+              .filter(Boolean)
+          );
 
         // Contraindications
         const pancreatitis = getField(['pancreatitis-history', 'pancreatitisHistory']);
         const men2 = getField(['men2-history', 'men2History', 'MEN2-history']);
         const thyroid = getField(['thyroid-issues', 'thyroidIssues']);
-        if (pancreatitis && pancreatitis.toLowerCase() === 'yes') clinicalContext.contraindications.push('History of Pancreatitis');
-        if (men2 && men2.toLowerCase() === 'yes') clinicalContext.contraindications.push('MEN2 / Medullary Thyroid Cancer History');
+        if (pancreatitis && pancreatitis.toLowerCase() === 'yes')
+          clinicalContext.contraindications.push('History of Pancreatitis');
+        if (men2 && men2.toLowerCase() === 'yes')
+          clinicalContext.contraindications.push('MEN2 / Medullary Thyroid Cancer History');
         if (thyroid) clinicalContext.thyroidIssues = thyroid;
-        if (thyroid && /cancer|medullary|men2/i.test(thyroid)) clinicalContext.contraindications.push(`Thyroid: ${thyroid}`);
+        if (thyroid && /cancer|medullary|men2/i.test(thyroid))
+          clinicalContext.contraindications.push(`Thyroid: ${thyroid}`);
 
         // Medications & Allergies
-        clinicalContext.currentMedications = getField(['current-medication', 'currentMedication', 'current_medication', 'medications']);
-        clinicalContext.allergies = getField(['allergies', 'drug-allergies', 'drugAllergies', 'medication-allergies']);
+        clinicalContext.currentMedications = getField([
+          'current-medication',
+          'currentMedication',
+          'current_medication',
+          'medications',
+        ]);
+        clinicalContext.allergies = getField([
+          'allergies',
+          'drug-allergies',
+          'drugAllergies',
+          'medication-allergies',
+        ]);
 
         // Vitals
         clinicalContext.vitals.heightFt = getField(['height-ft', 'heightFt', 'height_ft']);
         clinicalContext.vitals.heightIn = getField(['height-in', 'heightIn', 'height_in']);
-        clinicalContext.vitals.weightLbs = getField(['current-weight-lbs', 'currentWeightLbs', 'current_weight_lbs', 'weight']);
+        clinicalContext.vitals.weightLbs = getField([
+          'current-weight-lbs',
+          'currentWeightLbs',
+          'current_weight_lbs',
+          'weight',
+        ]);
         // Calculate BMI if height and weight available
         const ft = parseFloat(clinicalContext.vitals.heightFt || '');
         const inch = parseFloat(clinicalContext.vitals.heightIn || '0');
@@ -311,20 +359,36 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
         }
 
         // Reproductive status
-        clinicalContext.reproductiveStatus = getField(['pregnant-or-nursing', 'pregnantOrNursing', 'pregnant_or_nursing']);
+        clinicalContext.reproductiveStatus = getField([
+          'pregnant-or-nursing',
+          'pregnantOrNursing',
+          'pregnant_or_nursing',
+        ]);
 
         // GLP-1 history: WellMedR stores nested glp1History { usedLast30Days, medicationType, doseMg }
-        const nestedGlp1 = docJson.glp1History as { usedLast30Days?: string | boolean; medicationType?: string; doseMg?: string; sideEffects?: string } | undefined;
+        const nestedGlp1 = docJson.glp1History as
+          | {
+              usedLast30Days?: string | boolean;
+              medicationType?: string;
+              doseMg?: string;
+              sideEffects?: string;
+            }
+          | undefined;
         if (nestedGlp1 && typeof nestedGlp1 === 'object') {
           const usedVal = nestedGlp1.usedLast30Days;
-          const isUsed = usedVal === true || (typeof usedVal === 'string' && usedVal.toLowerCase() === 'yes');
-          const hasTypeOrDose = !!(nestedGlp1.medicationType?.trim() || nestedGlp1.doseMg?.toString().trim());
+          const isUsed =
+            usedVal === true || (typeof usedVal === 'string' && usedVal.toLowerCase() === 'yes');
+          const hasTypeOrDose = !!(
+            nestedGlp1.medicationType?.trim() || nestedGlp1.doseMg?.toString().trim()
+          );
           if (isUsed || hasTypeOrDose) {
             clinicalContext.glp1History.used = true;
             if (nestedGlp1.medicationType && String(nestedGlp1.medicationType).trim())
               clinicalContext.glp1History.type = String(nestedGlp1.medicationType).trim();
             if (nestedGlp1.doseMg != null && String(nestedGlp1.doseMg).trim()) {
-              const numericDose = String(nestedGlp1.doseMg).trim().replace(/[^\d.]/g, '');
+              const numericDose = String(nestedGlp1.doseMg)
+                .trim()
+                .replace(/[^\d.]/g, '');
               if (numericDose) clinicalContext.glp1History.dose = numericDose;
             }
             if (nestedGlp1.sideEffects && String(nestedGlp1.sideEffects).trim())
@@ -333,51 +397,151 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
         }
         // Flat keys (Airtable/other intake formats)
         if (!clinicalContext.glp1History.used) {
-          const glp1Used = getField(['glp1-last-30', 'glp1Last30', 'glp1_last_30', 'usedGlp1', 'used-glp1', 'glp1Usage', 'glp1-usage']);
+          const glp1Used = getField([
+            'glp1-last-30',
+            'glp1Last30',
+            'glp1_last_30',
+            'usedGlp1',
+            'used-glp1',
+            'glp1Usage',
+            'glp1-usage',
+          ]);
           clinicalContext.glp1History.used = glp1Used?.toLowerCase() === 'yes';
         }
         if (!clinicalContext.glp1History.type)
           clinicalContext.glp1History.type = getField([
-            'glp1-last-30-medication-type', 'glp1Last30MedicationType', 'glp1Type', 'glp1-type',
-            'glp1_type', 'glp1MedicationType', 'glp1-medication-type', 'recentGlp1', 'currentGlp1',
+            'glp1-last-30-medication-type',
+            'glp1Last30MedicationType',
+            'glp1Type',
+            'glp1-type',
+            'glp1_type',
+            'glp1MedicationType',
+            'glp1-medication-type',
+            'recentGlp1',
+            'currentGlp1',
           ]);
         if (!clinicalContext.glp1History.dose) {
           const rawDose = getField([
-            'glp1-last-30-medication-dose-mg', 'glp1Last30MedicationDoseMg', 'glp1Dose', 'glp1-dose',
-            'glp1_dose', 'glp1Dosage', 'semaglutideDose', 'semaglutideDosage', 'tirzepatideDose',
-            'tirzepatideDosage', 'lastDose', 'last-dose', 'previousDose', 'currentGlp1Dose',
+            'glp1-last-30-medication-dose-mg',
+            'glp1Last30MedicationDoseMg',
+            'glp1Dose',
+            'glp1-dose',
+            'glp1_dose',
+            'glp1Dosage',
+            'semaglutideDose',
+            'semaglutideDosage',
+            'tirzepatideDose',
+            'tirzepatideDosage',
+            'lastDose',
+            'last-dose',
+            'previousDose',
+            'currentGlp1Dose',
           ]);
           if (rawDose) {
             const numericDose = rawDose.replace(/[^\d.]/g, '');
-            if (numericDose && parseFloat(numericDose) > 0) clinicalContext.glp1History.dose = numericDose;
+            if (numericDose && parseFloat(numericDose) > 0)
+              clinicalContext.glp1History.dose = numericDose;
           }
         }
         if (!clinicalContext.glp1History.sideEffects)
-          clinicalContext.glp1History.sideEffects = getField(['glp1-side-effects', 'glp1SideEffects', 'glp1_side_effects']);
+          clinicalContext.glp1History.sideEffects = getField([
+            'glp1-side-effects',
+            'glp1SideEffects',
+            'glp1_side_effects',
+          ]);
         // Infer usage from type or dose if the explicit usage field was missing
-        if (!clinicalContext.glp1History.used && (clinicalContext.glp1History.type || clinicalContext.glp1History.dose)) {
+        if (
+          !clinicalContext.glp1History.used &&
+          (clinicalContext.glp1History.type || clinicalContext.glp1History.dose)
+        ) {
           clinicalContext.glp1History.used = true;
         }
 
         // Preference
-        clinicalContext.preferredMedication = getField(['preferred-meds', 'preferredMedication', 'preferredMeds', 'medication-preference']);
+        clinicalContext.preferredMedication = getField([
+          'preferred-meds',
+          'preferredMedication',
+          'preferredMeds',
+          'medication-preference',
+        ]);
 
         // Lifestyle
         clinicalContext.alcoholUse = getField(['alcohol-use', 'alcoholUse', 'alcohol_use']);
-        clinicalContext.exerciseFrequency = getField(['exercise-frequency', 'exerciseFrequency', 'exercise_frequency']);
-        clinicalContext.weightGoal = getField(['desired-weight-lbs', 'desiredWeightLbs', 'weight-goal', 'weightGoal']);
+        clinicalContext.exerciseFrequency = getField([
+          'exercise-frequency',
+          'exerciseFrequency',
+          'exercise_frequency',
+        ]);
+        clinicalContext.weightGoal = getField([
+          'desired-weight-lbs',
+          'desiredWeightLbs',
+          'weight-goal',
+          'weightGoal',
+        ]);
 
         // Extract patient fields from intake document as fallbacks for missing/placeholder data
         intakeDocGender = getField(['sex', 'Sex', 'gender', 'Gender', 'GENDER', 'SEX']);
-        intakeDocEmail = getField(['email', 'Email', 'EMAIL', 'e-mail', 'email-address', 'emailAddress']);
-        intakeDocPhone = getField(['phone', 'Phone', 'PHONE', 'phone-number', 'phoneNumber', 'mobile', 'cell', 'telephone']);
-        intakeDocDob = getField(['dob', 'DOB', 'dateOfBirth', 'date_of_birth', 'date-of-birth', 'Date of Birth', 'birthday']);
-        intakeDocFirstName = getField(['first-name', 'firstName', 'first_name', 'fname', 'First Name']);
+        intakeDocEmail = getField([
+          'email',
+          'Email',
+          'EMAIL',
+          'e-mail',
+          'email-address',
+          'emailAddress',
+        ]);
+        intakeDocPhone = getField([
+          'phone',
+          'Phone',
+          'PHONE',
+          'phone-number',
+          'phoneNumber',
+          'mobile',
+          'cell',
+          'telephone',
+        ]);
+        intakeDocDob = getField([
+          'dob',
+          'DOB',
+          'dateOfBirth',
+          'date_of_birth',
+          'date-of-birth',
+          'Date of Birth',
+          'birthday',
+        ]);
+        intakeDocFirstName = getField([
+          'first-name',
+          'firstName',
+          'first_name',
+          'fname',
+          'First Name',
+        ]);
         intakeDocLastName = getField(['last-name', 'lastName', 'last_name', 'lname', 'Last Name']);
-        intakeDocAddress1 = getField(['address1', 'address_line1', 'addressLine1', 'street-address', 'streetAddress', 'shipping-address']);
+        intakeDocAddress1 = getField([
+          'address1',
+          'address_line1',
+          'addressLine1',
+          'street-address',
+          'streetAddress',
+          'shipping-address',
+        ]);
         intakeDocCity = getField(['city', 'City', 'shipping-city', 'shippingCity']);
-        intakeDocState = getField(['state', 'State', 'shipping-state', 'shippingState', 'province']);
-        intakeDocZip = getField(['zip', 'ZIP', 'zipCode', 'zip-code', 'zip_code', 'postal-code', 'postalCode', 'shipping-zip']);
+        intakeDocState = getField([
+          'state',
+          'State',
+          'shipping-state',
+          'shippingState',
+          'province',
+        ]);
+        intakeDocZip = getField([
+          'zip',
+          'ZIP',
+          'zipCode',
+          'zip-code',
+          'zip_code',
+          'postal-code',
+          'postalCode',
+          'shipping-zip',
+        ]);
 
         // Build enriched intake sections from PatientDocument (WellMedR format)
         // These supplement or replace the sparse invoice metadata sections
@@ -402,16 +566,22 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
           const clinicalMappings: Record<string, { section: string; label: string }> = {
             'preferred-meds': { section: 'Treatment & Medication', label: 'Preferred Medication' },
             'health-conditions': { section: 'Medical History', label: 'Health Conditions' },
-            'health-conditions-2': { section: 'Medical History', label: 'Additional Health Conditions' },
+            'health-conditions-2': {
+              section: 'Medical History',
+              label: 'Additional Health Conditions',
+            },
             'current-medication': { section: 'Medical History', label: 'Current Medications' },
-            'allergies': { section: 'Medical History', label: 'Allergies' },
+            allergies: { section: 'Medical History', label: 'Allergies' },
             'pancreatitis-history': { section: 'Medical History', label: 'Pancreatitis History' },
             'men2-history': { section: 'Medical History', label: 'MEN2/Thyroid Cancer History' },
             'thyroid-issues': { section: 'Medical History', label: 'Thyroid Issues' },
             'pregnant-or-nursing': { section: 'Medical History', label: 'Pregnant or Nursing' },
             'glp1-last-30': { section: 'GLP-1 History', label: 'GLP-1 Used in Last 30 Days' },
             'glp1-last-30-medication-type': { section: 'GLP-1 History', label: 'GLP-1 Type' },
-            'glp1-last-30-medication-dose-mg': { section: 'GLP-1 History', label: 'GLP-1 Last Dose (mg)' },
+            'glp1-last-30-medication-dose-mg': {
+              section: 'GLP-1 History',
+              label: 'GLP-1 Last Dose (mg)',
+            },
             'glp1-side-effects': { section: 'GLP-1 History', label: 'GLP-1 Side Effects' },
             'height-ft': { section: 'Vitals', label: 'Height (ft)' },
             'height-in': { section: 'Vitals', label: 'Height (in)' },
@@ -419,8 +589,8 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
             'desired-weight-lbs': { section: 'Vitals', label: 'Desired Weight (lbs)' },
             'exercise-frequency': { section: 'Personal Information', label: 'Exercise Frequency' },
             'alcohol-use': { section: 'Personal Information', label: 'Alcohol Use' },
-            'state': { section: 'Personal Information', label: 'State' },
-            'gender': { section: 'Personal Information', label: 'Gender' },
+            state: { section: 'Personal Information', label: 'State' },
+            gender: { section: 'Personal Information', label: 'Gender' },
           };
 
           for (const [key, mapping] of Object.entries(clinicalMappings)) {
@@ -451,7 +621,11 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
     // Fallback: if GLP-1 history was not found in PatientDocument, try invoice metadata.
     // The queue list uses metadata + doc for glp1Info; without this fallback, the detail view
     // (expanded row / prescription panel) showed "No prior GLP-1 use" on mobile while desktop list showed history.
-    if (!clinicalContext.glp1History.used && invoice.metadata && typeof invoice.metadata === 'object') {
+    if (
+      !clinicalContext.glp1History.used &&
+      invoice.metadata &&
+      typeof invoice.metadata === 'object'
+    ) {
       const meta = invoice.metadata as Record<string, unknown>;
       const findMeta = (...keys: string[]) => {
         for (const k of keys) {
@@ -461,15 +635,34 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
         return null;
       };
 
-      const metaGlp1Used = findMeta('glp1-last-30', 'glp1Last30', 'glp1_last_30', 'usedGlp1', 'used-glp1', 'glp1Usage');
+      const metaGlp1Used = findMeta(
+        'glp1-last-30',
+        'glp1Last30',
+        'glp1_last_30',
+        'usedGlp1',
+        'used-glp1',
+        'glp1Usage'
+      );
       const typeVal = findMeta(
-        'glp1-last-30-medication-type', 'glp1Last30MedicationType', 'glp1_last_30_medication_type',
-        'glp1Type', 'glp1-type', 'glp1_type', 'glp1MedicationType',
+        'glp1-last-30-medication-type',
+        'glp1Last30MedicationType',
+        'glp1_last_30_medication_type',
+        'glp1Type',
+        'glp1-type',
+        'glp1_type',
+        'glp1MedicationType'
       );
       const doseVal = findMeta(
-        'glp1-last-30-medication-dose-mg', 'glp1Last30MedicationDoseMg', 'glp1_last_30_medication_dose_mg',
-        'glp1Dose', 'glp1-dose', 'glp1_dose', 'semaglutideDose', 'tirzepatideDose',
-        'lastDose', 'previousDose',
+        'glp1-last-30-medication-dose-mg',
+        'glp1Last30MedicationDoseMg',
+        'glp1_last_30_medication_dose_mg',
+        'glp1Dose',
+        'glp1-dose',
+        'glp1_dose',
+        'semaglutideDose',
+        'tirzepatideDose',
+        'lastDose',
+        'previousDose'
       );
       const sideEffectsVal = findMeta('glp1-side-effects', 'glp1SideEffects', 'glp1_side_effects');
 
@@ -480,7 +673,8 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
         if (typeVal) clinicalContext.glp1History.type = typeVal;
         if (doseVal) {
           const numericDose = doseVal.replace(/[^\d.]/g, '');
-          if (numericDose && parseFloat(numericDose) > 0) clinicalContext.glp1History.dose = numericDose;
+          if (numericDose && parseFloat(numericDose) > 0)
+            clinicalContext.glp1History.dose = numericDose;
         }
         if (sideEffectsVal) clinicalContext.glp1History.sideEffects = sideEffectsVal;
       }
@@ -491,17 +685,25 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
     // their current medication and dose during the Airtable order.
     if (invoice.metadata && typeof invoice.metadata === 'object') {
       const meta = invoice.metadata as Record<string, unknown>;
-      const rawGlp1Details = (meta.previousGlp1Details || meta.previous_glp1_details) as string | undefined;
+      const rawGlp1Details = (meta.previousGlp1Details || meta.previous_glp1_details) as
+        | string
+        | undefined;
       if (rawGlp1Details && rawGlp1Details.trim()) {
         clinicalContext.previousGlp1Details = rawGlp1Details.trim();
         const details = rawGlp1Details.trim().toLowerCase();
         const noHistoryPhrases = [
-          'none', 'no', 'n/a', 'na', 'not taking', "i'm not taking",
-          "i am not taking", 'never', 'first time', 'new patient',
+          'none',
+          'no',
+          'n/a',
+          'na',
+          'not taking',
+          "i'm not taking",
+          'i am not taking',
+          'never',
+          'first time',
+          'new patient',
         ];
-        const isNoHistory = noHistoryPhrases.some(
-          (p) => details === p || details.startsWith(p)
-        );
+        const isNoHistory = noHistoryPhrases.some((p) => details === p || details.startsWith(p));
         if (!isNoHistory) {
           let airtableGlp1Type: string | null = null;
           if (/tirzepatide|mounjaro|zepbound/i.test(details)) airtableGlp1Type = 'Tirzepatide';
@@ -579,10 +781,8 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
           !v || v.toLowerCase() === 'unknown' || v.toLowerCase() === 'checkout' || v === '';
         const isPlaceholderAddress = (v: string | null) =>
           !v || v.toLowerCase() === 'pending' || v === '';
-        const isPlaceholderState = (v: string | null) =>
-          !v || v === 'NA' || v === '';
-        const isPlaceholderZip = (v: string | null) =>
-          !v || v === '00000' || v === '';
+        const isPlaceholderState = (v: string | null) => !v || v === 'NA' || v === '';
+        const isPlaceholderZip = (v: string | null) => !v || v === '00000' || v === '';
         const isPlaceholderEmail = (v: string | null) =>
           !v || v.includes('unknown') || v.includes('@intake.wellmedr.com') || v === '';
 
@@ -624,14 +824,18 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
         if (isPlaceholderZip(zip)) zip = intakeDocZip || zip;
 
         // --- Name fallback from intake document ---
-        const resolvedFirstName = isPlaceholderName(decFirstName) ? (intakeDocFirstName || decFirstName) : decFirstName;
-        const resolvedLastName = isPlaceholderName(decLastName) ? (intakeDocLastName || decLastName) : decLastName;
+        const resolvedFirstName = isPlaceholderName(decFirstName)
+          ? intakeDocFirstName || decFirstName
+          : decFirstName;
+        const resolvedLastName = isPlaceholderName(decLastName)
+          ? intakeDocLastName || decLastName
+          : decLastName;
 
         // --- Phone fallback from intake document ---
-        const resolvedPhone = isPlaceholderPhone(decPhone) ? (intakeDocPhone || decPhone) : decPhone;
+        const resolvedPhone = isPlaceholderPhone(decPhone) ? intakeDocPhone || decPhone : decPhone;
 
         // --- DOB fallback from intake document ---
-        const resolvedDob = isPlaceholderDob(decDob) ? (intakeDocDob || decDob) : decDob;
+        const resolvedDob = isPlaceholderDob(decDob) ? intakeDocDob || decDob : decDob;
 
         // --- Gender: normalize 'm'/'f' codes and fall back to intake document ---
         let resolvedGender = decGender;
@@ -645,7 +849,7 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
         }
 
         // --- Email fallback from intake document ---
-        const resolvedEmail = isPlaceholderEmail(decEmail) ? (intakeDocEmail || decEmail) : decEmail;
+        const resolvedEmail = isPlaceholderEmail(decEmail) ? intakeDocEmail || decEmail : decEmail;
 
         return {
           id: invoice.patient.id,

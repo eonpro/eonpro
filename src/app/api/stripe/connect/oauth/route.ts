@@ -129,7 +129,10 @@ async function getOAuthHandler(request: NextRequest, user: AuthUser) {
   } catch (error: unknown) {
     logger.error('[STRIPE OAUTH] GET Error:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : String(error) || 'Failed to generate OAuth URL' },
+      {
+        error:
+          error instanceof Error ? error.message : String(error) || 'Failed to generate OAuth URL',
+      },
       { status: 500 }
     );
   }
@@ -238,7 +241,12 @@ async function postOAuthHandler(request: NextRequest, user: AuthUser) {
     }
 
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : String(error) || 'Failed to connect Stripe account' },
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : String(error) || 'Failed to connect Stripe account',
+      },
       { status: 500 }
     );
   }

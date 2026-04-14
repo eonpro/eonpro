@@ -44,10 +44,7 @@ export const POST = withProviderAuth(async (req: NextRequest, user: AuthUser) =>
     const meetingId = body.meetingId ? String(body.meetingId) : undefined;
 
     if (!sessionId && !meetingId) {
-      return NextResponse.json(
-        { error: 'sessionId or meetingId required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'sessionId or meetingId required' }, { status: 400 });
     }
 
     const session = await prisma.telehealthSession.findFirst({

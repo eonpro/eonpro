@@ -189,7 +189,10 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       hasMultipleClinics: clinics.length > 1,
     });
   } catch (error: unknown) {
-    logger.error('Error fetching user clinics', { error: (error instanceof Error ? error.message : String(error)), userId: user.id });
+    logger.error('Error fetching user clinics', {
+      error: error instanceof Error ? error.message : String(error),
+      userId: user.id,
+    });
     return NextResponse.json({ error: 'Failed to fetch clinics' }, { status: 500 });
   }
 }

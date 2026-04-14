@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useTransition, useCallback } from 'react';
 import Link from 'next/link';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
@@ -35,6 +35,14 @@ export default function CalorieCalculatorPage() {
   const [goalWeight, setGoalWeight] = useState('');
   const [activity, setActivity] = useState(1.55);
   const [lossRate, setLossRate] = useState(1);
+  const [, startTransition] = useTransition();
+
+  const handleNumericChange = useCallback(
+    (setter: (v: string) => void) => (e: React.ChangeEvent<HTMLInputElement>) => {
+      startTransition(() => setter(e.target.value));
+    },
+    [startTransition]
+  );
 
   const results = useMemo(() => {
     const heightCm = (parseInt(feet || '0') * 12 + parseInt(inches || '0')) * 2.54;
@@ -134,7 +142,7 @@ export default function CalorieCalculatorPage() {
                 <input
                   type="number"
                   value={age}
-                  onChange={(e) => setAge(e.target.value)}
+                  onChange={handleNumericChange(setAge)}
                   placeholder="0"
                   min="18"
                   max="100"
@@ -155,7 +163,7 @@ export default function CalorieCalculatorPage() {
                   <input
                     type="number"
                     value={feet}
-                    onChange={(e) => setFeet(e.target.value)}
+                    onChange={handleNumericChange(setFeet)}
                     placeholder="0"
                     min="0"
                     max="8"
@@ -170,7 +178,7 @@ export default function CalorieCalculatorPage() {
                   <input
                     type="number"
                     value={inches}
-                    onChange={(e) => setInches(e.target.value)}
+                    onChange={handleNumericChange(setInches)}
                     placeholder="0"
                     min="0"
                     max="11"
@@ -194,7 +202,7 @@ export default function CalorieCalculatorPage() {
                   <input
                     type="number"
                     value={weight}
-                    onChange={(e) => setWeight(e.target.value)}
+                    onChange={handleNumericChange(setWeight)}
                     placeholder="0"
                     className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-12 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-opacity-50"
                     style={ringColorStyle(primaryColor)}
@@ -210,7 +218,7 @@ export default function CalorieCalculatorPage() {
                   <input
                     type="number"
                     value={goalWeight}
-                    onChange={(e) => setGoalWeight(e.target.value)}
+                    onChange={handleNumericChange(setGoalWeight)}
                     placeholder="0"
                     className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-12 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-opacity-50"
                     style={ringColorStyle(primaryColor)}

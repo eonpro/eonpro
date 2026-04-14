@@ -45,9 +45,7 @@ export default function ClinicBillingLayout({ children }: { children: React.Reac
               key={tab.path}
               href={tab.path}
               className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-colors ${
-                active
-                  ? 'bg-[#4fa77e]/10 text-[#4fa77e]'
-                  : 'text-gray-600 hover:bg-gray-100'
+                active ? 'bg-[#4fa77e]/10 text-[#4fa77e]' : 'text-gray-600 hover:bg-gray-100'
               }`}
             >
               <Icon className="h-4 w-4" />

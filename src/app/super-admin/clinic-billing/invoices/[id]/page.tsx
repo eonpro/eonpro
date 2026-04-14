@@ -59,7 +59,9 @@ interface Invoice {
   paidAmountCents: number | null;
   paymentMethod: string | null;
   paymentRef: string | null;
-  paymentHistory: { amountCents: number; method: string; reference?: string; date: string }[] | null;
+  paymentHistory:
+    | { amountCents: number; method: string; reference?: string; date: string }[]
+    | null;
   stripeInvoiceId: string | null;
   stripeInvoiceUrl: string | null;
   stripePdfUrl: string | null;
@@ -374,7 +376,8 @@ export default function InvoiceDetailPage() {
               <h2 className="mb-3 text-lg font-semibold text-gray-900">Payment Progress</h2>
               <div className="mb-2 flex justify-between text-sm">
                 <span className="text-gray-600">
-                  {formatCurrency(invoice.paidAmountCents ?? 0)} of {formatCurrency(invoice.totalAmountCents)} paid
+                  {formatCurrency(invoice.paidAmountCents ?? 0)} of{' '}
+                  {formatCurrency(invoice.totalAmountCents)} paid
                 </span>
                 <span className="font-medium text-gray-900">
                   {Math.round(((invoice.paidAmountCents ?? 0) / invoice.totalAmountCents) * 100)}%
@@ -383,12 +386,15 @@ export default function InvoiceDetailPage() {
               <div className="h-3 overflow-hidden rounded-full bg-gray-200">
                 <div
                   className="h-full rounded-full bg-[#4fa77e] transition-all"
-                  style={{ width: `${Math.min(100, ((invoice.paidAmountCents ?? 0) / invoice.totalAmountCents) * 100)}%` }}
+                  style={{
+                    width: `${Math.min(100, ((invoice.paidAmountCents ?? 0) / invoice.totalAmountCents) * 100)}%`,
+                  }}
                 />
               </div>
               {invoice.totalAmountCents - (invoice.paidAmountCents ?? 0) > 0 && (
                 <p className="mt-2 text-sm text-gray-500">
-                  Remaining: {formatCurrency(invoice.totalAmountCents - (invoice.paidAmountCents ?? 0))}
+                  Remaining:{' '}
+                  {formatCurrency(invoice.totalAmountCents - (invoice.paidAmountCents ?? 0))}
                 </p>
               )}
 
@@ -400,11 +406,17 @@ export default function InvoiceDetailPage() {
                     {invoice.paymentHistory.map((p, i) => (
                       <div key={i} className="flex items-center justify-between text-sm">
                         <div>
-                          <span className="capitalize text-gray-600">{p.method.replace(/_/g, ' ')}</span>
-                          {p.reference && <span className="ml-2 text-xs text-gray-400">Ref: {p.reference}</span>}
+                          <span className="capitalize text-gray-600">
+                            {p.method.replace(/_/g, ' ')}
+                          </span>
+                          {p.reference && (
+                            <span className="ml-2 text-xs text-gray-400">Ref: {p.reference}</span>
+                          )}
                         </div>
                         <div className="text-right">
-                          <span className="font-medium text-gray-900">{formatCurrency(p.amountCents)}</span>
+                          <span className="font-medium text-gray-900">
+                            {formatCurrency(p.amountCents)}
+                          </span>
                           <span className="ml-2 text-xs text-gray-400">{formatDate(p.date)}</span>
                         </div>
                       </div>
@@ -505,7 +517,9 @@ export default function InvoiceDetailPage() {
                   className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#635bff] px-4 py-2.5 text-white transition-colors hover:bg-[#5851e0] disabled:opacity-50"
                 >
                   <CreditCard className="h-5 w-5" />
-                  {actionLoading === 'createStripeInvoice' ? 'Creating...' : 'Create Stripe Invoice'}
+                  {actionLoading === 'createStripeInvoice'
+                    ? 'Creating...'
+                    : 'Create Stripe Invoice'}
                 </button>
               )}
 

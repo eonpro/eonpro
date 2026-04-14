@@ -29,28 +29,26 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     const { searchParams } = new URL(req.url);
     const action = searchParams.get('action');
 
-    const clinicId = user.role === 'super_admin'
-      ? parseInt(searchParams.get('clinicId') || '0', 10) || undefined
-      : user.clinicId;
+    const clinicId =
+      user.role === 'super_admin'
+        ? parseInt(searchParams.get('clinicId') || '0', 10) || undefined
+        : user.clinicId;
 
     if (!clinicId) {
       return NextResponse.json({ error: 'Clinic context required' }, { status: 400 });
     }
 
-    const runInContext = user.role === 'super_admin'
-      ? (fn: () => Promise<any>) => withoutClinicFilter(fn)
-      : (fn: () => Promise<any>) => runWithClinicContext(clinicId, fn);
+    const runInContext =
+      user.role === 'super_admin'
+        ? (fn: () => Promise<any>) => withoutClinicFilter(fn)
+        : (fn: () => Promise<any>) => runWithClinicContext(clinicId, fn);
 
     if (action === 'stats') {
       const salesRepId = searchParams.get('salesRepId')
         ? parseInt(searchParams.get('salesRepId')!, 10)
         : undefined;
-      const fromDate = searchParams.get('from')
-        ? new Date(searchParams.get('from')!)
-        : undefined;
-      const toDate = searchParams.get('to')
-        ? new Date(searchParams.get('to')!)
-        : undefined;
+      const fromDate = searchParams.get('from') ? new Date(searchParams.get('from')!) : undefined;
+      const toDate = searchParams.get('to') ? new Date(searchParams.get('to')!) : undefined;
 
       const stats = await runInContext(() =>
         getDispositionStats(clinicId, salesRepId, fromDate, toDate)
@@ -99,17 +97,16 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
 
     const { dispositionId, status, reviewNote } = parsed.data;
 
-    const clinicId = user.role === 'super_admin'
-      ? undefined
-      : user.clinicId;
+    const clinicId = user.role === 'super_admin' ? undefined : user.clinicId;
 
     if (!clinicId && user.role !== 'super_admin') {
       return NextResponse.json({ error: 'Clinic context required' }, { status: 403 });
     }
 
-    const runInContext = user.role === 'super_admin'
-      ? (fn: () => Promise<any>) => withoutClinicFilter(fn)
-      : (fn: () => Promise<any>) => runWithClinicContext(clinicId!, fn);
+    const runInContext =
+      user.role === 'super_admin'
+        ? (fn: () => Promise<any>) => withoutClinicFilter(fn)
+        : (fn: () => Promise<any>) => runWithClinicContext(clinicId!, fn);
 
     const result = await runInContext(() =>
       reviewDisposition({

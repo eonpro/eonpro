@@ -162,11 +162,13 @@ export default function PatientsPage() {
           try {
             const body = await res.json();
             detail = body?.error ?? '';
-          } catch { /* ignore */ }
+          } catch {
+            /* ignore */
+          }
           setError(
             detail.toLowerCase().includes('permission')
               ? 'You do not have permission to view patients. Please contact your administrator.'
-              : 'Access denied. Please log in again or contact your administrator.',
+              : 'Access denied. Please log in again or contact your administrator.'
           );
           return;
         }
@@ -190,11 +192,7 @@ export default function PatientsPage() {
 
   const fetchClinics = async () => {
     try {
-      const endpoints = [
-        '/api/user/clinics',
-        '/api/admin/clinics',
-        '/api/clinic/list',
-      ];
+      const endpoints = ['/api/user/clinics', '/api/admin/clinics', '/api/clinic/list'];
 
       for (const endpoint of endpoints) {
         try {
@@ -236,7 +234,9 @@ export default function PatientsPage() {
     }
     fetchPatients();
     fetchClinics();
-    return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    };
   }, []);
 
   // Re-fetch with server-side search when debounced search changes
@@ -290,7 +290,6 @@ export default function PatientsPage() {
       setAddressLocked(false);
       fetchPatients();
     } catch (err: unknown) {
-      
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       setError(errorMessage ?? 'Failed to save patient');
     }
@@ -502,7 +501,9 @@ export default function PatientsPage() {
                   onClick={() => {
                     window.location.href = `/patients/${patient.id}`;
                   }}
-                  onKeyDown={(e) => { if (e.key === 'Enter') window.location.href = `/patients/${patient.id}`; }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') window.location.href = `/patients/${patient.id}`;
+                  }}
                 >
                   <td className="border px-2 py-1">
                     <div className="flex items-center gap-2">

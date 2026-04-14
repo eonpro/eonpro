@@ -100,7 +100,9 @@ export function normalizeLifefilePayload(
     }
 
     const first = validItems[0];
-    const carrier = extractCarrier(first.deliveryService || first.shipCarrier || first.service || '');
+    const carrier = extractCarrier(
+      first.deliveryService || first.shipCarrier || first.service || ''
+    );
 
     return {
       orderId: first.orderId,

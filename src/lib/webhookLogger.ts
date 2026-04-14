@@ -56,7 +56,6 @@ export async function logWebhookAttempt(data: WebhookLogData) {
       },
     });
   } catch (error: unknown) {
-    
     logger.error('[WebhookLogger] Failed to log webhook attempt:', error);
     // Don't throw - logging failures shouldn't break the webhook
   }

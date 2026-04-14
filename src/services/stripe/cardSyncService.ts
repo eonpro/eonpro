@@ -104,7 +104,7 @@ async function upsertPaymentMethod(
   pm: Stripe.PaymentMethod,
   patientId: number,
   clinicId: number,
-  dryRun: boolean,
+  dryRun: boolean
 ): Promise<'created' | 'updated' | 'existing'> {
   const card = pm.card;
   if (!card) return 'existing';
@@ -165,20 +165,30 @@ async function upsertPaymentMethod(
 // Sync cards for a single patient (by patientId)
 // ---------------------------------------------------------------------------
 
-export async function syncCardsForPatient(
-  patientId: number,
-): Promise<SinglePatientSyncResult> {
+export async function syncCardsForPatient(patientId: number): Promise<SinglePatientSyncResult> {
   const patient = await prisma.patient.findUnique({
     where: { id: patientId },
     select: { id: true, clinicId: true, stripeCustomerId: true },
   });
 
   if (!patient) {
-    return { success: false, cardsCreated: 0, cardsUpdated: 0, cardsSkippedExpired: 0, error: 'Patient not found' };
+    return {
+      success: false,
+      cardsCreated: 0,
+      cardsUpdated: 0,
+      cardsSkippedExpired: 0,
+      error: 'Patient not found',
+    };
   }
 
   if (!patient.stripeCustomerId) {
-    return { success: false, cardsCreated: 0, cardsUpdated: 0, cardsSkippedExpired: 0, error: 'Patient has no stripeCustomerId' };
+    return {
+      success: false,
+      cardsCreated: 0,
+      cardsUpdated: 0,
+      cardsSkippedExpired: 0,
+      error: 'Patient has no stripeCustomerId',
+    };
   }
 
   let stripeContext: StripeContext;
@@ -205,7 +215,7 @@ export async function syncCardsForPatient(
   try {
     const methods = await stripeContext.stripe.paymentMethods.list(
       { customer: patient.stripeCustomerId, type: 'card', limit: 100 },
-      requestOpts,
+      requestOpts
     );
 
     for (const pm of methods.data) {
@@ -221,11 +231,22 @@ export async function syncCardsForPatient(
       else if (result === 'updated') updated++;
     }
 
-    return { success: true, cardsCreated: created, cardsUpdated: updated, cardsSkippedExpired: skippedExpired };
+    return {
+      success: true,
+      cardsCreated: created,
+      cardsUpdated: updated,
+      cardsSkippedExpired: skippedExpired,
+    };
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown';
     logger.error('[CardSync] Failed to sync cards for patient', { patientId, error: msg });
-    return { success: false, cardsCreated: created, cardsUpdated: updated, cardsSkippedExpired: skippedExpired, error: msg };
+    return {
+      success: false,
+      cardsCreated: created,
+      cardsUpdated: updated,
+      cardsSkippedExpired: skippedExpired,
+      error: msg,
+    };
   }
 }
 
@@ -235,7 +256,7 @@ export async function syncCardsForPatient(
 
 export async function syncCardsForClinic(
   clinicId: number,
-  options: CardSyncOptions = {},
+  options: CardSyncOptions = {}
 ): Promise<CardSyncResult> {
   const { dryRun = true, includeExpired = false, limit = 0 } = options;
   const stats = makeEmptyStats();
@@ -244,7 +265,10 @@ export async function syncCardsForClinic(
   try {
     stripeContext = await getStripeForClinic(clinicId);
   } catch (err) {
-    logger.error('[CardSync] Failed to get Stripe context', { clinicId, error: err instanceof Error ? err.message : 'Unknown' });
+    logger.error('[CardSync] Failed to get Stripe context', {
+      clinicId,
+      error: err instanceof Error ? err.message : 'Unknown',
+    });
     return { success: false, stats, clinicId, dryRun };
   }
 
@@ -298,7 +322,10 @@ export async function syncCardsForClinic(
         const msg = err instanceof Error ? err.message : 'Unknown';
         stats.errors++;
         stats.errorDetails.push({ stripeCustomerId: customer.id, error: msg });
-        logger.error('[CardSync] Error processing customer', { stripeCustomerId: customer.id, error: msg });
+        logger.error('[CardSync] Error processing customer', {
+          stripeCustomerId: customer.id,
+          error: msg,
+        });
       }
     }
 
@@ -330,14 +357,14 @@ async function processStripeCustomer(
   stripeContext: StripeContext,
   requestOpts: Stripe.RequestOptions | undefined,
   stats: CardSyncStats,
-  opts: { dryRun: boolean; includeExpired: boolean },
+  opts: { dryRun: boolean; includeExpired: boolean }
 ): Promise<void> {
   const { dryRun, includeExpired } = opts;
 
   // List payment methods for this customer
   const methods = await stripeContext.stripe.paymentMethods.list(
     { customer: customer.id, type: 'card', limit: 100 },
-    requestOpts,
+    requestOpts
   );
 
   if (methods.data.length === 0) return;
@@ -410,19 +437,27 @@ async function processStripeCustomer(
 
 async function matchCustomerToPatient(
   customer: Stripe.Customer,
-  clinicId: number,
+  clinicId: number
 ): Promise<{ id: number; clinicId: number; stripeCustomerId: string | null } | null> {
   // Priority 1: stripeCustomerId exact match (already linked)
   const byStripeId = await findPatientByStripeCustomerId(customer.id);
   if (byStripeId && byStripeId.clinicId === clinicId) {
-    return { id: byStripeId.id, clinicId: byStripeId.clinicId, stripeCustomerId: byStripeId.stripeCustomerId };
+    return {
+      id: byStripeId.id,
+      clinicId: byStripeId.clinicId,
+      stripeCustomerId: byStripeId.stripeCustomerId,
+    };
   }
 
   // Priority 2: email match scoped to clinic
   if (customer.email) {
     const byEmail = await findPatientByEmail(customer.email, clinicId);
     if (byEmail) {
-      return { id: byEmail.id, clinicId: byEmail.clinicId, stripeCustomerId: byEmail.stripeCustomerId };
+      return {
+        id: byEmail.id,
+        clinicId: byEmail.clinicId,
+        stripeCustomerId: byEmail.stripeCustomerId,
+      };
     }
   }
 
@@ -439,7 +474,7 @@ async function matchCustomerToPatient(
  */
 export async function handlePaymentMethodAttached(
   pm: Stripe.PaymentMethod,
-  clinicId: number,
+  clinicId: number
 ): Promise<{ success: boolean; action?: string; error?: string }> {
   if (pm.type !== 'card' || !pm.card) {
     return { success: true, action: 'skipped_not_card' };
@@ -467,7 +502,7 @@ export async function handlePaymentMethodAttached(
  * Handle payment_method.detached event: soft-delete the local card.
  */
 export async function handlePaymentMethodDetached(
-  pm: Stripe.PaymentMethod,
+  pm: Stripe.PaymentMethod
 ): Promise<{ success: boolean; action?: string }> {
   const existing = await prisma.paymentMethod.findUnique({
     where: { stripePaymentMethodId: pm.id },
@@ -490,7 +525,7 @@ export async function handlePaymentMethodDetached(
  * Handle payment_method.updated event: update card details locally.
  */
 export async function handlePaymentMethodUpdated(
-  pm: Stripe.PaymentMethod,
+  pm: Stripe.PaymentMethod
 ): Promise<{ success: boolean; action?: string }> {
   if (!pm.card) {
     return { success: true, action: 'skipped_not_card' };

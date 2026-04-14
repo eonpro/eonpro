@@ -17,7 +17,7 @@ type ProfileStatus = 'ACTIVE' | 'LEAD' | 'PENDING_COMPLETION' | 'MERGED' | 'ARCH
 
 export function getPortalMode(
   profileStatus: ProfileStatus | string,
-  hasCompletedIntake: boolean,
+  hasCompletedIntake: boolean
 ): PortalMode {
   if (!INTAKE_PORTAL_ENABLED) {
     return 'patient';

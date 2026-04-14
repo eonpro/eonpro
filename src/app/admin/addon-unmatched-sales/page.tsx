@@ -49,30 +49,36 @@ export default function AddonUnmatchedSalesPage() {
   const [data, setData] = useState<ReportResponse | null>(null);
   const [lookbackDays, setLookbackDays] = useState(7);
 
-  const fetchReport = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
-    setError('');
-    try {
-      const res = await fetch(`/api/admin/addon-unmatched-sales?lookbackDays=${lookbackDays}&sampleLimit=100`, {
-        cache: 'no-store',
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        setError(body.error || 'Failed to load unmatched add-on sales report');
+  const fetchReport = useCallback(
+    async (isRefresh = false) => {
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
+      setError('');
+      try {
+        const res = await fetch(
+          `/api/admin/addon-unmatched-sales?lookbackDays=${lookbackDays}&sampleLimit=100`,
+          {
+            cache: 'no-store',
+          }
+        );
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          setError(body.error || 'Failed to load unmatched add-on sales report');
+          setData(null);
+          return;
+        }
+        const body: ReportResponse = await res.json();
+        setData(body);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unknown error');
         setData(null);
-        return;
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
       }
-      const body: ReportResponse = await res.json();
-      setData(body);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      setData(null);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [lookbackDays]);
+    },
+    [lookbackDays]
+  );
 
   useEffect(() => {
     void fetchReport();
@@ -142,11 +148,15 @@ export default function AddonUnmatchedSalesPage() {
             <div className="grid gap-4 md:grid-cols-3">
               <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
                 <p className="text-sm text-gray-500">Paid Sales Checked</p>
-                <p className="mt-1 text-2xl font-bold text-gray-900">{data.report.paidSalesChecked}</p>
+                <p className="mt-1 text-2xl font-bold text-gray-900">
+                  {data.report.paidSalesChecked}
+                </p>
               </div>
               <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
                 <p className="text-sm text-gray-500">Unmatched Sales</p>
-                <p className={`mt-1 text-2xl font-bold ${data.report.unmatchedTotal > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
+                <p
+                  className={`mt-1 text-2xl font-bold ${data.report.unmatchedTotal > 0 ? 'text-amber-700' : 'text-emerald-700'}`}
+                >
                   {data.report.unmatchedTotal}
                 </p>
               </div>
@@ -187,7 +197,9 @@ export default function AddonUnmatchedSalesPage() {
             <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
               <h2 className="mb-4 text-lg font-semibold text-gray-900">Sample Unmatched Sales</h2>
               {data.report.samples.length === 0 ? (
-                <p className="text-sm text-gray-600">No unmatched paid sales in the selected window.</p>
+                <p className="text-sm text-gray-600">
+                  No unmatched paid sales in the selected window.
+                </p>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="min-w-full text-sm">
@@ -202,12 +214,25 @@ export default function AddonUnmatchedSalesPage() {
                     </thead>
                     <tbody>
                       {data.report.samples.map((sample) => (
-                        <tr key={`${sample.stripeInvoiceId}-${sample.stripeSubscriptionId}`} className="border-b border-gray-100">
-                          <td className="px-3 py-2 text-gray-900">{ADDON_LABELS[sample.addonKey] || sample.addonKey}</td>
-                          <td className="px-3 py-2 text-gray-700">{REASON_LABELS[sample.reason]}</td>
-                          <td className="px-3 py-2 font-mono text-xs text-gray-700">{sample.stripeSubscriptionId}</td>
-                          <td className="px-3 py-2 font-mono text-xs text-gray-700">{sample.stripeInvoiceId}</td>
-                          <td className="px-3 py-2 text-gray-700">{new Date(sample.paidAt).toLocaleString()}</td>
+                        <tr
+                          key={`${sample.stripeInvoiceId}-${sample.stripeSubscriptionId}`}
+                          className="border-b border-gray-100"
+                        >
+                          <td className="px-3 py-2 text-gray-900">
+                            {ADDON_LABELS[sample.addonKey] || sample.addonKey}
+                          </td>
+                          <td className="px-3 py-2 text-gray-700">
+                            {REASON_LABELS[sample.reason]}
+                          </td>
+                          <td className="px-3 py-2 font-mono text-xs text-gray-700">
+                            {sample.stripeSubscriptionId}
+                          </td>
+                          <td className="px-3 py-2 font-mono text-xs text-gray-700">
+                            {sample.stripeInvoiceId}
+                          </td>
+                          <td className="px-3 py-2 text-gray-700">
+                            {new Date(sample.paidAt).toLocaleString()}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -221,4 +246,3 @@ export default function AddonUnmatchedSalesPage() {
     </div>
   );
 }
-

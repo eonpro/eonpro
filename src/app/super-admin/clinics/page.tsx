@@ -91,7 +91,9 @@ export default function ClinicsListPage() {
           <p className="mt-1 text-gray-500">Manage all clinics on the platform</p>
         </div>
         <button
-          onClick={() => { window.location.href = '/super-admin/clinics/new'; }}
+          onClick={() => {
+            window.location.href = '/super-admin/clinics/new';
+          }}
           className="flex items-center gap-2 rounded-xl bg-[#4fa77e] px-4 py-2 text-white shadow-sm transition-colors hover:bg-[#3d9268]"
         >
           <Plus className="h-5 w-5" />
@@ -150,7 +152,9 @@ export default function ClinicsListPage() {
           </p>
           {!searchTerm && (
             <button
-              onClick={() => { window.location.href = '/super-admin/clinics/new'; }}
+              onClick={() => {
+                window.location.href = '/super-admin/clinics/new';
+              }}
               className="rounded-xl bg-[#4fa77e] px-4 py-2 text-white transition-colors hover:bg-[#3d9268]"
             >
               Create Clinic

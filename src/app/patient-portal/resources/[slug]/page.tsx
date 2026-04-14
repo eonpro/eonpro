@@ -149,7 +149,9 @@ export default function ArticlePage() {
       <div className="flex min-h-screen flex-col items-center justify-center p-6 text-center">
         <AlertCircle className="mb-4 h-12 w-12 text-gray-300" />
         <h1 className="text-xl font-semibold text-gray-900">Article Not Found</h1>
-        <p className="mt-2 text-gray-500">The article you&apos;re looking for doesn&apos;t exist.</p>
+        <p className="mt-2 text-gray-500">
+          The article you&apos;re looking for doesn&apos;t exist.
+        </p>
         <a
           href="/patient-portal/resources"
           className="mt-6 rounded-full px-6 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
@@ -183,7 +185,7 @@ export default function ArticlePage() {
         <div className="relative mx-auto max-w-3xl px-4 pb-12 pt-10 sm:pb-16 sm:pt-14">
           <div className="mb-5 flex flex-wrap items-center gap-3">
             <span
-              className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold tracking-wide uppercase"
+              className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold uppercase tracking-wide"
               style={{ backgroundColor: `${primaryColor}18`, color: primaryColor }}
             >
               <BookOpen className="h-3.5 w-3.5" />
@@ -303,7 +305,12 @@ export default function ArticlePage() {
         </div>
 
         {/* Key Takeaways */}
-        <div className="relative mt-14 overflow-hidden rounded-3xl p-1" style={{ background: `linear-gradient(135deg, ${primaryColor}30, ${primaryColor}10, ${primaryColor}20)` }}>
+        <div
+          className="relative mt-14 overflow-hidden rounded-3xl p-1"
+          style={{
+            background: `linear-gradient(135deg, ${primaryColor}30, ${primaryColor}10, ${primaryColor}20)`,
+          }}
+        >
           <div className="relative rounded-[20px] bg-white p-6 sm:p-8">
             {/* Corner accent blobs */}
             <svg

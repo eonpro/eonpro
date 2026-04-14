@@ -15,8 +15,7 @@ const RATE_LIMIT_MAX = process.env.NODE_ENV === 'production' ? 5 : 100;
 const requestCounts = new Map<string, { count: number; resetAt: number }>();
 
 function getPaymentConfigId(): string | undefined {
-  return process.env.WELLMEDR_STRIPE_PAYMENT_CONFIG_ID
-    || process.env.STRIPE_PAYMENT_CONFIG_ID;
+  return process.env.WELLMEDR_STRIPE_PAYMENT_CONFIG_ID || process.env.STRIPE_PAYMENT_CONFIG_ID;
 }
 
 export async function POST(req: NextRequest) {
@@ -35,9 +34,17 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const {
-      priceId, customerEmail, customerName, cardholderName,
-      shippingAddress, billingAddress, submissionId,
-      productName, medicationType, planType, promotionCodeId,
+      priceId,
+      customerEmail,
+      customerName,
+      cardholderName,
+      shippingAddress,
+      billingAddress,
+      submissionId,
+      productName,
+      medicationType,
+      planType,
+      promotionCodeId,
       selectedAddons,
     } = body;
 
@@ -53,31 +60,40 @@ export async function POST(req: NextRequest) {
     const customers = await stripe.customers.list({ email: customerEmail, limit: 1 }, connectOpts);
     let customer: Stripe.Customer;
 
-    const shippingData = shippingAddress ? {
-      name: `${shippingAddress.firstName} ${shippingAddress.lastName}`,
-      address: {
-        line1: shippingAddress.address,
-        line2: shippingAddress.apt || '',
-        city: shippingAddress.city,
-        state: shippingAddress.state,
-        postal_code: shippingAddress.zipCode,
-        country: 'US',
-      },
-    } : undefined;
+    const shippingData = shippingAddress
+      ? {
+          name: `${shippingAddress.firstName} ${shippingAddress.lastName}`,
+          address: {
+            line1: shippingAddress.address,
+            line2: shippingAddress.apt || '',
+            city: shippingAddress.city,
+            state: shippingAddress.state,
+            postal_code: shippingAddress.zipCode,
+            country: 'US',
+          },
+        }
+      : undefined;
 
     if (customers.data.length > 0) {
-      customer = await stripe.customers.update(customers.data[0].id, {
-        name: customerName,
-        ...(shippingData ? { shipping: shippingData } : {}),
-        metadata: { submissionId, productName, medicationType, planType },
-      }, connectOpts) as Stripe.Customer;
+      customer = (await stripe.customers.update(
+        customers.data[0].id,
+        {
+          name: customerName,
+          ...(shippingData ? { shipping: shippingData } : {}),
+          metadata: { submissionId, productName, medicationType, planType },
+        },
+        connectOpts
+      )) as Stripe.Customer;
     } else {
-      customer = await stripe.customers.create({
-        email: customerEmail,
-        name: customerName,
-        ...(shippingData ? { shipping: shippingData } : {}),
-        metadata: { submissionId, productName, medicationType, planType },
-      }, connectOpts);
+      customer = await stripe.customers.create(
+        {
+          email: customerEmail,
+          name: customerName,
+          ...(shippingData ? { shipping: shippingData } : {}),
+          metadata: { submissionId, productName, medicationType, planType },
+        },
+        connectOpts
+      );
     }
 
     // Build addon invoice items — flat charges added to each billing cycle
@@ -132,7 +148,9 @@ export async function POST(req: NextRequest) {
         subscriptionId: subscription.id,
         customerId: customer.id,
         customerEmail,
-        productName, medicationType, planType,
+        productName,
+        medicationType,
+        planType,
         priceId,
         amount: 0,
         shippingAddress: shippingAddress || {},
@@ -151,11 +169,15 @@ export async function POST(req: NextRequest) {
 
     const latestInvoice = subscription.latest_invoice as Stripe.Invoice;
     if (latestInvoice?.id) {
-      const invoicePayments = await stripe.invoicePayments.list({ invoice: latestInvoice.id, limit: 1 }, connectOpts);
+      const invoicePayments = await stripe.invoicePayments.list(
+        { invoice: latestInvoice.id, limit: 1 },
+        connectOpts
+      );
       if (invoicePayments.data.length > 0) {
         const paymentRecord = invoicePayments.data[0];
         if (paymentRecord.payment?.type === 'payment_intent') {
-          const piId = (paymentRecord.payment as { type: 'payment_intent'; payment_intent: string }).payment_intent;
+          const piId = (paymentRecord.payment as { type: 'payment_intent'; payment_intent: string })
+            .payment_intent;
           const pi = await stripe.paymentIntents.retrieve(piId, {}, connectOpts as any);
           clientSecret = pi.client_secret;
         }
@@ -169,7 +191,9 @@ export async function POST(req: NextRequest) {
       subscriptionId: subscription.id,
       customerId: customer.id,
       customerEmail,
-      productName, medicationType, planType,
+      productName,
+      medicationType,
+      planType,
       priceId,
       amount,
       shippingAddress: shippingAddress || {},

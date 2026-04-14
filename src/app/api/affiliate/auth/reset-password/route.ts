@@ -72,10 +72,7 @@ async function handleGet(request: NextRequest) {
     const token = searchParams.get('token');
 
     if (!token) {
-      return NextResponse.json(
-        { valid: false, error: 'Token is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ valid: false, error: 'Token is required' }, { status: 400 });
     }
 
     const hashedToken = hashToken(token);
@@ -131,10 +128,7 @@ async function handleGet(request: NextRequest) {
     logger.error('[Affiliate Auth] Token verification error', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return NextResponse.json(
-      { valid: false, error: 'Failed to verify token' },
-      { status: 500 }
-    );
+    return NextResponse.json({ valid: false, error: 'Failed to verify token' }, { status: 500 });
   }
 }
 
@@ -159,10 +153,7 @@ async function handlePost(request: NextRequest) {
 
     // Validate passwords match
     if (password !== confirmPassword) {
-      return NextResponse.json(
-        { error: 'Passwords do not match' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Passwords do not match' }, { status: 400 });
     }
 
     // Validate password strength (enterprise requirements)
@@ -284,7 +275,8 @@ async function handlePost(request: NextRequest) {
             details: {
               affiliateId: affiliate.id,
               clinicId: affiliate.clinicId,
-              isFirstTimeSetup: !resetToken.user.passwordHash || resetToken.user.passwordHash === '',
+              isFirstTimeSetup:
+                !resetToken.user.passwordHash || resetToken.user.passwordHash === '',
               ipAddress,
               timestamp: new Date().toISOString(),
             },
@@ -346,10 +338,7 @@ async function handlePost(request: NextRequest) {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
 
-    return NextResponse.json(
-      { error: 'Failed to reset password' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to reset password' }, { status: 500 });
   }
 }
 

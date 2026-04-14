@@ -60,7 +60,8 @@ function parseDatabaseUrl(): {
     return {
       host: parsed.hostname,
       port: parseInt(parsed.port || '5432', 10),
-      connection_limit: parsed.searchParams.get('connection_limit') || String(config.connectionLimit),
+      connection_limit:
+        parsed.searchParams.get('connection_limit') || String(config.connectionLimit),
       pool_timeout: parsed.searchParams.get('pool_timeout') || String(config.poolTimeout),
       sslmode: parsed.searchParams.get('sslmode') || '(not set)',
       hasPassword: !!parsed.password,
@@ -85,7 +86,7 @@ function classifyPrismaError(error: unknown): {
   const code = err?.code ?? null;
   const message = (err?.message ?? '').toLowerCase();
 
-  const isP1001 = code === 'P1001' || message.includes('can\'t reach database');
+  const isP1001 = code === 'P1001' || message.includes("can't reach database");
   const isP1002 = code === 'P1002' || message.includes('timed out') || message.includes('timeout');
   const isP2024 =
     code === 'P2024' ||
@@ -125,7 +126,12 @@ export async function GET() {
         usePgBouncer: config.usePgBouncer,
       },
     },
-    select1: null as { ok: boolean; latencyMs: number; error?: string; prismaError?: object } | null,
+    select1: null as {
+      ok: boolean;
+      latencyMs: number;
+      error?: string;
+      prismaError?: object;
+    } | null,
     pgStatActivity: null as unknown,
     maxConnections: null as number | null,
     rootCause: null as string | null,
@@ -211,16 +217,23 @@ export async function GET() {
   if (result.select1 && (result.select1 as { ok: boolean }).ok) {
     try {
       const [countResult, stateResult, maxConnResult] = await Promise.all([
-        prisma.$queryRaw<[{ count: bigint }]>`SELECT count(*)::bigint as count FROM pg_stat_activity`,
+        prisma.$queryRaw<
+          [{ count: bigint }]
+        >`SELECT count(*)::bigint as count FROM pg_stat_activity`,
         prisma.$queryRaw<
           Array<{ state: string | null; count: bigint }>
         >`SELECT state, count(*)::bigint as count FROM pg_stat_activity GROUP BY state`,
-        prisma.$queryRaw<[{ current_setting: string }]>`SELECT current_setting('max_connections') as current_setting`,
+        prisma.$queryRaw<
+          [{ current_setting: string }]
+        >`SELECT current_setting('max_connections') as current_setting`,
       ]);
 
       result.pgStatActivity = {
         totalConnections: Number(countResult[0]?.count ?? 0),
-        byState: (stateResult ?? []).map((r) => ({ state: r.state ?? 'null', count: Number(r.count) })),
+        byState: (stateResult ?? []).map((r) => ({
+          state: r.state ?? 'null',
+          count: Number(r.count),
+        })),
       };
       result.maxConnections = parseInt(maxConnResult[0]?.current_setting ?? '0', 10);
 

@@ -75,7 +75,6 @@ export class ChatClientManager {
         }
       });
     } catch (error: unknown) {
-      
       logger.error('[CHAT] Initialization error:', error);
       throw error;
     }
@@ -128,7 +127,6 @@ export class ChatClientManager {
         return data.token;
       }
     } catch (error: unknown) {
-      
       logger.error('[CHAT] Failed to fetch new token:', error);
     }
     return null;
@@ -147,7 +145,6 @@ export class ChatClientManager {
       let conversation = await this.client.getConversationByUniqueName(uniqueName);
       return conversation;
     } catch (error: unknown) {
-      
       // Create new conversation if doesn't exist
       try {
         const conversation = await this.client.createConversation({
@@ -178,7 +175,6 @@ export class ChatClientManager {
     try {
       await conversation.sendMessage(text, attributes);
     } catch (error: unknown) {
-      
       logger.error('[CHAT] Failed to send message:', error);
       throw error;
     }
@@ -203,7 +199,6 @@ export class ChatClientManager {
 
       await conversation.sendMessage(formData);
     } catch (error: unknown) {
-      
       logger.error('[CHAT] Failed to send file:', error);
       throw error;
     }
@@ -216,7 +211,6 @@ export class ChatClientManager {
     try {
       await conversation.updateLastReadMessageIndex(messageIndex);
     } catch (error: unknown) {
-      
       logger.error('[CHAT] Failed to mark as read:', error);
     }
   }
@@ -228,7 +222,6 @@ export class ChatClientManager {
     try {
       await conversation.typing();
     } catch (error: unknown) {
-      
       logger.error('[CHAT] Failed to send typing indicator:', error);
     }
   }
@@ -244,7 +237,6 @@ export class ChatClientManager {
       const messages = await conversation.getMessages(limit);
       return messages.items;
     } catch (error: unknown) {
-      
       logger.error('[CHAT] Failed to get messages:', error);
       return [];
     }
@@ -260,7 +252,6 @@ export class ChatClientManager {
       const participants = await conversation.getParticipants();
       return participants.filter((p: any) => p.user?.isOnline);
     } catch (error: unknown) {
-      
       logger.error('[CHAT] Failed to get participants:', error);
       return [];
     }
@@ -273,7 +264,6 @@ export class ChatClientManager {
     try {
       await conversation.leave();
     } catch (error: unknown) {
-      
       logger.error('[CHAT] Failed to leave conversation:', error);
     }
   }

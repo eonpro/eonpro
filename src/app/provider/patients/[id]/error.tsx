@@ -36,7 +36,9 @@ export default function ProviderPatientDetailError({ error, reset }: ErrorProps)
             <ShieldAlert className="h-8 w-8 text-amber-600" />
           </div>
           <h1 className="mb-3 text-xl font-bold text-gray-900">Session Expired</h1>
-          <p className="mb-6 text-sm text-gray-600">Your session has expired. Please log in again.</p>
+          <p className="mb-6 text-sm text-gray-600">
+            Your session has expired. Please log in again.
+          </p>
           <a
             href="/login?redirect=/provider/patients"
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"

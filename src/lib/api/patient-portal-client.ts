@@ -31,10 +31,7 @@ const DEFAULT_TIMEOUT_MS = 30_000;
  * Cache: Defaults to `no-store` so refetches after mutations (e.g. progress widgets) return fresh
  * data. Callers can override via init.cache if needed.
  */
-export async function portalFetch(
-  path: string,
-  init?: RequestInit
-): Promise<Response> {
+export async function portalFetch(path: string, init?: RequestInit): Promise<Response> {
   const headers = new Headers(init?.headers);
   const auth = getAuthHeaders();
   if (auth && typeof auth === 'object' && !Array.isArray(auth)) {

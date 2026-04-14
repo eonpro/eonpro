@@ -23,9 +23,9 @@ export async function GET() {
       orderBy: { name: 'asc' },
     });
 
-    const ordered = FEATURED_CLINIC_SLUGS
-      .map((slug) => clinics.find((c) => c.subdomain === slug))
-      .filter(Boolean);
+    const ordered = FEATURED_CLINIC_SLUGS.map((slug) =>
+      clinics.find((c) => c.subdomain === slug)
+    ).filter(Boolean);
 
     return NextResponse.json(
       { clinics: ordered },
@@ -33,7 +33,7 @@ export async function GET() {
         headers: {
           'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
         },
-      },
+      }
     );
   } catch {
     return NextResponse.json({ clinics: [] }, { status: 200 });

@@ -27,9 +27,7 @@ export const metadata = {
   title: 'EONPRO',
   robots: { index: false, follow: false },
   icons: {
-    icon: [
-      { url: '/favicon.svg', type: 'image/svg+xml' },
-    ],
+    icon: [{ url: '/favicon.svg', type: 'image/svg+xml' }],
     apple: [{ url: '/favicon.svg' }],
   },
 };
@@ -55,18 +53,18 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <ErrorBoundary>
           <ClientProviders>
             <QueryProvider>
-            <ToastProvider>
-              <Suspense fallback={null}>
-                <AffiliateTracker />
-              </Suspense>
-              <AuthHydrator />
-              <ClientTimeZoneBootstrap />
-              <GlobalFetchInterceptor />
-              <SessionExpirationHandler />
-              <ConditionalHeader />
-              <ConditionalLayout>{children}</ConditionalLayout>
-              {/* Becca AI v2 — disabled for now */}
-            </ToastProvider>
+              <ToastProvider>
+                <Suspense fallback={null}>
+                  <AffiliateTracker />
+                </Suspense>
+                <AuthHydrator />
+                <ClientTimeZoneBootstrap />
+                <GlobalFetchInterceptor />
+                <SessionExpirationHandler />
+                <ConditionalHeader />
+                <ConditionalLayout>{children}</ConditionalLayout>
+                {/* Becca AI v2 — disabled for now */}
+              </ToastProvider>
             </QueryProvider>
           </ClientProviders>
           {mapsKey ? (

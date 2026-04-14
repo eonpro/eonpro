@@ -2,11 +2,26 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { logger } from '../../../lib/logger';
-import { portalFetch, getPortalResponseError, SESSION_EXPIRED_MESSAGE } from '@/lib/api/patient-portal-client';
+import {
+  portalFetch,
+  getPortalResponseError,
+  SESSION_EXPIRED_MESSAGE,
+} from '@/lib/api/patient-portal-client';
 import { safeParseJson, safeParseJsonString } from '@/lib/utils/safe-json';
 import { getMinimalPortalUserPayload, setPortalUserStorage } from '@/lib/utils/portal-user-storage';
 
-import { Upload, FileText, Trash2, Download, Eye, ArrowLeft, Shield, Lock, AlertCircle, X } from 'lucide-react';
+import {
+  Upload,
+  FileText,
+  Trash2,
+  Download,
+  Eye,
+  ArrowLeft,
+  Shield,
+  Lock,
+  AlertCircle,
+  X,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
@@ -48,13 +63,18 @@ export default function PatientPortalDocuments() {
       const userJson = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
       if (!userJson) {
         setIsLoading(false);
-        router.push(`/patient-login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/documents`)}&reason=no_session`);
+        router.push(
+          `/patient-login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/documents`)}&reason=no_session`
+        );
         return;
       }
       try {
         const userData = safeParseJsonString<{ patientId?: number; role?: string }>(userJson);
         if (!userData) {
-          if (!cancelled) router.push(`/patient-login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/documents`)}&reason=no_session`);
+          if (!cancelled)
+            router.push(
+              `/patient-login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/documents`)}&reason=no_session`
+            );
           return;
         }
         let pid: number | null = userData.patientId ?? null;
@@ -71,7 +91,9 @@ export default function PatientPortalDocuments() {
         }
         if (cancelled) return;
         if (pid == null) {
-          router.push(`/patient-login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/documents`)}&reason=no_session`);
+          router.push(
+            `/patient-login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/documents`)}&reason=no_session`
+          );
           return;
         }
         setPatientId(pid);
@@ -87,9 +109,10 @@ export default function PatientPortalDocuments() {
         }
         if (response.ok) {
           const data = await safeParseJson(response);
-          const docs = data !== null && typeof data === 'object' && 'documents' in data
-            ? (data as { documents?: Document[] }).documents
-            : null;
+          const docs =
+            data !== null && typeof data === 'object' && 'documents' in data
+              ? (data as { documents?: Document[] }).documents
+              : null;
           if (Array.isArray(docs)) {
             setDocuments(docs);
           } else {
@@ -100,7 +123,9 @@ export default function PatientPortalDocuments() {
         }
       } catch (err) {
         if (!cancelled) {
-          logger.error('Error loading documents page', { error: err instanceof Error ? err.message : 'Unknown' });
+          logger.error('Error loading documents page', {
+            error: err instanceof Error ? err.message : 'Unknown',
+          });
           setError('Failed to load documents. Please check your connection and try again.');
         }
       } finally {
@@ -125,26 +150,32 @@ export default function PatientPortalDocuments() {
     { value: 'OTHER', label: 'Other' },
   ];
 
-  const handleDrag = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (isUploading) return;
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true);
-    } else if (e.type === 'dragleave') {
-      setDragActive(false);
-    }
-  }, [isUploading]);
+  const handleDrag = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (isUploading) return;
+      if (e.type === 'dragenter' || e.type === 'dragover') {
+        setDragActive(true);
+      } else if (e.type === 'dragleave') {
+        setDragActive(false);
+      }
+    },
+    [isUploading]
+  );
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    if (isUploading) return;
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFiles(e.dataTransfer.files);
-    }
-  }, [isUploading]);
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setDragActive(false);
+      if (isUploading) return;
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        handleFiles(e.dataTransfer.files);
+      }
+    },
+    [isUploading]
+  );
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.preventDefault();
@@ -170,13 +201,11 @@ export default function PatientPortalDocuments() {
     setUploadFormatError(null);
 
     const allowedMimes: readonly string[] = ACCEPTED_DOCUMENT_UPLOAD_MIME_TYPES;
-    const invalidType = Array.from(files).find(
-      (f) => !allowedMimes.includes(f.type.toLowerCase()),
-    );
+    const invalidType = Array.from(files).find((f) => !allowedMimes.includes(f.type.toLowerCase()));
     if (invalidType) {
       const ext = invalidType.name.split('.').pop()?.toUpperCase() || 'unknown';
       setUploadFormatError(
-        `"${invalidType.name}" (.${ext}) is not a supported file type. Please use an approved format: ${ACCEPTED_DOCUMENT_UPLOAD_LABEL}.`,
+        `"${invalidType.name}" (.${ext}) is not a supported file type. Please use an approved format: ${ACCEPTED_DOCUMENT_UPLOAD_LABEL}.`
       );
       return;
     }
@@ -220,15 +249,17 @@ export default function PatientPortalDocuments() {
 
         if (response.ok) {
           const result = await safeParseJson(response);
-          const doc = result && typeof result === 'object' && 'document' in result
-            ? (result as { document?: Document }).document
-            : null;
+          const doc =
+            result && typeof result === 'object' && 'document' in result
+              ? (result as { document?: Document }).document
+              : null;
           if (doc) uploaded.push(doc);
         } else {
           const errBody = await safeParseJson(response);
-          const msg = errBody && typeof errBody === 'object' && 'error' in errBody
-            ? String((errBody as { error?: unknown }).error)
-            : 'Upload failed';
+          const msg =
+            errBody && typeof errBody === 'object' && 'error' in errBody
+              ? String((errBody as { error?: unknown }).error)
+              : 'Upload failed';
           throw new Error(msg);
         }
       }
@@ -250,7 +281,9 @@ export default function PatientPortalDocuments() {
       logger.error('Upload error', { error: err instanceof Error ? err.message : 'Unknown' });
       setIsUploading(false);
       setUploadProgress(0);
-      toast.error(err instanceof Error ? err.message : 'Failed to upload documents. Please try again.');
+      toast.error(
+        err instanceof Error ? err.message : 'Failed to upload documents. Please try again.'
+      );
     }
   };
 
@@ -272,9 +305,10 @@ export default function PatientPortalDocuments() {
       if (!response.ok) {
         setDocuments(previous);
         const errBody = await safeParseJson(response);
-        const msg = errBody && typeof errBody === 'object' && 'error' in errBody
-          ? String((errBody as { error?: unknown }).error)
-          : 'Delete failed';
+        const msg =
+          errBody && typeof errBody === 'object' && 'error' in errBody
+            ? String((errBody as { error?: unknown }).error)
+            : 'Delete failed';
         toast.error(msg);
       } else {
         toast.success('Document deleted');
@@ -379,10 +413,14 @@ export default function PatientPortalDocuments() {
       <div className="flex min-h-screen items-center justify-center p-4">
         <div
           className={`max-w-md rounded-lg border p-4 text-center ${
-            isSessionExpired ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-red-200 bg-red-50 text-red-700'
+            isSessionExpired
+              ? 'border-amber-200 bg-amber-50 text-amber-900'
+              : 'border-red-200 bg-red-50 text-red-700'
           }`}
         >
-          <p className="mb-2 font-medium">{isSessionExpired ? 'Session Expired' : 'Error Loading Documents'}</p>
+          <p className="mb-2 font-medium">
+            {isSessionExpired ? 'Session Expired' : 'Error Loading Documents'}
+          </p>
           <p className="text-sm">{error}</p>
           <div className="mt-4 flex flex-wrap justify-center gap-2">
             {isSessionExpired ? (
@@ -472,7 +510,8 @@ export default function PatientPortalDocuments() {
                 <p className="text-sm font-semibold text-red-800">Unsupported file type</p>
                 <p className="mt-0.5 text-sm text-red-700">{uploadFormatError}</p>
                 <p className="mt-2 text-xs text-red-600">
-                  Accepted formats: <span className="font-medium">{ACCEPTED_DOCUMENT_UPLOAD_LABEL}</span>
+                  Accepted formats:{' '}
+                  <span className="font-medium">{ACCEPTED_DOCUMENT_UPLOAD_LABEL}</span>
                 </p>
               </div>
               <button
@@ -486,7 +525,11 @@ export default function PatientPortalDocuments() {
 
           <div
             className={`relative rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
-              dragActive && !isUploading ? 'border-[#4fa77e] bg-green-50' : uploadFormatError ? 'border-red-300 bg-red-50/30' : 'border-gray-300 hover:border-gray-400'
+              dragActive && !isUploading
+                ? 'border-[#4fa77e] bg-green-50'
+                : uploadFormatError
+                  ? 'border-red-300 bg-red-50/30'
+                  : 'border-gray-300 hover:border-gray-400'
             } ${isUploading ? 'pointer-events-none opacity-90' : ''}`}
             onDragEnter={handleDrag}
             onDragLeave={handleDrag}

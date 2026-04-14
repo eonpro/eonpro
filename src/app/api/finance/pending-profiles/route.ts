@@ -141,10 +141,7 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<NextResponse
           `${firstName} ${lastName}`.includes(searchLow) ||
           `${lastName} ${firstName}`.includes(searchLow) ||
           terms.every(
-            (term) =>
-              firstName.includes(term) ||
-              lastName.includes(term) ||
-              email.includes(term)
+            (term) => firstName.includes(term) || lastName.includes(term) || email.includes(term)
           )
         );
       });
@@ -399,7 +396,10 @@ async function handlePatch(req: NextRequest, user: AuthUser): Promise<NextRespon
     // Providers can only perform merge actions — complete/archive require admin
     if (user.role === 'provider' && action !== 'merge') {
       return NextResponse.json(
-        { error: 'Providers can only merge profiles. Complete and archive actions require admin access.' },
+        {
+          error:
+            'Providers can only merge profiles. Complete and archive actions require admin access.',
+        },
         { status: 403 }
       );
     }
@@ -470,16 +470,22 @@ async function handlePatch(req: NextRequest, user: AuthUser): Promise<NextRespon
                 });
               }
             }
-            logger.info('[Pending Profiles] SOAP notes ensured for paid invoices moving to Rx queue', {
-              patientId,
-              invoiceCount: paidInvoices.length,
-            });
+            logger.info(
+              '[Pending Profiles] SOAP notes ensured for paid invoices moving to Rx queue',
+              {
+                patientId,
+                invoiceCount: paidInvoices.length,
+              }
+            );
           }
         } catch (soapError) {
-          logger.warn('[Pending Profiles] Non-fatal: failed to ensure SOAP notes on profile completion', {
-            patientId,
-            error: soapError instanceof Error ? soapError.message : 'Unknown',
-          });
+          logger.warn(
+            '[Pending Profiles] Non-fatal: failed to ensure SOAP notes on profile completion',
+            {
+              patientId,
+              error: soapError instanceof Error ? soapError.message : 'Unknown',
+            }
+          );
         }
 
         return NextResponse.json({

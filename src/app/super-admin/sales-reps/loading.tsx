@@ -91,10 +91,7 @@ export default function SalesRepsLoading() {
           </div>
         </div>
         {Array.from({ length: 8 }).map((_, i) => (
-          <div
-            key={i}
-            className="flex items-center gap-6 border-b border-gray-100 px-4 py-3.5"
-          >
+          <div key={i} className="flex items-center gap-6 border-b border-gray-100 px-4 py-3.5">
             <div className="h-4 w-6 rounded bg-gray-100" />
             <div className="h-4 w-28 rounded bg-gray-200" />
             <div className="h-4 w-24 rounded bg-gray-200" />

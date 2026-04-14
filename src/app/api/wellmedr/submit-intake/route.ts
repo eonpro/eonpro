@@ -43,7 +43,11 @@ export async function POST(request: Request) {
     }
 
     let data;
-    try { data = JSON.parse(responseText); } catch { data = { raw: responseText }; }
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      data = { raw: responseText };
+    }
 
     return NextResponse.json({
       success: true,

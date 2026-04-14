@@ -7,12 +7,7 @@
  * importing from '@prisma/client', which pulls Node.js-only runtime code.
  */
 
-export type ReconciliationStatus =
-  | 'PENDING'
-  | 'MATCHED'
-  | 'CREATED'
-  | 'FAILED'
-  | 'SKIPPED';
+export type ReconciliationStatus = 'PENDING' | 'MATCHED' | 'CREATED' | 'FAILED' | 'SKIPPED';
 
 export const ReconciliationStatus = {
   PENDING: 'PENDING' as const,
@@ -22,11 +17,7 @@ export const ReconciliationStatus = {
   SKIPPED: 'SKIPPED' as const,
 } as const;
 
-export type ProfileStatus =
-  | 'ACTIVE'
-  | 'PENDING_COMPLETION'
-  | 'MERGED'
-  | 'ARCHIVED';
+export type ProfileStatus = 'ACTIVE' | 'PENDING_COMPLETION' | 'MERGED' | 'ARCHIVED';
 
 export const ProfileStatus = {
   ACTIVE: 'ACTIVE' as const,
@@ -35,11 +26,7 @@ export const ProfileStatus = {
   ARCHIVED: 'ARCHIVED' as const,
 } as const;
 
-export type InfluencerStatus =
-  | 'ACTIVE'
-  | 'INACTIVE'
-  | 'SUSPENDED'
-  | 'PENDING_APPROVAL';
+export type InfluencerStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'PENDING_APPROVAL';
 
 export const InfluencerStatus = {
   ACTIVE: 'ACTIVE' as const,
@@ -48,12 +35,7 @@ export const InfluencerStatus = {
   PENDING_APPROVAL: 'PENDING_APPROVAL' as const,
 } as const;
 
-export type CommissionStatus =
-  | 'PENDING'
-  | 'APPROVED'
-  | 'PAID'
-  | 'CANCELLED'
-  | 'DISPUTED';
+export type CommissionStatus = 'PENDING' | 'APPROVED' | 'PAID' | 'CANCELLED' | 'DISPUTED';
 
 export const CommissionStatus = {
   PENDING: 'PENDING' as const,
@@ -63,12 +45,7 @@ export const CommissionStatus = {
   DISPUTED: 'DISPUTED' as const,
 } as const;
 
-export type PayoutStatus =
-  | 'PENDING'
-  | 'PROCESSING'
-  | 'COMPLETED'
-  | 'FAILED'
-  | 'CANCELLED';
+export type PayoutStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
 
 export const PayoutStatus = {
   PENDING: 'PENDING' as const,
@@ -154,12 +131,7 @@ export const PaymentStatus = {
   PARTIALLY_REFUNDED: 'PARTIALLY_REFUNDED' as const,
 } as const;
 
-export type SOAPNoteStatus =
-  | 'DRAFT'
-  | 'PENDING_REVIEW'
-  | 'APPROVED'
-  | 'LOCKED'
-  | 'ARCHIVED';
+export type SOAPNoteStatus = 'DRAFT' | 'PENDING_REVIEW' | 'APPROVED' | 'LOCKED' | 'ARCHIVED';
 
 export const SOAPNoteStatus = {
   DRAFT: 'DRAFT' as const,
@@ -186,12 +158,7 @@ export const SOAPSourceType = {
   INVOICE_METADATA: 'INVOICE_METADATA' as const,
 } as const;
 
-export type SubscriptionStatus =
-  | 'ACTIVE'
-  | 'PAUSED'
-  | 'CANCELED'
-  | 'PAST_DUE'
-  | 'EXPIRED';
+export type SubscriptionStatus = 'ACTIVE' | 'PAUSED' | 'CANCELED' | 'PAST_DUE' | 'EXPIRED';
 
 export const SubscriptionStatus = {
   ACTIVE: 'ACTIVE' as const,
@@ -226,12 +193,7 @@ export const UserRole = {
   PHARMACY_REP: 'PHARMACY_REP' as const,
 } as const;
 
-export type UserStatus =
-  | 'ACTIVE'
-  | 'INACTIVE'
-  | 'SUSPENDED'
-  | 'PENDING_VERIFICATION'
-  | 'LOCKED';
+export type UserStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'PENDING_VERIFICATION' | 'LOCKED';
 
 export const UserStatus = {
   ACTIVE: 'ACTIVE' as const,
@@ -241,10 +203,7 @@ export const UserStatus = {
   LOCKED: 'LOCKED' as const,
 } as const;
 
-export type ProviderStatus =
-  | 'ACTIVE'
-  | 'ARCHIVED'
-  | 'SUSPENDED';
+export type ProviderStatus = 'ACTIVE' | 'ARCHIVED' | 'SUSPENDED';
 
 export const ProviderStatus = {
   ACTIVE: 'ACTIVE' as const,
@@ -252,11 +211,7 @@ export const ProviderStatus = {
   SUSPENDED: 'SUSPENDED' as const,
 } as const;
 
-export type IntegrationStatus =
-  | 'ACTIVE'
-  | 'INACTIVE'
-  | 'ERROR'
-  | 'MAINTENANCE';
+export type IntegrationStatus = 'ACTIVE' | 'INACTIVE' | 'ERROR' | 'MAINTENANCE';
 
 export const IntegrationStatus = {
   ACTIVE: 'ACTIVE' as const,
@@ -265,11 +220,7 @@ export const IntegrationStatus = {
   MAINTENANCE: 'MAINTENANCE' as const,
 } as const;
 
-export type ApiKeyStatus =
-  | 'ACTIVE'
-  | 'INACTIVE'
-  | 'EXPIRED'
-  | 'REVOKED';
+export type ApiKeyStatus = 'ACTIVE' | 'INACTIVE' | 'EXPIRED' | 'REVOKED';
 
 export const ApiKeyStatus = {
   ACTIVE: 'ACTIVE' as const,
@@ -278,11 +229,7 @@ export const ApiKeyStatus = {
   REVOKED: 'REVOKED' as const,
 } as const;
 
-export type WebhookDeliveryStatus =
-  | 'PENDING'
-  | 'DELIVERED'
-  | 'FAILED'
-  | 'RETRYING';
+export type WebhookDeliveryStatus = 'PENDING' | 'DELIVERED' | 'FAILED' | 'RETRYING';
 
 export const WebhookDeliveryStatus = {
   PENDING: 'PENDING' as const,
@@ -291,11 +238,7 @@ export const WebhookDeliveryStatus = {
   RETRYING: 'RETRYING' as const,
 } as const;
 
-export type InternalMessageType =
-  | 'DIRECT'
-  | 'BROADCAST'
-  | 'CHANNEL'
-  | 'ALERT';
+export type InternalMessageType = 'DIRECT' | 'BROADCAST' | 'CHANNEL' | 'ALERT';
 
 export const InternalMessageType = {
   DIRECT: 'DIRECT' as const,
@@ -631,10 +574,7 @@ export const TicketActivityType = {
   TIME_LOGGED: 'TIME_LOGGED' as const,
 } as const;
 
-export type SlaMetricType =
-  | 'FIRST_RESPONSE'
-  | 'RESOLUTION'
-  | 'NEXT_RESPONSE';
+export type SlaMetricType = 'FIRST_RESPONSE' | 'RESOLUTION' | 'NEXT_RESPONSE';
 
 export const SlaMetricType = {
   FIRST_RESPONSE: 'FIRST_RESPONSE' as const,
@@ -744,10 +684,7 @@ export const AppointmentStatus = {
   RESCHEDULED: 'RESCHEDULED' as const,
 } as const;
 
-export type AppointmentModeType =
-  | 'IN_PERSON'
-  | 'VIDEO'
-  | 'PHONE';
+export type AppointmentModeType = 'IN_PERSON' | 'VIDEO' | 'PHONE';
 
 export const AppointmentModeType = {
   IN_PERSON: 'IN_PERSON' as const,
@@ -755,10 +692,7 @@ export const AppointmentModeType = {
   PHONE: 'PHONE' as const,
 } as const;
 
-export type ReminderType =
-  | 'EMAIL'
-  | 'SMS'
-  | 'BOTH';
+export type ReminderType = 'EMAIL' | 'SMS' | 'BOTH';
 
 export const ReminderType = {
   EMAIL: 'EMAIL' as const,
@@ -766,11 +700,7 @@ export const ReminderType = {
   BOTH: 'BOTH' as const,
 } as const;
 
-export type ReminderStatus =
-  | 'PENDING'
-  | 'SENT'
-  | 'FAILED'
-  | 'CANCELLED';
+export type ReminderStatus = 'PENDING' | 'SENT' | 'FAILED' | 'CANCELLED';
 
 export const ReminderStatus = {
   PENDING: 'PENDING' as const,
@@ -779,12 +709,7 @@ export const ReminderStatus = {
   CANCELLED: 'CANCELLED' as const,
 } as const;
 
-export type CarePlanStatus =
-  | 'DRAFT'
-  | 'ACTIVE'
-  | 'COMPLETED'
-  | 'ARCHIVED'
-  | 'CANCELLED';
+export type CarePlanStatus = 'DRAFT' | 'ACTIVE' | 'COMPLETED' | 'ARCHIVED' | 'CANCELLED';
 
 export const CarePlanStatus = {
   DRAFT: 'DRAFT' as const,
@@ -794,12 +719,7 @@ export const CarePlanStatus = {
   CANCELLED: 'CANCELLED' as const,
 } as const;
 
-export type GoalStatus =
-  | 'NOT_STARTED'
-  | 'IN_PROGRESS'
-  | 'COMPLETED'
-  | 'PAUSED'
-  | 'CANCELLED';
+export type GoalStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'PAUSED' | 'CANCELLED';
 
 export const GoalStatus = {
   NOT_STARTED: 'NOT_STARTED' as const,
@@ -809,19 +729,14 @@ export const GoalStatus = {
   CANCELLED: 'CANCELLED' as const,
 } as const;
 
-export type MessageDirection =
-  | 'INBOUND'
-  | 'OUTBOUND';
+export type MessageDirection = 'INBOUND' | 'OUTBOUND';
 
 export const MessageDirection = {
   INBOUND: 'INBOUND' as const,
   OUTBOUND: 'OUTBOUND' as const,
 } as const;
 
-export type MessageChannel =
-  | 'WEB'
-  | 'SMS'
-  | 'EMAIL';
+export type MessageChannel = 'WEB' | 'SMS' | 'EMAIL';
 
 export const MessageChannel = {
   WEB: 'WEB' as const,
@@ -829,11 +744,7 @@ export const MessageChannel = {
   EMAIL: 'EMAIL' as const,
 } as const;
 
-export type SenderType =
-  | 'PATIENT'
-  | 'STAFF'
-  | 'PROVIDER'
-  | 'SYSTEM';
+export type SenderType = 'PATIENT' | 'STAFF' | 'PROVIDER' | 'SYSTEM';
 
 export const SenderType = {
   PATIENT: 'PATIENT' as const,
@@ -842,12 +753,7 @@ export const SenderType = {
   SYSTEM: 'SYSTEM' as const,
 } as const;
 
-export type MessageStatus =
-  | 'PENDING'
-  | 'SENT'
-  | 'DELIVERED'
-  | 'READ'
-  | 'FAILED';
+export type MessageStatus = 'PENDING' | 'SENT' | 'DELIVERED' | 'READ' | 'FAILED';
 
 export const MessageStatus = {
   PENDING: 'PENDING' as const,
@@ -895,12 +801,7 @@ export const AchievementCategory = {
   SPECIAL: 'SPECIAL' as const,
 } as const;
 
-export type AchievementTier =
-  | 'BRONZE'
-  | 'SILVER'
-  | 'GOLD'
-  | 'PLATINUM'
-  | 'DIAMOND';
+export type AchievementTier = 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM' | 'DIAMOND';
 
 export const AchievementTier = {
   BRONZE: 'BRONZE' as const,
@@ -910,11 +811,7 @@ export const AchievementTier = {
   DIAMOND: 'DIAMOND' as const,
 } as const;
 
-export type ChallengeType =
-  | 'STREAK'
-  | 'CUMULATIVE'
-  | 'MILESTONE'
-  | 'COMPETITION';
+export type ChallengeType = 'STREAK' | 'CUMULATIVE' | 'MILESTONE' | 'COMPETITION';
 
 export const ChallengeType = {
   STREAK: 'STREAK' as const,
@@ -944,9 +841,7 @@ export const ProductCategory = {
   OTHER: 'OTHER' as const,
 } as const;
 
-export type BillingType =
-  | 'ONE_TIME'
-  | 'RECURRING';
+export type BillingType = 'ONE_TIME' | 'RECURRING';
 
 export const BillingType = {
   ONE_TIME: 'ONE_TIME' as const,
@@ -1040,20 +935,14 @@ export const PricingRuleType = {
   CUSTOM: 'CUSTOM' as const,
 } as const;
 
-export type CommissionType =
-  | 'PERCENTAGE'
-  | 'FIXED_AMOUNT';
+export type CommissionType = 'PERCENTAGE' | 'FIXED_AMOUNT';
 
 export const CommissionType = {
   PERCENTAGE: 'PERCENTAGE' as const,
   FIXED_AMOUNT: 'FIXED_AMOUNT' as const,
 } as const;
 
-export type PayoutFrequency =
-  | 'WEEKLY'
-  | 'BIWEEKLY'
-  | 'MONTHLY'
-  | 'QUARTERLY';
+export type PayoutFrequency = 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY' | 'QUARTERLY';
 
 export const PayoutFrequency = {
   WEEKLY: 'WEEKLY' as const,
@@ -1062,11 +951,7 @@ export const PayoutFrequency = {
   QUARTERLY: 'QUARTERLY' as const,
 } as const;
 
-export type ReferralStatus =
-  | 'PENDING'
-  | 'CONVERTED'
-  | 'ACTIVE'
-  | 'CHURNED';
+export type ReferralStatus = 'PENDING' | 'CONVERTED' | 'ACTIVE' | 'CHURNED';
 
 export const ReferralStatus = {
   PENDING: 'PENDING' as const,
@@ -1106,12 +991,7 @@ export const SubscriptionActionType = {
   RETENTION_DECLINED: 'RETENTION_DECLINED' as const,
 } as const;
 
-export type RetentionOfferType =
-  | 'DISCOUNT'
-  | 'FREE_PERIOD'
-  | 'PAUSE'
-  | 'DOWNGRADE'
-  | 'BONUS';
+export type RetentionOfferType = 'DISCOUNT' | 'FREE_PERIOD' | 'PAUSE' | 'DOWNGRADE' | 'BONUS';
 
 export const RetentionOfferType = {
   DISCOUNT: 'DISCOUNT' as const,
@@ -1121,11 +1001,7 @@ export const RetentionOfferType = {
   BONUS: 'BONUS' as const,
 } as const;
 
-export type AffiliateStatus =
-  | 'ACTIVE'
-  | 'PAUSED'
-  | 'SUSPENDED'
-  | 'INACTIVE';
+export type AffiliateStatus = 'ACTIVE' | 'PAUSED' | 'SUSPENDED' | 'INACTIVE';
 
 export const AffiliateStatus = {
   ACTIVE: 'ACTIVE' as const,
@@ -1134,10 +1010,7 @@ export const AffiliateStatus = {
   INACTIVE: 'INACTIVE' as const,
 } as const;
 
-export type AffiliateApplicationStatus =
-  | 'PENDING'
-  | 'APPROVED'
-  | 'REJECTED';
+export type AffiliateApplicationStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 export const AffiliateApplicationStatus = {
   PENDING: 'PENDING' as const,
@@ -1145,29 +1018,21 @@ export const AffiliateApplicationStatus = {
   REJECTED: 'REJECTED' as const,
 } as const;
 
-export type CommissionPlanType =
-  | 'FLAT'
-  | 'PERCENT';
+export type CommissionPlanType = 'FLAT' | 'PERCENT';
 
 export const CommissionPlanType = {
   FLAT: 'FLAT' as const,
   PERCENT: 'PERCENT' as const,
 } as const;
 
-export type CommissionAppliesTo =
-  | 'FIRST_PAYMENT_ONLY'
-  | 'ALL_PAYMENTS';
+export type CommissionAppliesTo = 'FIRST_PAYMENT_ONLY' | 'ALL_PAYMENTS';
 
 export const CommissionAppliesTo = {
   FIRST_PAYMENT_ONLY: 'FIRST_PAYMENT_ONLY' as const,
   ALL_PAYMENTS: 'ALL_PAYMENTS' as const,
 } as const;
 
-export type CommissionEventStatus =
-  | 'PENDING'
-  | 'APPROVED'
-  | 'PAID'
-  | 'REVERSED';
+export type CommissionEventStatus = 'PENDING' | 'APPROVED' | 'PAID' | 'REVERSED';
 
 export const CommissionEventStatus = {
   PENDING: 'PENDING' as const,
@@ -1191,11 +1056,7 @@ export const CompetitionMetric = {
   NEW_CUSTOMERS: 'NEW_CUSTOMERS' as const,
 } as const;
 
-export type CompetitionStatus =
-  | 'SCHEDULED'
-  | 'ACTIVE'
-  | 'COMPLETED'
-  | 'CANCELLED';
+export type CompetitionStatus = 'SCHEDULED' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
 
 export const CompetitionStatus = {
   SCHEDULED: 'SCHEDULED' as const,
@@ -1204,10 +1065,7 @@ export const CompetitionStatus = {
   CANCELLED: 'CANCELLED' as const,
 } as const;
 
-export type TouchType =
-  | 'CLICK'
-  | 'IMPRESSION'
-  | 'POSTBACK';
+export type TouchType = 'CLICK' | 'IMPRESSION' | 'POSTBACK';
 
 export const TouchType = {
   CLICK: 'CLICK' as const,
@@ -1215,12 +1073,7 @@ export const TouchType = {
   POSTBACK: 'POSTBACK' as const,
 } as const;
 
-export type AttributionModel =
-  | 'FIRST_CLICK'
-  | 'LAST_CLICK'
-  | 'LINEAR'
-  | 'TIME_DECAY'
-  | 'POSITION';
+export type AttributionModel = 'FIRST_CLICK' | 'LAST_CLICK' | 'LINEAR' | 'TIME_DECAY' | 'POSITION';
 
 export const AttributionModel = {
   FIRST_CLICK: 'FIRST_CLICK' as const,
@@ -1230,12 +1083,7 @@ export const AttributionModel = {
   POSITION: 'POSITION' as const,
 } as const;
 
-export type PayoutMethodType =
-  | 'STRIPE_CONNECT'
-  | 'PAYPAL'
-  | 'BANK_WIRE'
-  | 'CHECK'
-  | 'MANUAL';
+export type PayoutMethodType = 'STRIPE_CONNECT' | 'PAYPAL' | 'BANK_WIRE' | 'CHECK' | 'MANUAL';
 
 export const PayoutMethodType = {
   STRIPE_CONNECT: 'STRIPE_CONNECT' as const,
@@ -1266,10 +1114,7 @@ export const AffiliatePayoutStatus = {
   ON_HOLD: 'ON_HOLD' as const,
 } as const;
 
-export type TaxDocumentType =
-  | 'W9'
-  | 'W8BEN'
-  | 'W8BENE';
+export type TaxDocumentType = 'W9' | 'W8BEN' | 'W8BENE';
 
 export const TaxDocumentType = {
   W9: 'W9' as const,
@@ -1277,12 +1122,7 @@ export const TaxDocumentType = {
   W8BENE: 'W8BENE' as const,
 } as const;
 
-export type TaxDocumentStatus =
-  | 'PENDING'
-  | 'SUBMITTED'
-  | 'VERIFIED'
-  | 'REJECTED'
-  | 'EXPIRED';
+export type TaxDocumentStatus = 'PENDING' | 'SUBMITTED' | 'VERIFIED' | 'REJECTED' | 'EXPIRED';
 
 export const TaxDocumentStatus = {
   PENDING: 'PENDING' as const,
@@ -1317,11 +1157,7 @@ export const FraudAlertType = {
   INCENTIVIZED_TRAFFIC: 'INCENTIVIZED_TRAFFIC' as const,
 } as const;
 
-export type FraudSeverity =
-  | 'LOW'
-  | 'MEDIUM'
-  | 'HIGH'
-  | 'CRITICAL';
+export type FraudSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
 export const FraudSeverity = {
   LOW: 'LOW' as const,
@@ -1440,12 +1276,7 @@ export const ReportType = {
   CUSTOM: 'CUSTOM' as const,
 } as const;
 
-export type ReportGranularity =
-  | 'DAILY'
-  | 'WEEKLY'
-  | 'MONTHLY'
-  | 'QUARTERLY'
-  | 'YEARLY';
+export type ReportGranularity = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY';
 
 export const ReportGranularity = {
   DAILY: 'DAILY' as const,
@@ -1468,10 +1299,7 @@ export const RoutingStrategy = {
   PROVIDER_CHOICE: 'PROVIDER_CHOICE' as const,
 } as const;
 
-export type SoapApprovalMode =
-  | 'REQUIRED'
-  | 'ADVISORY'
-  | 'DISABLED';
+export type SoapApprovalMode = 'REQUIRED' | 'ADVISORY' | 'DISABLED';
 
 export const SoapApprovalMode = {
   REQUIRED: 'REQUIRED' as const,
@@ -1479,11 +1307,7 @@ export const SoapApprovalMode = {
   DISABLED: 'DISABLED' as const,
 } as const;
 
-export type CompensationEventStatus =
-  | 'PENDING'
-  | 'APPROVED'
-  | 'PAID'
-  | 'VOIDED';
+export type CompensationEventStatus = 'PENDING' | 'APPROVED' | 'PAID' | 'VOIDED';
 
 export const CompensationEventStatus = {
   PENDING: 'PENDING' as const,
@@ -1492,10 +1316,7 @@ export const CompensationEventStatus = {
   VOIDED: 'VOIDED' as const,
 } as const;
 
-export type CompensationType =
-  | 'FLAT_RATE'
-  | 'PERCENTAGE'
-  | 'HYBRID';
+export type CompensationType = 'FLAT_RATE' | 'PERCENTAGE' | 'HYBRID';
 
 export const CompensationType = {
   FLAT_RATE: 'FLAT_RATE' as const,
@@ -1545,11 +1366,7 @@ export const NotificationCategory = {
   SHIPMENT: 'SHIPMENT' as const,
 } as const;
 
-export type NotificationPriority =
-  | 'LOW'
-  | 'NORMAL'
-  | 'HIGH'
-  | 'URGENT';
+export type NotificationPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
 
 export const NotificationPriority = {
   LOW: 'LOW' as const,
@@ -1585,12 +1402,7 @@ export const EmailLogStatus = {
   SUPPRESSED: 'SUPPRESSED' as const,
 } as const;
 
-export type ScheduledEmailStatus =
-  | 'PENDING'
-  | 'PROCESSING'
-  | 'SENT'
-  | 'FAILED'
-  | 'CANCELLED';
+export type ScheduledEmailStatus = 'PENDING' | 'PROCESSING' | 'SENT' | 'FAILED' | 'CANCELLED';
 
 export const ScheduledEmailStatus = {
   PENDING: 'PENDING' as const,
@@ -1600,10 +1412,7 @@ export const ScheduledEmailStatus = {
   CANCELLED: 'CANCELLED' as const,
 } as const;
 
-export type PlatformFeeType =
-  | 'PRESCRIPTION'
-  | 'TRANSMISSION'
-  | 'ADMIN';
+export type PlatformFeeType = 'PRESCRIPTION' | 'TRANSMISSION' | 'ADMIN';
 
 export const PlatformFeeType = {
   PRESCRIPTION: 'PRESCRIPTION' as const,
@@ -1611,12 +1420,7 @@ export const PlatformFeeType = {
   ADMIN: 'ADMIN' as const,
 } as const;
 
-export type PlatformFeeStatus =
-  | 'PENDING'
-  | 'INVOICED'
-  | 'PAID'
-  | 'WAIVED'
-  | 'VOIDED';
+export type PlatformFeeStatus = 'PENDING' | 'INVOICED' | 'PAID' | 'WAIVED' | 'VOIDED';
 
 export const PlatformFeeStatus = {
   PENDING: 'PENDING' as const,
@@ -1626,19 +1430,14 @@ export const PlatformFeeStatus = {
   VOIDED: 'VOIDED' as const,
 } as const;
 
-export type PlatformFeeCalculationType =
-  | 'FLAT'
-  | 'PERCENTAGE';
+export type PlatformFeeCalculationType = 'FLAT' | 'PERCENTAGE';
 
 export const PlatformFeeCalculationType = {
   FLAT: 'FLAT' as const,
   PERCENTAGE: 'PERCENTAGE' as const,
 } as const;
 
-export type PlatformAdminFeeType =
-  | 'NONE'
-  | 'FLAT_WEEKLY'
-  | 'PERCENTAGE_WEEKLY';
+export type PlatformAdminFeeType = 'NONE' | 'FLAT_WEEKLY' | 'PERCENTAGE_WEEKLY';
 
 export const PlatformAdminFeeType = {
   NONE: 'NONE' as const,
@@ -1646,12 +1445,7 @@ export const PlatformAdminFeeType = {
   PERCENTAGE_WEEKLY: 'PERCENTAGE_WEEKLY' as const,
 } as const;
 
-export type ClinicInvoicePeriodType =
-  | 'WEEKLY'
-  | 'MONTHLY'
-  | 'QUARTERLY'
-  | 'YEARLY'
-  | 'CUSTOM';
+export type ClinicInvoicePeriodType = 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY' | 'CUSTOM';
 
 export const ClinicInvoicePeriodType = {
   WEEKLY: 'WEEKLY' as const,
@@ -1661,13 +1455,7 @@ export const ClinicInvoicePeriodType = {
   CUSTOM: 'CUSTOM' as const,
 } as const;
 
-export type ClinicInvoiceStatus =
-  | 'DRAFT'
-  | 'PENDING'
-  | 'SENT'
-  | 'PAID'
-  | 'OVERDUE'
-  | 'CANCELLED';
+export type ClinicInvoiceStatus = 'DRAFT' | 'PENDING' | 'SENT' | 'PAID' | 'OVERDUE' | 'CANCELLED';
 
 export const ClinicInvoiceStatus = {
   DRAFT: 'DRAFT' as const,
@@ -1726,11 +1514,7 @@ export const PatientPhotoVerificationStatus = {
   EXPIRED: 'EXPIRED' as const,
 } as const;
 
-export type DraftStatus =
-  | 'IN_PROGRESS'
-  | 'COMPLETED'
-  | 'EXPIRED'
-  | 'ABANDONED';
+export type DraftStatus = 'IN_PROGRESS' | 'COMPLETED' | 'EXPIRED' | 'ABANDONED';
 
 export const DraftStatus = {
   IN_PROGRESS: 'IN_PROGRESS' as const,
@@ -1756,11 +1540,7 @@ export const PharmacyInvoiceStatus = {
   ERROR: 'ERROR' as const,
 } as const;
 
-export type PharmacyInvoiceLineType =
-  | 'MEDICATION'
-  | 'SUPPLY'
-  | 'SHIPPING_CARRIER'
-  | 'SHIPPING_FEE';
+export type PharmacyInvoiceLineType = 'MEDICATION' | 'SUPPLY' | 'SHIPPING_CARRIER' | 'SHIPPING_FEE';
 
 export const PharmacyInvoiceLineType = {
   MEDICATION: 'MEDICATION' as const,
@@ -1769,10 +1549,7 @@ export const PharmacyInvoiceLineType = {
   SHIPPING_FEE: 'SHIPPING_FEE' as const,
 } as const;
 
-export type PharmacyPaymentStatus =
-  | 'UNPAID'
-  | 'PARTIAL'
-  | 'PAID';
+export type PharmacyPaymentStatus = 'UNPAID' | 'PARTIAL' | 'PAID';
 
 export const PharmacyPaymentStatus = {
   UNPAID: 'UNPAID' as const,
@@ -1797,10 +1574,7 @@ export const PharmacyInvoiceMatchStatus = {
   DISPUTED: 'DISPUTED' as const,
 } as const;
 
-export type CreditNoteStatus =
-  | 'DRAFT'
-  | 'APPLIED'
-  | 'VOIDED';
+export type CreditNoteStatus = 'DRAFT' | 'APPLIED' | 'VOIDED';
 
 export const CreditNoteStatus = {
   DRAFT: 'DRAFT' as const,
@@ -1875,10 +1649,7 @@ export const DispositionOutcome = {
   OTHER: 'OTHER' as const,
 } as const;
 
-export type DispositionStatus =
-  | 'PENDING_REVIEW'
-  | 'APPROVED'
-  | 'REJECTED';
+export type DispositionStatus = 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
 
 export const DispositionStatus = {
   PENDING_REVIEW: 'PENDING_REVIEW' as const,

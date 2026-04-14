@@ -5,7 +5,11 @@ import { logger } from '@/lib/logger';
 import { Upload, FileText, ChevronRight, Activity, Heart, TestTube } from 'lucide-react';
 import Link from 'next/link';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
-import { portalFetch, getPortalResponseError, SESSION_EXPIRED_MESSAGE } from '@/lib/api/patient-portal-client';
+import {
+  portalFetch,
+  getPortalResponseError,
+  SESSION_EXPIRED_MESSAGE,
+} from '@/lib/api/patient-portal-client';
 import { safeParseJson } from '@/lib/utils/safe-json';
 import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
@@ -88,7 +92,13 @@ export default function PatientPortalBloodworkPage() {
           body: formData,
         });
         const data = await safeParseJson(res);
-        if (res.ok && data !== null && typeof data === 'object' && 'success' in data && (data as { success?: boolean }).success) {
+        if (
+          res.ok &&
+          data !== null &&
+          typeof data === 'object' &&
+          'success' in data &&
+          (data as { success?: boolean }).success
+        ) {
           setUploadSuccess(true);
           fetchReports();
         } else {
@@ -189,7 +199,10 @@ export default function PatientPortalBloodworkPage() {
         {isLoading ? (
           <div className="mt-4 animate-pulse space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="flex items-center justify-between rounded-xl border border-gray-200 bg-white p-4">
+              <div
+                key={i}
+                className="flex items-center justify-between rounded-xl border border-gray-200 bg-white p-4"
+              >
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-lg bg-gray-200" />
                   <div className="space-y-1.5">

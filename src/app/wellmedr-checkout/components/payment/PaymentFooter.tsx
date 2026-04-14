@@ -7,14 +7,14 @@ export default function PaymentFooter() {
       {/* Security Notice */}
       <div className="flex items-center justify-center gap-2">
         <ShieldTick width={20} height={20} className="text-[#351C0C]" />
-        <span className="description-text text-sm sm:text-base opacity-100">
+        <span className="description-text text-sm opacity-100 sm:text-base">
           Secured by 256-bit encryption
         </span>
       </div>
 
       {/* Terms and Privacy */}
       <div className="text-center">
-        <p className="description-text leading-[20px] text-xs opacity-100 font-normal">
+        <p className="description-text text-xs font-normal leading-[20px] opacity-100">
           By placing an order, you agree to your{' '}
           <Link
             href="https://www.joinWellmedr.com/terms-of-service"

@@ -21,7 +21,10 @@ export default function BillingLoading() {
           <div className="mb-4 h-5 w-32 rounded bg-gray-200" />
           <div className="space-y-3">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="flex items-center justify-between border-b border-gray-50 pb-3">
+              <div
+                key={i}
+                className="flex items-center justify-between border-b border-gray-50 pb-3"
+              >
                 <div className="space-y-1">
                   <div className="h-4 w-32 rounded bg-gray-200" />
                   <div className="h-3 w-20 rounded bg-gray-100" />

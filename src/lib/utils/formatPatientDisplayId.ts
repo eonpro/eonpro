@@ -11,7 +11,7 @@
  */
 export function formatPatientDisplayId(
   patientId: string | null | undefined,
-  id: number | string,
+  id: number | string
 ): string {
   if (patientId) return patientId;
   return String(id).padStart(6, '0');

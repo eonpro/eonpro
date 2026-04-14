@@ -99,9 +99,7 @@ async function handler(request: NextRequest, user: AuthUser) {
       }
     }
 
-    const dailyData = Array.from(bucketMap.values()).sort(
-      (a, b) => b.date.localeCompare(a.date)
-    );
+    const dailyData = Array.from(bucketMap.values()).sort((a, b) => b.date.localeCompare(a.date));
 
     const grandTotal = orders.length;
 

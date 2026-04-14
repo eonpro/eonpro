@@ -212,7 +212,6 @@ export default function ChatWidget({
         }
       }
     } catch (error: unknown) {
-      
       logger.error('[CHAT] Initialization failed:', error);
     } finally {
       setIsConnecting(false);
@@ -235,7 +234,6 @@ export default function ChatWidget({
         return data; // Return full response object
       }
     } catch (error: unknown) {
-      
       logger.error('[CHAT] Failed to fetch token:', error);
     }
     return null;
@@ -276,7 +274,6 @@ export default function ChatWidget({
         }
       }
     } catch (error: unknown) {
-      
       logger.error('[CHAT] Failed to send message:', error);
       setInputText(messageText); // Restore message on error
     }
@@ -323,7 +320,6 @@ export default function ChatWidget({
         await chatManagerRef.current.sendFile(conversationRef.current, file);
       }
     } catch (error: unknown) {
-      
       logger.error('[CHAT] Failed to send file:', error);
     }
   };

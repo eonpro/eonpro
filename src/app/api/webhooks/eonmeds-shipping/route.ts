@@ -58,7 +58,10 @@ function safeDecryptCredential(value: string | null | undefined): string | null 
 // EonMeds clinic subdomain
 const EONMEDS_SUBDOMAIN = 'eonmeds';
 
-import { normalizeLifefilePayload, NormalizedShipment } from '@/lib/shipping/normalize-lifefile-payload';
+import {
+  normalizeLifefilePayload,
+  NormalizedShipment,
+} from '@/lib/shipping/normalize-lifefile-payload';
 
 /**
  * Accepted usernames for this webhook (LifeFile may use different usernames)
@@ -295,7 +298,7 @@ export async function POST(req: NextRequest) {
 
     logger.info(
       `[EONMEDS SHIPPING] Processing shipment - Order: ${data.orderId}, Tracking: ${data.trackingNumber}, ` +
-      `Carrier: ${data.carrier}, RxItems: ${data.rxItems.length}`
+        `Carrier: ${data.carrier}, RxItems: ${data.rxItems.length}`
     );
 
     // ═══════════════════════════════════════════════════════════════════
@@ -303,49 +306,191 @@ export async function POST(req: NextRequest) {
     // REQUIRED for: order, patient, patientShippingUpdate, orderEvent
     // ═══════════════════════════════════════════════════════════════════
     return runWithClinicContext(clinic.id, async () => {
+      // Find patient and order using shared multi-strategy matching
+      const result = await findPatientForShipping(
+        clinic.id,
+        data.orderId,
+        'EONMEDS SHIPPING',
+        data.patientEmail,
+        data.patientId
+      );
 
-    // Find patient and order using shared multi-strategy matching
-    const result = await findPatientForShipping(
-      clinic.id,
-      data.orderId,
-      'EONMEDS SHIPPING',
-      data.patientEmail,
-      data.patientId
-    );
+      if (!result) {
+        logger.warn(`[EONMEDS SHIPPING] No match for order ${data.orderId} — storing as unmatched`);
 
-    if (!result) {
-      logger.warn(`[EONMEDS SHIPPING] No match for order ${data.orderId} — storing as unmatched`);
+        // Store unmatched tracking data for later recovery
+        const unmatchedShipping = await prisma.patientShippingUpdate.create({
+          data: {
+            clinicId: clinic.id,
+            patientId: null,
+            orderId: null,
+            trackingNumber: data.trackingNumber,
+            carrier: data.carrier,
+            status: mapToShippingStatus(data.status || 'shipped'),
+            shippedAt: new Date(),
+            lifefileOrderId: data.orderId,
+            brand: 'Eon Medical + Wellness',
+            source: 'lifefile',
+            rawPayload: rawPayload as any,
+            processedAt: new Date(),
+            matchedAt: null,
+          },
+        });
 
-      // Store unmatched tracking data for later recovery
-      const unmatchedShipping = await prisma.patientShippingUpdate.create({
-        data: {
-          clinicId: clinic.id,
-          patientId: null,
-          orderId: null,
+        logger.info(`[EONMEDS SHIPPING] Stored unmatched record ${unmatchedShipping.id}`);
+
+        webhookLogData.status = WebhookStatus.SUCCESS;
+        webhookLogData.statusCode = 202;
+        webhookLogData.responseData = {
+          processed: true,
+          matched: false,
+          shippingUpdateId: unmatchedShipping.id,
+          orderId: data.orderId,
           trackingNumber: data.trackingNumber,
-          carrier: data.carrier,
-          status: mapToShippingStatus(data.status || 'shipped'),
-          shippedAt: new Date(),
-          lifefileOrderId: data.orderId,
-          brand: 'Eon Medical + Wellness',
-          source: 'lifefile',
-          rawPayload: rawPayload as any,
-          processedAt: new Date(),
-          matchedAt: null,
+        };
+
+        await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
+          logger.warn('[EONMEDS SHIPPING] Failed to persist webhook log', {
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
+
+        return NextResponse.json(
+          {
+            success: true,
+            requestId,
+            message: 'Tracking stored as unmatched — will attempt matching later',
+            shippingUpdateId: unmatchedShipping.id,
+            orderId: data.orderId,
+            trackingNumber: data.trackingNumber,
+          },
+          { status: 202 }
+        );
+      }
+
+      const { patient, order, matchStrategy } = result;
+      logger.info(`[EONMEDS SHIPPING] Matched via strategy: ${matchStrategy}`);
+
+      // Check for existing shipping update with same tracking number (idempotency)
+      const existingUpdate = await prisma.patientShippingUpdate.findFirst({
+        where: {
+          clinicId: clinic.id,
+          patientId: patient.id,
+          trackingNumber: data.trackingNumber,
         },
       });
 
-      logger.info(`[EONMEDS SHIPPING] Stored unmatched record ${unmatchedShipping.id}`);
+      let shippingUpdate;
+      const shippingStatus = mapToShippingStatus(data.status || 'shipped');
 
-      webhookLogData.status = WebhookStatus.SUCCESS;
-      webhookLogData.statusCode = 202;
-      webhookLogData.responseData = {
-        processed: true,
-        matched: false,
-        shippingUpdateId: unmatchedShipping.id,
-        orderId: data.orderId,
-        trackingNumber: data.trackingNumber,
+      const updateData = {
+        carrier: data.carrier,
+        trackingUrl: undefined as string | undefined,
+        status: shippingStatus,
+        statusNote:
+          data.rxItems
+            .map((r) => r.rxNumber)
+            .filter(Boolean)
+            .join(', ') || undefined,
+        shippedAt: shippingStatus === ShippingStatus.SHIPPED ? new Date() : undefined,
+        estimatedDelivery: parseDate(data.statusDateTime),
+        actualDelivery: shippingStatus === ShippingStatus.DELIVERED ? new Date() : undefined,
+        lifefileOrderId: data.orderId,
+        brand: 'Eon Medical + Wellness',
+        rawPayload: rawPayload as any,
+        processedAt: new Date(),
       };
+
+      if (existingUpdate) {
+        shippingUpdate = await prisma.patientShippingUpdate.update({
+          where: { id: existingUpdate.id },
+          data: updateData,
+        });
+        logger.info(`[EONMEDS SHIPPING] Updated existing shipping record ${existingUpdate.id}`);
+      } else {
+        shippingUpdate = await prisma.patientShippingUpdate.create({
+          data: {
+            clinicId: clinic.id,
+            patientId: patient.id,
+            orderId: order?.id,
+            trackingNumber: data.trackingNumber,
+            source: 'lifefile',
+            matchedAt: new Date(),
+            matchStrategy,
+            ...updateData,
+          },
+        });
+        logger.info(`[EONMEDS SHIPPING] Created new shipping record ${shippingUpdate.id}`);
+
+        // Send tracking SMS to patient (fire-and-forget, non-blocking)
+        sendTrackingNotificationSMS({
+          patientId: patient.id,
+          patientPhone: patient.phone,
+          patientEmail: patient.email,
+          patientFirstName: patient.firstName,
+          patientLastName: patient.lastName,
+          clinicId: clinic.id,
+          clinicName: clinic.name,
+          trackingNumber: data.trackingNumber,
+          carrier: data.carrier,
+          orderId: order?.id,
+        }).catch((err) => {
+          logger.warn('[EONMEDS SHIPPING] Tracking SMS failed (non-blocking)', {
+            error: err instanceof Error ? err.message : String(err),
+            patientId: patient.id,
+          });
+        });
+      }
+
+      // Also update the Order record if we have one
+      if (order) {
+        const orderUpdateData: any = {
+          trackingNumber: data.trackingNumber,
+          shippingStatus: data.status,
+          lastWebhookAt: new Date(),
+          lastWebhookPayload: JSON.stringify(rawPayload),
+        };
+
+        // Save the lifefileOrderId if it's not already set
+        if (!order.lifefileOrderId && data.orderId) {
+          orderUpdateData.lifefileOrderId = data.orderId;
+          logger.info(
+            `[EONMEDS SHIPPING] Saving lifefileOrderId ${data.orderId} to order ${order.id}`
+          );
+        }
+
+        await prisma.order.update({
+          where: { id: order.id },
+          data: orderUpdateData,
+        });
+
+        // Create order event for audit trail
+        await prisma.orderEvent.create({
+          data: {
+            orderId: order.id,
+            lifefileOrderId: data.orderId,
+            eventType: `shipping_${data.status || 'update'}`,
+            payload: rawPayload as any,
+            note: `Tracking: ${data.trackingNumber} via ${data.carrier} (${data.deliveryService})`,
+          },
+        });
+      }
+
+      // Calculate processing time
+      const processingTime = Date.now() - startTime;
+
+      // Log success
+      webhookLogData.status = WebhookStatus.SUCCESS;
+      webhookLogData.statusCode = 200;
+      webhookLogData.clinicId = clinic.id;
+      webhookLogData.responseData = {
+        shippingUpdateId: shippingUpdate.id,
+        patientId: patient.id,
+        orderId: order?.id,
+        trackingNumber: data.trackingNumber,
+        status: shippingStatus,
+      };
+      webhookLogData.processingTimeMs = processingTime;
 
       await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
         logger.warn('[EONMEDS SHIPPING] Failed to persist webhook log', {
@@ -353,179 +498,38 @@ export async function POST(req: NextRequest) {
         });
       });
 
-      return NextResponse.json(
-        {
-          success: true,
-          requestId,
-          message: 'Tracking stored as unmatched — will attempt matching later',
-          shippingUpdateId: unmatchedShipping.id,
-          orderId: data.orderId,
-          trackingNumber: data.trackingNumber,
+      logger.info(`[EONMEDS SHIPPING] Processing completed in ${processingTime}ms`);
+      logger.info('='.repeat(60));
+
+      // Decrypt patient PHI for response (no PHI in logs)
+      const decryptedFirstName = safeDecrypt(patient.firstName) || 'Patient';
+      const decryptedLastName = safeDecrypt(patient.lastName) || '';
+      const patientDisplayName = `${decryptedFirstName} ${decryptedLastName}`.trim();
+
+      return NextResponse.json({
+        success: true,
+        requestId,
+        message: existingUpdate ? 'Shipping update updated' : 'Shipping update created',
+        shippingUpdate: {
+          id: shippingUpdate.id,
+          trackingNumber: shippingUpdate.trackingNumber,
+          carrier: shippingUpdate.carrier,
+          status: shippingUpdate.status,
+          trackingUrl: shippingUpdate.trackingUrl,
         },
-        { status: 202 }
-      );
-    }
-
-    const { patient, order, matchStrategy } = result;
-    logger.info(`[EONMEDS SHIPPING] Matched via strategy: ${matchStrategy}`);
-
-    // Check for existing shipping update with same tracking number (idempotency)
-    const existingUpdate = await prisma.patientShippingUpdate.findFirst({
-      where: {
-        clinicId: clinic.id,
-        patientId: patient.id,
-        trackingNumber: data.trackingNumber,
-      },
-    });
-
-    let shippingUpdate;
-    const shippingStatus = mapToShippingStatus(data.status || 'shipped');
-
-    const updateData = {
-      carrier: data.carrier,
-      trackingUrl: undefined as string | undefined,
-      status: shippingStatus,
-      statusNote: data.rxItems.map((r) => r.rxNumber).filter(Boolean).join(', ') || undefined,
-      shippedAt: shippingStatus === ShippingStatus.SHIPPED ? new Date() : undefined,
-      estimatedDelivery: parseDate(data.statusDateTime),
-      actualDelivery:
-        shippingStatus === ShippingStatus.DELIVERED ? new Date() : undefined,
-      lifefileOrderId: data.orderId,
-      brand: 'Eon Medical + Wellness',
-      rawPayload: rawPayload as any,
-      processedAt: new Date(),
-    };
-
-    if (existingUpdate) {
-      shippingUpdate = await prisma.patientShippingUpdate.update({
-        where: { id: existingUpdate.id },
-        data: updateData,
-      });
-      logger.info(`[EONMEDS SHIPPING] Updated existing shipping record ${existingUpdate.id}`);
-    } else {
-      shippingUpdate = await prisma.patientShippingUpdate.create({
-        data: {
-          clinicId: clinic.id,
-          patientId: patient.id,
-          orderId: order?.id,
-          trackingNumber: data.trackingNumber,
-          source: 'lifefile',
-          matchedAt: new Date(),
-          matchStrategy,
-          ...updateData,
+        patient: {
+          id: patient.id,
+          patientId: patient.patientId,
+          name: patientDisplayName,
         },
+        order: order
+          ? {
+              id: order.id,
+              lifefileOrderId: order.lifefileOrderId,
+            }
+          : null,
+        processingTime: `${processingTime}ms`,
       });
-      logger.info(`[EONMEDS SHIPPING] Created new shipping record ${shippingUpdate.id}`);
-
-      // Send tracking SMS to patient (fire-and-forget, non-blocking)
-      sendTrackingNotificationSMS({
-        patientId: patient.id,
-        patientPhone: patient.phone,
-        patientEmail: patient.email,
-        patientFirstName: patient.firstName,
-        patientLastName: patient.lastName,
-        clinicId: clinic.id,
-        clinicName: clinic.name,
-        trackingNumber: data.trackingNumber,
-        carrier: data.carrier,
-        orderId: order?.id,
-      }).catch((err) => {
-        logger.warn('[EONMEDS SHIPPING] Tracking SMS failed (non-blocking)', {
-          error: err instanceof Error ? err.message : String(err),
-          patientId: patient.id,
-        });
-      });
-    }
-
-    // Also update the Order record if we have one
-    if (order) {
-      const orderUpdateData: any = {
-        trackingNumber: data.trackingNumber,
-        shippingStatus: data.status,
-        lastWebhookAt: new Date(),
-        lastWebhookPayload: JSON.stringify(rawPayload),
-      };
-
-      // Save the lifefileOrderId if it's not already set
-      if (!order.lifefileOrderId && data.orderId) {
-        orderUpdateData.lifefileOrderId = data.orderId;
-        logger.info(
-          `[EONMEDS SHIPPING] Saving lifefileOrderId ${data.orderId} to order ${order.id}`
-        );
-      }
-
-      await prisma.order.update({
-        where: { id: order.id },
-        data: orderUpdateData,
-      });
-
-      // Create order event for audit trail
-      await prisma.orderEvent.create({
-        data: {
-          orderId: order.id,
-          lifefileOrderId: data.orderId,
-          eventType: `shipping_${data.status || 'update'}`,
-          payload: rawPayload as any,
-          note: `Tracking: ${data.trackingNumber} via ${data.carrier} (${data.deliveryService})`,
-        },
-      });
-    }
-
-    // Calculate processing time
-    const processingTime = Date.now() - startTime;
-
-    // Log success
-    webhookLogData.status = WebhookStatus.SUCCESS;
-    webhookLogData.statusCode = 200;
-    webhookLogData.clinicId = clinic.id;
-    webhookLogData.responseData = {
-      shippingUpdateId: shippingUpdate.id,
-      patientId: patient.id,
-      orderId: order?.id,
-      trackingNumber: data.trackingNumber,
-      status: shippingStatus,
-    };
-    webhookLogData.processingTimeMs = processingTime;
-
-    await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
-      logger.warn('[EONMEDS SHIPPING] Failed to persist webhook log', {
-        error: err instanceof Error ? err.message : String(err),
-      });
-    });
-
-    logger.info(`[EONMEDS SHIPPING] Processing completed in ${processingTime}ms`);
-    logger.info('='.repeat(60));
-
-    // Decrypt patient PHI for response (no PHI in logs)
-    const decryptedFirstName = safeDecrypt(patient.firstName) || 'Patient';
-    const decryptedLastName = safeDecrypt(patient.lastName) || '';
-    const patientDisplayName = `${decryptedFirstName} ${decryptedLastName}`.trim();
-
-    return NextResponse.json({
-      success: true,
-      requestId,
-      message: existingUpdate ? 'Shipping update updated' : 'Shipping update created',
-      shippingUpdate: {
-        id: shippingUpdate.id,
-        trackingNumber: shippingUpdate.trackingNumber,
-        carrier: shippingUpdate.carrier,
-        status: shippingUpdate.status,
-        trackingUrl: shippingUpdate.trackingUrl,
-      },
-      patient: {
-        id: patient.id,
-        patientId: patient.patientId,
-        name: patientDisplayName,
-      },
-      order: order
-        ? {
-            id: order.id,
-            lifefileOrderId: order.lifefileOrderId,
-          }
-        : null,
-      processingTime: `${processingTime}ms`,
-    });
-
     }); // end runWithClinicContext
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';

@@ -10,14 +10,16 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 const exitIntentTranslations = {
   en: {
     title: "Wait! Don't miss out",
-    subtitle: 'Your personalized treatment plan is ready. Complete your order now and start your transformation.',
+    subtitle:
+      'Your personalized treatment plan is ready. Complete your order now and start your transformation.',
     cta: 'Complete My Order',
     dismiss: 'No thanks',
     urgency: 'Your selections are saved for the next 15 minutes',
   },
   es: {
     title: '¡Espera! No te lo pierdas',
-    subtitle: 'Tu plan de tratamiento personalizado está listo. Completa tu pedido ahora y comienza tu transformación.',
+    subtitle:
+      'Tu plan de tratamiento personalizado está listo. Completa tu pedido ahora y comienza tu transformación.',
     cta: 'Completar Mi Pedido',
     dismiss: 'No, gracias',
     urgency: 'Tus selecciones están guardadas por los próximos 15 minutos',
@@ -78,14 +80,20 @@ export function ExitIntentPopup({
   if (!visible) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="relative w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl animate-in fade-in zoom-in duration-300">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+      <div className="animate-in fade-in zoom-in relative w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl duration-300">
         <button
           onClick={() => setVisible(false)}
-          className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 transition"
+          className="absolute right-4 top-4 text-gray-400 transition hover:text-gray-600"
           aria-label="Close"
         >
-          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+          <svg
+            className="h-5 w-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            strokeWidth={2}
+          >
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
@@ -95,8 +103,19 @@ export function ExitIntentPopup({
             className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full"
             style={{ backgroundColor: `${primaryColor}15` }}
           >
-            <svg className="h-8 w-8" style={{ color: primaryColor }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+            <svg
+              className="h-8 w-8"
+              style={{ color: primaryColor }}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
+              />
             </svg>
           </div>
 
@@ -121,8 +140,18 @@ export function ExitIntentPopup({
           </button>
 
           <div className="mt-4 flex items-center justify-center gap-1.5 text-xs text-gray-400">
-            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <svg
+              className="h-3.5 w-3.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
             <span>{t.urgency}</span>
           </div>
@@ -165,7 +194,9 @@ const socialProofTranslations = {
 };
 
 export function SocialProofToast({ language }: { language: 'en' | 'es' }) {
-  const [current, setCurrent] = useState<{ name: string; city: string; minutes: number } | null>(null);
+  const [current, setCurrent] = useState<{ name: string; city: string; minutes: number } | null>(
+    null
+  );
   const [visible, setVisible] = useState(false);
   const indexRef = useRef(0);
   const t = socialProofTranslations[language];
@@ -197,7 +228,7 @@ export function SocialProofToast({ language }: { language: 'en' | 'es' }) {
   return (
     <div
       className={`fixed bottom-4 left-4 z-50 max-w-xs rounded-xl border border-gray-100 bg-white p-3.5 shadow-lg transition-all duration-500 ${
-        visible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0 pointer-events-none'
+        visible ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-4 opacity-0'
       }`}
     >
       <div className="flex items-start gap-3">
@@ -215,7 +246,11 @@ export function SocialProofToast({ language }: { language: 'en' | 'es' }) {
             </span>
             <span className="flex items-center gap-0.5 text-[10px] text-green-600">
               <svg className="h-2.5 w-2.5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                <path
+                  fillRule="evenodd"
+                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                  clipRule="evenodd"
+                />
               </svg>
               {t.verified}
             </span>
@@ -247,24 +282,54 @@ const trustTranslations = {
 
 function ShieldIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={1.5}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"
+      />
     </svg>
   );
 }
 
 function LockIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={1.5}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
+      />
     </svg>
   );
 }
 
 function StethoscopeIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={1.5}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"
+      />
     </svg>
   );
 }
@@ -343,7 +408,7 @@ export function StickyOrderBar({
   if (!visible || !isScrolled) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white/95 backdrop-blur-md px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.08)] sm:hidden">
+    <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white/95 px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.08)] backdrop-blur-md sm:hidden">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-xs text-gray-500">Total</p>
@@ -424,15 +489,25 @@ export function CountdownTimer({
   const isLow = remaining < 120;
 
   if (remaining <= 0) {
-    return (
-      <p className="mt-1 text-xs text-red-500 font-medium">{t.expired}</p>
-    );
+    return <p className="mt-1 text-xs font-medium text-red-500">{t.expired}</p>;
   }
 
   return (
-    <div className={`mt-1.5 flex items-center gap-1.5 text-xs font-medium ${isLow ? 'text-red-500' : 'text-orange-500'}`}>
-      <svg className="h-3.5 w-3.5 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+    <div
+      className={`mt-1.5 flex items-center gap-1.5 text-xs font-medium ${isLow ? 'text-red-500' : 'text-orange-500'}`}
+    >
+      <svg
+        className="h-3.5 w-3.5 animate-pulse"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+        strokeWidth={2}
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+        />
       </svg>
       <span>
         {t.expires} {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
@@ -462,7 +537,9 @@ export type CheckoutAutoSaveData = {
 export function saveCheckoutState(data: Omit<CheckoutAutoSaveData, 'savedAt'>) {
   try {
     localStorage.setItem(CHECKOUT_AUTOSAVE_KEY, JSON.stringify({ ...data, savedAt: Date.now() }));
-  } catch { /* quota exceeded — ignore */ }
+  } catch {
+    /* quota exceeded — ignore */
+  }
 }
 
 export function loadCheckoutState(): CheckoutAutoSaveData | null {
@@ -482,7 +559,11 @@ export function loadCheckoutState(): CheckoutAutoSaveData | null {
 }
 
 export function clearCheckoutState() {
-  try { localStorage.removeItem(CHECKOUT_AUTOSAVE_KEY); } catch { /* noop */ }
+  try {
+    localStorage.removeItem(CHECKOUT_AUTOSAVE_KEY);
+  } catch {
+    /* noop */
+  }
 }
 
 const resumeTranslations = {
@@ -514,11 +595,21 @@ export function ResumeModal({
   const t = resumeTranslations[language];
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
       <div className="w-full max-w-sm rounded-2xl bg-white p-7 shadow-2xl">
         <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-blue-50">
-          <svg className="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" />
+          <svg
+            className="h-6 w-6 text-blue-500"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182"
+            />
           </svg>
         </div>
         <h3 className="mb-1 text-lg font-bold text-gray-900">{t.title}</h3>
@@ -556,7 +647,8 @@ const referralTranslations = {
   },
   es: {
     title: 'Comparte y Ahorra',
-    subtitle: 'Dale a tus amigos $25 de descuento en su primer pedido. Comparte tu código de referido:',
+    subtitle:
+      'Dale a tus amigos $25 de descuento en su primer pedido. Comparte tu código de referido:',
     copied: '¡Copiado!',
     copy: 'Copiar Código',
     share: 'Compartir Enlace',
@@ -589,19 +681,26 @@ export function ReferralCodeCard({
       await navigator.clipboard.writeText(code);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch { /* fallback for older browsers */ }
+    } catch {
+      /* fallback for older browsers */
+    }
   }, [code]);
 
   const handleShare = useCallback(async () => {
     const shareData = {
       title: 'EONMeds Weight Loss',
-      text: language === 'en'
-        ? `Use my code ${code} to get $25 off your first order at EONMeds!`
-        : `¡Usa mi código ${code} para obtener $25 de descuento en tu primer pedido en EONMeds!`,
+      text:
+        language === 'en'
+          ? `Use my code ${code} to get $25 off your first order at EONMeds!`
+          : `¡Usa mi código ${code} para obtener $25 de descuento en tu primer pedido en EONMeds!`,
       url: `https://eonmeds.eonpro.io/intake?ref=${code}`,
     };
     if (navigator.share) {
-      try { await navigator.share(shareData); } catch { /* user cancelled */ }
+      try {
+        await navigator.share(shareData);
+      } catch {
+        /* user cancelled */
+      }
     } else {
       handleCopy();
     }
@@ -610,15 +709,31 @@ export function ReferralCodeCard({
   return (
     <div className="mt-8 rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center">
       <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-amber-100">
-        <svg className="h-5 w-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M21 11.25v8.25a1.5 1.5 0 01-1.5 1.5H5.25a1.5 1.5 0 01-1.5-1.5v-8.25M12 4.875A2.625 2.625 0 109.375 7.5H12m0-2.625V7.5m0-2.625A2.625 2.625 0 1114.625 7.5H12m0 0V21m-8.625-9.75h18c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125h-18c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+        <svg
+          className="h-5 w-5 text-amber-600"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M21 11.25v8.25a1.5 1.5 0 01-1.5 1.5H5.25a1.5 1.5 0 01-1.5-1.5v-8.25M12 4.875A2.625 2.625 0 109.375 7.5H12m0-2.625V7.5m0-2.625A2.625 2.625 0 1114.625 7.5H12m0 0V21m-8.625-9.75h18c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125h-18c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"
+          />
         </svg>
       </div>
       <h3 className="mb-1 text-base font-bold text-gray-900">{t.title}</h3>
       <p className="mb-4 text-xs text-gray-500">{t.subtitle}</p>
 
-      <div className="mb-4 inline-flex items-center gap-2 rounded-lg border-2 border-dashed px-5 py-2.5" style={{ borderColor: primaryColor }}>
-        <span className="text-xl font-mono font-bold tracking-wider" style={{ color: primaryColor }}>
+      <div
+        className="mb-4 inline-flex items-center gap-2 rounded-lg border-2 border-dashed px-5 py-2.5"
+        style={{ borderColor: primaryColor }}
+      >
+        <span
+          className="font-mono text-xl font-bold tracking-wider"
+          style={{ color: primaryColor }}
+        >
           {code}
         </span>
       </div>
@@ -670,11 +785,13 @@ export async function lookupZipCode(zip: string): Promise<{ city: string; state:
 const smsTranslations = {
   en: {
     label: 'Text me order updates & health tips',
-    disclosure: 'By checking this box, you agree to receive SMS messages from EONMeds. Message & data rates may apply. Reply STOP to unsubscribe.',
+    disclosure:
+      'By checking this box, you agree to receive SMS messages from EONMeds. Message & data rates may apply. Reply STOP to unsubscribe.',
   },
   es: {
     label: 'Envíame actualizaciones por mensaje de texto',
-    disclosure: 'Al marcar esta casilla, aceptas recibir mensajes SMS de EONMeds. Pueden aplicarse tarifas de mensajes y datos. Responde STOP para cancelar.',
+    disclosure:
+      'Al marcar esta casilla, aceptas recibir mensajes SMS de EONMeds. Pueden aplicarse tarifas de mensajes y datos. Responde STOP para cancelar.',
   },
 };
 

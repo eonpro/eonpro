@@ -286,7 +286,9 @@ export default function SuperAdminPharmacyStaffPage() {
             <form onSubmit={handleCreate} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">First Name *</label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    First Name *
+                  </label>
                   <input
                     required
                     type="text"
@@ -296,7 +298,9 @@ export default function SuperAdminPharmacyStaffPage() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Last Name *</label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    Last Name *
+                  </label>
                   <input
                     required
                     type="text"
@@ -351,7 +355,9 @@ export default function SuperAdminPharmacyStaffPage() {
                             : 'border-gray-300'
                         }`}
                       >
-                        {form.clinicIds.includes(clinic.id) && <Check className="h-3 w-3 text-white" />}
+                        {form.clinicIds.includes(clinic.id) && (
+                          <Check className="h-3 w-3 text-white" />
+                        )}
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium text-gray-900">{clinic.name}</p>

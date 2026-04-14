@@ -46,7 +46,7 @@ export default function PlatformPageLayout({
           }
         });
       },
-      { threshold: 0.1 },
+      { threshold: 0.1 }
     );
     els.forEach((e) => e.el && obs.observe(e.el));
     return () => obs.disconnect();
@@ -117,21 +117,21 @@ export default function PlatformPageLayout({
               </p>
 
               <div
-                className={`mt-8 flex flex-col gap-3 sm:flex-row transition-all duration-700 ${
+                className={`mt-8 flex flex-col gap-3 transition-all duration-700 sm:flex-row ${
                   heroVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
                 }`}
                 style={{ transitionDelay: '350ms' }}
               >
                 <a
                   href="/request-demo"
-                  className="inline-flex items-center justify-center gap-2 rounded-full bg-[#4fa77e] px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-[#4fa77e]/25 transition-all hover:bg-[#429b6f] hover:shadow-xl hover:-translate-y-0.5"
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-[#4fa77e] px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-[#4fa77e]/25 transition-all hover:-translate-y-0.5 hover:bg-[#429b6f] hover:shadow-xl"
                 >
                   Request a Demo
                   <ArrowRight className="h-4 w-4" />
                 </a>
                 <a
                   href="/#features"
-                  className="inline-flex items-center justify-center rounded-full border border-[#1f2933]/15 bg-white/60 px-8 py-3.5 text-base font-semibold text-[#1f2933] backdrop-blur-sm transition-all hover:bg-white hover:shadow-md hover:-translate-y-0.5"
+                  className="inline-flex items-center justify-center rounded-full border border-[#1f2933]/15 bg-white/60 px-8 py-3.5 text-base font-semibold text-[#1f2933] backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-md"
                 >
                   View All Products
                 </a>
@@ -150,7 +150,8 @@ export default function PlatformPageLayout({
                   <div
                     className="h-full w-full rounded-2xl"
                     style={{
-                      backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)',
+                      backgroundImage:
+                        'radial-gradient(circle at 2px 2px, white 1px, transparent 0)',
                       backgroundSize: '24px 24px',
                     }}
                   />
@@ -166,9 +167,7 @@ export default function PlatformPageLayout({
       <section className="bg-white py-16 sm:py-20">
         <div className="mx-auto max-w-7xl px-6">
           <div className="mx-auto max-w-3xl text-center">
-            <h2 className="text-2xl font-bold text-[#1f2933] sm:text-3xl">
-              Key Capabilities
-            </h2>
+            <h2 className="text-2xl font-bold text-[#1f2933] sm:text-3xl">Key Capabilities</h2>
           </div>
           <div className="mx-auto mt-10 grid max-w-4xl gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {capabilities.map((cap) => (
@@ -198,16 +197,20 @@ export default function PlatformPageLayout({
             {features.map((feature, i) => (
               <div
                 key={feature.title}
-                className={`group rounded-2xl border border-gray-100 bg-white p-8 transition-all duration-500 hover:border-[#4fa77e]/20 hover:-translate-y-1 hover:shadow-lg hover:shadow-[#4fa77e]/5 ${
+                className={`group rounded-2xl border border-gray-100 bg-white p-8 transition-all duration-500 hover:-translate-y-1 hover:border-[#4fa77e]/20 hover:shadow-lg hover:shadow-[#4fa77e]/5 ${
                   featVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
                 }`}
                 style={{ transitionDelay: `${i * 100}ms` }}
               >
-                <div className={`mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${gradient} text-white transition-transform group-hover:scale-110`}>
+                <div
+                  className={`mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${gradient} text-white transition-transform group-hover:scale-110`}
+                >
                   <Icon className="h-5 w-5" />
                 </div>
                 <h3 className="text-lg font-semibold text-[#1f2933]">{feature.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-[#1f2933]/55">{feature.description}</p>
+                <p className="mt-2 text-sm leading-relaxed text-[#1f2933]/55">
+                  {feature.description}
+                </p>
               </div>
             ))}
           </div>

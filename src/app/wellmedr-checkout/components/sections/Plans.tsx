@@ -23,10 +23,10 @@ const Plans = () => {
   };
 
   return (
-    <section className="flex flex-col gap-6 sm:gap-8 w-full">
+    <section className="flex w-full flex-col gap-6 sm:gap-8">
       <PlansHeader />
 
-      <div className="flex flex-col gap-4 w-full">
+      <div className="flex w-full flex-col gap-4">
         {plans.map((plan: Plan) => (
           <PlanCard
             key={plan.id}

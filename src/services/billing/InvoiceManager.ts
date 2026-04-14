@@ -204,7 +204,10 @@ export class InvoiceManager {
   private async resolveStripe(): Promise<ResolvedStripe | null> {
     if (this._stripeResolved) {
       if (!this._stripeContext) return null;
-      return { client: this._stripeContext.stripe, opts: stripeRequestOptions(this._stripeContext) };
+      return {
+        client: this._stripeContext.stripe,
+        opts: stripeRequestOptions(this._stripeContext),
+      };
     }
     this._stripeResolved = true;
 
@@ -231,7 +234,7 @@ export class InvoiceManager {
    */
   private async getOrCreateCustomerForContext(
     patientId: number,
-    stripe: ResolvedStripe,
+    stripe: ResolvedStripe
   ): Promise<Stripe.Customer> {
     if (stripe.opts) {
       const patient = await prisma.patient.findUnique({ where: { id: patientId } });
@@ -239,8 +242,13 @@ export class InvoiceManager {
 
       let decrypted: Record<string, unknown> = patient as Record<string, unknown>;
       try {
-        decrypted = decryptPatientPHI(patient as Record<string, unknown>, DEFAULT_PHI_FIELDS as unknown as string[]);
-      } catch { /* use raw values */ }
+        decrypted = decryptPatientPHI(
+          patient as Record<string, unknown>,
+          DEFAULT_PHI_FIELDS as unknown as string[]
+        );
+      } catch {
+        /* use raw values */
+      }
 
       const email = (decrypted.email as string) || '';
       const name = `${decrypted.firstName || ''} ${decrypted.lastName || ''}`.trim();
@@ -251,8 +259,12 @@ export class InvoiceManager {
       }
 
       return stripe.client.customers.create(
-        { email: email || undefined, name: name || undefined, metadata: { patientId: patientId.toString() } },
-        stripe.opts,
+        {
+          email: email || undefined,
+          name: name || undefined,
+          metadata: { patientId: patientId.toString() },
+        },
+        stripe.opts
       );
     }
 
@@ -275,7 +287,7 @@ export class InvoiceManager {
     const { items: dedupedItems } = await deduplicateShipping(
       options.lineItems as any,
       options.patientId,
-      options.clinicId ?? this.clinicId,
+      options.clinicId ?? this.clinicId
     );
     options = { ...options, lineItems: dedupedItems as unknown as LineItem[] };
 
@@ -316,55 +328,72 @@ export class InvoiceManager {
       try {
         const customer = await this.getOrCreateCustomerForContext(options.patientId, stripe);
 
-        stripeInvoice = await stripe.client.invoices.create({
-          customer: customer.id,
-          description: options.description,
-          collection_method: options.collectionMethod || STRIPE_CONFIG.collectionMethod,
-          days_until_due: options.dueInDays || STRIPE_CONFIG.invoiceDueDays,
-          auto_advance: false,
-          footer: options.footer,
-          custom_fields: options.customFields
-            ? Object.entries(options.customFields)
-                .slice(0, 4)
-                .map(([name, value]) => ({ name, value }))
-            : undefined,
-          metadata: {
-            patientId: options.patientId.toString(),
-            clinicId: (invoiceClinicId ?? '').toString(),
-            orderId: options.orderId?.toString() || '',
-            invoiceNumber,
-            ...options.metadata,
+        stripeInvoice = await stripe.client.invoices.create(
+          {
+            customer: customer.id,
+            description: options.description,
+            collection_method: options.collectionMethod || STRIPE_CONFIG.collectionMethod,
+            days_until_due: options.dueInDays || STRIPE_CONFIG.invoiceDueDays,
+            auto_advance: false,
+            footer: options.footer,
+            custom_fields: options.customFields
+              ? Object.entries(options.customFields)
+                  .slice(0, 4)
+                  .map(([name, value]) => ({ name, value }))
+              : undefined,
+            metadata: {
+              patientId: options.patientId.toString(),
+              clinicId: (invoiceClinicId ?? '').toString(),
+              orderId: options.orderId?.toString() || '',
+              invoiceNumber,
+              ...options.metadata,
+            },
           },
-        }, stripe.opts);
+          stripe.opts
+        );
 
         for (const item of options.lineItems) {
           const itemTotal = this.calculateLineItemTotal(item);
-          await stripe.client.invoiceItems.create({
-            customer: customer.id,
-            invoice: stripeInvoice.id,
-            description:
-              item.quantity > 1 ? `${item.description} (x${item.quantity})` : item.description,
-            amount: itemTotal,
-            currency: STRIPE_CONFIG.currency,
-            metadata: item.metadata,
-          }, stripe.opts);
+          await stripe.client.invoiceItems.create(
+            {
+              customer: customer.id,
+              invoice: stripeInvoice.id,
+              description:
+                item.quantity > 1 ? `${item.description} (x${item.quantity})` : item.description,
+              amount: itemTotal,
+              currency: STRIPE_CONFIG.currency,
+              metadata: item.metadata,
+            },
+            stripe.opts
+          );
         }
 
         if (options.discount && options.discount.value > 0) {
-          const coupon = await stripe.client.coupons.create({
-            ...(options.discount.type === 'percentage'
-              ? { percent_off: options.discount.value }
-              : { amount_off: options.discount.value, currency: STRIPE_CONFIG.currency }),
-            duration: 'once',
-            name: options.discount.description || 'Invoice Discount',
-          }, stripe.opts);
+          const coupon = await stripe.client.coupons.create(
+            {
+              ...(options.discount.type === 'percentage'
+                ? { percent_off: options.discount.value }
+                : { amount_off: options.discount.value, currency: STRIPE_CONFIG.currency }),
+              duration: 'once',
+              name: options.discount.description || 'Invoice Discount',
+            },
+            stripe.opts
+          );
 
-          await stripe.client.invoices.update(stripeInvoice.id, {
-            discounts: [{ coupon: coupon.id }],
-          }, stripe.opts);
+          await stripe.client.invoices.update(
+            stripeInvoice.id,
+            {
+              discounts: [{ coupon: coupon.id }],
+            },
+            stripe.opts
+          );
         }
 
-        const finalizedInvoice = await stripe.client.invoices.finalizeInvoice(stripeInvoice.id, {}, stripe.opts);
+        const finalizedInvoice = await stripe.client.invoices.finalizeInvoice(
+          stripeInvoice.id,
+          {},
+          stripe.opts
+        );
 
         stripeInvoiceId = finalizedInvoice.id;
         stripeInvoiceUrl = finalizedInvoice.hosted_invoice_url || undefined;
@@ -465,7 +494,8 @@ export class InvoiceManager {
       where: { id: options.patientId },
       select: { clinicId: true },
     });
-    const draftClinicId = patientForDraft?.clinicId ?? options.clinicId ?? this.clinicId ?? undefined;
+    const draftClinicId =
+      patientForDraft?.clinicId ?? options.clinicId ?? this.clinicId ?? undefined;
 
     const dbInvoice = await prisma.invoice.create({
       data: {
@@ -700,7 +730,11 @@ export class InvoiceManager {
         await stripe.client.invoices.sendInvoice(invoice.stripeInvoiceId, {}, stripe.opts);
         delivery.push({ method: 'stripe_email', success: true });
       } catch (stripeError: unknown) {
-        delivery.push({ method: 'stripe_email', success: false, error: stripeError instanceof Error ? stripeError.message : String(stripeError) });
+        delivery.push({
+          method: 'stripe_email',
+          success: false,
+          error: stripeError instanceof Error ? stripeError.message : String(stripeError),
+        });
       }
     }
 
@@ -716,7 +750,11 @@ export class InvoiceManager {
           });
           delivery.push({ method: 'email', success: true });
         } catch (emailError: unknown) {
-          delivery.push({ method: 'email', success: false, error: emailError instanceof Error ? emailError.message : String(emailError) });
+          delivery.push({
+            method: 'email',
+            success: false,
+            error: emailError instanceof Error ? emailError.message : String(emailError),
+          });
         }
       }
     }
@@ -735,7 +773,11 @@ export class InvoiceManager {
           });
           delivery.push({ method: 'sms', success: true });
         } catch (smsError: unknown) {
-          delivery.push({ method: 'sms', success: false, error: smsError instanceof Error ? smsError.message : String(smsError) });
+          delivery.push({
+            method: 'sms',
+            success: false,
+            error: smsError instanceof Error ? smsError.message : String(smsError),
+          });
         }
       }
     }
@@ -779,7 +821,9 @@ export class InvoiceManager {
       try {
         await stripe.client.invoices.voidInvoice(invoice.stripeInvoiceId, {}, stripe.opts);
       } catch (stripeError: unknown) {
-        logger.warn('Stripe void failed', { error: stripeError instanceof Error ? stripeError.message : String(stripeError) });
+        logger.warn('Stripe void failed', {
+          error: stripeError instanceof Error ? stripeError.message : String(stripeError),
+        });
       }
     }
 
@@ -815,7 +859,9 @@ export class InvoiceManager {
       try {
         await stripe.client.invoices.voidInvoice(invoice.stripeInvoiceId, {}, stripe.opts);
       } catch (stripeError: unknown) {
-        logger.warn('Stripe void failed during cancel', { error: stripeError instanceof Error ? stripeError.message : String(stripeError) });
+        logger.warn('Stripe void failed during cancel', {
+          error: stripeError instanceof Error ? stripeError.message : String(stripeError),
+        });
       }
     }
 
@@ -851,7 +897,9 @@ export class InvoiceManager {
       try {
         await stripe.client.invoices.markUncollectible(invoice.stripeInvoiceId, {}, stripe.opts);
       } catch (stripeError: unknown) {
-        logger.warn('Stripe mark uncollectible failed', { error: stripeError instanceof Error ? stripeError.message : String(stripeError) });
+        logger.warn('Stripe mark uncollectible failed', {
+          error: stripeError instanceof Error ? stripeError.message : String(stripeError),
+        });
       }
     }
 
@@ -956,9 +1004,8 @@ export class InvoiceManager {
 
     // Process affiliate commission (non-blocking)
     try {
-      const { processPaymentForCommission } = await import(
-        '@/services/affiliate/affiliateCommissionService'
-      );
+      const { processPaymentForCommission } =
+        await import('@/services/affiliate/affiliateCommissionService');
 
       // Determine if this is the patient's first succeeded payment
       const priorPaymentCount = await prisma.payment.count({
@@ -1167,13 +1214,21 @@ export class InvoiceManager {
       const stripePayment = invoice.payments.find((p) => p.stripePaymentIntentId);
       if (stripePayment?.stripePaymentIntentId) {
         try {
-          await stripe.client.refunds.create({
-            payment_intent: stripePayment.stripePaymentIntentId,
-            amount: refundAmount,
-            reason: 'requested_by_customer',
-          }, stripe.opts);
+          await stripe.client.refunds.create(
+            {
+              payment_intent: stripePayment.stripePaymentIntentId,
+              amount: refundAmount,
+              reason: 'requested_by_customer',
+            },
+            stripe.opts
+          );
         } catch (stripeError: unknown) {
-          const errMsg = stripeError instanceof Error ? stripeError instanceof Error ? stripeError.message : String(stripeError) : 'Unknown error';
+          const errMsg =
+            stripeError instanceof Error
+              ? stripeError instanceof Error
+                ? stripeError.message
+                : String(stripeError)
+              : 'Unknown error';
           logger.error('Stripe refund failed', { error: errMsg });
           throw new Error(`Stripe refund failed: ${errMsg}`);
         }

@@ -20,11 +20,7 @@ import { logger } from '@/lib/logger';
 import { getStripeForClinic, type StripeContext } from '@/lib/stripe/connect';
 import { StripeCustomerService } from '@/services/stripe/customerService';
 import type Stripe from 'stripe';
-import type {
-  Subscription,
-  SubscriptionActionType,
-  RefillStatus,
-} from '@prisma/client';
+import type { Subscription, SubscriptionActionType, RefillStatus } from '@prisma/client';
 
 // ============================================================================
 // Types
@@ -82,7 +78,10 @@ const REFILL_ACTIVE_STATUSES: RefillStatus[] = [
   'PENDING_PROVIDER',
 ];
 
-function mapIntervalToStripe(interval: string, intervalCount: number): { interval: 'day' | 'week' | 'month' | 'year'; interval_count: number } {
+function mapIntervalToStripe(
+  interval: string,
+  intervalCount: number
+): { interval: 'day' | 'week' | 'month' | 'year'; interval_count: number } {
   switch (interval) {
     case 'year':
       return { interval: 'year', interval_count: 1 };
@@ -144,9 +143,7 @@ async function logSubscriptionAction(
   });
 }
 
-async function getStripeContextForSubscription(
-  clinicId: number
-): Promise<StripeContext> {
+async function getStripeContextForSubscription(clinicId: number): Promise<StripeContext> {
   return getStripeForClinic(clinicId);
 }
 
@@ -217,7 +214,7 @@ export async function createSubscription(
     const customer = await StripeCustomerService.getOrCreateCustomerForContext(
       patientId,
       stripe,
-      connectOpts,
+      connectOpts
     );
     const stripeInterval = mapIntervalToStripe(interval, intervalCount);
 
@@ -241,9 +238,7 @@ export async function createSubscription(
         localSubscriptionId: String(subscription.id),
         ...metadata,
       },
-      ...(stripePaymentMethodId
-        ? { default_payment_method: stripePaymentMethodId }
-        : {}),
+      ...(stripePaymentMethodId ? { default_payment_method: stripePaymentMethodId } : {}),
     };
 
     const requestOptions: Stripe.RequestOptions = stripeAccountId
@@ -288,9 +283,8 @@ export async function createSubscription(
 
   // 5. Schedule first refill → straight to provider queue
   try {
-    const { triggerRefillForSubscriptionPayment } = await import(
-      '@/services/refill/refillQueueService'
-    );
+    const { triggerRefillForSubscriptionPayment } =
+      await import('@/services/refill/refillQueueService');
     await triggerRefillForSubscriptionPayment(subscription.id);
   } catch (err) {
     logger.error('[SubscriptionLifecycle] Failed to schedule initial refill', {
@@ -487,9 +481,8 @@ export async function resumeSubscription(
 
   // 4. Schedule a new refill
   try {
-    const { triggerRefillForSubscriptionPayment } = await import(
-      '@/services/refill/refillQueueService'
-    );
+    const { triggerRefillForSubscriptionPayment } =
+      await import('@/services/refill/refillQueueService');
     await triggerRefillForSubscriptionPayment(subscriptionId);
   } catch (err) {
     logger.error('[SubscriptionLifecycle] Failed to schedule refill on resume', {
@@ -544,11 +537,7 @@ export async function cancelSubscription(
           requestOptions
         );
       } else {
-        await stripe.subscriptions.cancel(
-          subscription.stripeSubscriptionId,
-          {},
-          requestOptions
-        );
+        await stripe.subscriptions.cancel(subscription.stripeSubscriptionId, {}, requestOptions);
       }
 
       logger.info('[SubscriptionLifecycle] Canceled Stripe subscription', {
@@ -576,7 +565,7 @@ export async function cancelSubscription(
       endedAt: cancelAtPeriodEnd ? undefined : now,
       nextBillingDate: cancelAtPeriodEnd ? subscription.nextBillingDate : null,
       metadata: {
-        ...(subscription.metadata as object || {}),
+        ...((subscription.metadata as object) || {}),
         cancelAtPeriodEnd,
         cancellationReason: reason,
       },
@@ -665,7 +654,11 @@ export async function getActiveSubscriptionForPatient(patientId: number) {
     include: {
       actions: { orderBy: { createdAt: 'desc' }, take: 5 },
       refillQueue: {
-        where: { status: { in: ['SCHEDULED', 'PENDING_PAYMENT', 'PENDING_ADMIN', 'APPROVED', 'PENDING_PROVIDER'] } },
+        where: {
+          status: {
+            in: ['SCHEDULED', 'PENDING_PAYMENT', 'PENDING_ADMIN', 'APPROVED', 'PENDING_PROVIDER'],
+          },
+        },
         orderBy: { nextRefillDate: 'asc' },
         take: 1,
       },

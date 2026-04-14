@@ -61,17 +61,17 @@ import type { LucideIcon } from 'lucide-react';
 
 const OfflineBanner = nextDynamic(
   () => import('@/components/PWAUpdateBanner').then((mod) => mod.OfflineBanner),
-  { ssr: false },
+  { ssr: false }
 );
 
 const PWAUpdateBanner = nextDynamic(
   () => import('@/components/PWAUpdateBanner').then((mod) => mod.PWAUpdateBanner),
-  { ssr: false },
+  { ssr: false }
 );
 
 const InstallPrompt = nextDynamic(
   () => import('@/components/PWAUpdateBanner').then((mod) => mod.InstallPrompt),
-  { ssr: false },
+  { ssr: false }
 );
 
 // Icon mapping for nav (registry holds data; icons stay here for tree-shaking)
@@ -112,8 +112,16 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const [userData, setUserData] = useState<{ id?: number; role?: string; patientId?: number; firstName?: string; lastName?: string } | null>(null);
-  const [displayName, setDisplayName] = useState<{ firstName: string; lastName: string } | null>(null);
+  const [userData, setUserData] = useState<{
+    id?: number;
+    role?: string;
+    patientId?: number;
+    firstName?: string;
+    lastName?: string;
+  } | null>(null);
+  const [displayName, setDisplayName] = useState<{ firstName: string; lastName: string } | null>(
+    null
+  );
   const [loading, setLoading] = useState(() => {
     if (!isBrowser) return true;
     const user = localStorage.getItem('user');
@@ -123,7 +131,10 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
   });
   const [notifications, setNotifications] = useState(0);
   const [portalMode, setPortalMode] = useState<PortalMode>('patient');
-  const [profileCompletionBanner, setProfileCompletionBanner] = useState<{ show: boolean; missingFields: string[] }>({ show: false, missingFields: [] });
+  const [profileCompletionBanner, setProfileCompletionBanner] = useState<{
+    show: boolean;
+    missingFields: string[];
+  }>({ show: false, missingFields: [] });
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
@@ -133,42 +144,53 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
     [features, branding?.primaryTreatment]
   );
   const activeModules = portalMode === 'lead' ? LEAD_NAV_MODULES : NAV_MODULES;
-  const activeLabelOverrides = portalMode === 'lead' ? LEAD_MOBILE_LABEL_OVERRIDE : MOBILE_LABEL_OVERRIDE;
+  const activeLabelOverrides =
+    portalMode === 'lead' ? LEAD_MOBILE_LABEL_OVERRIDE : MOBILE_LABEL_OVERRIDE;
 
-  const mainNavItems = useMemo(() => (portalMode === 'lead'
-    ? [...activeModules]
-    : activeModules.filter(
-        (m) => (m.navSlot === 'main' || m.navSlot === 'both') && enabledNavIds.includes(m.id)
+  const mainNavItems = useMemo(
+    () =>
+      (portalMode === 'lead'
+        ? [...activeModules]
+        : activeModules.filter(
+            (m) => (m.navSlot === 'main' || m.navSlot === 'both') && enabledNavIds.includes(m.id)
+          )
       )
-  )
-    .filter((m) => m.navSlot === 'main' || m.navSlot === 'both')
-    .map((m) => ({
-      icon: NAV_ICON_MAP[m.id] ?? Settings,
-      path: `${PATIENT_PORTAL_PATH}${m.pathSuffix}`,
-      labelKey: m.labelKey,
-      exact: m.exact ?? false,
-    })), [portalMode, activeModules, enabledNavIds]);
+        .filter((m) => m.navSlot === 'main' || m.navSlot === 'both')
+        .map((m) => ({
+          icon: NAV_ICON_MAP[m.id] ?? Settings,
+          path: `${PATIENT_PORTAL_PATH}${m.pathSuffix}`,
+          labelKey: m.labelKey,
+          exact: m.exact ?? false,
+        })),
+    [portalMode, activeModules, enabledNavIds]
+  );
 
-  const mobileNavItems = useMemo(() => (portalMode === 'lead'
-    ? [...activeModules]
-    : activeModules.filter(
-        (m) => m.navSlot === 'both' && enabledNavIds.includes(m.id)
+  const mobileNavItems = useMemo(
+    () =>
+      (portalMode === 'lead'
+        ? [...activeModules]
+        : activeModules.filter((m) => m.navSlot === 'both' && enabledNavIds.includes(m.id))
       )
-  )
-    .filter((m) => m.navSlot === 'both')
-    .map((m) => ({
-      icon: m.id === 'settings' || m.id === 'lead-settings' ? User : (NAV_ICON_MAP[m.id] ?? Settings),
-      path: `${PATIENT_PORTAL_PATH}${m.pathSuffix}`,
-      labelKey: activeLabelOverrides[m.id] ?? m.labelKey,
-      exact: m.exact ?? false,
-    })), [portalMode, activeModules, activeLabelOverrides, enabledNavIds]);
+        .filter((m) => m.navSlot === 'both')
+        .map((m) => ({
+          icon:
+            m.id === 'settings' || m.id === 'lead-settings'
+              ? User
+              : (NAV_ICON_MAP[m.id] ?? Settings),
+          path: `${PATIENT_PORTAL_PATH}${m.pathSuffix}`,
+          labelKey: activeLabelOverrides[m.id] ?? m.labelKey,
+          exact: m.exact ?? false,
+        })),
+    [portalMode, activeModules, activeLabelOverrides, enabledNavIds]
+  );
 
   // Check if chat should be shown
   const showChat = features.showChat !== false;
 
   // Chat page is a full-bleed experience with its own header/input;
   // hide layout chrome so it doesn't overlap or trap the user.
-  const isChatPage = pathname === `${PATIENT_PORTAL_PATH}/chat` || pathname === '/patient-portal/chat';
+  const isChatPage =
+    pathname === `${PATIENT_PORTAL_PATH}/chat` || pathname === '/patient-portal/chat';
 
   useLayoutEffect(() => {
     const user = localStorage.getItem('user');
@@ -176,7 +198,9 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
 
     if (!user || !token) {
       setLoading(false);
-      router.push(`/patient-login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=no_session`);
+      router.push(
+        `/patient-login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=no_session`
+      );
       return;
     }
 
@@ -255,7 +279,9 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
         if (!cancelled && data?.avatarUrl) setAvatarUrl(data.avatarUrl);
       })
       .catch(() => {});
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [userData?.id]);
 
   // Listen for avatar changes from settings page (or any child component)
@@ -285,10 +311,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
           needsProfileCompletion?: boolean;
           missingFields?: string[];
         };
-        const mode = getPortalMode(
-          d.profileStatus ?? 'ACTIVE',
-          d.hasCompletedIntake ?? true,
-        );
+        const mode = getPortalMode(d.profileStatus ?? 'ACTIVE', d.hasCompletedIntake ?? true);
         setPortalMode(mode);
 
         if (d.needsProfileCompletion && d.missingFields && d.missingFields.length > 0) {
@@ -298,7 +321,9 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
       .catch(() => {
         // Default to patient mode on error
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [userData?.patientId]);
 
   // Route guard: redirect if user landed on a disabled module URL (e.g. bookmark)
@@ -354,16 +379,22 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
       : pathname;
   }, [pathname]);
 
-  const isActive = useCallback((path: string, exact?: boolean) => {
-    if (exact) return normalizedPathname === path;
-    return normalizedPathname === path || normalizedPathname.startsWith(path + '/');
-  }, [normalizedPathname]);
+  const isActive = useCallback(
+    (path: string, exact?: boolean) => {
+      if (exact) return normalizedPathname === path;
+      return normalizedPathname === path || normalizedPathname.startsWith(path + '/');
+    },
+    [normalizedPathname]
+  );
 
   const primaryColor = branding?.primaryColor || '#4fa77e';
   const accentColor = branding?.accentColor || '#d3f931';
 
   return (
-    <div className="flex min-h-[100dvh] overflow-x-hidden" style={{ backgroundColor: `${primaryColor}0A` }}>
+    <div
+      className="flex min-h-[100dvh] overflow-x-hidden"
+      style={{ backgroundColor: `${primaryColor}0A` }}
+    >
       {/* Desktop Sidebar - Hidden on mobile */}
       <aside
         className={`fixed bottom-0 left-0 top-0 z-50 hidden flex-col border-r border-gray-200 bg-white py-4 transition-all duration-300 lg:flex ${
@@ -391,7 +422,10 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
                   src={
                     sidebarExpanded
                       ? branding?.logoUrl || EONPRO_LOGO
-                      : branding?.iconUrl || branding?.faviconUrl || branding?.logoUrl || EONPRO_LOGO
+                      : branding?.iconUrl ||
+                        branding?.faviconUrl ||
+                        branding?.logoUrl ||
+                        EONPRO_LOGO
                   }
                   alt={branding?.clinicName || 'EONPRO'}
                   width={sidebarExpanded ? 140 : 40}
@@ -429,7 +463,9 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
                   >
                     <Icon className="h-5 w-5 flex-shrink-0" />
                     {sidebarExpanded && (
-                      <span className="whitespace-nowrap text-sm font-medium">{t(item.labelKey)}</span>
+                      <span className="whitespace-nowrap text-sm font-medium">
+                        {t(item.labelKey)}
+                      </span>
                     )}
                   </Link>
                 );
@@ -453,7 +489,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
                     <span className="min-w-0 truncate text-xs font-medium text-gray-700">
                       {displayName
                         ? `${displayName.firstName} ${displayName.lastName}`.trim() || 'Patient'
-                        : (userData.firstName || userData.lastName)
+                        : userData.firstName || userData.lastName
                           ? `${userData.firstName ?? ''} ${userData.lastName ?? ''}`.trim()
                           : 'Patient'}
                     </span>
@@ -477,7 +513,9 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Mobile Header - Optimized for iPhone notch (hidden on chat page) */}
-      <header className={`portal-header fixed left-0 right-0 top-0 z-50 bg-white lg:hidden ${!loading ? 'shadow-[0_1px_3px_rgba(0,0,0,0.05)]' : ''} ${!loading && isChatPage ? 'hidden' : ''}`}>
+      <header
+        className={`portal-header fixed left-0 right-0 top-0 z-50 bg-white lg:hidden ${!loading ? 'shadow-[0_1px_3px_rgba(0,0,0,0.05)]' : ''} ${!loading && isChatPage ? 'hidden' : ''}`}
+      >
         <div className="safe-top" />
         <div className="flex h-14 items-center justify-between px-4">
           {loading ? (
@@ -598,7 +636,9 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
       <main
         className={`min-w-0 flex-1 overflow-x-hidden transition-all duration-300 lg:ml-20 ${!loading && sidebarExpanded ? 'lg:ml-56' : ''}`}
       >
-        <div className={`min-h-[100dvh] w-full max-w-[100vw] min-w-0 overflow-x-hidden lg:max-w-none ${!loading && isChatPage ? 'pb-0 pt-0 lg:pb-0 lg:pt-0' : 'pb-24 pt-[calc(56px+env(safe-area-inset-top,0px))] lg:pb-0 lg:pt-0'}`}>
+        <div
+          className={`min-h-[100dvh] w-full min-w-0 max-w-[100vw] overflow-x-hidden lg:max-w-none ${!loading && isChatPage ? 'pb-0 pt-0 lg:pb-0 lg:pt-0' : 'pb-24 pt-[calc(56px+env(safe-area-inset-top,0px))] lg:pb-0 lg:pt-0'}`}
+        >
           {loading ? (
             <div className="animate-pulse p-4 lg:p-6">
               <div className="mb-6">
@@ -627,59 +667,61 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
                 ))}
               </div>
             </div>
-          ) : children}
+          ) : (
+            children
+          )}
         </div>
       </main>
 
       {/* Mobile Bottom Navigation - iPhone optimized (hidden on chat page which has its own header) */}
-      <nav className={`portal-bottom-nav fixed bottom-0 left-0 right-0 z-40 bg-white lg:hidden ${!loading && isChatPage ? 'hidden' : ''}`}>
+      <nav
+        className={`portal-bottom-nav fixed bottom-0 left-0 right-0 z-40 bg-white lg:hidden ${!loading && isChatPage ? 'hidden' : ''}`}
+      >
         <div className="border-t border-gray-200">
           <div className="mx-auto flex max-w-md justify-around gap-1 px-1">
-            {loading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="flex flex-1 flex-col items-center py-2">
-                  <div className="h-11 w-11 animate-pulse rounded-2xl bg-gray-100" />
-                  <div className="mt-0.5 h-2.5 w-8 animate-pulse rounded bg-gray-100" />
-                </div>
-              ))
-            ) : (
-              mobileNavItems.map((item) => {
-                const Icon = item.icon;
-                const active = isActive(item.path, item.exact);
-                return (
-                  <Link
-                    key={item.path}
-                    href={item.path}
-                    className="group relative flex min-w-0 flex-1 flex-col items-center py-2"
-                  >
-                    {active && (
+            {loading
+              ? Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="flex flex-1 flex-col items-center py-2">
+                    <div className="h-11 w-11 animate-pulse rounded-2xl bg-gray-100" />
+                    <div className="mt-0.5 h-2.5 w-8 animate-pulse rounded bg-gray-100" />
+                  </div>
+                ))
+              : mobileNavItems.map((item) => {
+                  const Icon = item.icon;
+                  const active = isActive(item.path, item.exact);
+                  return (
+                    <Link
+                      key={item.path}
+                      href={item.path}
+                      className="group relative flex min-w-0 flex-1 flex-col items-center py-2"
+                    >
+                      {active && (
+                        <div
+                          className="absolute -top-[1px] left-1/2 h-[3px] w-8 -translate-x-1/2 rounded-full"
+                          style={{ backgroundColor: primaryColor }}
+                        />
+                      )}
                       <div
-                        className="absolute -top-[1px] left-1/2 h-[3px] w-8 -translate-x-1/2 rounded-full"
-                        style={{ backgroundColor: primaryColor }}
-                      />
-                    )}
-                    <div
-                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition-colors ${
-                        active ? '' : 'group-active:bg-gray-100'
-                      }`}
-                      style={active ? { backgroundColor: `${primaryColor}15` } : {}}
-                    >
-                      <Icon
-                        className="h-6 w-6 transition-transform group-active:scale-90"
+                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition-colors ${
+                          active ? '' : 'group-active:bg-gray-100'
+                        }`}
+                        style={active ? { backgroundColor: `${primaryColor}15` } : {}}
+                      >
+                        <Icon
+                          className="h-6 w-6 transition-transform group-active:scale-90"
+                          style={{ color: active ? primaryColor : '#9ca3af' }}
+                          strokeWidth={active ? 2.5 : 2}
+                        />
+                      </div>
+                      <span
+                        className={`mt-0.5 min-w-0 max-w-full truncate px-0.5 text-center text-[10px] sm:text-[11px] ${active ? 'font-semibold' : 'font-medium'}`}
                         style={{ color: active ? primaryColor : '#9ca3af' }}
-                        strokeWidth={active ? 2.5 : 2}
-                      />
-                    </div>
-                    <span
-                      className={`mt-0.5 min-w-0 max-w-full truncate px-0.5 text-center text-[10px] sm:text-[11px] ${active ? 'font-semibold' : 'font-medium'}`}
-                      style={{ color: active ? primaryColor : '#9ca3af' }}
-                    >
-                      {t(item.labelKey)}
-                    </span>
-                  </Link>
-                );
-              })
-            )}
+                      >
+                        {t(item.labelKey)}
+                      </span>
+                    </Link>
+                  );
+                })}
           </div>
         </div>
         {/* Safe area for home indicator */}
@@ -692,13 +734,13 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
           <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-lg">
             <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600" />
             <div className="flex-1">
-              <p className="text-sm font-medium text-amber-900">
-                Please complete your profile
-              </p>
+              <p className="text-sm font-medium text-amber-900">Please complete your profile</p>
               <p className="mt-0.5 text-sm text-amber-700">
-                Your {profileCompletionBanner.missingFields.map(f =>
-                  f === 'dateOfBirth' ? 'date of birth' : f
-                ).join(' and ')} {profileCompletionBanner.missingFields.length === 1 ? 'is' : 'are'} missing.
+                Your{' '}
+                {profileCompletionBanner.missingFields
+                  .map((f) => (f === 'dateOfBirth' ? 'date of birth' : f))
+                  .join(' and ')}{' '}
+                {profileCompletionBanner.missingFields.length === 1 ? 'is' : 'are'} missing.
               </p>
               <Link
                 href={`${PATIENT_PORTAL_PATH}/settings`}

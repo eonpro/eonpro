@@ -95,7 +95,8 @@ function generateId(): string {
 }
 
 async function compressImage(file: File): Promise<{ blob: Blob; width: number; height: number }> {
-  const isHeic = /\.(heic|heif)$/i.test(file.name) || ['image/heic', 'image/heif'].includes(file.type);
+  const isHeic =
+    /\.(heic|heif)$/i.test(file.name) || ['image/heic', 'image/heif'].includes(file.type);
 
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -144,8 +145,8 @@ async function compressImage(file: File): Promise<{ blob: Blob; width: number; h
         new Error(
           isHeic
             ? 'HEIC format is not supported by your browser. Please convert to JPEG or PNG first, or use your camera to take the photo directly.'
-            : 'Failed to load image. The file may be corrupted or in an unsupported format.',
-        ),
+            : 'Failed to load image. The file may be corrupted or in an unsupported format.'
+        )
       );
     };
     img.src = objectUrl;
@@ -411,12 +412,15 @@ export function PhotoUploader({
       if (acceptedTypes.includes(file.type)) return true;
       // Browsers often report HEIC/HEIF with empty MIME — fall back to extension
       const ext = file.name.split('.').pop()?.toLowerCase();
-      if (ext && ['.heic', '.heif', '.jpg', '.jpeg', '.png', '.webp'].some((e) => e === `.${ext}`)) {
+      if (
+        ext &&
+        ['.heic', '.heif', '.jpg', '.jpeg', '.png', '.webp'].some((e) => e === `.${ext}`)
+      ) {
         return true;
       }
       return false;
     },
-    [acceptedTypes],
+    [acceptedTypes]
   );
 
   // Handle file selection (called by dropzone with accepted files + rejections)
@@ -427,12 +431,18 @@ export function PhotoUploader({
         const first = rejections[0];
         const reason = first.errors?.[0]?.code;
         if (reason === 'file-too-many') {
-          showFormatError(`You can only upload ${maxPhotos - photos.length} more photo${maxPhotos - photos.length !== 1 ? 's' : ''}.`);
+          showFormatError(
+            `You can only upload ${maxPhotos - photos.length} more photo${maxPhotos - photos.length !== 1 ? 's' : ''}.`
+          );
         } else {
           const name = first.file?.name || 'Selected file';
-          showFormatError(`"${name}" could not be uploaded. Please use ${ACCEPTED_IMAGE_LABEL} images only.`);
+          showFormatError(
+            `"${name}" could not be uploaded. Please use ${ACCEPTED_IMAGE_LABEL} images only.`
+          );
         }
-        onUploadError?.(`File rejected: ${rejections[0].errors?.[0]?.message || 'unsupported format'}`);
+        onUploadError?.(
+          `File rejected: ${rejections[0].errors?.[0]?.message || 'unsupported format'}`
+        );
         return;
       }
 
@@ -443,7 +453,7 @@ export function PhotoUploader({
       if (rejections.length > 0) {
         const names = rejections.map((r) => r.file?.name).filter(Boolean);
         showFormatError(
-          `${names.length} file${names.length !== 1 ? 's were' : ' was'} not accepted. Please use ${ACCEPTED_IMAGE_LABEL} format.`,
+          `${names.length} file${names.length !== 1 ? 's were' : ' was'} not accepted. Please use ${ACCEPTED_IMAGE_LABEL} format.`
         );
       }
 
@@ -479,7 +489,16 @@ export function PhotoUploader({
         await uploadPhoto(photo);
       }
     },
-    [photos.length, maxPhotos, maxSizeBytes, maxSizeMB, onUploadError, uploadPhoto, showFormatError, isAcceptedFile],
+    [
+      photos.length,
+      maxPhotos,
+      maxSizeBytes,
+      maxSizeMB,
+      onUploadError,
+      uploadPhoto,
+      showFormatError,
+      isAcceptedFile,
+    ]
   );
 
   // Handle files that dropzone rejects outright (wrong type via file picker)
@@ -490,13 +509,17 @@ export function PhotoUploader({
       const name = first.file?.name || 'Selected file';
       const reason = first.errors?.[0]?.code;
       if (reason === 'too-many-files') {
-        showFormatError(`You can only upload ${maxPhotos - photos.length} more photo${maxPhotos - photos.length !== 1 ? 's' : ''}.`);
+        showFormatError(
+          `You can only upload ${maxPhotos - photos.length} more photo${maxPhotos - photos.length !== 1 ? 's' : ''}.`
+        );
       } else {
-        showFormatError(`"${name}" could not be uploaded. Please use ${ACCEPTED_IMAGE_LABEL} images only.`);
+        showFormatError(
+          `"${name}" could not be uploaded. Please use ${ACCEPTED_IMAGE_LABEL} images only.`
+        );
       }
       onUploadError?.(`File rejected: ${first.errors?.[0]?.message || 'unsupported format'}`);
     },
-    [showFormatError, onUploadError, maxPhotos, photos.length],
+    [showFormatError, onUploadError, maxPhotos, photos.length]
   );
 
   // Dropzone configuration — extensions included so HEIC with empty MIME type is accepted
@@ -610,7 +633,7 @@ export function PhotoUploader({
 
       {/* Format Error Banner */}
       {formatError && (
-        <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 animate-in fade-in slide-in-from-top-1">
+        <div className="animate-in fade-in slide-in-from-top-1 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
           <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-500" />
           <div className="flex-1">
             <p className="text-sm font-semibold text-red-800">Unsupported file type</p>
@@ -731,58 +754,65 @@ export function PhotoUploader({
       )}
 
       {/* Camera Modal — portal to document.body to escape layout stacking context */}
-      {isCameraOpen && createPortal(
-        <div className="fixed inset-0 z-[9999] flex flex-col bg-black" style={{ touchAction: 'none' }}>
-          {/* Camera Header */}
+      {isCameraOpen &&
+        createPortal(
           <div
-            className="flex shrink-0 items-center justify-between bg-black px-4 py-3"
-            style={{ paddingTop: 'max(12px, env(safe-area-inset-top, 0px))' }}
+            className="fixed inset-0 z-[9999] flex flex-col bg-black"
+            style={{ touchAction: 'none' }}
           >
-            <button onClick={closeCamera} className="flex h-12 w-12 items-center justify-center rounded-full text-white active:bg-white/20">
-              <X className="h-7 w-7" />
-            </button>
-            <span className="text-lg font-semibold text-white">Take Photo</span>
-            <button
-              onClick={switchCamera}
-              className="flex h-12 w-12 items-center justify-center rounded-full text-white active:bg-white/20"
+            {/* Camera Header */}
+            <div
+              className="flex shrink-0 items-center justify-between bg-black px-4 py-3"
+              style={{ paddingTop: 'max(12px, env(safe-area-inset-top, 0px))' }}
             >
-              <RotateCcw className="h-6 w-6" />
-            </button>
-          </div>
+              <button
+                onClick={closeCamera}
+                className="flex h-12 w-12 items-center justify-center rounded-full text-white active:bg-white/20"
+              >
+                <X className="h-7 w-7" />
+              </button>
+              <span className="text-lg font-semibold text-white">Take Photo</span>
+              <button
+                onClick={switchCamera}
+                className="flex h-12 w-12 items-center justify-center rounded-full text-white active:bg-white/20"
+              >
+                <RotateCcw className="h-6 w-6" />
+              </button>
+            </div>
 
-          {/* Video Feed */}
-          <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-black">
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className="h-full max-h-full w-full max-w-full object-contain"
-              onLoadedMetadata={(e) => {
-                const v = e.currentTarget;
-                v.play().catch(() => {});
-              }}
-            />
-          </div>
+            {/* Video Feed */}
+            <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-black">
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="h-full max-h-full w-full max-w-full object-contain"
+                onLoadedMetadata={(e) => {
+                  const v = e.currentTarget;
+                  v.play().catch(() => {});
+                }}
+              />
+            </div>
 
-          {/* Capture Button */}
-          <div
-            className="flex shrink-0 justify-center bg-black px-6 py-6"
-            style={{ paddingBottom: 'max(24px, env(safe-area-inset-bottom, 0px))' }}
-          >
-            <button
-              onClick={capturePhoto}
-              className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-gray-300 bg-white transition-transform active:scale-95"
+            {/* Capture Button */}
+            <div
+              className="flex shrink-0 justify-center bg-black px-6 py-6"
+              style={{ paddingBottom: 'max(24px, env(safe-area-inset-bottom, 0px))' }}
             >
-              <div className="h-16 w-16 rounded-full border-2 border-gray-400 bg-white" />
-            </button>
-          </div>
+              <button
+                onClick={capturePhoto}
+                className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-gray-300 bg-white transition-transform active:scale-95"
+              >
+                <div className="h-16 w-16 rounded-full border-2 border-gray-400 bg-white" />
+              </button>
+            </div>
 
-          {/* Hidden canvas for capture */}
-          <canvas ref={canvasRef} className="hidden" />
-        </div>,
-        document.body,
-      )}
+            {/* Hidden canvas for capture */}
+            <canvas ref={canvasRef} className="hidden" />
+          </div>,
+          document.body
+        )}
 
       {/* Upload Limit Reached */}
       {!canUploadMore && (

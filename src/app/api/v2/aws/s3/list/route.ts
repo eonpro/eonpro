@@ -138,7 +138,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(documents);
   } catch (error: unknown) {
-
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[S3 List] Error:', error);
 

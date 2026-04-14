@@ -279,7 +279,9 @@ export default function AdminRxQueuePage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-gray-500 sm:text-sm">Refills</p>
-              <p className="text-xl font-bold text-[var(--brand-primary)] sm:text-2xl">{counts.refills}</p>
+              <p className="text-xl font-bold text-[var(--brand-primary)] sm:text-2xl">
+                {counts.refills}
+              </p>
             </div>
             <div className="rounded-xl bg-[var(--brand-primary-light)] p-2 sm:p-3">
               <RefreshCw className="h-5 w-5 text-[var(--brand-primary)] sm:h-6 sm:w-6" />
@@ -403,7 +405,9 @@ export default function AdminRxQueuePage() {
                           {item.recentPrescription?.hasDuplicate && (
                             <div className="mt-0.5 text-[10px] text-red-600">
                               {item.recentPrescription.orders[0]?.primaryMedName || 'Rx'} on{' '}
-                              {new Date(item.recentPrescription.orders[0]?.createdAt).toLocaleDateString()}
+                              {new Date(
+                                item.recentPrescription.orders[0]?.createdAt
+                              ).toLocaleDateString()}
                             </div>
                           )}
                         </div>

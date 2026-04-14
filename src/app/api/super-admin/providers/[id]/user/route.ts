@@ -91,7 +91,10 @@ export const GET = withSuperAdminAuth(
     } catch (error: unknown) {
       logger.error('[SUPER-ADMIN/PROVIDERS/USER] Error fetching user:', error);
       return NextResponse.json(
-        { error: 'Failed to fetch user', details: error instanceof Error ? error.message : String(error) },
+        {
+          error: 'Failed to fetch user',
+          details: error instanceof Error ? error.message : String(error),
+        },
         { status: 500 }
       );
     }
@@ -198,83 +201,86 @@ export const POST = withSuperAdminAuth(
       const passwordHash = await bcrypt.hash(password, 12);
 
       // Create user and link to provider in a transaction
-      const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-        // Create user with PROVIDER role
-        const newUser = await tx.user.create({
-          data: {
-            email: email.toLowerCase(),
-            passwordHash,
-            firstName: firstName || provider.firstName,
-            lastName: lastName || provider.lastName,
-            role: 'PROVIDER',
-            status: 'ACTIVE',
-            clinicId: userClinicId,
-            providerId: providerId,
-          },
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-            role: true,
-            status: true,
-            clinicId: true,
-          },
-        });
-
-        // If the user has a clinic, also create UserClinic entry
-        if (userClinicId) {
-          await tx.userClinic.create({
+      const result = await prisma.$transaction(
+        async (tx: Prisma.TransactionClient) => {
+          // Create user with PROVIDER role
+          const newUser = await tx.user.create({
             data: {
-              userId: newUser.id,
-              clinicId: userClinicId,
+              email: email.toLowerCase(),
+              passwordHash,
+              firstName: firstName || provider.firstName,
+              lastName: lastName || provider.lastName,
               role: 'PROVIDER',
-              isPrimary: true,
-              isActive: true,
+              status: 'ACTIVE',
+              clinicId: userClinicId,
+              providerId: providerId,
+            },
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+              role: true,
+              status: true,
+              clinicId: true,
             },
           });
-        }
 
-        // Create additional UserClinic entries for all provider clinics
-        for (const pc of provider.providerClinics) {
-          if (pc.clinicId !== userClinicId) {
+          // If the user has a clinic, also create UserClinic entry
+          if (userClinicId) {
             await tx.userClinic.create({
               data: {
                 userId: newUser.id,
-                clinicId: pc.clinicId,
+                clinicId: userClinicId,
                 role: 'PROVIDER',
-                isPrimary: false,
+                isPrimary: true,
                 isActive: true,
               },
             });
           }
-        }
 
-        // Update provider email if different
-        if (provider.email !== email.toLowerCase()) {
-          await tx.provider.update({
-            where: { id: providerId },
-            data: { email: email.toLowerCase() },
-          });
-        }
+          // Create additional UserClinic entries for all provider clinics
+          for (const pc of provider.providerClinics) {
+            if (pc.clinicId !== userClinicId) {
+              await tx.userClinic.create({
+                data: {
+                  userId: newUser.id,
+                  clinicId: pc.clinicId,
+                  role: 'PROVIDER',
+                  isPrimary: false,
+                  isActive: true,
+                },
+              });
+            }
+          }
 
-        // Create audit log
-        await tx.providerAudit.create({
-          data: {
-            providerId,
-            actorEmail: user.email,
-            action: 'USER_ACCOUNT_CREATED',
-            diff: {
-              userId: newUser.id,
-              email: newUser.email,
-              clinicId: userClinicId,
-              createdBy: user.email,
+          // Update provider email if different
+          if (provider.email !== email.toLowerCase()) {
+            await tx.provider.update({
+              where: { id: providerId },
+              data: { email: email.toLowerCase() },
+            });
+          }
+
+          // Create audit log
+          await tx.providerAudit.create({
+            data: {
+              providerId,
+              actorEmail: user.email,
+              action: 'USER_ACCOUNT_CREATED',
+              diff: {
+                userId: newUser.id,
+                email: newUser.email,
+                clinicId: userClinicId,
+                createdBy: user.email,
+              },
             },
-          },
-        });
+          });
 
-        return newUser;
-      }, { timeout: 15000 });
+          return newUser;
+        },
+        { timeout: 15000 }
+      );
 
       logger.info('[SUPER-ADMIN/PROVIDERS/USER] User created and linked', {
         providerId,
@@ -282,7 +288,12 @@ export const POST = withSuperAdminAuth(
         email: result.email,
       });
 
-      let inviteResult: { emailSent: boolean; smsSent: boolean; emailError?: string; smsError?: string } = { emailSent: false, smsSent: false };
+      let inviteResult: {
+        emailSent: boolean;
+        smsSent: boolean;
+        emailError?: string;
+        smsError?: string;
+      } = { emailSent: false, smsSent: false };
       if (sendInvite) {
         const clinic = userClinicId
           ? await prisma.clinic.findUnique({
@@ -316,7 +327,12 @@ export const POST = withSuperAdminAuth(
     } catch (error: unknown) {
       logger.error('[SUPER-ADMIN/PROVIDERS/USER] Error creating user:', error);
       return NextResponse.json(
-        { error: error instanceof Error ? error.message : String(error) || 'Failed to create user account' },
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : String(error) || 'Failed to create user account',
+        },
         { status: 500 }
       );
     }
@@ -399,40 +415,43 @@ export const PUT = withSuperAdminAuth(
       }
 
       // Link user to provider
-      const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-        const updatedUser = await tx.user.update({
-          where: { id: userId },
-          data: {
-            providerId: providerId,
-            role: 'PROVIDER', // Ensure role is PROVIDER
-          },
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-            role: true,
-            status: true,
-            clinicId: true,
-          },
-        });
-
-        // Create audit log
-        await tx.providerAudit.create({
-          data: {
-            providerId,
-            actorEmail: user.email,
-            action: 'USER_ACCOUNT_LINKED',
-            diff: {
-              userId,
-              email: existingUser.email,
-              linkedBy: user.email,
+      const result = await prisma.$transaction(
+        async (tx: Prisma.TransactionClient) => {
+          const updatedUser = await tx.user.update({
+            where: { id: userId },
+            data: {
+              providerId: providerId,
+              role: 'PROVIDER', // Ensure role is PROVIDER
             },
-          },
-        });
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+              role: true,
+              status: true,
+              clinicId: true,
+            },
+          });
 
-        return updatedUser;
-      }, { timeout: 15000 });
+          // Create audit log
+          await tx.providerAudit.create({
+            data: {
+              providerId,
+              actorEmail: user.email,
+              action: 'USER_ACCOUNT_LINKED',
+              diff: {
+                userId,
+                email: existingUser.email,
+                linkedBy: user.email,
+              },
+            },
+          });
+
+          return updatedUser;
+        },
+        { timeout: 15000 }
+      );
 
       logger.info('[SUPER-ADMIN/PROVIDERS/USER] User linked to provider', {
         providerId,
@@ -445,7 +464,10 @@ export const PUT = withSuperAdminAuth(
       });
     } catch (error: unknown) {
       logger.error('[SUPER-ADMIN/PROVIDERS/USER] Error linking user:', error);
-      return NextResponse.json({ error: error instanceof Error ? error.message : String(error) || 'Failed to link user' }, { status: 500 });
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : String(error) || 'Failed to link user' },
+        { status: 500 }
+      );
     }
   }
 );
@@ -522,32 +544,35 @@ export const PATCH = withSuperAdminAuth(
       const passwordHash = await bcrypt.hash(password, 12);
 
       // Update user password
-      await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-        await tx.user.update({
-          where: { id: provider.user!.id },
-          data: {
-            passwordHash,
-            lastPasswordChange: new Date(),
-            failedLoginAttempts: 0,
-            lockedUntil: null,
-          },
-        });
-
-        // Create audit log
-        await tx.providerAudit.create({
-          data: {
-            providerId,
-            actorEmail: user.email,
-            action: 'PASSWORD_RESET',
-            diff: {
-              userId: provider.user!.id,
-              email: provider.user!.email,
-              resetBy: user.email,
-              timestamp: new Date().toISOString(),
+      await prisma.$transaction(
+        async (tx: Prisma.TransactionClient) => {
+          await tx.user.update({
+            where: { id: provider.user!.id },
+            data: {
+              passwordHash,
+              lastPasswordChange: new Date(),
+              failedLoginAttempts: 0,
+              lockedUntil: null,
             },
-          },
-        });
-      }, { timeout: 15000 });
+          });
+
+          // Create audit log
+          await tx.providerAudit.create({
+            data: {
+              providerId,
+              actorEmail: user.email,
+              action: 'PASSWORD_RESET',
+              diff: {
+                userId: provider.user!.id,
+                email: provider.user!.email,
+                resetBy: user.email,
+                timestamp: new Date().toISOString(),
+              },
+            },
+          });
+        },
+        { timeout: 15000 }
+      );
 
       logger.info('[SUPER-ADMIN/PROVIDERS/USER] Password reset successful', {
         providerId,
@@ -592,7 +617,10 @@ export const PATCH = withSuperAdminAuth(
     } catch (error: unknown) {
       logger.error('[SUPER-ADMIN/PROVIDERS/USER] Error resetting password:', error);
       return NextResponse.json(
-        { error: error instanceof Error ? error.message : String(error) || 'Failed to reset password' },
+        {
+          error:
+            error instanceof Error ? error.message : String(error) || 'Failed to reset password',
+        },
         { status: 500 }
       );
     }
@@ -647,28 +675,31 @@ export const DELETE = withSuperAdminAuth(
       const linkedUserEmail = provider.user.email;
 
       // Unlink user from provider
-      await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-        await tx.user.update({
-          where: { id: linkedUserId },
-          data: {
-            providerId: null,
-          },
-        });
-
-        // Create audit log
-        await tx.providerAudit.create({
-          data: {
-            providerId,
-            actorEmail: user.email,
-            action: 'USER_ACCOUNT_UNLINKED',
-            diff: {
-              userId: linkedUserId,
-              email: linkedUserEmail,
-              unlinkedBy: user.email,
+      await prisma.$transaction(
+        async (tx: Prisma.TransactionClient) => {
+          await tx.user.update({
+            where: { id: linkedUserId },
+            data: {
+              providerId: null,
             },
-          },
-        });
-      }, { timeout: 15000 });
+          });
+
+          // Create audit log
+          await tx.providerAudit.create({
+            data: {
+              providerId,
+              actorEmail: user.email,
+              action: 'USER_ACCOUNT_UNLINKED',
+              diff: {
+                userId: linkedUserId,
+                email: linkedUserEmail,
+                unlinkedBy: user.email,
+              },
+            },
+          });
+        },
+        { timeout: 15000 }
+      );
 
       logger.info('[SUPER-ADMIN/PROVIDERS/USER] User unlinked from provider', {
         providerId,
@@ -682,7 +713,9 @@ export const DELETE = withSuperAdminAuth(
     } catch (error: unknown) {
       logger.error('[SUPER-ADMIN/PROVIDERS/USER] Error unlinking user:', error);
       return NextResponse.json(
-        { error: error instanceof Error ? error.message : String(error) || 'Failed to unlink user' },
+        {
+          error: error instanceof Error ? error.message : String(error) || 'Failed to unlink user',
+        },
         { status: 500 }
       );
     }

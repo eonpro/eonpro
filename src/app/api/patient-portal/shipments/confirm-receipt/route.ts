@@ -28,7 +28,7 @@ export const POST = withAuth(
       if (!user.patientId) {
         return NextResponse.json(
           { error: 'Patient profile required', code: 'PATIENT_REQUIRED' },
-          { status: 400 },
+          { status: 400 }
         );
       }
 
@@ -37,7 +37,7 @@ export const POST = withAuth(
       if (!parsed.success) {
         return NextResponse.json(
           { error: 'Invalid request', details: parsed.error.flatten() },
-          { status: 400 },
+          { status: 400 }
         );
       }
 
@@ -54,14 +54,14 @@ export const POST = withAuth(
       if (!shippingUpdate) {
         return NextResponse.json(
           { error: 'Shipment not found', code: 'NOT_FOUND' },
-          { status: 404 },
+          { status: 404 }
         );
       }
 
       if (shippingUpdate.patientConfirmedAt) {
         return NextResponse.json(
           { error: 'Already confirmed', code: 'ALREADY_CONFIRMED' },
-          { status: 409 },
+          { status: 409 }
         );
       }
 
@@ -70,15 +70,18 @@ export const POST = withAuth(
       if (elapsed < FORTY_EIGHT_HOURS_MS) {
         return NextResponse.json(
           { error: 'Cannot confirm yet — 48 hours must pass after shipment', code: 'TOO_EARLY' },
-          { status: 422 },
+          { status: 422 }
         );
       }
 
       const blockedStatuses = ['RETURNED', 'EXCEPTION', 'CANCELLED'];
       if (blockedStatuses.includes(shippingUpdate.status)) {
         return NextResponse.json(
-          { error: 'Cannot confirm a shipment with status: ' + shippingUpdate.status, code: 'INVALID_STATUS' },
-          { status: 422 },
+          {
+            error: 'Cannot confirm a shipment with status: ' + shippingUpdate.status,
+            code: 'INVALID_STATUS',
+          },
+          { status: 422 }
         );
       }
 
@@ -137,5 +140,5 @@ export const POST = withAuth(
       });
     }
   },
-  { roles: ['patient'] },
+  { roles: ['patient'] }
 );

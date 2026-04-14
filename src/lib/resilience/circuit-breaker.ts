@@ -83,18 +83,13 @@ export class CircuitBreaker {
 
     // Execute with timeout
     try {
-      const result = await Promise.race([
-        fn(),
-        this.timeout(),
-      ]);
+      const result = await Promise.race([fn(), this.timeout()]);
 
       this.onSuccess();
       return result as T;
     } catch (error) {
       // Check if this error should count as a circuit-breaking failure
-      const isFailure = this.options.isFailure
-        ? this.options.isFailure(error)
-        : true;
+      const isFailure = this.options.isFailure ? this.options.isFailure(error) : true;
 
       if (isFailure) {
         this.onFailure(error);
@@ -137,20 +132,25 @@ export class CircuitBreaker {
     if (this.circuitState.failures >= this.options.failureThreshold) {
       this.circuitState.state = 'OPEN';
       this.circuitState.openedAt = Date.now();
-      logger.warn(`[CircuitBreaker:${this.options.name}] Failure threshold reached — opening circuit`, {
-        failures: this.circuitState.failures,
-        threshold: this.options.failureThreshold,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
+      logger.warn(
+        `[CircuitBreaker:${this.options.name}] Failure threshold reached — opening circuit`,
+        {
+          failures: this.circuitState.failures,
+          threshold: this.options.failureThreshold,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        }
+      );
     }
   }
 
   private timeout(): Promise<never> {
     return new Promise((_, reject) => {
       setTimeout(() => {
-        reject(new TimeoutError(
-          `Circuit breaker ${this.options.name} call timed out after ${this.options.timeoutMs}ms`
-        ));
+        reject(
+          new TimeoutError(
+            `Circuit breaker ${this.options.name} call timed out after ${this.options.timeoutMs}ms`
+          )
+        );
       }, this.options.timeoutMs);
     });
   }

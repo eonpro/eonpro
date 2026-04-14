@@ -150,7 +150,6 @@ export default function SMSComposer({
         setStatusMessage('');
       }, 3000);
     } catch (error: unknown) {
-      
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       setStatus('error');
       setStatusMessage(errorMessage || 'Failed to send message');

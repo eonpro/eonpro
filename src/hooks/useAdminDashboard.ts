@@ -35,7 +35,13 @@ interface DashboardData {
 }
 
 interface GeoData {
-  stateData: Record<string, { total: number; clinics: Array<{ clinicId: number; clinicName: string; color: string; count: number }> }>;
+  stateData: Record<
+    string,
+    {
+      total: number;
+      clinics: Array<{ clinicId: number; clinicName: string; color: string; count: number }>;
+    }
+  >;
   clinics: Array<{ id: number; name: string; color: string; totalPatients: number }>;
 }
 

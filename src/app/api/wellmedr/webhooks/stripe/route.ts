@@ -17,7 +17,8 @@ import {
 
 /** Stripe SDK v20 types omit `subscription` on Invoice; runtime webhook payloads still include it. */
 function getInvoiceSubscriptionId(invoice: Stripe.Invoice): string | undefined {
-  const sub = (invoice as unknown as { subscription?: string | Stripe.Subscription | null }).subscription;
+  const sub = (invoice as unknown as { subscription?: string | Stripe.Subscription | null })
+    .subscription;
   return typeof sub === 'string' ? sub : sub?.id;
 }
 
@@ -65,7 +66,12 @@ export async function POST(req: NextRequest) {
         const subscription = event.data.object as Stripe.Subscription;
         const order = await findOrderBySubscriptionId(subscription.id);
         if (order) {
-          const status = subscription.status === 'active' ? 'succeeded' : subscription.status === 'past_due' ? 'failed' : subscription.status;
+          const status =
+            subscription.status === 'active'
+              ? 'succeeded'
+              : subscription.status === 'past_due'
+                ? 'failed'
+                : subscription.status;
           await updateOrderSubscriptionStatus(order.id, status);
 
           // Capture addon metadata from subscription
@@ -75,7 +81,9 @@ export async function POST(req: NextRequest) {
               if (Array.isArray(addons)) {
                 await updateOrderAddonMetadata(order.id, addons);
               }
-            } catch { /* ignore parse errors */ }
+            } catch {
+              /* ignore parse errors */
+            }
           }
         }
         break;
@@ -94,7 +102,11 @@ export async function POST(req: NextRequest) {
           if (order) {
             await updateOrderPaymentStatus(order.id, 'succeeded');
             if (pi.payment_method) {
-              const pm = await stripe.paymentMethods.retrieve(typeof pi.payment_method === 'string' ? pi.payment_method : pi.payment_method.id, {}, connectOpts as any);
+              const pm = await stripe.paymentMethods.retrieve(
+                typeof pi.payment_method === 'string' ? pi.payment_method : pi.payment_method.id,
+                {},
+                connectOpts as any
+              );
               await updateOrderPaymentDetails(order.id, {
                 paymentMethodType: pm.type,
                 cardBrand: pm.card?.brand,

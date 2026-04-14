@@ -24,7 +24,10 @@ import {
 
 const INJECTION_VIDEO = {
   en: { id: 'RUxd5uk_lAc', title: 'How to Safely Apply a Semaglutide Injection at Home' },
-  es: { id: 'ETqz2fmh5ww', title: 'Cómo aplicar una inyección de Semaglutida en casa de forma segura' },
+  es: {
+    id: 'ETqz2fmh5ww',
+    title: 'Cómo aplicar una inyección de Semaglutida en casa de forma segura',
+  },
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -66,14 +69,20 @@ function toTitleCase(value: string): string {
 
 function isSupplyMedication(name: string): boolean {
   const n = (name || '').toLowerCase();
-  return n.includes('syringe') || n.includes('alcohol pad') || n.includes('needle') || n.includes('kit');
+  return (
+    n.includes('syringe') || n.includes('alcohol pad') || n.includes('needle') || n.includes('kit')
+  );
 }
 
 function isInjectableMedication(name: string): boolean {
   const n = (name || '').toLowerCase();
   return (
-    n.includes('semaglutide') || n.includes('tirzepatide') || n.includes('testosterone') ||
-    n.includes('sermorelin') || n.includes('bpc') || n.includes('tb-500')
+    n.includes('semaglutide') ||
+    n.includes('tirzepatide') ||
+    n.includes('testosterone') ||
+    n.includes('sermorelin') ||
+    n.includes('bpc') ||
+    n.includes('tb-500')
   );
 }
 
@@ -98,7 +107,11 @@ function reformatDirectionsUnitsFirst(directions: string): string {
   );
 }
 
-function rewriteDirectionsForMonth(directions: string, monthLabel: string, weeksInMonth: number): string {
+function rewriteDirectionsForMonth(
+  directions: string,
+  monthLabel: string,
+  weeksInMonth: number
+): string {
   let d = reformatDirectionsUnitsFirst(directions);
   d = d.replace(/month\s+\d+(?:\s*[-–]\s*\d+)?:/i, `${monthLabel}:`);
   d = d.replace(/for\s+\d+\s+weeks/i, `for ${weeksInMonth} weeks`);
@@ -181,7 +194,9 @@ function getMedicationDisplayName(med: RxMedication): string {
     if (vialMl) return `Semaglutide (${vialMl}ml)`;
     return 'Semaglutide';
   }
-  const cleanedName = medName.replace(/\s+/g, ' ').trim()
+  const cleanedName = medName
+    .replace(/\s+/g, ' ')
+    .trim()
     .replace(/\s+solution\s+\d+mg\/\d+mg\/ml/i, '');
   const normalized = toTitleCase(cleanedName);
   const str = med.strength ? med.strength.toLowerCase().trim() : '';
@@ -193,7 +208,11 @@ function getMedicationDisplayName(med: RxMedication): string {
 
 function formatDate(iso: string): string {
   if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return new Date(iso).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -232,7 +251,7 @@ export default function WelcomeKitPage() {
   // Build dosing schedule from actual prescriptions
   const dosingItems = (() => {
     const sorted = [...prescriptions].sort(
-      (a, b) => new Date(a.prescribedDate).getTime() - new Date(b.prescribedDate).getTime(),
+      (a, b) => new Date(a.prescribedDate).getTime() - new Date(b.prescribedDate).getTime()
     );
 
     const items: Array<{
@@ -257,7 +276,7 @@ export default function WelcomeKitPage() {
 
     for (const order of sorted) {
       const injectables = (order.medications ?? []).filter(
-        (m) => isInjectableMedication(m.name) && !isSupplyMedication(m.name),
+        (m) => isInjectableMedication(m.name) && !isSupplyMedication(m.name)
       );
       if (injectables.length === 0) continue;
 
@@ -287,10 +306,17 @@ export default function WelcomeKitPage() {
             displayDir = `Month ${monthNum}: ${displayDir}`;
 
             items.push({
-              monthNumber: monthNum, weekStart, weekEnd,
-              date: order.prescribedDate, medName, directions: displayDir, dose,
-              isTitration, isSameDose,
-              periodStart, periodEnd,
+              monthNumber: monthNum,
+              weekStart,
+              weekEnd,
+              date: order.prescribedDate,
+              medName,
+              directions: displayDir,
+              dose,
+              isTitration,
+              isSameDose,
+              periodStart,
+              periodEnd,
             });
 
             weekCursor += segment.weeks;
@@ -327,14 +353,24 @@ export default function WelcomeKitPage() {
             const periodEnd = new Date(firstPrescribedDate);
             periodEnd.setDate(periodEnd.getDate() + mWeekEnd * 7);
 
-            const monthDirections = rewriteDirectionsForMonth(med.directions, `Month ${monthNum}`, mWeekEnd - mWeekStart + 1);
+            const monthDirections = rewriteDirectionsForMonth(
+              med.directions,
+              `Month ${monthNum}`,
+              mWeekEnd - mWeekStart + 1
+            );
 
             items.push({
-              monthNumber: monthNum, weekStart: mWeekStart, weekEnd: mWeekEnd,
-              date: order.prescribedDate, medName, directions: monthDirections, dose,
+              monthNumber: monthNum,
+              weekStart: mWeekStart,
+              weekEnd: mWeekEnd,
+              date: order.prescribedDate,
+              medName,
+              directions: monthDirections,
+              dose,
               isTitration: m === 0 ? isTitration : false,
               isSameDose: m === 0 ? isSameDose : true,
-              periodStart, periodEnd,
+              periodStart,
+              periodEnd,
             });
           }
 
@@ -367,7 +403,9 @@ export default function WelcomeKitPage() {
             <PackageCheck className="h-6 w-6" style={{ color: accentText }} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Welcome to Your Treatment</h1>
+            <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
+              Welcome to Your Treatment
+            </h1>
             <p className="mt-0.5 text-sm text-gray-500 sm:text-base">
               Everything you need to get started with your medication
             </p>
@@ -398,11 +436,15 @@ export default function WelcomeKitPage() {
           </div>
         </div>
         <div className="p-4 sm:p-6">
-          <div className="relative overflow-hidden rounded-2xl bg-black" style={{ paddingBottom: '56.25%' }}>
+          <div
+            className="relative overflow-hidden rounded-2xl bg-black"
+            style={{ paddingBottom: '56.25%' }}
+          >
             <iframe
               className="absolute inset-0 h-full w-full"
               src={`https://www.youtube.com/embed/${injVid.id}?rel=0`}
               title={injVid.title}
+              loading="lazy"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
             />
@@ -437,7 +479,9 @@ export default function WelcomeKitPage() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="https://static.wixstatic.com/shapes/c49a9b_c10e908eadc04b2b89ee7cae6ef4b981.svg"
-              alt={language === 'es' ? 'Sitios de inyección en el cuerpo' : 'Injection sites on body'}
+              alt={
+                language === 'es' ? 'Sitios de inyección en el cuerpo' : 'Injection sites on body'
+              }
               width={192}
               height={320}
               className="h-auto w-full"
@@ -445,28 +489,37 @@ export default function WelcomeKitPage() {
           </div>
           <div className="flex-1 space-y-3 text-sm text-gray-700">
             <div className="flex items-start gap-2">
-              <span className="mt-1 h-2 w-2 flex-shrink-0 rounded-full" style={{ backgroundColor: primaryColor }} />
+              <span
+                className="mt-1 h-2 w-2 flex-shrink-0 rounded-full"
+                style={{ backgroundColor: primaryColor }}
+              />
               <span>
-                <strong>{language === 'es' ? 'Abdomen' : 'Abdomen'}</strong>{' '}
-                — {language === 'es'
+                <strong>{language === 'es' ? 'Abdomen' : 'Abdomen'}</strong> —{' '}
+                {language === 'es'
                   ? 'Al menos 2 pulgadas del ombligo'
                   : 'At least 2 inches from the belly button'}
               </span>
             </div>
             <div className="flex items-start gap-2">
-              <span className="mt-1 h-2 w-2 flex-shrink-0 rounded-full" style={{ backgroundColor: primaryColor }} />
+              <span
+                className="mt-1 h-2 w-2 flex-shrink-0 rounded-full"
+                style={{ backgroundColor: primaryColor }}
+              />
               <span>
-                <strong>{language === 'es' ? 'Muslo' : 'Thigh'}</strong>{' '}
-                — {language === 'es'
+                <strong>{language === 'es' ? 'Muslo' : 'Thigh'}</strong> —{' '}
+                {language === 'es'
                   ? 'Parte frontal del muslo, a media distancia entre la rodilla y la cadera'
                   : 'Front of the thigh, midway between the knee and hip'}
               </span>
             </div>
             <div className="flex items-start gap-2">
-              <span className="mt-1 h-2 w-2 flex-shrink-0 rounded-full" style={{ backgroundColor: primaryColor }} />
+              <span
+                className="mt-1 h-2 w-2 flex-shrink-0 rounded-full"
+                style={{ backgroundColor: primaryColor }}
+              />
               <span>
-                <strong>{language === 'es' ? 'Parte superior del brazo' : 'Upper arm'}</strong>{' '}
-                — {language === 'es'
+                <strong>{language === 'es' ? 'Parte superior del brazo' : 'Upper arm'}</strong> —{' '}
+                {language === 'es'
                   ? 'Parte posterior del brazo (puede necesitar ayuda)'
                   : 'Back of the arm (may need help from someone)'}
               </span>
@@ -504,7 +557,9 @@ export default function WelcomeKitPage() {
           <div className="p-8 text-center">
             <Syringe className="mx-auto mb-3 h-10 w-10 text-gray-300" />
             <p className="font-medium text-gray-500">No injectable prescriptions found yet.</p>
-            <p className="mt-1 text-sm text-gray-400">Your dosing schedule will appear once your provider prescribes your treatment.</p>
+            <p className="mt-1 text-sm text-gray-400">
+              Your dosing schedule will appear once your provider prescribes your treatment.
+            </p>
           </div>
         ) : (
           <div className="divide-y divide-gray-50">
@@ -521,7 +576,11 @@ export default function WelcomeKitPage() {
                   <div className="flex flex-col items-center">
                     <div
                       className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold sm:h-10 sm:w-10 ${
-                        isCurrent ? 'text-white shadow-md' : isGrayed ? 'bg-gray-100 text-gray-400' : 'bg-gray-100 text-gray-500'
+                        isCurrent
+                          ? 'text-white shadow-md'
+                          : isGrayed
+                            ? 'bg-gray-100 text-gray-400'
+                            : 'bg-gray-100 text-gray-500'
                       }`}
                       style={isCurrent ? { backgroundColor: primaryColor } : undefined}
                     >
@@ -536,14 +595,21 @@ export default function WelcomeKitPage() {
                   </div>
                   <div className="min-w-0 flex-1 pb-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className={`text-sm font-semibold sm:text-base ${isCurrent ? 'text-gray-900' : isGrayed ? 'text-gray-400' : 'text-gray-700'}`}>
+                      <span
+                        className={`text-sm font-semibold sm:text-base ${isCurrent ? 'text-gray-900' : isGrayed ? 'text-gray-400' : 'text-gray-700'}`}
+                      >
                         Month {item.monthNumber}
                       </span>
-                      <span className={`text-[10px] font-semibold sm:text-xs ${isGrayed ? 'text-gray-300' : 'text-gray-400'}`}>
+                      <span
+                        className={`text-[10px] font-semibold sm:text-xs ${isGrayed ? 'text-gray-300' : 'text-gray-400'}`}
+                      >
                         Weeks {item.weekStart}&ndash;{item.weekEnd}
                       </span>
                       {isCurrent && (
-                        <span className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white sm:text-xs" style={{ backgroundColor: primaryColor }}>
+                        <span
+                          className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white sm:text-xs"
+                          style={{ backgroundColor: primaryColor }}
+                        >
                           Current
                         </span>
                       )}
@@ -563,15 +629,22 @@ export default function WelcomeKitPage() {
                         </span>
                       )}
                     </div>
-                    <p className={`mt-0.5 text-xs sm:text-sm ${isGrayed ? 'text-gray-400' : 'text-gray-500'}`}>
+                    <p
+                      className={`mt-0.5 text-xs sm:text-sm ${isGrayed ? 'text-gray-400' : 'text-gray-500'}`}
+                    >
                       {item.medName}
                       <span className="mx-1.5 text-gray-300">&middot;</span>
                       Prescribed {formatDate(item.date)}
                     </p>
-                    <div className={`mt-2 rounded-xl p-3 ${isCurrent ? 'border bg-white' : 'bg-gray-50'}`} style={isCurrent ? { borderColor: `${primaryColor}30` } : undefined}>
+                    <div
+                      className={`mt-2 rounded-xl p-3 ${isCurrent ? 'border bg-white' : 'bg-gray-50'}`}
+                      style={isCurrent ? { borderColor: `${primaryColor}30` } : undefined}
+                    >
                       {item.dose && (item.dose.mg || item.dose.units) ? (
                         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                          <span className={`text-xs font-semibold uppercase tracking-wider ${isGrayed ? 'text-gray-300' : 'text-gray-400'}`}>
+                          <span
+                            className={`text-xs font-semibold uppercase tracking-wider ${isGrayed ? 'text-gray-300' : 'text-gray-400'}`}
+                          >
                             Inject weekly:
                           </span>
                           {item.dose.units && (
@@ -583,19 +656,23 @@ export default function WelcomeKitPage() {
                             </span>
                           )}
                           {item.dose.mg && (
-                            <span className={`text-sm font-medium ${isGrayed ? 'text-gray-300' : 'text-gray-500'}`}>
+                            <span
+                              className={`text-sm font-medium ${isGrayed ? 'text-gray-300' : 'text-gray-500'}`}
+                            >
                               ({item.dose.mg} mg)
                             </span>
                           )}
                         </div>
                       ) : null}
-                      <p className={`${item.dose && (item.dose.mg || item.dose.units) ? 'mt-1.5' : ''} text-xs leading-relaxed sm:text-sm ${isGrayed ? 'text-gray-300' : 'text-gray-600'}`}>
+                      <p
+                        className={`${item.dose && (item.dose.mg || item.dose.units) ? 'mt-1.5' : ''} text-xs leading-relaxed sm:text-sm ${isGrayed ? 'text-gray-300' : 'text-gray-600'}`}
+                      >
                         {item.directions}
                       </p>
                       {isCurrent && (
                         <p className="mt-2 flex items-center gap-1.5 text-[10px] font-medium text-gray-400 sm:text-xs">
-                          <Calendar className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                          1 injection per week &middot; {item.weekEnd - item.weekStart + 1} weeks at this dose
+                          <Calendar className="h-3 w-3 sm:h-3.5 sm:w-3.5" />1 injection per week
+                          &middot; {item.weekEnd - item.weekStart + 1} weeks at this dose
                         </p>
                       )}
                     </div>
@@ -628,31 +705,41 @@ export default function WelcomeKitPage() {
             <div className="flex items-start gap-3 rounded-xl bg-blue-50 p-4">
               <Snowflake className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
               <div>
-                <p className="text-sm font-semibold text-blue-900">Refrigerate at 36–46 °F (2–8 °C)</p>
-                <p className="mt-0.5 text-xs text-blue-700">Store in the refrigerator as soon as you receive your package.</p>
+                <p className="text-sm font-semibold text-blue-900">
+                  Refrigerate at 36–46 °F (2–8 °C)
+                </p>
+                <p className="mt-0.5 text-xs text-blue-700">
+                  Store in the refrigerator as soon as you receive your package.
+                </p>
               </div>
             </div>
             <div className="flex items-start gap-3 rounded-xl bg-red-50 p-4">
               <Snowflake className="mt-0.5 h-5 w-5 shrink-0 text-red-500" />
               <div>
                 <p className="text-sm font-semibold text-red-900">Do Not Freeze</p>
-                <p className="mt-0.5 text-xs text-red-700">Freezing destroys the medication. Discard if frozen.</p>
+                <p className="mt-0.5 text-xs text-red-700">
+                  Freezing destroys the medication. Discard if frozen.
+                </p>
               </div>
             </div>
             <div className="flex items-start gap-3 rounded-xl bg-amber-50 p-4">
               <Eye className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
               <div>
                 <p className="text-sm font-semibold text-amber-900">Protect from Light</p>
-                <p className="mt-0.5 text-xs text-amber-700">Keep the vial in its original packaging or a dark area.</p>
+                <p className="mt-0.5 text-xs text-amber-700">
+                  Keep the vial in its original packaging or a dark area.
+                </p>
               </div>
             </div>
             <div className="flex items-start gap-3 rounded-xl bg-gray-50 p-4">
               <Sun className="mt-0.5 h-5 w-5 shrink-0 text-gray-600" />
               <div>
-                <p className="text-sm font-semibold text-gray-900">Room Temperature — Up to 21 Days</p>
+                <p className="text-sm font-semibold text-gray-900">
+                  Room Temperature — Up to 21 Days
+                </p>
                 <p className="mt-0.5 text-xs text-gray-600">
-                  May be kept at room temperature up to 77 °F (25 °C) for up to 21 days.
-                  Discard if exposed to temperatures above 86 °F (30 °C).
+                  May be kept at room temperature up to 77 °F (25 °C) for up to 21 days. Discard if
+                  exposed to temperatures above 86 °F (30 °C).
                 </p>
               </div>
             </div>

@@ -31,7 +31,7 @@ export const GET = withAuthParams(
         where: { id: patientId },
         select: { id: true, clinicId: true },
       });
-      const clinicId = user.role === 'super_admin' ? undefined : user.clinicId ?? undefined;
+      const clinicId = user.role === 'super_admin' ? undefined : (user.clinicId ?? undefined);
       const notFound = ensureTenantResource(patient, clinicId);
       if (notFound) return notFound;
       // Patients can only access their own documents
@@ -75,15 +75,23 @@ export const GET = withAuthParams(
       };
 
       // Transform the documents to match the frontend interface
-      const formattedDocuments = documents.map((doc: { id: number; filename?: string | null; category?: string | null; mimeType?: string | null; createdAt: unknown }): Record<string, unknown> => ({
-        id: doc.id,
-        filename: doc.filename ?? 'Untitled Document',
-        category: doc.category ?? 'other',
-        mimeType: doc.mimeType ?? 'application/octet-stream',
-        uploadedAt: toSafeIso(doc.createdAt),
-        url: `/api/patients/${patientId}/documents/${doc.id}`,
-        downloadUrl: `/api/patients/${patientId}/documents/${doc.id}/download`,
-      }));
+      const formattedDocuments = documents.map(
+        (doc: {
+          id: number;
+          filename?: string | null;
+          category?: string | null;
+          mimeType?: string | null;
+          createdAt: unknown;
+        }): Record<string, unknown> => ({
+          id: doc.id,
+          filename: doc.filename ?? 'Untitled Document',
+          category: doc.category ?? 'other',
+          mimeType: doc.mimeType ?? 'application/octet-stream',
+          uploadedAt: toSafeIso(doc.createdAt),
+          url: `/api/patients/${patientId}/documents/${doc.id}`,
+          downloadUrl: `/api/patients/${patientId}/documents/${doc.id}/download`,
+        })
+      );
 
       // HIPAA: Log PHI/document access for compliance (non-blocking: list still returned if audit fails)
       try {
@@ -122,7 +130,10 @@ export const GET = withAuthParams(
         const msg = fallbackErr instanceof Error ? fallbackErr.message : 'Unknown error';
         logger.error('Documents list: handleApiError threw', { patientId, error: msg });
         return NextResponse.json(
-          { error: 'Failed to load documents. Please try again or contact support.', code: 'INTERNAL_ERROR' },
+          {
+            error: 'Failed to load documents. Please try again or contact support.',
+            code: 'INTERNAL_ERROR',
+          },
           { status: 500 }
         );
       }
@@ -146,7 +157,8 @@ export const POST = withAuthParams(
         where: { id: patientId },
         select: { id: true, clinicId: true },
       });
-      const clinicIdForPost = user.role === 'super_admin' ? undefined : user.clinicId ?? undefined;
+      const clinicIdForPost =
+        user.role === 'super_admin' ? undefined : (user.clinicId ?? undefined);
       const notFoundPost = ensureTenantResource(patient, clinicIdForPost);
       if (notFoundPost) return notFoundPost;
       if (!patient) return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -342,13 +354,18 @@ export const POST = withAuthParams(
       logger.error('Error uploading documents', {
         userId: user?.id,
         error: errorMessage,
-        ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
+        ...(process.env.NODE_ENV === 'development' && {
+          stack: error instanceof Error ? error.stack : undefined,
+        }),
       });
       const isStorageError =
         /storage|S3|upload failed|not configured|credentials|bucket|Failed to upload file/i.test(
           errorMessage
         ) ||
-        (error && typeof error === 'object' && 'name' in error && /NetworkError|TimeoutError/i.test((error as Error).name));
+        (error &&
+          typeof error === 'object' &&
+          'name' in error &&
+          /NetworkError|TimeoutError/i.test((error as Error).name));
       const status = isStorageError ? 503 : 500;
       const body: {
         error: string;

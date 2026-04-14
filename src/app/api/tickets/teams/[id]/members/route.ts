@@ -7,7 +7,9 @@ import { prisma } from '@/lib/db';
 import { withAuth } from '@/lib/auth';
 import { handleApiError } from '@/domains/shared/errors';
 
-interface RouteParams { params: Promise<{ id: string }>; }
+interface RouteParams {
+  params: Promise<{ id: string }>;
+}
 
 export const POST = withAuth<RouteParams>(async (request, user, { params } = {} as RouteParams) => {
   try {
@@ -44,22 +46,27 @@ export const POST = withAuth<RouteParams>(async (request, user, { params } = {} 
   }
 });
 
-export const DELETE = withAuth<RouteParams>(async (request, user, { params } = {} as RouteParams) => {
-  try {
-    const { id } = await params;
-    const teamId = parseInt(id, 10);
-    if (isNaN(teamId)) return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
-    if (!['admin', 'super_admin'].includes(user.role.toLowerCase())) {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+export const DELETE = withAuth<RouteParams>(
+  async (request, user, { params } = {} as RouteParams) => {
+    try {
+      const { id } = await params;
+      const teamId = parseInt(id, 10);
+      if (isNaN(teamId)) return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
+      if (!['admin', 'super_admin'].includes(user.role.toLowerCase())) {
+        return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+      }
+
+      const { searchParams } = new URL(request.url);
+      const userId = parseInt(searchParams.get('userId') || '', 10);
+      if (isNaN(userId))
+        return NextResponse.json({ error: 'userId query param required' }, { status: 400 });
+
+      await prisma.ticketTeamMember.deleteMany({ where: { teamId, userId } });
+      return NextResponse.json({ success: true });
+    } catch (error) {
+      return handleApiError(error, {
+        route: `DELETE /api/tickets/teams/${(await params).id}/members`,
+      });
     }
-
-    const { searchParams } = new URL(request.url);
-    const userId = parseInt(searchParams.get('userId') || '', 10);
-    if (isNaN(userId)) return NextResponse.json({ error: 'userId query param required' }, { status: 400 });
-
-    await prisma.ticketTeamMember.deleteMany({ where: { teamId, userId } });
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    return handleApiError(error, { route: `DELETE /api/tickets/teams/${(await params).id}/members` });
   }
-});
+);

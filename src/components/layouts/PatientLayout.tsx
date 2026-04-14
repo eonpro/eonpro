@@ -163,11 +163,7 @@ export default function PatientLayout({ children, userData }: PatientLayoutProps
 
               {/* Logo */}
               <div className="ml-2 flex items-center lg:ml-0">
-                <img
-                  src={EONPRO_LOGO}
-                  alt="EONPRO logo"
-                  className="h-10 w-auto"
-                />
+                <img src={EONPRO_LOGO} alt="EONPRO logo" className="h-10 w-auto" />
               </div>
             </div>
 

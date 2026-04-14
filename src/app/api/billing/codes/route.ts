@@ -84,9 +84,8 @@ export const POST = withAdminAuth(async (req: NextRequest, user) => {
       );
     }
 
-    const resolvedClinicId = user.role === 'super_admin'
-      ? (parsed.data.clinicId || user.clinicId)
-      : user.clinicId;
+    const resolvedClinicId =
+      user.role === 'super_admin' ? parsed.data.clinicId || user.clinicId : user.clinicId;
 
     const billingCode = await prisma.billingCode.create({
       data: {

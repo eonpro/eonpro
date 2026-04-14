@@ -2,7 +2,13 @@ import lifefile, { LifefileOrderPayload, getEnvCredentials } from '@/lib/lifefil
 import { getClinicLifefileClient, getClinicLifefileCredentials } from '@/lib/clinic-lifefile';
 import { prescriptionSchema } from '@/lib/validate';
 import { generatePrescriptionPDF } from '@/lib/pdf';
-import { MEDS, GLP1_PRODUCT_IDS, SYRINGE_KIT_PRODUCT_ID, ELITE_ADDON_PRODUCT_IDS, ELITE_SYRINGE_KIT_QUANTITY } from '@/lib/medications';
+import {
+  MEDS,
+  GLP1_PRODUCT_IDS,
+  SYRINGE_KIT_PRODUCT_ID,
+  ELITE_ADDON_PRODUCT_IDS,
+  ELITE_SYRINGE_KIT_QUANTITY,
+} from '@/lib/medications';
 import { SHIPPING_METHODS } from '@/lib/shipping';
 import { prisma, basePrisma, withRetry } from '@/lib/db';
 import { Prisma } from '@prisma/client';
@@ -131,7 +137,11 @@ async function createPrescriptionHandlerLegacy(req: NextRequest, user: AuthUser)
 
     // Queue-for-provider is allowed for admin, super_admin, and sales_rep.
     // Also allowed when addonAutoQueue is set (system-initiated from prescription queue).
-    if (p.queueForProvider && !['admin', 'super_admin', 'sales_rep'].includes(user.role) && !p.addonAutoQueue) {
+    if (
+      p.queueForProvider &&
+      !['admin', 'super_admin', 'sales_rep'].includes(user.role) &&
+      !p.addonAutoQueue
+    ) {
       logger.security('Non-admin attempted to queue prescription for provider', {
         userId: user.id,
         role: user.role,
@@ -325,14 +335,13 @@ async function createPrescriptionHandlerLegacy(req: NextRequest, user: AuthUser)
 
     if (glp1Rxs.length > 0) {
       const explicitPlanMonths = (body as any).planMonths ?? (body as any).planDurationMonths;
-      const maxDaysSupply = Math.max(
-        ...p.rxs.map((rx: any) => Number(rx.daysSupply) || 30)
-      );
+      const maxDaysSupply = Math.max(...p.rxs.map((rx: any) => Number(rx.daysSupply) || 30));
       // When planMonths isn't explicitly provided, also check total vial count:
       // multiple GLP-1 vials means multi-month plan (each vial ≈ 1 month)
-      const is1Month = explicitPlanMonths != null
-        ? Number(explicitPlanMonths) <= 1
-        : totalGlp1Vials <= 1 && maxDaysSupply <= 30;
+      const is1Month =
+        explicitPlanMonths != null
+          ? Number(explicitPlanMonths) <= 1
+          : totalGlp1Vials <= 1 && maxDaysSupply <= 30;
       const isMultiMonth = explicitPlanMonths != null && Number(explicitPlanMonths) > 1;
 
       // 1-month: block >1 vial
@@ -412,9 +421,7 @@ async function createPrescriptionHandlerLegacy(req: NextRequest, user: AuthUser)
 
       // Auto-add 5 syringe kits for Elite Bundle injectables (NAD+, Sermorelin, B12)
       if (glp1VialCount === 0) {
-        const hasEliteAddonMed = rxsWithMeds.some(
-          ({ med }) => ELITE_ADDON_PRODUCT_IDS.has(med.id)
-        );
+        const hasEliteAddonMed = rxsWithMeds.some(({ med }) => ELITE_ADDON_PRODUCT_IDS.has(med.id));
         const alreadyHasSyringeKit = rxsWithMeds.some(
           ({ med }) => med.id === SYRINGE_KIT_PRODUCT_ID
         );
@@ -436,14 +443,13 @@ async function createPrescriptionHandlerLegacy(req: NextRequest, user: AuthUser)
     const primary = rxsWithMeds[0];
 
     // Log medications for debugging
-    logger.debug(
-      `[PRESCRIPTIONS] Processing ${rxsWithMeds.length} medications:`,
-      { medications: rxsWithMeds.map(({ med }) => ({
+    logger.debug(`[PRESCRIPTIONS] Processing ${rxsWithMeds.length} medications:`, {
+      medications: rxsWithMeds.map(({ med }) => ({
         name: med.name,
         strength: med.strength,
         form: med.form,
-      })) }
-    );
+      })),
+    });
 
     const now = new Date();
     const printableDate = now.toLocaleDateString();
@@ -548,7 +554,8 @@ async function createPrescriptionHandlerLegacy(req: NextRequest, user: AuthUser)
       });
       return NextResponse.json(
         {
-          error: 'Pharmacy requires biological sex (Male or Female) for prescription processing. Please update the patient gender and try again.',
+          error:
+            'Pharmacy requires biological sex (Male or Female) for prescription processing. Please update the patient gender and try again.',
           code: 'INVALID_PHARMACY_GENDER',
           detail: `Gender value "${p.patient.gender}" is not accepted by the pharmacy. Please select Male or Female.`,
         },
@@ -562,7 +569,9 @@ async function createPrescriptionHandlerLegacy(req: NextRequest, user: AuthUser)
     if (!p.patient.dob || !String(p.patient.dob).trim()) {
       missingForPharmacy.push('date of birth');
     } else if (!dobIso || dobIso.length < 8) {
-      missingForPharmacy.push(`valid date of birth (received "${p.patient.dob}" which is not a real calendar date)`);
+      missingForPharmacy.push(
+        `valid date of birth (received "${p.patient.dob}" which is not a real calendar date)`
+      );
     }
     const addr1 = (p.patient.address1 ?? '').trim();
     const city = (p.patient.city ?? '').trim();
@@ -580,7 +589,8 @@ async function createPrescriptionHandlerLegacy(req: NextRequest, user: AuthUser)
       });
       return NextResponse.json(
         {
-          error: 'Patient profile is missing information required by the pharmacy. Please update the patient profile and try again.',
+          error:
+            'Patient profile is missing information required by the pharmacy. Please update the patient profile and try again.',
           code: 'MISSING_PATIENT_INFO',
           detail: `Missing: ${list}. Add these in the patient profile (e.g. Profile tab or Edit Patient) before sending the prescription.`,
         },
@@ -714,7 +724,10 @@ async function createPrescriptionHandlerLegacy(req: NextRequest, user: AuthUser)
           userId: user.id,
         });
         return NextResponse.json(
-          { error: 'This prescription has already been sent by another provider.', code: 'DUPLICATE_BLOCKED' },
+          {
+            error: 'This prescription has already been sent by another provider.',
+            code: 'DUPLICATE_BLOCKED',
+          },
           { status: 409 }
         );
       }
@@ -737,7 +750,11 @@ async function createPrescriptionHandlerLegacy(req: NextRequest, user: AuthUser)
         if (invoiceClaimed && p.invoiceId) {
           await prisma.invoice.update({
             where: { id: p!.invoiceId },
-            data: { prescriptionProcessed: false, prescriptionProcessedBy: null, prescriptionProcessedAt: null },
+            data: {
+              prescriptionProcessed: false,
+              prescriptionProcessedBy: null,
+              prescriptionProcessedAt: null,
+            },
           });
         }
         logger.warn('[PRESCRIPTIONS] Refill already claimed by another provider', {
@@ -745,7 +762,10 @@ async function createPrescriptionHandlerLegacy(req: NextRequest, user: AuthUser)
           userId: user.id,
         });
         return NextResponse.json(
-          { error: 'This refill has already been prescribed by another provider.', code: 'DUPLICATE_BLOCKED' },
+          {
+            error: 'This refill has already been prescribed by another provider.',
+            code: 'DUPLICATE_BLOCKED',
+          },
           { status: 409 }
         );
       }
@@ -765,7 +785,7 @@ async function createPrescriptionHandlerLegacy(req: NextRequest, user: AuthUser)
 
       const transactionResult = await withRetry<TransactionResult>(
         () =>
-          (prisma.$transaction(
+          prisma.$transaction(
             async (tx) => {
               // Check for duplicate submission (idempotency)
               const existingOrder = await tx.order.findFirst({
@@ -963,7 +983,7 @@ async function createPrescriptionHandlerLegacy(req: NextRequest, user: AuthUser)
               isolationLevel: 'Serializable',
               timeout: 30000,
             }
-          )) as unknown as Promise<TransactionResult>,
+          ) as unknown as Promise<TransactionResult>,
         {
           maxRetries: 3,
           initialDelayMs: 200,
@@ -1050,11 +1070,16 @@ async function createPrescriptionHandlerLegacy(req: NextRequest, user: AuthUser)
           try {
             await prisma.invoice.update({
               where: { id: p!.invoiceId },
-              data: { prescriptionProcessed: false, prescriptionProcessedBy: null, prescriptionProcessedAt: null },
+              data: {
+                prescriptionProcessed: false,
+                prescriptionProcessedBy: null,
+                prescriptionProcessedAt: null,
+              },
             });
           } catch (rollbackErr) {
             logger.error('[PRESCRIPTIONS] Failed to rollback invoice claim', {
-              invoiceId: p.invoiceId, error: rollbackErr instanceof Error ? rollbackErr.message : 'Unknown',
+              invoiceId: p.invoiceId,
+              error: rollbackErr instanceof Error ? rollbackErr.message : 'Unknown',
             });
           }
         }
@@ -1066,14 +1091,16 @@ async function createPrescriptionHandlerLegacy(req: NextRequest, user: AuthUser)
             });
           } catch (rollbackErr) {
             logger.error('[PRESCRIPTIONS] Failed to rollback refill claim', {
-              refillId: p.refillId, error: rollbackErr instanceof Error ? rollbackErr.message : 'Unknown',
+              refillId: p.refillId,
+              error: rollbackErr instanceof Error ? rollbackErr.message : 'Unknown',
             });
           }
         }
 
         return NextResponse.json(
           {
-            error: 'The pharmacy could not accept this order. Check the reason below and update the patient profile if needed, then try again.',
+            error:
+              'The pharmacy could not accept this order. Check the reason below and update the patient profile if needed, then try again.',
             code: 'LIFEFILE_SUBMISSION_FAILED',
             detail: errorMessage,
             orderId: order.id,
@@ -1084,8 +1111,7 @@ async function createPrescriptionHandlerLegacy(req: NextRequest, user: AuthUser)
       }
       // Lifefile returns orderId nested: { data: { orderId: 100719360 } }
       // Also check top-level for forward compatibility
-      const lifefileOrderId =
-        orderResponse?.data?.orderId ?? orderResponse?.orderId ?? null;
+      const lifefileOrderId = orderResponse?.data?.orderId ?? orderResponse?.orderId ?? null;
 
       logger.info('[PRESCRIPTIONS] Lifefile response', {
         orderId: order.id,
@@ -1111,7 +1137,8 @@ async function createPrescriptionHandlerLegacy(req: NextRequest, user: AuthUser)
           });
         } catch (linkErr) {
           logger.warn('[PRESCRIPTIONS] Failed to link invoice to order', {
-            invoiceId: p.invoiceId, orderId: order.id,
+            invoiceId: p.invoiceId,
+            orderId: order.id,
             error: linkErr instanceof Error ? linkErr.message : 'Unknown',
           });
         }
@@ -1292,11 +1319,16 @@ async function createPrescriptionHandlerLegacy(req: NextRequest, user: AuthUser)
         try {
           await prisma.invoice.update({
             where: { id: p!.invoiceId },
-            data: { prescriptionProcessed: false, prescriptionProcessedBy: null, prescriptionProcessedAt: null },
+            data: {
+              prescriptionProcessed: false,
+              prescriptionProcessedBy: null,
+              prescriptionProcessedAt: null,
+            },
           });
         } catch (rollbackErr) {
           logger.error('[PRESCRIPTIONS] Failed to rollback invoice claim on error', {
-            invoiceId: p.invoiceId, error: rollbackErr instanceof Error ? rollbackErr.message : 'Unknown',
+            invoiceId: p.invoiceId,
+            error: rollbackErr instanceof Error ? rollbackErr.message : 'Unknown',
           });
         }
       }
@@ -1308,14 +1340,16 @@ async function createPrescriptionHandlerLegacy(req: NextRequest, user: AuthUser)
           });
         } catch (rollbackErr) {
           logger.error('[PRESCRIPTIONS] Failed to rollback refill claim on error', {
-            refillId: p.refillId, error: rollbackErr instanceof Error ? rollbackErr.message : 'Unknown',
+            refillId: p.refillId,
+            error: rollbackErr instanceof Error ? rollbackErr.message : 'Unknown',
           });
         }
       }
 
       return NextResponse.json(
         {
-          error: 'The pharmacy could not accept this order. Check the reason below and update the patient profile if needed, then try again.',
+          error:
+            'The pharmacy could not accept this order. Check the reason below and update the patient profile if needed, then try again.',
           code: 'LIFEFILE_SUBMISSION_FAILED',
           detail: errorMessage,
         },
@@ -1331,9 +1365,15 @@ async function createPrescriptionHandlerLegacy(req: NextRequest, user: AuthUser)
       try {
         await prisma.invoice.update({
           where: { id: claimedInvoiceId },
-          data: { prescriptionProcessed: false, prescriptionProcessedBy: null, prescriptionProcessedAt: null },
+          data: {
+            prescriptionProcessed: false,
+            prescriptionProcessedBy: null,
+            prescriptionProcessedAt: null,
+          },
         });
-      } catch { /* best-effort rollback */ }
+      } catch {
+        /* best-effort rollback */
+      }
     }
     if (refillClaimed && claimedRefillId) {
       try {
@@ -1341,7 +1381,9 @@ async function createPrescriptionHandlerLegacy(req: NextRequest, user: AuthUser)
           where: { id: claimedRefillId },
           data: { status: 'APPROVED' },
         });
-      } catch { /* best-effort rollback */ }
+      } catch {
+        /* best-effort rollback */
+      }
     }
 
     // P2024 / connection pool exhaustion: return 503 so client can retry (matches login, messages)
@@ -1383,9 +1425,7 @@ function parseCutoverClinicAllowlist(raw: string | undefined): Set<number> {
 function shouldUseServiceMode(user: AuthUser): boolean {
   if (getPrescriptionCutoverMode() !== 'service') return false;
 
-  const allowlist = parseCutoverClinicAllowlist(
-    process.env.PRESCRIPTIONS_CUTOVER_CLINIC_IDS
-  );
+  const allowlist = parseCutoverClinicAllowlist(process.env.PRESCRIPTIONS_CUTOVER_CLINIC_IDS);
 
   // No allowlist configured => global service mode (explicit operator choice).
   if (allowlist.size === 0) return true;
@@ -1400,10 +1440,7 @@ function ensurePrescriptionRole(user: AuthUser): Response | null {
     return null;
   }
   logger.security('Unauthorized prescription attempt', { userId: user.id, role: user.role });
-  return NextResponse.json(
-    { error: 'Not authorized to create prescriptions' },
-    { status: 403 }
-  );
+  return NextResponse.json({ error: 'Not authorized to create prescriptions' }, { status: 403 });
 }
 
 function mapServiceError(err: unknown): Response {

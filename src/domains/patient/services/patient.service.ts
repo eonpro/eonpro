@@ -578,9 +578,7 @@ export function createPatientService(repo: PatientRepository = defaultRepo): Pat
       // Check for duplicate email in clinic
       const existingEmail = await repo.findByEmail(parsed.data.email, clinicId);
       if (existingEmail) {
-        throw new ConflictError(
-          'A patient with this email already exists in this clinic'
-        );
+        throw new ConflictError('A patient with this email already exists in this clinic');
       }
 
       // Build input
@@ -652,9 +650,7 @@ export function createPatientService(repo: PatientRepository = defaultRepo): Pat
       if (parsed.data.email && parsed.data.email !== existing.email) {
         const emailExists = await this.isEmailRegistered(parsed.data.email, existing.clinicId, id);
         if (emailExists) {
-          throw new ConflictError(
-            'A patient with this email already exists in this clinic'
-          );
+          throw new ConflictError('A patient with this email already exists in this clinic');
         }
       }
 
@@ -709,10 +705,7 @@ export function createPatientService(repo: PatientRepository = defaultRepo): Pat
       await repo.delete(id, audit, clinicId);
     },
 
-    async countPatients(
-      user: UserContext,
-      filter: { clinicId?: number } = {}
-    ): Promise<number> {
+    async countPatients(user: UserContext, filter: { clinicId?: number } = {}): Promise<number> {
       const countFilter: PatientFilterOptions = {};
       if (user.role !== 'super_admin') {
         if (!user.clinicId) throw new ForbiddenError(ERR_NO_CLINIC);

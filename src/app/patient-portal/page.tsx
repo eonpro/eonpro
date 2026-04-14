@@ -40,7 +40,7 @@ const ActiveShipmentTracker = dynamic(
   {
     ssr: false,
     loading: () => <div className="mb-6 h-[104px]" />,
-  },
+  }
 );
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import { getPortalMode } from '@/lib/patient-portal/portal-mode';
@@ -123,14 +123,16 @@ export default function PatientPortalDashboard() {
     zoomJoinUrl?: string;
     videoLink?: string;
   } | null>(null);
-  const [upcomingAppointments, setUpcomingAppointments] = useState<Array<{
-    id: number;
-    title: string;
-    startTime: string;
-    type: string;
-    providerName?: string;
-    status: string;
-  }>>([]);
+  const [upcomingAppointments, setUpcomingAppointments] = useState<
+    Array<{
+      id: number;
+      title: string;
+      startTime: string;
+      type: string;
+      providerName?: string;
+      status: string;
+    }>
+  >([]);
 
   const primaryColor = branding?.primaryColor || '#4fa77e';
   const accentColor = branding?.accentColor || '#d3f931';
@@ -215,8 +217,8 @@ export default function PatientPortalDashboard() {
     if (!patient) return;
     let cancelled = false;
     portalFetch('/api/auth/me')
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
         if (cancelled || !data?.user) return;
         const name = `${data.user.firstName || ''} ${data.user.lastName || ''}`.trim();
         if (name) setDisplayName(name);
@@ -226,7 +228,9 @@ export default function PatientPortalDashboard() {
           error: err instanceof Error ? err.message : 'Unknown',
         });
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [patient?.id]);
 
   // Detect portal mode (lead vs patient)
@@ -237,23 +241,22 @@ export default function PatientPortalDashboard() {
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (cancelled || !data) return;
-        const mode = getPortalMode(
-          data.profileStatus ?? 'ACTIVE',
-          data.hasCompletedIntake ?? true,
-        );
+        const mode = getPortalMode(data.profileStatus ?? 'ACTIVE', data.hasCompletedIntake ?? true);
         setPortalMode(mode);
       })
       .catch(() => {
         if (!cancelled) setPortalMode('patient');
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [patient?.patientId]);
 
-  const loadPatientData = useCallback(async (patientId: number) => {
-    setDataError(null);
-    try {
-      const [vitalsRes, weightRes, remindersRes, trackingRes, photosRes] =
-        await Promise.all([
+  const loadPatientData = useCallback(
+    async (patientId: number) => {
+      setDataError(null);
+      try {
+        const [vitalsRes, weightRes, remindersRes, trackingRes, photosRes] = await Promise.all([
           portalFetch('/api/patient-portal/vitals'),
           portalFetch(`/api/patient-progress/weight?patientId=${patientId}`),
           portalFetch(`/api/patient-progress/medication-reminders?patientId=${patientId}`),
@@ -261,166 +264,232 @@ export default function PatientPortalDashboard() {
           portalFetch('/api/patient-portal/photos').catch(() => null),
         ]);
 
-      portalFetch('/api/patient-portal/appointments?upcoming=true&type=VIDEO&limit=1')
-        .then(async (res) => {
-          if (!res.ok) return;
-          const data = await res.json();
-          const appts = data.appointments ?? data.data ?? [];
-          if (appts.length > 0) {
-            const apt = appts[0];
-            const startTime = new Date(apt.startTime);
-            const hoursUntil = (startTime.getTime() - Date.now()) / (1000 * 60 * 60);
-            if (hoursUntil > 0 && hoursUntil <= 24) {
-              setUpcomingVideoVisit({
+        portalFetch('/api/patient-portal/appointments?upcoming=true&type=VIDEO&limit=1')
+          .then(async (res) => {
+            if (!res.ok) return;
+            const data = await res.json();
+            const appts = data.appointments ?? data.data ?? [];
+            if (appts.length > 0) {
+              const apt = appts[0];
+              const startTime = new Date(apt.startTime);
+              const hoursUntil = (startTime.getTime() - Date.now()) / (1000 * 60 * 60);
+              if (hoursUntil > 0 && hoursUntil <= 24) {
+                setUpcomingVideoVisit({
+                  id: apt.id,
+                  title: apt.title || apt.reason || 'Video Consultation',
+                  startTime: apt.startTime,
+                  providerName:
+                    apt.providerName ??
+                    (apt.provider
+                      ? `${apt.provider.firstName} ${apt.provider.lastName}`
+                      : undefined),
+                  zoomJoinUrl: apt.zoomJoinUrl,
+                  videoLink: apt.videoLink,
+                });
+              }
+            }
+          })
+          .catch(() => {});
+
+        portalFetch('/api/patient-portal/appointments?upcoming=true')
+          .then(async (res) => {
+            if (!res.ok) return;
+            const data = await res.json();
+            const appts = (data.appointments ?? data.data ?? []).slice(0, 3);
+            setUpcomingAppointments(
+              appts.map((apt: any) => ({
                 id: apt.id,
-                title: apt.title || apt.reason || 'Video Consultation',
+                title: apt.title || apt.reason || 'Appointment',
                 startTime: apt.startTime,
-                providerName: apt.providerName ?? (apt.provider ? `${apt.provider.firstName} ${apt.provider.lastName}` : undefined),
-                zoomJoinUrl: apt.zoomJoinUrl,
-                videoLink: apt.videoLink,
-              });
-            }
-          }
-        })
-        .catch(() => {});
-
-      portalFetch('/api/patient-portal/appointments?upcoming=true')
-        .then(async (res) => {
-          if (!res.ok) return;
-          const data = await res.json();
-          const appts = (data.appointments ?? data.data ?? []).slice(0, 3);
-          setUpcomingAppointments(
-            appts.map((apt: any) => ({
-              id: apt.id,
-              title: apt.title || apt.reason || 'Appointment',
-              startTime: apt.startTime,
-              type: apt.type || 'IN_PERSON',
-              providerName: apt.providerName ?? (apt.provider ? `${apt.provider.firstName} ${apt.provider.lastName}` : undefined),
-              status: apt.status || 'SCHEDULED',
-            }))
-          );
-        })
-        .catch(() => {});
-
-      const authErr = getPortalResponseError(vitalsRes) || getPortalResponseError(weightRes) || getPortalResponseError(remindersRes);
-      if (authErr) {
-        setDataError(authErr);
-        return;
-      }
-
-      // --- Vitals ---
-      if (vitalsRes.ok) {
-        const result = await safeParseJson(vitalsRes);
-        if (result && typeof result === 'object' && 'success' in result && result.success && 'data' in result && result.data) {
-          const vitals = result.data as IntakeVitals;
-          if (vitals.bmi) {
-            const bmiNum = parseFloat(vitals.bmi);
-            if (isNaN(bmiNum) || bmiNum < 10 || bmiNum > 100) {
-              vitals.bmi = null;
-            }
-          }
-          setIntakeVitals(vitals);
-        }
-      }
-
-      // --- Weight ---
-      if (weightRes.ok) {
-        const result = await safeParseJson(weightRes);
-        const logs = Array.isArray(result) ? result : (result && typeof result === 'object' && 'data' in result ? (result as { data?: unknown[] }).data : null) || [];
-        interface WeightLog { recordedAt?: string; weight?: number }
-        const formattedData = (logs as WeightLog[]).map((log) => ({
-          dateInput: log.recordedAt ?? '',
-          currentWeightInput: log.weight ?? 0,
-        }));
-        setWeightData(formattedData);
-
-        if (formattedData.length > 0) {
-          const sorted = [...formattedData].sort(
-            (a, b) => new Date(b.dateInput).getTime() - new Date(a.dateInput).getTime()
-          );
-          setCurrentWeight(sorted[0].currentWeightInput);
-
-          if (sorted.length > 1) {
-            setWeightChange(
-              sorted[0].currentWeightInput - sorted[sorted.length - 1].currentWeightInput
+                type: apt.type || 'IN_PERSON',
+                providerName:
+                  apt.providerName ??
+                  (apt.provider ? `${apt.provider.firstName} ${apt.provider.lastName}` : undefined),
+                status: apt.status || 'SCHEDULED',
+              }))
             );
+          })
+          .catch(() => {});
+
+        const authErr =
+          getPortalResponseError(vitalsRes) ||
+          getPortalResponseError(weightRes) ||
+          getPortalResponseError(remindersRes);
+        if (authErr) {
+          setDataError(authErr);
+          return;
+        }
+
+        // --- Vitals ---
+        if (vitalsRes.ok) {
+          const result = await safeParseJson(vitalsRes);
+          if (
+            result &&
+            typeof result === 'object' &&
+            'success' in result &&
+            result.success &&
+            'data' in result &&
+            result.data
+          ) {
+            const vitals = result.data as IntakeVitals;
+            if (vitals.bmi) {
+              const bmiNum = parseFloat(vitals.bmi);
+              if (isNaN(bmiNum) || bmiNum < 10 || bmiNum > 100) {
+                vitals.bmi = null;
+              }
+            }
+            setIntakeVitals(vitals);
           }
         }
-      }
 
-      // --- Reminders ---
-      if (remindersRes.ok) {
-        const result = await safeParseJson(remindersRes);
-        const reminders = Array.isArray(result) ? result : (result && typeof result === 'object' && 'data' in result ? (result as { data?: unknown[] }).data : null) || [];
-        if (reminders.length > 0) {
-          const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-          const today = new Date().getDay();
-          interface ReminderWithDays { dayOfWeek: number; medicationName: string; timeOfDay: string; daysUntil: number }
-          const sortedReminders = (reminders as ReminderWithDays[])
-            .map((r) => ({ ...r, daysUntil: (r.dayOfWeek - today + 7) % 7 || 7 }))
-            .sort((a, b) => a.daysUntil - b.daysUntil);
-          const next = sortedReminders[0];
-          setNextReminder({
-            medication: next.medicationName.split(' ')[0],
-            nextDose: dayNames[next.dayOfWeek],
-            time: next.timeOfDay,
-          });
-        }
-      }
+        // --- Weight ---
+        if (weightRes.ok) {
+          const result = await safeParseJson(weightRes);
+          const logs = Array.isArray(result)
+            ? result
+            : (result && typeof result === 'object' && 'data' in result
+                ? (result as { data?: unknown[] }).data
+                : null) || [];
+          interface WeightLog {
+            recordedAt?: string;
+            weight?: number;
+          }
+          const formattedData = (logs as WeightLog[]).map((log) => ({
+            dateInput: log.recordedAt ?? '',
+            currentWeightInput: log.weight ?? 0,
+          }));
+          setWeightData(formattedData);
 
-      // --- Tracking (non-critical) ---
-      if (trackingRes?.ok) {
-        const trackingResult = await safeParseJson(trackingRes);
-        if (trackingResult && typeof trackingResult === 'object' && 'activeShipments' in trackingResult) {
-          const active = (trackingResult as { activeShipments: RecentShipmentDisplay[] }).activeShipments;
-          if (Array.isArray(active) && active.length > 0) {
-            setRecentShipment(active[0]);
+          if (formattedData.length > 0) {
+            const sorted = [...formattedData].sort(
+              (a, b) => new Date(b.dateInput).getTime() - new Date(a.dateInput).getTime()
+            );
+            setCurrentWeight(sorted[0].currentWeightInput);
+
+            if (sorted.length > 1) {
+              setWeightChange(
+                sorted[0].currentWeightInput - sorted[sorted.length - 1].currentWeightInput
+              );
+            }
           }
         }
-      }
 
-      // --- Photos (non-critical) ---
-      if (photosRes?.ok) {
-        const photosResult = await safeParseJson(photosRes);
-        if (photosResult && typeof photosResult === 'object' && 'success' in photosResult && photosResult.success && 'data' in photosResult && photosResult.data) {
-          const photos = photosResult.data;
-          interface PhotoItem { type?: string; createdAt?: string; verificationStatus?: string }
-          const progressPhotos = (photos as PhotoItem[]).filter((p) => p.type === 'PROGRESS');
-          const idPhotos = (photos as PhotoItem[]).filter((p) => p.type === 'ID_FRONT' || p.type === 'ID_BACK');
-
-          let idStatus: 'PENDING' | 'VERIFIED' | 'REJECTED' | 'NOT_SUBMITTED' = 'NOT_SUBMITTED';
-          if (idPhotos.length > 0) {
-            const latestIdPhoto = [...idPhotos].sort(
-              (a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
-            )[0];
-            idStatus = (latestIdPhoto.verificationStatus || 'PENDING') as typeof idStatus;
+        // --- Reminders ---
+        if (remindersRes.ok) {
+          const result = await safeParseJson(remindersRes);
+          const reminders = Array.isArray(result)
+            ? result
+            : (result && typeof result === 'object' && 'data' in result
+                ? (result as { data?: unknown[] }).data
+                : null) || [];
+          if (reminders.length > 0) {
+            const dayNames = [
+              'Sunday',
+              'Monday',
+              'Tuesday',
+              'Wednesday',
+              'Thursday',
+              'Friday',
+              'Saturday',
+            ];
+            const today = new Date().getDay();
+            interface ReminderWithDays {
+              dayOfWeek: number;
+              medicationName: string;
+              timeOfDay: string;
+              daysUntil: number;
+            }
+            const sortedReminders = (reminders as ReminderWithDays[])
+              .map((r) => ({ ...r, daysUntil: (r.dayOfWeek - today + 7) % 7 || 7 }))
+              .sort((a, b) => a.daysUntil - b.daysUntil);
+            const next = sortedReminders[0];
+            setNextReminder({
+              medication: next.medicationName.split(' ')[0],
+              nextDose: dayNames[next.dayOfWeek],
+              time: next.timeOfDay,
+            });
           }
-
-          const recentProgressPhoto =
-            progressPhotos.length > 0
-              ? ([...progressPhotos].sort(
-                  (a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
-                )[0] as PhotoItem & { url?: string })?.url
-              : null;
-
-          setPhotoStats({
-            totalPhotos: Array.isArray(photos) ? photos.length : 0,
-            recentPhoto: recentProgressPhoto ?? null,
-            idVerificationStatus: idStatus,
-          });
         }
+
+        // --- Tracking (non-critical) ---
+        if (trackingRes?.ok) {
+          const trackingResult = await safeParseJson(trackingRes);
+          if (
+            trackingResult &&
+            typeof trackingResult === 'object' &&
+            'activeShipments' in trackingResult
+          ) {
+            const active = (trackingResult as { activeShipments: RecentShipmentDisplay[] })
+              .activeShipments;
+            if (Array.isArray(active) && active.length > 0) {
+              setRecentShipment(active[0]);
+            }
+          }
+        }
+
+        // --- Photos (non-critical) ---
+        if (photosRes?.ok) {
+          const photosResult = await safeParseJson(photosRes);
+          if (
+            photosResult &&
+            typeof photosResult === 'object' &&
+            'success' in photosResult &&
+            photosResult.success &&
+            'data' in photosResult &&
+            photosResult.data
+          ) {
+            const photos = photosResult.data;
+            interface PhotoItem {
+              type?: string;
+              createdAt?: string;
+              verificationStatus?: string;
+            }
+            const progressPhotos = (photos as PhotoItem[]).filter((p) => p.type === 'PROGRESS');
+            const idPhotos = (photos as PhotoItem[]).filter(
+              (p) => p.type === 'ID_FRONT' || p.type === 'ID_BACK'
+            );
+
+            let idStatus: 'PENDING' | 'VERIFIED' | 'REJECTED' | 'NOT_SUBMITTED' = 'NOT_SUBMITTED';
+            if (idPhotos.length > 0) {
+              const latestIdPhoto = [...idPhotos].sort(
+                (a, b) =>
+                  new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
+              )[0];
+              idStatus = (latestIdPhoto.verificationStatus || 'PENDING') as typeof idStatus;
+            }
+
+            const recentProgressPhoto =
+              progressPhotos.length > 0
+                ? (
+                    [...progressPhotos].sort(
+                      (a, b) =>
+                        new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
+                    )[0] as PhotoItem & { url?: string }
+                  )?.url
+                : null;
+
+            setPhotoStats({
+              totalPhotos: Array.isArray(photos) ? photos.length : 0,
+              recentPhoto: recentProgressPhoto ?? null,
+              idVerificationStatus: idStatus,
+            });
+          }
+        }
+      } catch (error) {
+        logger.error('Error loading patient data', {
+          error: error instanceof Error ? error.message : 'Unknown',
+        });
+        if (!dataError) {
+          setDataError(
+            'Unable to load your health data. Please check your connection and try again.'
+          );
+        }
+      } finally {
+        setDashboardLoading(false);
       }
-    } catch (error) {
-      logger.error('Error loading patient data', {
-        error: error instanceof Error ? error.message : 'Unknown',
-      });
-      if (!dataError) {
-        setDataError('Unable to load your health data. Please check your connection and try again.');
-      }
-    } finally {
-      setDashboardLoading(false);
-    }
-  }, [features, dataError]);
+    },
+    [features, dataError]
+  );
 
   const formatDate = useCallback(() => {
     return new Date().toLocaleDateString(language === 'es' ? 'es' : 'en-US', {
@@ -575,7 +644,9 @@ export default function PatientPortalDashboard() {
                 <Ruler className="h-3.5 w-3.5 text-gray-500 sm:h-4 sm:w-4" />
                 <p className="text-[10px] font-medium text-gray-500 sm:text-xs">Height</p>
               </div>
-              <p className="text-base font-bold text-gray-900 sm:text-xl">{intakeVitals.height || '—'}</p>
+              <p className="text-base font-bold text-gray-900 sm:text-xl">
+                {intakeVitals.height || '—'}
+              </p>
               <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-300">
                 <div
                   className="h-full rounded-full bg-gray-500"
@@ -590,7 +661,9 @@ export default function PatientPortalDashboard() {
                 <Scale className="h-3.5 w-3.5 text-gray-500 sm:h-4 sm:w-4" />
                 <p className="text-[10px] font-medium text-gray-500 sm:text-xs">Weight</p>
               </div>
-              <p className={`text-base font-bold sm:text-xl ${getBmiWeightColor(intakeVitals.bmi).text}`}>
+              <p
+                className={`text-base font-bold sm:text-xl ${getBmiWeightColor(intakeVitals.bmi).text}`}
+              >
                 {intakeVitals.weight ? `${intakeVitals.weight}lbs` : '—'}
               </p>
               <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-300">
@@ -633,19 +706,36 @@ export default function PatientPortalDashboard() {
           >
             <div className="mb-3 flex items-center justify-between sm:mb-4">
               <div className="min-w-0">
-                <p className="text-xs font-medium sm:text-sm" style={{ color: weightCardTextColor, opacity: 0.8 }}>
+                <p
+                  className="text-xs font-medium sm:text-sm"
+                  style={{ color: weightCardTextColor, opacity: 0.8 }}
+                >
                   {t('dashboardCurrentWeight')}
                 </p>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-3xl font-semibold sm:text-5xl" style={{ color: weightCardTextColor }}>
+                  <span
+                    className="text-3xl font-semibold sm:text-5xl"
+                    style={{ color: weightCardTextColor }}
+                  >
                     {currentWeight || '---'}
                   </span>
-                  <span className="text-base font-medium sm:text-xl" style={{ color: weightCardTextColor, opacity: 0.7 }}>
+                  <span
+                    className="text-base font-medium sm:text-xl"
+                    style={{ color: weightCardTextColor, opacity: 0.7 }}
+                  >
                     {t('dashboardLbs')}
                   </span>
                 </div>
               </div>
-              <div className="shrink-0 rounded-2xl p-3 sm:p-4" style={{ backgroundColor: weightCardTextColor === '#ffffff' ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)' }}>
+              <div
+                className="shrink-0 rounded-2xl p-3 sm:p-4"
+                style={{
+                  backgroundColor:
+                    weightCardTextColor === '#ffffff'
+                      ? 'rgba(255,255,255,0.15)'
+                      : 'rgba(0,0,0,0.08)',
+                }}
+              >
                 <Scale className="h-6 w-6 sm:h-8 sm:w-8" style={{ color: weightCardTextColor }} />
               </div>
             </div>
@@ -682,10 +772,16 @@ export default function PatientPortalDashboard() {
             ) : null}
 
             <div className="mt-4 flex items-center justify-between">
-              <span className="text-sm font-medium" style={{ color: weightCardTextColor, opacity: 0.7 }}>
+              <span
+                className="text-sm font-medium"
+                style={{ color: weightCardTextColor, opacity: 0.7 }}
+              >
                 {currentWeight ? t('dashboardTapToLogWeight') : 'Tap to get started'}
               </span>
-              <ChevronRight className="h-5 w-5" style={{ color: weightCardTextColor, opacity: 0.7 }} />
+              <ChevronRight
+                className="h-5 w-5"
+                style={{ color: weightCardTextColor, opacity: 0.7 }}
+              />
             </div>
           </div>
         </Link>
@@ -700,7 +796,10 @@ export default function PatientPortalDashboard() {
             className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm sm:p-4"
           >
             <div className="mb-2 flex items-center gap-3">
-              <div className="shrink-0 rounded-xl p-2" style={{ backgroundColor: `${primaryColor}15` }}>
+              <div
+                className="shrink-0 rounded-xl p-2"
+                style={{ backgroundColor: `${primaryColor}15` }}
+              >
                 <Pill className="h-5 w-5" style={{ color: primaryColor }} />
               </div>
               <span className="text-xs font-medium text-gray-500">{t('dashboardNextDose')}</span>
@@ -751,7 +850,9 @@ export default function PatientPortalDashboard() {
                   <Camera className="h-5 w-5 text-white sm:h-6 sm:w-6" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="truncate font-semibold text-gray-900">{t('dashboardProgressPhotos')}</h3>
+                  <h3 className="truncate font-semibold text-gray-900">
+                    {t('dashboardProgressPhotos')}
+                  </h3>
                   <p className="text-sm text-gray-500">
                     {photoStats?.totalPhotos
                       ? `${photoStats.totalPhotos} photo${photoStats.totalPhotos !== 1 ? 's' : ''} uploaded`
@@ -827,7 +928,9 @@ export default function PatientPortalDashboard() {
                   <p className="text-sm font-medium text-[var(--brand-primary)]">
                     {t('dashboardStartDocumenting')}
                   </p>
-                  <p className="text-xs text-[var(--brand-primary)]">{t('dashboardUploadFirstPhoto')}</p>
+                  <p className="text-xs text-[var(--brand-primary)]">
+                    {t('dashboardUploadFirstPhoto')}
+                  </p>
                 </div>
               </div>
             )}
@@ -845,11 +948,10 @@ export default function PatientPortalDashboard() {
                   <Video className="h-6 w-6 text-blue-600" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-gray-900">
-                    {upcomingVideoVisit.title}
-                  </p>
+                  <p className="text-sm font-semibold text-gray-900">{upcomingVideoVisit.title}</p>
                   <p className="mt-0.5 text-xs text-gray-600">
-                    {upcomingVideoVisit.providerName && `with ${upcomingVideoVisit.providerName} · `}
+                    {upcomingVideoVisit.providerName &&
+                      `with ${upcomingVideoVisit.providerName} · `}
                     {new Date(upcomingVideoVisit.startTime).toLocaleString('en-US', {
                       weekday: 'short',
                       month: 'short',
@@ -891,14 +993,22 @@ export default function PatientPortalDashboard() {
             {upcomingAppointments.map((apt) => (
               <a
                 key={apt.id}
-                href={apt.type === 'VIDEO'
-                  ? `/patient-portal/telehealth?appointmentId=${apt.id}`
-                  : `/patient-portal/appointments`}
+                href={
+                  apt.type === 'VIDEO'
+                    ? `/patient-portal/telehealth?appointmentId=${apt.id}`
+                    : `/patient-portal/appointments`
+                }
                 className="flex items-center gap-4 rounded-xl border border-gray-200 bg-white px-4 py-3 transition-colors hover:bg-gray-50"
               >
-                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
-                  apt.type === 'VIDEO' ? 'bg-blue-100' : apt.type === 'PHONE' ? 'bg-purple-100' : 'bg-gray-100'
-                }`}>
+                <div
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+                    apt.type === 'VIDEO'
+                      ? 'bg-blue-100'
+                      : apt.type === 'PHONE'
+                        ? 'bg-purple-100'
+                        : 'bg-gray-100'
+                  }`}
+                >
                   {apt.type === 'VIDEO' ? (
                     <Video className="h-5 w-5 text-blue-600" />
                   ) : apt.type === 'PHONE' ? (
@@ -1031,8 +1141,12 @@ export default function PatientPortalDashboard() {
             <div className="flex items-center gap-3 rounded-xl bg-amber-50 p-3">
               <Clock className="h-5 w-5 shrink-0 text-amber-600" />
               <div className="min-w-0 flex-1">
-                <p className="break-words text-sm font-medium text-gray-900">{nextReminder.medication} — {t('dashboardNextDose')}</p>
-                <p className="text-xs text-gray-500">{nextReminder.nextDose} {t('dashboardAt')} {nextReminder.time}</p>
+                <p className="break-words text-sm font-medium text-gray-900">
+                  {nextReminder.medication} — {t('dashboardNextDose')}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {nextReminder.nextDose} {t('dashboardAt')} {nextReminder.time}
+                </p>
               </div>
             </div>
           </div>

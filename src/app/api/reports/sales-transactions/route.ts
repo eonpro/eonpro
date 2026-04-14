@@ -211,9 +211,7 @@ async function handler(req: NextRequest, user: AuthUser): Promise<Response> {
         patient: {
           id: t.patient?.id ?? null,
           patientId: t.patient?.patientId ?? null,
-          name: t.patient
-            ? `${t.patient.firstName} ${t.patient.lastName}`.trim()
-            : 'Unknown',
+          name: t.patient ? `${t.patient.firstName} ${t.patient.lastName}`.trim() : 'Unknown',
           email: t.patient?.email ?? null,
           phone: t.patient?.phone ?? null,
         },
@@ -268,8 +266,13 @@ async function handler(req: NextRequest, user: AuthUser): Promise<Response> {
     const totalRefundedDollars = allRefundedAmountAgg._sum.refundedAmount || 0;
     const netSales = grossSales - totalRefundedDollars;
     const allCount =
-      succeededAgg._count + failedAgg._count + refundedAgg._count + pendingAgg._count + canceledAgg._count;
-    const avgTransaction = succeededAgg._count > 0 ? Math.round(grossSales / succeededAgg._count) : 0;
+      succeededAgg._count +
+      failedAgg._count +
+      refundedAgg._count +
+      pendingAgg._count +
+      canceledAgg._count;
+    const avgTransaction =
+      succeededAgg._count > 0 ? Math.round(grossSales / succeededAgg._count) : 0;
 
     return NextResponse.json({
       transactions: rows,
@@ -296,17 +299,34 @@ async function handler(req: NextRequest, user: AuthUser): Promise<Response> {
         formattedAverage: formatCurrency(avgTransaction),
 
         byStatus: {
-          succeeded: { count: succeededAgg._count, amount: succeededAgg._sum.amount || 0, formatted: formatCurrency(succeededAgg._sum.amount || 0) },
-          failed: { count: failedAgg._count, amount: failedAgg._sum.amount || 0, formatted: formatCurrency(failedAgg._sum.amount || 0) },
-          refunded: { count: refundedAgg._count, amount: refundedAgg._sum.amount || 0, formatted: formatCurrency(refundedAgg._sum.amount || 0) },
-          pending: { count: pendingAgg._count, amount: pendingAgg._sum.amount || 0, formatted: formatCurrency(pendingAgg._sum.amount || 0) },
-          canceled: { count: canceledAgg._count, amount: canceledAgg._sum.amount || 0, formatted: formatCurrency(canceledAgg._sum.amount || 0) },
+          succeeded: {
+            count: succeededAgg._count,
+            amount: succeededAgg._sum.amount || 0,
+            formatted: formatCurrency(succeededAgg._sum.amount || 0),
+          },
+          failed: {
+            count: failedAgg._count,
+            amount: failedAgg._sum.amount || 0,
+            formatted: formatCurrency(failedAgg._sum.amount || 0),
+          },
+          refunded: {
+            count: refundedAgg._count,
+            amount: refundedAgg._sum.amount || 0,
+            formatted: formatCurrency(refundedAgg._sum.amount || 0),
+          },
+          pending: {
+            count: pendingAgg._count,
+            amount: pendingAgg._sum.amount || 0,
+            formatted: formatCurrency(pendingAgg._sum.amount || 0),
+          },
+          canceled: {
+            count: canceledAgg._count,
+            amount: canceledAgg._sum.amount || 0,
+            formatted: formatCurrency(canceledAgg._sum.amount || 0),
+          },
         },
 
-        successRate:
-          allCount > 0
-            ? Math.round((succeededAgg._count / allCount) * 10000) / 100
-            : 0,
+        successRate: allCount > 0 ? Math.round((succeededAgg._count / allCount) * 10000) / 100 : 0,
       },
       dateRange: { start, end, label, range: rangeParam },
     });

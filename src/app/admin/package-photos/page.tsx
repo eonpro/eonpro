@@ -70,7 +70,12 @@ interface PackagePhotoRecord {
   createdAt: string;
   capturedBy: { id: number; firstName: string; lastName: string; email: string };
   patient: { id: number; firstName: string; lastName: string } | null;
-  order: { id: number; lifefileOrderId: string | null; status: string | null; trackingNumber: string | null } | null;
+  order: {
+    id: number;
+    lifefileOrderId: string | null;
+    status: string | null;
+    trackingNumber: string | null;
+  } | null;
   assignedClinicId: number | null;
   assignedClinic: { id: number; name: string } | null;
 }
@@ -266,7 +271,15 @@ async function authenticatedFetch(url: string, options: RequestInit = {}): Promi
 // Shared: Photo Thumbnail — uses server-side proxy to avoid S3/CloudFront URL issues
 // ---------------------------------------------------------------------------
 
-function PhotoThumbnail({ photoId, s3Key, size }: { photoId: number; s3Key: string; size: 'sm' | 'full' }) {
+function PhotoThumbnail({
+  photoId,
+  s3Key,
+  size,
+}: {
+  photoId: number;
+  s3Key: string;
+  size: 'sm' | 'full';
+}) {
   const [failed, setFailed] = useState(false);
   const src = s3Key ? `/api/package-photos/${photoId}/image` : '';
 
@@ -292,14 +305,25 @@ function PhotoThumbnail({ photoId, s3Key, size }: { photoId: number; s3Key: stri
     return (
       <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt="" className="h-full w-full object-cover" onError={() => setFailed(true)} loading="lazy" />
+        <img
+          src={src}
+          alt=""
+          className="h-full w-full object-cover"
+          onError={() => setFailed(true)}
+          loading="lazy"
+        />
       </div>
     );
   }
 
   return (
     /* eslint-disable-next-line @next/next/no-img-element */
-    <img src={src} alt={`Package photo #${photoId}`} className="w-full" onError={() => setFailed(true)} />
+    <img
+      src={src}
+      alt={`Package photo #${photoId}`}
+      className="w-full"
+      onError={() => setFailed(true)}
+    />
   );
 }
 
@@ -321,7 +345,11 @@ function CopyButton({ text }: { text: string }) {
       className="ml-1.5 inline-flex items-center rounded p-0.5 text-gray-400 transition-colors hover:text-violet-600"
       title={copied ? 'Copied!' : 'Copy'}
     >
-      {copied ? <CheckCircle className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+      {copied ? (
+        <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />
+      ) : (
+        <Copy className="h-3.5 w-3.5" />
+      )}
     </button>
   );
 }
@@ -353,7 +381,9 @@ function StepIndicator({ step }: { step: CaptureStep }) {
         return (
           <div key={s.key} className="flex items-center">
             {i > 0 && (
-              <div className={`mx-1.5 h-px w-10 transition-colors sm:mx-2 sm:w-14 ${i <= activeIdx ? 'bg-violet-400' : 'bg-gray-200'}`} />
+              <div
+                className={`mx-1.5 h-px w-10 transition-colors sm:mx-2 sm:w-14 ${i <= activeIdx ? 'bg-violet-400' : 'bg-gray-200'}`}
+              />
             )}
             <div className="flex flex-col items-center gap-1">
               <div
@@ -367,7 +397,9 @@ function StepIndicator({ step }: { step: CaptureStep }) {
               >
                 {done ? <CheckCircle className="h-4.5 w-4.5" /> : <Icon className="h-4 w-4" />}
               </div>
-              <span className={`text-[10px] font-semibold tracking-wide ${active ? 'text-violet-700' : done ? 'text-violet-500' : 'text-gray-300'}`}>
+              <span
+                className={`text-[10px] font-semibold tracking-wide ${active ? 'text-violet-700' : done ? 'text-violet-500' : 'text-gray-300'}`}
+              >
                 {s.label}
               </span>
             </div>
@@ -389,7 +421,9 @@ export default function PackagePhotosPage() {
   const [isPharmacy, setIsPharmacy] = useState(true);
 
   useEffect(() => {
-    setIsPharmacy(isLogosRxHost() || authUser?.role === 'pharmacy_rep' || authUser?.role === 'super_admin');
+    setIsPharmacy(
+      isLogosRxHost() || authUser?.role === 'pharmacy_rep' || authUser?.role === 'super_admin'
+    );
   }, [authUser]);
 
   if (!isPharmacy && authUser?.clinicId) {
@@ -465,41 +499,50 @@ function AssignedPackagesView({ clinicId }: { clinicId: number }) {
   const [periodFilter, setPeriodFilter] = useState<string>('all');
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchPhotos = useCallback(async (searchVal: string, periodVal: string, pageVal: number) => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      params.set('assignedClinicId', String(clinicId));
-      if (searchVal) params.set('search', searchVal);
-      if (periodVal !== 'all') params.set('period', periodVal);
-      params.set('sortBy', 'createdAt');
-      params.set('sortOrder', 'desc');
-      params.set('page', String(pageVal));
-      params.set('limit', '25');
+  const fetchPhotos = useCallback(
+    async (searchVal: string, periodVal: string, pageVal: number) => {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams();
+        params.set('assignedClinicId', String(clinicId));
+        if (searchVal) params.set('search', searchVal);
+        if (periodVal !== 'all') params.set('period', periodVal);
+        params.set('sortBy', 'createdAt');
+        params.set('sortOrder', 'desc');
+        params.set('page', String(pageVal));
+        params.set('limit', '25');
 
-      const res = await apiFetch(`/api/package-photos?${params.toString()}`);
-      if (res.ok) {
-        const json = await res.json();
-        setPhotos(json.data);
-        setTotalPages(json.meta.totalPages);
-        setTotal(json.meta.total);
+        const res = await apiFetch(`/api/package-photos?${params.toString()}`);
+        if (res.ok) {
+          const json = await res.json();
+          setPhotos(json.data);
+          setTotalPages(json.meta.totalPages);
+          setTotal(json.meta.total);
+        }
+      } catch {
+        /* silent */
+      } finally {
+        setLoading(false);
       }
-    } catch { /* silent */ }
-    finally { setLoading(false); }
-  }, [clinicId]);
+    },
+    [clinicId]
+  );
 
   useEffect(() => {
     fetchPhotos(search, periodFilter, page);
   }, [fetchPhotos, periodFilter, page]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleSearchChange = useCallback((value: string) => {
-    setSearch(value);
-    if (searchTimeout.current) clearTimeout(searchTimeout.current);
-    searchTimeout.current = setTimeout(() => {
-      setPage(1);
-      fetchPhotos(value, periodFilter, 1);
-    }, 350);
-  }, [fetchPhotos, periodFilter]);
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      setSearch(value);
+      if (searchTimeout.current) clearTimeout(searchTimeout.current);
+      searchTimeout.current = setTimeout(() => {
+        setPage(1);
+        fetchPhotos(value, periodFilter, 1);
+      }, 350);
+    },
+    [fetchPhotos, periodFilter]
+  );
 
   return (
     <div className="mx-auto max-w-6xl px-3 py-3 sm:px-6 sm:py-5">
@@ -533,7 +576,10 @@ function AssignedPackagesView({ clinicId }: { clinicId: number }) {
         </div>
         <select
           value={periodFilter}
-          onChange={(e) => { setPeriodFilter(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setPeriodFilter(e.target.value);
+            setPage(1);
+          }}
           className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 focus:border-violet-500 focus:outline-none sm:text-xs"
         >
           <option value="all">All Time</option>
@@ -558,7 +604,9 @@ function AssignedPackagesView({ clinicId }: { clinicId: number }) {
         <div className="py-20 text-center">
           <Package className="mx-auto mb-3 h-10 w-10 text-gray-200" />
           <p className="text-sm font-medium text-gray-500">No packages assigned yet</p>
-          <p className="mt-1 text-xs text-gray-400">Packages assigned by the pharmacy will appear here</p>
+          <p className="mt-1 text-xs text-gray-400">
+            Packages assigned by the pharmacy will appear here
+          </p>
         </div>
       )}
 
@@ -575,21 +623,29 @@ function AssignedPackagesView({ clinicId }: { clinicId: number }) {
                 <PhotoThumbnail photoId={photo.id} s3Key={photo.s3Key} size="sm" />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between">
-                    <span className="font-mono text-sm font-bold text-gray-900">{photo.lifefileId}</span>
+                    <span className="font-mono text-sm font-bold text-gray-900">
+                      {photo.lifefileId}
+                    </span>
                     <span className="text-xs text-gray-400">{relativeTime(photo.createdAt)}</span>
                   </div>
                   <div className="mt-0.5 flex items-center gap-2 text-[11px] text-gray-400">
                     {photo.trackingNumber ? (
                       <span className="flex items-center gap-0.5 font-mono text-blue-600">
                         <Truck className="h-3 w-3" />
-                        {photo.trackingNumber.slice(0, 18)}{photo.trackingNumber.length > 18 ? '...' : ''}
+                        {photo.trackingNumber.slice(0, 18)}
+                        {photo.trackingNumber.length > 18 ? '...' : ''}
                       </span>
                     ) : (
                       <span>No tracking</span>
                     )}
                     <span>&middot;</span>
                     <span>
-                      {new Date(photo.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                      {new Date(photo.createdAt).toLocaleDateString(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                      })}
                     </span>
                   </div>
                 </div>
@@ -602,7 +658,9 @@ function AssignedPackagesView({ clinicId }: { clinicId: number }) {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="mt-4 flex items-center justify-between">
-          <span className="text-xs text-gray-400">Page {page} of {totalPages}</span>
+          <span className="text-xs text-gray-400">
+            Page {page} of {totalPages}
+          </span>
           <div className="flex gap-2">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
@@ -642,13 +700,18 @@ function AssignedPackageDetailModal({
   onClose: () => void;
 }) {
   useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
     document.addEventListener('keydown', handleEsc);
     return () => document.removeEventListener('keydown', handleEsc);
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4"
+      onClick={onClose}
+    >
       <div
         className="w-full max-w-lg overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:max-h-[90vh] sm:overflow-y-auto sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
@@ -659,16 +722,24 @@ function AssignedPackageDetailModal({
             <div className="flex items-end justify-between text-white">
               <p className="font-mono text-lg font-bold">{photo.lifefileId}</p>
               <p className="text-[11px] opacity-75">
-                {new Date(photo.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                {new Date(photo.createdAt).toLocaleDateString(undefined, {
+                  month: 'short',
+                  day: 'numeric',
+                  hour: 'numeric',
+                  minute: '2-digit',
+                })}
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="absolute right-3 top-3 rounded-full bg-black/40 p-1.5 text-white/80 backdrop-blur-sm transition-colors hover:bg-black/60 hover:text-white">
+          <button
+            onClick={onClose}
+            className="absolute right-3 top-3 rounded-full bg-black/40 p-1.5 text-white/80 backdrop-blur-sm transition-colors hover:bg-black/60 hover:text-white"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="p-5 space-y-3">
+        <div className="space-y-3 p-5">
           <div className="flex items-center justify-between text-sm">
             <span className="text-gray-500">LifeFile ID</span>
             <span className="flex items-center font-mono font-bold text-gray-900">
@@ -752,31 +823,40 @@ function CaptureFlow({
       .catch(() => {});
   }, []);
 
-  const handleAssignClinic = useCallback(async (clinicId: number) => {
-    if (!uploadResult) return;
-    setAssigningSaving(true);
-    setError(null);
-    try {
-      const res = await apiFetch(`/api/package-photos/${uploadResult.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assignedClinicId: clinicId }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: 'Failed to assign' }));
-        throw new Error(err.error || 'Failed to assign clinic');
+  const handleAssignClinic = useCallback(
+    async (clinicId: number) => {
+      if (!uploadResult) return;
+      setAssigningSaving(true);
+      setError(null);
+      try {
+        const res = await apiFetch(`/api/package-photos/${uploadResult.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ assignedClinicId: clinicId }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: 'Failed to assign' }));
+          throw new Error(err.error || 'Failed to assign clinic');
+        }
+        const json = await res.json();
+        setAssignedClinic(json.data.assignedClinic ?? null);
+        setUploadResult((prev) =>
+          prev
+            ? {
+                ...prev,
+                assignedClinicId: json.data.assignedClinicId,
+                assignedClinic: json.data.assignedClinic,
+              }
+            : prev
+        );
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Failed to assign clinic.');
+      } finally {
+        setAssigningSaving(false);
       }
-      const json = await res.json();
-      setAssignedClinic(json.data.assignedClinic ?? null);
-      setUploadResult((prev) =>
-        prev ? { ...prev, assignedClinicId: json.data.assignedClinicId, assignedClinic: json.data.assignedClinic } : prev,
-      );
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to assign clinic.');
-    } finally {
-      setAssigningSaving(false);
-    }
-  }, [uploadResult]);
+    },
+    [uploadResult]
+  );
 
   const reset = useCallback(() => {
     setStep('lifefileId');
@@ -856,7 +936,13 @@ function CaptureFlow({
 
       const json = await res.json();
       setUploadResult((prev) =>
-        prev ? { ...prev, trackingNumber: json.data.trackingNumber, trackingSource: json.data.trackingSource } : prev,
+        prev
+          ? {
+              ...prev,
+              trackingNumber: json.data.trackingNumber,
+              trackingSource: json.data.trackingSource,
+            }
+          : prev
       );
       setTrackingSaved(true);
     } catch (err: unknown) {
@@ -885,7 +971,9 @@ function CaptureFlow({
             inputMode="text"
             value={lifefileId}
             onChange={(e) => setLifefileId(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && lifefileId.trim()) setStep('camera'); }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && lifefileId.trim()) setStep('camera');
+            }}
             placeholder="Scan or type the package ID"
             autoFocus
             autoComplete="off"
@@ -909,7 +997,11 @@ function CaptureFlow({
 
       {/* ── Step 2a: Camera ──────────────────────────────────── */}
       {step === 'camera' && (
-        <CameraCapture onCapture={handleCapture} onCancel={() => setStep('lifefileId')} lifefileId={lifefileId} />
+        <CameraCapture
+          onCapture={handleCapture}
+          onCancel={() => setStep('lifefileId')}
+          lifefileId={lifefileId}
+        />
       )}
 
       {/* ── Step 2b: Preview ─────────────────────────────────── */}
@@ -923,7 +1015,12 @@ function CaptureFlow({
               <div className="flex items-end justify-between text-white">
                 <span className="font-mono text-sm font-bold tracking-wide">ID: {lifefileId}</span>
                 <span className="text-[11px] opacity-80">
-                  {new Date().toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                  {new Date().toLocaleString(undefined, {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                  })}
                 </span>
               </div>
             </div>
@@ -1067,7 +1164,10 @@ function CaptureFlow({
               </div>
             ) : (
               <div className="mb-4 rounded-xl border border-dashed border-gray-200 p-4">
-                <label htmlFor="trackingDone" className="mb-1.5 block text-xs font-semibold text-gray-700">
+                <label
+                  htmlFor="trackingDone"
+                  className="mb-1.5 block text-xs font-semibold text-gray-700"
+                >
                   Tracking Number <span className="font-normal text-gray-400">(optional)</span>
                 </label>
                 <div className="flex gap-2">
@@ -1076,7 +1176,9 @@ function CaptureFlow({
                     type="text"
                     value={trackingNumber}
                     onChange={(e) => setTrackingNumber(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter' && trackingNumber.trim()) handleSaveTracking(); }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && trackingNumber.trim()) handleSaveTracking();
+                    }}
                     placeholder="Enter tracking number"
                     autoFocus
                     className="min-w-0 flex-1 rounded-lg border border-gray-200 px-3 py-2.5 font-mono text-sm tracking-wider placeholder:font-sans placeholder:text-xs placeholder:tracking-normal placeholder:text-gray-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
@@ -1089,9 +1191,7 @@ function CaptureFlow({
                     {trackingSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
                   </button>
                 </div>
-                {error && (
-                  <p className="mt-2 text-xs text-red-600">{error}</p>
-                )}
+                {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
                 <p className="mt-2 text-[11px] text-gray-400">
                   You can add tracking later from the audit log
                 </p>
@@ -1160,7 +1260,9 @@ function CameraCapture({
 
   useEffect(() => {
     startCamera(facingMode);
-    return () => { streamRef.current?.getTracks().forEach((t) => t.stop()); };
+    return () => {
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1191,7 +1293,7 @@ function CameraCapture({
         }
       },
       'image/jpeg',
-      0.85,
+      0.85
     );
   }, [onCapture]);
 
@@ -1200,7 +1302,10 @@ function CameraCapture({
       {/* Header bar */}
       <div className="relative z-10 flex items-center justify-between bg-black/60 px-5 py-4 backdrop-blur-sm md:px-4 md:py-3">
         <button
-          onClick={() => { streamRef.current?.getTracks().forEach((t) => t.stop()); onCancel(); }}
+          onClick={() => {
+            streamRef.current?.getTracks().forEach((t) => t.stop());
+            onCancel();
+          }}
           className="flex items-center gap-1.5 rounded-lg px-2 py-2 text-base font-medium text-gray-300 transition-colors hover:text-white active:bg-white/10 md:px-0 md:py-0 md:text-sm"
         >
           <ChevronLeft className="h-5 w-5 md:h-4 md:w-4" />
@@ -1223,13 +1328,22 @@ function CameraCapture({
           <div className="flex h-full flex-col items-center justify-center px-6 text-center">
             <Camera className="mb-3 h-12 w-12 text-gray-600" />
             <p className="mb-3 text-base text-gray-400 md:text-sm">{cameraError}</p>
-            <button onClick={() => startCamera(facingMode)} className="rounded-lg px-4 py-2 text-base font-semibold text-violet-400 hover:text-violet-300 active:bg-white/10 md:text-sm">
+            <button
+              onClick={() => startCamera(facingMode)}
+              className="rounded-lg px-4 py-2 text-base font-semibold text-violet-400 hover:text-violet-300 active:bg-white/10 md:text-sm"
+            >
               Try Again
             </button>
           </div>
         ) : (
           <>
-            <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className="h-full w-full object-cover"
+            />
 
             {/* Frame corner marks — wider spread for packages */}
             <div className="pointer-events-none absolute inset-0">
@@ -1240,7 +1354,9 @@ function CameraCapture({
             </div>
 
             {/* Flash overlay */}
-            <div className={`pointer-events-none absolute inset-0 bg-white transition-opacity duration-200 ${showFlash ? 'opacity-70' : 'opacity-0'}`} />
+            <div
+              className={`pointer-events-none absolute inset-0 bg-white transition-opacity duration-200 ${showFlash ? 'opacity-70' : 'opacity-0'}`}
+            />
 
             {!cameraReady && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/60">
@@ -1295,7 +1411,8 @@ function AuditLog() {
   const [dailyReport, setDailyReport] = useState<DailyReportData | null>(null);
   const [dailyReportLoading, setDailyReportLoading] = useState(false);
   const [reportFrom, setReportFrom] = useState(() => {
-    const d = new Date(); d.setDate(d.getDate() - 6);
+    const d = new Date();
+    d.setDate(d.getDate() - 6);
     return instantToCalendarDate(d);
   });
   const [reportTo, setReportTo] = useState(() => calendarTodayServer());
@@ -1309,7 +1426,8 @@ function AuditLog() {
   const [availableRepsForReport, setAvailableRepsForReport] = useState<RepBreakdown[]>([]);
   const [repsLoading, setRepsLoading] = useState(false);
   const [individualFrom, setIndividualFrom] = useState(() => {
-    const d = new Date(); d.setDate(d.getDate() - 29);
+    const d = new Date();
+    d.setDate(d.getDate() - 29);
     return instantToCalendarDate(d);
   });
   const [individualTo, setIndividualTo] = useState(() => calendarTodayServer());
@@ -1332,15 +1450,18 @@ function AuditLog() {
       .catch(() => {});
   }, []);
 
-  const handlePhotoAssigned = useCallback((photoId: number, clinic: { id: number; name: string } | null) => {
-    setPhotos((prev) =>
-      prev.map((p) =>
-        p.id === photoId
-          ? { ...p, assignedClinicId: clinic?.id ?? null, assignedClinic: clinic }
-          : p,
-      ),
-    );
-  }, []);
+  const handlePhotoAssigned = useCallback(
+    (photoId: number, clinic: { id: number; name: string } | null) => {
+      setPhotos((prev) =>
+        prev.map((p) =>
+          p.id === photoId
+            ? { ...p, assignedClinicId: clinic?.id ?? null, assignedClinic: clinic }
+            : p
+        )
+      );
+    },
+    []
+  );
 
   const fetchStats = useCallback(async () => {
     try {
@@ -1356,34 +1477,46 @@ function AuditLog() {
         const json = await demoRes.json();
         setDemographics(json.data);
         if (json.data?.repBreakdown?.length) {
-          setAvailableRepsForReport((prev) => prev.length > 0 ? prev : json.data.repBreakdown);
+          setAvailableRepsForReport((prev) => (prev.length > 0 ? prev : json.data.repBreakdown));
         }
       }
-    } catch { /* non-critical */ }
+    } catch {
+      /* non-critical */
+    }
   }, []);
 
   const fetchDailyReport = useCallback(async (from: string, to: string) => {
     setDailyReportLoading(true);
     try {
-      const res = await apiFetch(`/api/package-photos?daily-report=true&from=${from}&to=${to}&scope=${ANALYTICS_SCOPE}`);
+      const res = await apiFetch(
+        `/api/package-photos?daily-report=true&from=${from}&to=${to}&scope=${ANALYTICS_SCOPE}`
+      );
       if (res.ok) {
         const json = await res.json();
         setDailyReport(json.data);
       }
-    } catch { /* non-critical */ }
-    finally { setDailyReportLoading(false); }
+    } catch {
+      /* non-critical */
+    } finally {
+      setDailyReportLoading(false);
+    }
   }, []);
 
   const fetchIndividualReport = useCallback(async (repId: number, from: string, to: string) => {
     setIndividualReportLoading(true);
     try {
-      const res = await apiFetch(`/api/package-photos?daily-report=true&repId=${repId}&from=${from}&to=${to}&scope=${ANALYTICS_SCOPE}`);
+      const res = await apiFetch(
+        `/api/package-photos?daily-report=true&repId=${repId}&from=${from}&to=${to}&scope=${ANALYTICS_SCOPE}`
+      );
       if (res.ok) {
         const json = await res.json();
         setIndividualReport(json.data);
       }
-    } catch { /* non-critical */ }
-    finally { setIndividualReportLoading(false); }
+    } catch {
+      /* non-critical */
+    } finally {
+      setIndividualReportLoading(false);
+    }
   }, []);
 
   const fetchRepList = useCallback(async () => {
@@ -1395,40 +1528,64 @@ function AuditLog() {
       const from = toCalendarDateStringInTz(new Date(now.getFullYear(), now.getMonth(), 1), tz);
       const to = calendarTodayClient();
       const res = await apiFetch(
-        `/api/package-photos?performance-report=true&granularity=daily&from=${from}&to=${to}&scope=${ANALYTICS_SCOPE}`,
+        `/api/package-photos?performance-report=true&granularity=daily&from=${from}&to=${to}&scope=${ANALYTICS_SCOPE}`
       );
       if (res.ok) {
         const json = await res.json();
         if (json.data?.reps?.length) {
           setAvailableRepsForReport(
-            json.data.reps.map((r: { userId: number; name: string; total: number; matched: number; matchRate: number }) => ({
-              userId: r.userId,
-              name: r.name,
-              total: r.total,
-              matched: r.matched,
-              matchRate: r.matchRate,
-            })),
+            json.data.reps.map(
+              (r: {
+                userId: number;
+                name: string;
+                total: number;
+                matched: number;
+                matchRate: number;
+              }) => ({
+                userId: r.userId,
+                name: r.name,
+                total: r.total,
+                matched: r.matched,
+                matchRate: r.matchRate,
+              })
+            )
           );
         }
       }
-    } catch { /* non-critical */ }
-    finally { setRepsLoading(false); }
+    } catch {
+      /* non-critical */
+    } finally {
+      setRepsLoading(false);
+    }
   }, [availableRepsForReport.length]);
 
-  const handleSelectRepForReport = useCallback((repId: number, repName: string) => {
-    setIndividualRepId(repId);
-    setIndividualRepName(repName);
-    setShowIndividualReport(true);
-    setIndividualReport(null);
-    fetchRepList();
-    fetchIndividualReport(repId, individualFrom, individualTo);
-    setTimeout(() => {
-      individualReportRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 100);
-  }, [fetchIndividualReport, fetchRepList, individualFrom, individualTo]);
+  const handleSelectRepForReport = useCallback(
+    (repId: number, repName: string) => {
+      setIndividualRepId(repId);
+      setIndividualRepName(repName);
+      setShowIndividualReport(true);
+      setIndividualReport(null);
+      fetchRepList();
+      fetchIndividualReport(repId, individualFrom, individualTo);
+      setTimeout(() => {
+        individualReportRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    },
+    [fetchIndividualReport, fetchRepList, individualFrom, individualTo]
+  );
 
   const fetchPhotos = useCallback(
-    async (searchVal: string, matchVal: string, periodVal: string, sortByVal: string, sortOrderVal: string, pageVal: number, fromVal?: string, toVal?: string, clinicFilterVal?: string) => {
+    async (
+      searchVal: string,
+      matchVal: string,
+      periodVal: string,
+      sortByVal: string,
+      sortOrderVal: string,
+      pageVal: number,
+      fromVal?: string,
+      toVal?: string,
+      clinicFilterVal?: string
+    ) => {
       setLoading(true);
       try {
         const params = new URLSearchParams();
@@ -1459,17 +1616,42 @@ function AuditLog() {
           setTotalPages(json.meta.totalPages);
           setTotal(json.meta.total);
         }
-      } catch { /* silent */ }
-      finally { setLoading(false); }
+      } catch {
+        /* silent */
+      } finally {
+        setLoading(false);
+      }
     },
-    [],
+    []
   );
 
-  useEffect(() => { fetchStats(); }, [fetchStats]);
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
   useEffect(() => {
-    fetchPhotos(search, matchFilter, periodFilter, sortBy, sortOrder, page, customFrom, customTo, clinicFilter);
-  }, [fetchPhotos, matchFilter, clinicFilter, periodFilter, sortBy, sortOrder, page, customFrom, customTo]); // eslint-disable-line react-hooks/exhaustive-deps
+    fetchPhotos(
+      search,
+      matchFilter,
+      periodFilter,
+      sortBy,
+      sortOrder,
+      page,
+      customFrom,
+      customTo,
+      clinicFilter
+    );
+  }, [
+    fetchPhotos,
+    matchFilter,
+    clinicFilter,
+    periodFilter,
+    sortBy,
+    sortOrder,
+    page,
+    customFrom,
+    customTo,
+  ]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSearchChange = useCallback(
     (value: string) => {
@@ -1477,10 +1659,20 @@ function AuditLog() {
       if (searchTimeout.current) clearTimeout(searchTimeout.current);
       searchTimeout.current = setTimeout(() => {
         setPage(1);
-        fetchPhotos(value, matchFilter, periodFilter, sortBy, sortOrder, 1, customFrom, customTo, clinicFilter);
+        fetchPhotos(
+          value,
+          matchFilter,
+          periodFilter,
+          sortBy,
+          sortOrder,
+          1,
+          customFrom,
+          customTo,
+          clinicFilter
+        );
       }, 350);
     },
-    [fetchPhotos, matchFilter, clinicFilter, periodFilter, sortBy, sortOrder, customFrom, customTo],
+    [fetchPhotos, matchFilter, clinicFilter, periodFilter, sortBy, sortOrder, customFrom, customTo]
   );
 
   const toggleSort = (col: 'createdAt' | 'lifefileId') => {
@@ -1499,43 +1691,57 @@ function AuditLog() {
       {stats && (
         <div className="mb-5 space-y-4">
           <div>
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400">All Clinics Global</p>
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+              All Clinics Global
+            </p>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
               <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
                 <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
                   <Camera className="h-3.5 w-3.5" /> Today
                 </p>
-                <p className="mt-1 text-2xl font-bold text-gray-900">{stats.global?.today ?? stats.today}</p>
+                <p className="mt-1 text-2xl font-bold text-gray-900">
+                  {stats.global?.today ?? stats.today}
+                </p>
               </div>
               <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
                 <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
                   <Clock className="h-3.5 w-3.5" /> Yesterday
                 </p>
-                <p className="mt-1 text-2xl font-bold text-gray-900">{stats.global?.yesterday ?? stats.yesterday}</p>
+                <p className="mt-1 text-2xl font-bold text-gray-900">
+                  {stats.global?.yesterday ?? stats.yesterday}
+                </p>
               </div>
               <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
                 <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
                   <Calendar className="h-3.5 w-3.5" /> This Week
                 </p>
-                <p className="mt-1 text-2xl font-bold text-gray-900">{stats.global?.thisWeek ?? stats.thisWeek}</p>
+                <p className="mt-1 text-2xl font-bold text-gray-900">
+                  {stats.global?.thisWeek ?? stats.thisWeek}
+                </p>
               </div>
               <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
                 <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
                   <BarChart3 className="h-3.5 w-3.5" /> This Month
                 </p>
-                <p className="mt-1 text-2xl font-bold text-gray-900">{stats.global?.thisMonth ?? stats.thisMonth}</p>
+                <p className="mt-1 text-2xl font-bold text-gray-900">
+                  {stats.global?.thisMonth ?? stats.thisMonth}
+                </p>
               </div>
               <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
                 <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
                   <CheckCircle className="h-3.5 w-3.5" /> Match Rate
                 </p>
-                <p className="mt-1 text-2xl font-bold text-emerald-600">{stats.global?.matchRate ?? stats.matchRate}%</p>
+                <p className="mt-1 text-2xl font-bold text-emerald-600">
+                  {stats.global?.matchRate ?? stats.matchRate}%
+                </p>
               </div>
               <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
                 <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
                   <XCircle className="h-3.5 w-3.5" /> Unmatched
                 </p>
-                <p className="mt-1 text-2xl font-bold text-amber-600">{stats.global?.unmatched ?? stats.unmatched}</p>
+                <p className="mt-1 text-2xl font-bold text-amber-600">
+                  {stats.global?.unmatched ?? stats.unmatched}
+                </p>
               </div>
             </div>
           </div>
@@ -1551,7 +1757,11 @@ function AuditLog() {
           <Activity className="h-4 w-4 text-violet-500" />
           Package Processing Analytics
         </span>
-        {showDemographics ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
+        {showDemographics ? (
+          <ChevronUp className="h-4 w-4 text-gray-400" />
+        ) : (
+          <ChevronDown className="h-4 w-4 text-gray-400" />
+        )}
       </button>
 
       {/* Demographics dashboard */}
@@ -1566,17 +1776,20 @@ function AuditLog() {
                   <TrendingUp className="h-4 w-4 text-violet-500" />
                   Daily Volume (Last 14 Days)
                 </h3>
-                <span className="text-xs text-gray-400">
-                  Avg: {demographics.avgDaily}/day
-                </span>
+                <span className="text-xs text-gray-400">Avg: {demographics.avgDaily}/day</span>
               </div>
               <div className="flex items-end gap-[3px]" style={{ height: 120 }}>
                 {demographics.dailyVolume.map((d) => {
                   const maxVal = Math.max(...demographics.dailyVolume.map((v) => v.total), 1);
                   const matchedH = (d.matched / maxVal) * 100;
                   const unmatchedH = (d.unmatched / maxVal) * 100;
-                  const dayLabel = new Date(d.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short' });
-                  const dateLabel = new Date(d.date + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                  const dayLabel = new Date(d.date + 'T12:00:00').toLocaleDateString(undefined, {
+                    weekday: 'short',
+                  });
+                  const dateLabel = new Date(d.date + 'T12:00:00').toLocaleDateString(undefined, {
+                    month: 'short',
+                    day: 'numeric',
+                  });
                   const isToday = d.date === calendarTodayClient();
                   return (
                     <div key={d.date} className="group relative flex flex-1 flex-col items-center">
@@ -1600,7 +1813,9 @@ function AuditLog() {
                           />
                         )}
                       </div>
-                      <span className={`mt-1 text-[9px] ${isToday ? 'font-bold text-violet-600' : 'text-gray-400'}`}>
+                      <span
+                        className={`mt-1 text-[9px] ${isToday ? 'font-bold text-violet-600' : 'text-gray-400'}`}
+                      >
                         {dayLabel}
                       </span>
                     </div>
@@ -1608,8 +1823,12 @@ function AuditLog() {
                 })}
               </div>
               <div className="mt-2 flex items-center justify-center gap-4 text-[10px] text-gray-400">
-                <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-sm bg-emerald-500" /> Matched</span>
-                <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-sm bg-amber-300" /> Unmatched</span>
+                <span className="flex items-center gap-1">
+                  <span className="inline-block h-2 w-2 rounded-sm bg-emerald-500" /> Matched
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="inline-block h-2 w-2 rounded-sm bg-amber-300" /> Unmatched
+                </span>
               </div>
             </div>
 
@@ -1620,11 +1839,15 @@ function AuditLog() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-500">Total Packages</span>
-                    <span className="font-bold text-gray-900">{demographics.monthlyMatchRate.total}</span>
+                    <span className="font-bold text-gray-900">
+                      {demographics.monthlyMatchRate.total}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-500">Match Rate</span>
-                    <span className="font-bold text-emerald-600">{demographics.monthlyMatchRate.rate}%</span>
+                    <span className="font-bold text-emerald-600">
+                      {demographics.monthlyMatchRate.rate}%
+                    </span>
                   </div>
                   {/* Match rate bar */}
                   <div className="h-2 overflow-hidden rounded-full bg-gray-100">
@@ -1652,7 +1875,10 @@ function AuditLog() {
                 </div>
                 <div className="mt-2 flex items-end gap-px" style={{ height: 32 }}>
                   {demographics.hourlyDistribution.map((h) => {
-                    const maxH = Math.max(...demographics.hourlyDistribution.map((v) => v.total), 1);
+                    const maxH = Math.max(
+                      ...demographics.hourlyDistribution.map((v) => v.total),
+                      1
+                    );
                     const pct = (h.total / maxH) * 100;
                     const isNow = new Date().getHours() === h.hour;
                     return (
@@ -1700,8 +1926,10 @@ function AuditLog() {
                         </span>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center justify-between">
-                            <span className="truncate text-sm font-medium text-violet-700 underline decoration-violet-300 decoration-dotted underline-offset-2">{rep.name}</span>
-                            <span className="ml-2 flex items-center gap-1.5 flex-shrink-0 text-xs text-gray-400">
+                            <span className="truncate text-sm font-medium text-violet-700 underline decoration-violet-300 decoration-dotted underline-offset-2">
+                              {rep.name}
+                            </span>
+                            <span className="ml-2 flex flex-shrink-0 items-center gap-1.5 text-xs text-gray-400">
                               {rep.total} pkgs &middot; {rep.matchRate}% match
                               <BarChart3 className="h-3 w-3 text-violet-400 opacity-0 transition-opacity group-hover:opacity-100" />
                             </span>
@@ -1714,7 +1942,9 @@ function AuditLog() {
                               />
                               <div
                                 className="bg-amber-300 transition-all"
-                                style={{ width: `${((rep.total - rep.matched) / maxTotal) * 100}%` }}
+                                style={{
+                                  width: `${((rep.total - rep.matched) / maxTotal) * 100}%`,
+                                }}
                               />
                             </div>
                           </div>
@@ -1722,7 +1952,9 @@ function AuditLog() {
                       </button>
                     );
                   })}
-                  <p className="pt-1 text-center text-[10px] text-gray-400">Click a rep to pull their daily report</p>
+                  <p className="pt-1 text-center text-[10px] text-gray-400">
+                    Click a rep to pull their daily report
+                  </p>
                 </div>
               )}
             </div>
@@ -1754,10 +1986,15 @@ function AuditLog() {
                       <div key={src.source}>
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-gray-600">{label}</span>
-                          <span className="font-medium text-gray-900">{src.total} <span className="text-xs text-gray-400">({pct}%)</span></span>
+                          <span className="font-medium text-gray-900">
+                            {src.total} <span className="text-xs text-gray-400">({pct}%)</span>
+                          </span>
                         </div>
                         <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-gray-100">
-                          <div className={`h-full rounded-full ${barColor} transition-all`} style={{ width: `${pct}%` }} />
+                          <div
+                            className={`h-full rounded-full ${barColor} transition-all`}
+                            style={{ width: `${pct}%` }}
+                          />
                         </div>
                       </div>
                     );
@@ -1781,7 +2018,11 @@ function AuditLog() {
             Hourly &middot; Daily &middot; Weekly &middot; Per Rep
           </span>
         </span>
-        {showPerfReport ? <ChevronUp className="h-4 w-4 text-violet-400" /> : <ChevronDown className="h-4 w-4 text-violet-400" />}
+        {showPerfReport ? (
+          <ChevronUp className="h-4 w-4 text-violet-400" />
+        ) : (
+          <ChevronDown className="h-4 w-4 text-violet-400" />
+        )}
       </button>
 
       {showPerfReport && <PerformanceReports />}
@@ -1803,7 +2044,11 @@ function AuditLog() {
             Per Rep
           </span>
         </span>
-        {showIndividualReport ? <ChevronUp className="h-4 w-4 text-emerald-400" /> : <ChevronDown className="h-4 w-4 text-emerald-400" />}
+        {showIndividualReport ? (
+          <ChevronUp className="h-4 w-4 text-emerald-400" />
+        ) : (
+          <ChevronDown className="h-4 w-4 text-emerald-400" />
+        )}
       </button>
 
       {showIndividualReport && (
@@ -1812,7 +2057,9 @@ function AuditLog() {
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:gap-3">
             {/* Rep selector */}
             <div>
-              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">Select Rep</label>
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                Select Rep
+              </label>
               <select
                 value={individualRepId ?? ''}
                 onChange={(e) => {
@@ -1826,14 +2073,18 @@ function AuditLog() {
               >
                 <option value="">{repsLoading ? 'Loading reps...' : '— Choose a rep —'}</option>
                 {availableRepsForReport.map((rep) => (
-                  <option key={rep.userId} value={rep.userId}>{rep.name} ({rep.total} pkgs)</option>
+                  <option key={rep.userId} value={rep.userId}>
+                    {rep.name} ({rep.total} pkgs)
+                  </option>
                 ))}
               </select>
             </div>
 
             {/* Date range */}
             <div>
-              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">From</label>
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                From
+              </label>
               <input
                 type="date"
                 value={individualFrom}
@@ -1842,7 +2093,9 @@ function AuditLog() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">To</label>
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                To
+              </label>
               <input
                 type="date"
                 value={individualTo}
@@ -1854,12 +2107,17 @@ function AuditLog() {
             {/* Pull button */}
             <button
               onClick={() => {
-                if (individualRepId) fetchIndividualReport(individualRepId, individualFrom, individualTo);
+                if (individualRepId)
+                  fetchIndividualReport(individualRepId, individualFrom, individualTo);
               }}
               disabled={individualReportLoading || !individualRepId}
               className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
             >
-              {individualReportLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <BarChart3 className="h-4 w-4" />}
+              {individualReportLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <BarChart3 className="h-4 w-4" />
+              )}
               Pull Report
             </button>
 
@@ -1875,9 +2133,13 @@ function AuditLog() {
                   key={preset.label}
                   onClick={() => {
                     const to = calendarTodayClient();
-                    const from = preset.days === 0
-                      ? to
-                      : toCalendarDateStringInTz(new Date(Date.now() - preset.days * 86400000), getBrowserIANATimeZone());
+                    const from =
+                      preset.days === 0
+                        ? to
+                        : toCalendarDateStringInTz(
+                            new Date(Date.now() - preset.days * 86400000),
+                            getBrowserIANATimeZone()
+                          );
                     setIndividualFrom(from);
                     setIndividualTo(to);
                     if (individualRepId) fetchIndividualReport(individualRepId, from, to);
@@ -1895,19 +2157,28 @@ function AuditLog() {
                 onClick={() => {
                   if (!individualReport || !individualRepName) return;
                   const header = `Individual Daily Report: ${individualRepName}\nDate Range: ${individualReport.range.from} to ${individualReport.range.to}\n\nDate,Day,Total,Matched,Unmatched,Match Rate\n`;
-                  const rows = individualReport.days.map((d) => {
-                    const dayName = new Date(d.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long' });
-                    return `${d.date},${dayName},${d.total},${d.matched},${d.unmatched},${d.matchRate}%`;
-                  }).join('\n');
+                  const rows = individualReport.days
+                    .map((d) => {
+                      const dayName = new Date(d.date + 'T12:00:00').toLocaleDateString(undefined, {
+                        weekday: 'long',
+                      });
+                      return `${d.date},${dayName},${d.total},${d.matched},${d.unmatched},${d.matchRate}%`;
+                    })
+                    .join('\n');
                   const summary = `\n\nSummary\nTotal Days,${individualReport.summary.totalDays}\nTotal Packages,${individualReport.summary.totalPackages}\nMatched,${individualReport.summary.totalMatched}\nUnmatched,${individualReport.summary.totalUnmatched}\nMatch Rate,${individualReport.summary.matchRate}%\nAvg/Day,${individualReport.summary.avgPerDay}`;
                   const hourlySection = individualReport.hourlyDistribution
-                    ? `\n\nHourly Distribution\nHour,Packages\n` + individualReport.hourlyDistribution.map((h) => {
-                      const ampm = h.hour < 12 ? 'AM' : 'PM';
-                      const h12 = h.hour % 12 || 12;
-                      return `${h12}${ampm},${h.total}`;
-                    }).join('\n')
+                    ? `\n\nHourly Distribution\nHour,Packages\n` +
+                      individualReport.hourlyDistribution
+                        .map((h) => {
+                          const ampm = h.hour < 12 ? 'AM' : 'PM';
+                          const h12 = h.hour % 12 || 12;
+                          return `${h12}${ampm},${h.total}`;
+                        })
+                        .join('\n')
                     : '';
-                  const blob = new Blob([header + rows + summary + hourlySection], { type: 'text/csv' });
+                  const blob = new Blob([header + rows + summary + hourlySection], {
+                    type: 'text/csv',
+                  });
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement('a');
                   a.href = url;
@@ -1927,8 +2198,12 @@ function AuditLog() {
           {!individualRepId && !individualReport && (
             <div className="py-16 text-center">
               <User className="mx-auto mb-3 h-10 w-10 text-gray-300" />
-              <p className="text-sm font-medium text-gray-500">Select a rep and click &ldquo;Pull Report&rdquo;</p>
-              <p className="mt-1 text-xs text-gray-400">Or click a rep name in the Rep Activity section above</p>
+              <p className="text-sm font-medium text-gray-500">
+                Select a rep and click &ldquo;Pull Report&rdquo;
+              </p>
+              <p className="mt-1 text-xs text-gray-400">
+                Or click a rep name in the Rep Activity section above
+              </p>
             </div>
           )}
 
@@ -1949,37 +2224,63 @@ function AuditLog() {
                 </div>
                 <div>
                   <p className="text-base font-bold text-emerald-900">{individualRepName}</p>
-                  <p className="text-xs text-emerald-600">{individualReport.range.from} to {individualReport.range.to}</p>
+                  <p className="text-xs text-emerald-600">
+                    {individualReport.range.from} to {individualReport.range.to}
+                  </p>
                 </div>
               </div>
 
               {/* Summary cards */}
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
                 <div className="rounded-lg bg-gray-50 px-3 py-2.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Days Active</p>
-                  <p className="text-xl font-bold text-gray-900">{individualReport.summary.totalDays}</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                    Days Active
+                  </p>
+                  <p className="text-xl font-bold text-gray-900">
+                    {individualReport.summary.totalDays}
+                  </p>
                 </div>
                 <div className="rounded-lg bg-gray-50 px-3 py-2.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Total Pkgs</p>
-                  <p className="text-xl font-bold text-gray-900">{individualReport.summary.totalPackages.toLocaleString()}</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                    Total Pkgs
+                  </p>
+                  <p className="text-xl font-bold text-gray-900">
+                    {individualReport.summary.totalPackages.toLocaleString()}
+                  </p>
                 </div>
                 <div className="rounded-lg bg-gray-50 px-3 py-2.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Matched</p>
-                  <p className="text-xl font-bold text-emerald-600">{individualReport.summary.totalMatched.toLocaleString()}</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                    Matched
+                  </p>
+                  <p className="text-xl font-bold text-emerald-600">
+                    {individualReport.summary.totalMatched.toLocaleString()}
+                  </p>
                 </div>
                 <div className="rounded-lg bg-gray-50 px-3 py-2.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Unmatched</p>
-                  <p className="text-xl font-bold text-amber-600">{individualReport.summary.totalUnmatched.toLocaleString()}</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                    Unmatched
+                  </p>
+                  <p className="text-xl font-bold text-amber-600">
+                    {individualReport.summary.totalUnmatched.toLocaleString()}
+                  </p>
                 </div>
                 <div className="rounded-lg bg-gray-50 px-3 py-2.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Match Rate</p>
-                  <p className={`text-xl font-bold ${individualReport.summary.matchRate >= 60 ? 'text-emerald-600' : individualReport.summary.matchRate >= 40 ? 'text-amber-600' : 'text-red-500'}`}>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                    Match Rate
+                  </p>
+                  <p
+                    className={`text-xl font-bold ${individualReport.summary.matchRate >= 60 ? 'text-emerald-600' : individualReport.summary.matchRate >= 40 ? 'text-amber-600' : 'text-red-500'}`}
+                  >
                     {individualReport.summary.matchRate}%
                   </p>
                 </div>
                 <div className="rounded-lg bg-gray-50 px-3 py-2.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Avg/Day</p>
-                  <p className="text-xl font-bold text-violet-600">{individualReport.summary.avgPerDay}</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                    Avg/Day
+                  </p>
+                  <p className="text-xl font-bold text-violet-600">
+                    {individualReport.summary.avgPerDay}
+                  </p>
                 </div>
               </div>
 
@@ -1990,10 +2291,17 @@ function AuditLog() {
                     <div className="flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5">
                       <TrendingUp className="h-4 w-4 text-emerald-600" />
                       <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600">Best Day</p>
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600">
+                          Best Day
+                        </p>
                         <p className="text-sm font-bold text-emerald-800">
-                          {new Date(individualReport.bestDay.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
-                          <span className="ml-1 text-emerald-600">({individualReport.bestDay.total} pkgs)</span>
+                          {new Date(individualReport.bestDay.date + 'T12:00:00').toLocaleDateString(
+                            undefined,
+                            { weekday: 'short', month: 'short', day: 'numeric' }
+                          )}
+                          <span className="ml-1 text-emerald-600">
+                            ({individualReport.bestDay.total} pkgs)
+                          </span>
                         </p>
                       </div>
                     </div>
@@ -2002,10 +2310,20 @@ function AuditLog() {
                     <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
                       <Activity className="h-4 w-4 text-amber-600" />
                       <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-600">Lowest Day</p>
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-600">
+                          Lowest Day
+                        </p>
                         <p className="text-sm font-bold text-amber-800">
-                          {new Date(individualReport.worstDay.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
-                          <span className="ml-1 text-amber-600">({individualReport.worstDay.total} pkgs)</span>
+                          {new Date(
+                            individualReport.worstDay.date + 'T12:00:00'
+                          ).toLocaleDateString(undefined, {
+                            weekday: 'short',
+                            month: 'short',
+                            day: 'numeric',
+                          })}
+                          <span className="ml-1 text-amber-600">
+                            ({individualReport.worstDay.total} pkgs)
+                          </span>
                         </p>
                       </div>
                     </div>
@@ -2014,10 +2332,15 @@ function AuditLog() {
                     <div className="flex items-center gap-3 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2.5">
                       <Clock className="h-4 w-4 text-violet-600" />
                       <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-600">Peak Hour</p>
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-600">
+                          Peak Hour
+                        </p>
                         <p className="text-sm font-bold text-violet-800">
-                          {individualReport.peakHour.hour % 12 || 12}{individualReport.peakHour.hour < 12 ? 'AM' : 'PM'}
-                          <span className="ml-1 text-violet-600">({individualReport.peakHour.count} pkgs)</span>
+                          {individualReport.peakHour.hour % 12 || 12}
+                          {individualReport.peakHour.hour < 12 ? 'AM' : 'PM'}
+                          <span className="ml-1 text-violet-600">
+                            ({individualReport.peakHour.count} pkgs)
+                          </span>
                         </p>
                       </div>
                     </div>
@@ -2038,24 +2361,49 @@ function AuditLog() {
                       const matchedH = (day.matched / maxVal) * 100;
                       const unmatchedH = (day.unmatched / maxVal) * 100;
                       const isToday = day.date === calendarTodayClient();
-                      const dayLabel = new Date(day.date + 'T12:00:00').toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' });
+                      const dayLabel = new Date(day.date + 'T12:00:00').toLocaleDateString(
+                        undefined,
+                        { month: 'numeric', day: 'numeric' }
+                      );
                       return (
-                        <div key={day.date} className="group relative flex flex-1 flex-col items-center">
+                        <div
+                          key={day.date}
+                          className="group relative flex flex-1 flex-col items-center"
+                        >
                           <div className="absolute -top-12 z-10 hidden min-w-[100px] rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-center shadow-lg group-hover:block">
-                            <p className="text-[10px] font-medium text-gray-500">{new Date(day.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</p>
+                            <p className="text-[10px] font-medium text-gray-500">
+                              {new Date(day.date + 'T12:00:00').toLocaleDateString(undefined, {
+                                weekday: 'short',
+                                month: 'short',
+                                day: 'numeric',
+                              })}
+                            </p>
                             <p className="text-xs font-bold text-gray-900">{day.total} pkgs</p>
-                            <p className="text-[10px] text-emerald-600">{day.matched}m / {day.unmatched}u</p>
+                            <p className="text-[10px] text-emerald-600">
+                              {day.matched}m / {day.unmatched}u
+                            </p>
                           </div>
-                          <div className="flex w-full flex-col items-stretch" style={{ height: 120 }}>
+                          <div
+                            className="flex w-full flex-col items-stretch"
+                            style={{ height: 120 }}
+                          >
                             <div className="flex-1" />
                             {day.unmatched > 0 && (
-                              <div className="w-full rounded-t bg-amber-300 transition-all" style={{ height: `${unmatchedH}%`, minHeight: 2 }} />
+                              <div
+                                className="w-full rounded-t bg-amber-300 transition-all"
+                                style={{ height: `${unmatchedH}%`, minHeight: 2 }}
+                              />
                             )}
                             {day.matched > 0 && (
-                              <div className={`w-full ${day.unmatched > 0 ? '' : 'rounded-t'} rounded-b bg-emerald-500 transition-all`} style={{ height: `${matchedH}%`, minHeight: 2 }} />
+                              <div
+                                className={`w-full ${day.unmatched > 0 ? '' : 'rounded-t'} rounded-b bg-emerald-500 transition-all`}
+                                style={{ height: `${matchedH}%`, minHeight: 2 }}
+                              />
                             )}
                           </div>
-                          <span className={`mt-1 max-w-full truncate text-[8px] ${isToday ? 'font-bold text-emerald-600' : 'text-gray-400'}`}>
+                          <span
+                            className={`mt-1 max-w-full truncate text-[8px] ${isToday ? 'font-bold text-emerald-600' : 'text-gray-400'}`}
+                          >
                             {dayLabel}
                           </span>
                         </div>
@@ -2063,50 +2411,67 @@ function AuditLog() {
                     })}
                   </div>
                   <div className="mt-2 flex items-center justify-center gap-4 text-[10px] text-gray-400">
-                    <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-sm bg-emerald-500" /> Matched</span>
-                    <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-sm bg-amber-300" /> Unmatched</span>
+                    <span className="flex items-center gap-1">
+                      <span className="inline-block h-2 w-2 rounded-sm bg-emerald-500" /> Matched
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="inline-block h-2 w-2 rounded-sm bg-amber-300" /> Unmatched
+                    </span>
                   </div>
                 </div>
               )}
 
               {/* Hourly distribution */}
-              {individualReport.hourlyDistribution && individualReport.hourlyDistribution.some((h) => h.total > 0) && (
-                <div className="rounded-xl border border-gray-100 bg-white p-4">
-                  <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
-                    <Clock className="h-4 w-4 text-emerald-500" />
-                    Hourly Activity Pattern
-                  </h4>
-                  <div className="flex items-end gap-[2px]" style={{ height: 100 }}>
-                    {individualReport.hourlyDistribution.map((h) => {
-                      const maxH = Math.max(...individualReport.hourlyDistribution!.map((x) => x.total), 1);
-                      const barH = (h.total / maxH) * 100;
-                      const ampm = h.hour < 12 ? 'AM' : 'PM';
-                      const h12 = h.hour % 12 || 12;
-                      const isPeak = individualReport.peakHour?.hour === h.hour;
-                      return (
-                        <div key={h.hour} className="group relative flex flex-1 flex-col items-center">
-                          <div className="absolute -top-8 z-10 hidden min-w-[60px] rounded-md border border-gray-200 bg-white px-2 py-1 text-center shadow-md group-hover:block">
-                            <p className="text-[10px] font-medium text-gray-500">{h12}{ampm}</p>
-                            <p className="text-xs font-bold text-gray-900">{h.total}</p>
+              {individualReport.hourlyDistribution &&
+                individualReport.hourlyDistribution.some((h) => h.total > 0) && (
+                  <div className="rounded-xl border border-gray-100 bg-white p-4">
+                    <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
+                      <Clock className="h-4 w-4 text-emerald-500" />
+                      Hourly Activity Pattern
+                    </h4>
+                    <div className="flex items-end gap-[2px]" style={{ height: 100 }}>
+                      {individualReport.hourlyDistribution.map((h) => {
+                        const maxH = Math.max(
+                          ...individualReport.hourlyDistribution!.map((x) => x.total),
+                          1
+                        );
+                        const barH = (h.total / maxH) * 100;
+                        const ampm = h.hour < 12 ? 'AM' : 'PM';
+                        const h12 = h.hour % 12 || 12;
+                        const isPeak = individualReport.peakHour?.hour === h.hour;
+                        return (
+                          <div
+                            key={h.hour}
+                            className="group relative flex flex-1 flex-col items-center"
+                          >
+                            <div className="absolute -top-8 z-10 hidden min-w-[60px] rounded-md border border-gray-200 bg-white px-2 py-1 text-center shadow-md group-hover:block">
+                              <p className="text-[10px] font-medium text-gray-500">
+                                {h12}
+                                {ampm}
+                              </p>
+                              <p className="text-xs font-bold text-gray-900">{h.total}</p>
+                            </div>
+                            <div
+                              className="flex w-full flex-col items-stretch"
+                              style={{ height: 80 }}
+                            >
+                              <div className="flex-1" />
+                              {h.total > 0 && (
+                                <div
+                                  className={`w-full rounded-t transition-all ${isPeak ? 'bg-emerald-600' : 'bg-emerald-300'}`}
+                                  style={{ height: `${barH}%`, minHeight: 2 }}
+                                />
+                              )}
+                            </div>
+                            <span className="mt-0.5 text-[7px] text-gray-400">
+                              {h.hour % 3 === 0 ? `${h12}${ampm.charAt(0).toLowerCase()}` : ''}
+                            </span>
                           </div>
-                          <div className="flex w-full flex-col items-stretch" style={{ height: 80 }}>
-                            <div className="flex-1" />
-                            {h.total > 0 && (
-                              <div
-                                className={`w-full rounded-t transition-all ${isPeak ? 'bg-emerald-600' : 'bg-emerald-300'}`}
-                                style={{ height: `${barH}%`, minHeight: 2 }}
-                              />
-                            )}
-                          </div>
-                          <span className="mt-0.5 text-[7px] text-gray-400">
-                            {h.hour % 3 === 0 ? `${h12}${ampm.charAt(0).toLowerCase()}` : ''}
-                          </span>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
               {/* Daily detail table */}
               {individualReport.days.length > 0 ? (
@@ -2120,15 +2485,28 @@ function AuditLog() {
                   </div>
                   <div className="divide-y divide-gray-100">
                     {individualReport.days.map((day) => {
-                      const dayName = new Date(day.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+                      const dayName = new Date(day.date + 'T12:00:00').toLocaleDateString(
+                        undefined,
+                        { weekday: 'short', month: 'short', day: 'numeric' }
+                      );
                       const isToday = day.date === calendarTodayClient();
                       const aboveAvg = day.total > individualReport.summary.avgPerDay;
                       return (
-                        <div key={day.date} className={`px-4 py-3 ${isToday ? 'bg-emerald-50/40' : ''}`}>
+                        <div
+                          key={day.date}
+                          className={`px-4 py-3 ${isToday ? 'bg-emerald-50/40' : ''}`}
+                        >
                           <div className="sm:hidden">
                             <div className="flex items-center justify-between">
-                              <span className={`text-sm font-semibold ${isToday ? 'text-emerald-700' : 'text-gray-900'}`}>
-                                {dayName} {isToday && <span className="ml-1 text-[10px] font-bold text-emerald-500">(Today)</span>}
+                              <span
+                                className={`text-sm font-semibold ${isToday ? 'text-emerald-700' : 'text-gray-900'}`}
+                              >
+                                {dayName}{' '}
+                                {isToday && (
+                                  <span className="ml-1 text-[10px] font-bold text-emerald-500">
+                                    (Today)
+                                  </span>
+                                )}
                               </span>
                               <span className="text-lg font-bold text-gray-900">{day.total}</span>
                             </div>
@@ -2140,17 +2518,37 @@ function AuditLog() {
                           </div>
                           <div className="hidden sm:grid sm:grid-cols-12 sm:items-center sm:gap-2">
                             <div className="col-span-3">
-                              <span className={`text-sm font-semibold ${isToday ? 'text-emerald-700' : 'text-gray-900'}`}>{dayName}</span>
-                              {isToday && <span className="ml-1.5 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-600">Today</span>}
+                              <span
+                                className={`text-sm font-semibold ${isToday ? 'text-emerald-700' : 'text-gray-900'}`}
+                              >
+                                {dayName}
+                              </span>
+                              {isToday && (
+                                <span className="ml-1.5 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-600">
+                                  Today
+                                </span>
+                              )}
                             </div>
                             <div className="col-span-2 text-right">
-                              <span className={`text-sm font-bold ${aboveAvg ? 'text-gray-900' : 'text-gray-500'}`}>{day.total}</span>
-                              {aboveAvg && <span className="ml-1 text-[10px] text-emerald-500">&#9650;</span>}
+                              <span
+                                className={`text-sm font-bold ${aboveAvg ? 'text-gray-900' : 'text-gray-500'}`}
+                              >
+                                {day.total}
+                              </span>
+                              {aboveAvg && (
+                                <span className="ml-1 text-[10px] text-emerald-500">&#9650;</span>
+                              )}
                             </div>
-                            <div className="col-span-2 text-right text-sm font-medium text-emerald-600">{day.matched}</div>
-                            <div className="col-span-2 text-right text-sm font-medium text-amber-600">{day.unmatched}</div>
+                            <div className="col-span-2 text-right text-sm font-medium text-emerald-600">
+                              {day.matched}
+                            </div>
+                            <div className="col-span-2 text-right text-sm font-medium text-amber-600">
+                              {day.unmatched}
+                            </div>
                             <div className="col-span-3 text-right">
-                              <span className={`text-sm font-bold ${day.matchRate >= 60 ? 'text-emerald-600' : day.matchRate >= 40 ? 'text-amber-600' : 'text-red-500'}`}>
+                              <span
+                                className={`text-sm font-bold ${day.matchRate >= 60 ? 'text-emerald-600' : day.matchRate >= 40 ? 'text-amber-600' : 'text-red-500'}`}
+                              >
                                 {day.matchRate}%
                               </span>
                             </div>
@@ -2183,7 +2581,11 @@ function AuditLog() {
           <CalendarDays className="h-4 w-4 text-violet-500" />
           Daily Package Report
         </span>
-        {showDailyReport ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
+        {showDailyReport ? (
+          <ChevronUp className="h-4 w-4 text-gray-400" />
+        ) : (
+          <ChevronDown className="h-4 w-4 text-gray-400" />
+        )}
       </button>
 
       {showDailyReport && (
@@ -2191,7 +2593,9 @@ function AuditLog() {
           {/* Date range picker + actions */}
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-3">
             <div>
-              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">From</label>
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                From
+              </label>
               <input
                 type="date"
                 value={reportFrom}
@@ -2200,7 +2604,9 @@ function AuditLog() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">To</label>
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                To
+              </label>
               <input
                 type="date"
                 value={reportTo}
@@ -2213,7 +2619,11 @@ function AuditLog() {
               disabled={dailyReportLoading}
               className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
             >
-              {dailyReportLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Table className="h-4 w-4" />}
+              {dailyReportLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Table className="h-4 w-4" />
+              )}
               Pull Report
             </button>
             {/* Quick presets */}
@@ -2230,7 +2640,7 @@ function AuditLog() {
                     const to = calendarTodayClient();
                     const from = toCalendarDateStringInTz(
                       new Date(Date.now() - preset.days * 86400000),
-                      getBrowserIANATimeZone(),
+                      getBrowserIANATimeZone()
                     );
                     setReportFrom(from);
                     setReportTo(to);
@@ -2247,11 +2657,15 @@ function AuditLog() {
               <button
                 onClick={() => {
                   const header = 'Date,Day,Total,Matched,Unmatched,Match Rate,Reps\n';
-                  const rows = dailyReport.days.map((d) => {
-                    const dayName = new Date(d.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long' });
-                    const repStr = d.reps.map((r) => `${r.name}:${r.total}`).join('; ');
-                    return `${d.date},${dayName},${d.total},${d.matched},${d.unmatched},${d.matchRate}%,"${repStr}"`;
-                  }).join('\n');
+                  const rows = dailyReport.days
+                    .map((d) => {
+                      const dayName = new Date(d.date + 'T12:00:00').toLocaleDateString(undefined, {
+                        weekday: 'long',
+                      });
+                      const repStr = d.reps.map((r) => `${r.name}:${r.total}`).join('; ');
+                      return `${d.date},${dayName},${d.total},${d.matched},${d.unmatched},${d.matchRate}%,"${repStr}"`;
+                    })
+                    .join('\n');
                   const summary = `\nSummary,,${dailyReport.summary.totalPackages},${dailyReport.summary.totalMatched},${dailyReport.summary.totalUnmatched},${dailyReport.summary.matchRate}%,Avg ${dailyReport.summary.avgPerDay}/day`;
                   const blob = new Blob([header + rows + summary], { type: 'text/csv' });
                   const url = URL.createObjectURL(blob);
@@ -2273,23 +2687,39 @@ function AuditLog() {
           {dailyReport && (
             <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
               <div className="rounded-lg bg-gray-50 px-3 py-2">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Days</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                  Days
+                </p>
                 <p className="text-lg font-bold text-gray-900">{dailyReport.summary.totalDays}</p>
               </div>
               <div className="rounded-lg bg-gray-50 px-3 py-2">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Total Pkgs</p>
-                <p className="text-lg font-bold text-gray-900">{dailyReport.summary.totalPackages.toLocaleString()}</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                  Total Pkgs
+                </p>
+                <p className="text-lg font-bold text-gray-900">
+                  {dailyReport.summary.totalPackages.toLocaleString()}
+                </p>
               </div>
               <div className="rounded-lg bg-gray-50 px-3 py-2">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Matched</p>
-                <p className="text-lg font-bold text-emerald-600">{dailyReport.summary.totalMatched.toLocaleString()}</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                  Matched
+                </p>
+                <p className="text-lg font-bold text-emerald-600">
+                  {dailyReport.summary.totalMatched.toLocaleString()}
+                </p>
               </div>
               <div className="rounded-lg bg-gray-50 px-3 py-2">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Unmatched</p>
-                <p className="text-lg font-bold text-amber-600">{dailyReport.summary.totalUnmatched.toLocaleString()}</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                  Unmatched
+                </p>
+                <p className="text-lg font-bold text-amber-600">
+                  {dailyReport.summary.totalUnmatched.toLocaleString()}
+                </p>
               </div>
               <div className="rounded-lg bg-gray-50 px-3 py-2">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Avg/Day</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                  Avg/Day
+                </p>
                 <p className="text-lg font-bold text-violet-600">{dailyReport.summary.avgPerDay}</p>
               </div>
             </div>
@@ -2323,7 +2753,11 @@ function AuditLog() {
               <div className="divide-y divide-gray-100">
                 {dailyReport.days.map((day) => {
                   const isExpanded = expandedDay === day.date;
-                  const dayName = new Date(day.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+                  const dayName = new Date(day.date + 'T12:00:00').toLocaleDateString(undefined, {
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric',
+                  });
                   const isToday = day.date === calendarTodayClient();
                   const aboveAvg = day.total > dailyReport.summary.avgPerDay;
                   return (
@@ -2335,8 +2769,15 @@ function AuditLog() {
                         {/* Mobile layout */}
                         <div className="sm:hidden">
                           <div className="flex items-center justify-between">
-                            <span className={`text-sm font-semibold ${isToday ? 'text-violet-700' : 'text-gray-900'}`}>
-                              {dayName} {isToday && <span className="ml-1 text-[10px] font-bold text-violet-500">(Today)</span>}
+                            <span
+                              className={`text-sm font-semibold ${isToday ? 'text-violet-700' : 'text-gray-900'}`}
+                            >
+                              {dayName}{' '}
+                              {isToday && (
+                                <span className="ml-1 text-[10px] font-bold text-violet-500">
+                                  (Today)
+                                </span>
+                              )}
                             </span>
                             <span className="text-lg font-bold text-gray-900">{day.total}</span>
                           </div>
@@ -2345,46 +2786,79 @@ function AuditLog() {
                             <span className="text-amber-600">{day.unmatched} unmatched</span>
                             <span className="text-gray-400">{day.matchRate}%</span>
                             {day.reps.length > 0 && (
-                              <span className="text-gray-300">{day.reps.length} rep{day.reps.length !== 1 ? 's' : ''}</span>
+                              <span className="text-gray-300">
+                                {day.reps.length} rep{day.reps.length !== 1 ? 's' : ''}
+                              </span>
                             )}
                           </div>
                         </div>
                         {/* Desktop layout */}
                         <div className="hidden sm:grid sm:grid-cols-12 sm:items-center sm:gap-2">
                           <div className="col-span-3">
-                            <span className={`text-sm font-semibold ${isToday ? 'text-violet-700' : 'text-gray-900'}`}>
+                            <span
+                              className={`text-sm font-semibold ${isToday ? 'text-violet-700' : 'text-gray-900'}`}
+                            >
                               {dayName}
                             </span>
-                            {isToday && <span className="ml-1.5 rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold text-violet-600">Today</span>}
+                            {isToday && (
+                              <span className="ml-1.5 rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold text-violet-600">
+                                Today
+                              </span>
+                            )}
                           </div>
                           <div className="col-span-2 text-right">
-                            <span className={`text-sm font-bold ${aboveAvg ? 'text-gray-900' : 'text-gray-500'}`}>{day.total}</span>
-                            {aboveAvg && <span className="ml-1 text-[10px] text-emerald-500" title="Above average">&#9650;</span>}
+                            <span
+                              className={`text-sm font-bold ${aboveAvg ? 'text-gray-900' : 'text-gray-500'}`}
+                            >
+                              {day.total}
+                            </span>
+                            {aboveAvg && (
+                              <span
+                                className="ml-1 text-[10px] text-emerald-500"
+                                title="Above average"
+                              >
+                                &#9650;
+                              </span>
+                            )}
                           </div>
-                          <div className="col-span-2 text-right text-sm font-medium text-emerald-600">{day.matched}</div>
-                          <div className="col-span-2 text-right text-sm font-medium text-amber-600">{day.unmatched}</div>
+                          <div className="col-span-2 text-right text-sm font-medium text-emerald-600">
+                            {day.matched}
+                          </div>
+                          <div className="col-span-2 text-right text-sm font-medium text-amber-600">
+                            {day.unmatched}
+                          </div>
                           <div className="col-span-2 text-right">
-                            <span className={`text-sm font-bold ${day.matchRate >= 60 ? 'text-emerald-600' : day.matchRate >= 40 ? 'text-amber-600' : 'text-red-500'}`}>
+                            <span
+                              className={`text-sm font-bold ${day.matchRate >= 60 ? 'text-emerald-600' : day.matchRate >= 40 ? 'text-amber-600' : 'text-red-500'}`}
+                            >
                               {day.matchRate}%
                             </span>
                           </div>
                           <div className="col-span-1 text-right">
-                            {day.reps.length > 0 && (
-                              isExpanded
-                                ? <ChevronUp className="ml-auto h-4 w-4 text-gray-400" />
-                                : <ChevronDown className="ml-auto h-4 w-4 text-gray-300" />
-                            )}
+                            {day.reps.length > 0 &&
+                              (isExpanded ? (
+                                <ChevronUp className="ml-auto h-4 w-4 text-gray-400" />
+                              ) : (
+                                <ChevronDown className="ml-auto h-4 w-4 text-gray-300" />
+                              ))}
                           </div>
                         </div>
                       </button>
                       {/* Expanded rep breakdown */}
                       {isExpanded && day.reps.length > 0 && (
                         <div className="border-t border-gray-100 bg-gray-50/50 px-4 py-3">
-                          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Rep Breakdown</p>
+                          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                            Rep Breakdown
+                          </p>
                           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                             {day.reps.map((rep) => (
-                              <div key={rep.name} className="flex items-center justify-between rounded-lg bg-white px-3 py-2 shadow-sm">
-                                <span className="text-sm font-medium text-gray-700">{rep.name}</span>
+                              <div
+                                key={rep.name}
+                                className="flex items-center justify-between rounded-lg bg-white px-3 py-2 shadow-sm"
+                              >
+                                <span className="text-sm font-medium text-gray-700">
+                                  {rep.name}
+                                </span>
                                 <div className="flex items-center gap-2 text-xs">
                                   <span className="font-bold text-gray-900">{rep.total}</span>
                                   <span className="text-emerald-600">{rep.matched}m</span>
@@ -2419,7 +2893,10 @@ function AuditLog() {
         <div className="flex gap-2">
           <select
             value={matchFilter}
-            onChange={(e) => { setMatchFilter(e.target.value as 'all' | 'true' | 'false'); setPage(1); }}
+            onChange={(e) => {
+              setMatchFilter(e.target.value as 'all' | 'true' | 'false');
+              setPage(1);
+            }}
             className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-3 text-sm font-medium text-gray-700 focus:border-violet-500 focus:outline-none sm:flex-none sm:py-2.5 sm:text-xs"
           >
             <option value="all">All Status</option>
@@ -2428,13 +2905,18 @@ function AuditLog() {
           </select>
           <select
             value={clinicFilter}
-            onChange={(e) => { setClinicFilter(e.target.value); setPage(1); }}
+            onChange={(e) => {
+              setClinicFilter(e.target.value);
+              setPage(1);
+            }}
             className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-3 text-sm font-medium text-gray-700 focus:border-violet-500 focus:outline-none sm:flex-none sm:py-2.5 sm:text-xs"
           >
             <option value="all">All Clinics</option>
             <option value="unassigned">Unassigned</option>
             {assignableClinics.map((c) => (
-              <option key={c.id} value={String(c.id)}>{c.name}</option>
+              <option key={c.id} value={String(c.id)}>
+                {c.name}
+              </option>
             ))}
           </select>
           <select
@@ -2468,19 +2950,30 @@ function AuditLog() {
           <input
             type="date"
             value={customFrom}
-            onChange={(e) => { setCustomFrom(e.target.value); setPage(1); }}
+            onChange={(e) => {
+              setCustomFrom(e.target.value);
+              setPage(1);
+            }}
             className="rounded-md border border-gray-200 bg-white px-2 py-1.5 text-xs text-gray-700 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500/20"
           />
           <span className="text-xs font-semibold text-violet-700">To:</span>
           <input
             type="date"
             value={customTo}
-            onChange={(e) => { setCustomTo(e.target.value); setPage(1); }}
+            onChange={(e) => {
+              setCustomTo(e.target.value);
+              setPage(1);
+            }}
             className="rounded-md border border-gray-200 bg-white px-2 py-1.5 text-xs text-gray-700 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500/20"
           />
           {customFrom && (
             <button
-              onClick={() => { setCustomFrom(''); setCustomTo(''); setPeriodFilter('all'); setPage(1); }}
+              onClick={() => {
+                setCustomFrom('');
+                setCustomTo('');
+                setPeriodFilter('all');
+                setPage(1);
+              }}
               className="ml-auto flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-violet-600 transition-colors hover:bg-violet-100"
             >
               <X className="h-3 w-3" /> Clear
@@ -2513,7 +3006,9 @@ function AuditLog() {
             <ImageIcon className="mx-auto mb-3 h-10 w-10 text-gray-200" />
             <p className="text-sm font-medium text-gray-400">No records found</p>
             <p className="mt-1 text-xs text-gray-300">
-              {search ? 'Try a different search term' : 'Package photos will appear here after capture'}
+              {search
+                ? 'Try a different search term'
+                : 'Package photos will appear here after capture'}
             </p>
           </div>
         ) : (
@@ -2521,10 +3016,16 @@ function AuditLog() {
             {/* Column headers (desktop) */}
             <div className="hidden border-b border-gray-100 bg-gray-50/50 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400 md:flex md:items-center md:gap-4">
               <div className="w-12" />
-              <button onClick={() => toggleSort('lifefileId')} className="flex w-28 items-center gap-1 hover:text-gray-600">
+              <button
+                onClick={() => toggleSort('lifefileId')}
+                className="flex w-28 items-center gap-1 hover:text-gray-600"
+              >
                 LifeFile ID <ArrowUpDown className="h-3 w-3" />
               </button>
-              <button onClick={() => toggleSort('createdAt')} className="flex w-40 items-center gap-1 hover:text-gray-600">
+              <button
+                onClick={() => toggleSort('createdAt')}
+                className="flex w-40 items-center gap-1 hover:text-gray-600"
+              >
                 Date & Time <ArrowUpDown className="h-3 w-3" />
               </button>
               <div className="w-28">Rep</div>
@@ -2546,7 +3047,9 @@ function AuditLog() {
                   {/* Mobile: stacked layout */}
                   <div className="min-w-0 flex-1 md:hidden">
                     <div className="flex items-center justify-between">
-                      <span className="font-mono text-sm font-bold text-gray-900">{photo.lifefileId}</span>
+                      <span className="font-mono text-sm font-bold text-gray-900">
+                        {photo.lifefileId}
+                      </span>
                       <div className="flex items-center gap-1">
                         {!photo.matched && photo.assignedClinic && (
                           <span className="inline-flex items-center gap-0.5 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700">
@@ -2567,13 +3070,16 @@ function AuditLog() {
                     <div className="mt-0.5 flex items-center gap-2 text-[11px] text-gray-400">
                       <span>{relativeTime(photo.createdAt)}</span>
                       <span>&middot;</span>
-                      <span>{photo.capturedBy.firstName} {photo.capturedBy.lastName[0]}.</span>
+                      <span>
+                        {photo.capturedBy.firstName} {photo.capturedBy.lastName[0]}.
+                      </span>
                       {photo.trackingNumber && (
                         <>
                           <span>&middot;</span>
                           <span className="flex items-center gap-0.5 font-mono text-blue-600">
                             <Truck className="h-3 w-3" />
-                            {photo.trackingNumber.slice(0, 12)}{photo.trackingNumber.length > 12 ? '...' : ''}
+                            {photo.trackingNumber.slice(0, 12)}
+                            {photo.trackingNumber.length > 12 ? '...' : ''}
                           </span>
                         </>
                       )}
@@ -2582,16 +3088,25 @@ function AuditLog() {
 
                   {/* Desktop: table columns */}
                   <div className="hidden w-28 md:block">
-                    <span className="font-mono text-sm font-bold text-gray-900">{photo.lifefileId}</span>
+                    <span className="font-mono text-sm font-bold text-gray-900">
+                      {photo.lifefileId}
+                    </span>
                   </div>
                   <div className="hidden w-40 md:block">
                     <p className="text-sm text-gray-700">
-                      {new Date(photo.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                      {new Date(photo.createdAt).toLocaleDateString(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                      })}
                     </p>
                     <p className="text-[11px] text-gray-400">{relativeTime(photo.createdAt)}</p>
                   </div>
                   <div className="hidden w-28 md:block">
-                    <p className="truncate text-sm text-gray-700">{photo.capturedBy.firstName} {photo.capturedBy.lastName[0]}.</p>
+                    <p className="truncate text-sm text-gray-700">
+                      {photo.capturedBy.firstName} {photo.capturedBy.lastName[0]}.
+                    </p>
                   </div>
                   <div className="hidden min-w-0 flex-1 md:block">
                     {photo.trackingNumber ? (
@@ -2664,7 +3179,6 @@ function AuditLog() {
           onAssigned={handlePhotoAssigned}
         />
       )}
-
     </div>
   );
 }
@@ -2701,52 +3215,64 @@ function PerformanceReports() {
   });
   const [perfTo, setPerfTo] = useState(() => calendarTodayClient());
 
-  const fetchReport = useCallback(async (g: Granularity, from: string, to: string, repId: number | null) => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({
-        'performance-report': 'true',
-        granularity: g,
-        from,
-        to,
-        scope: ANALYTICS_SCOPE,
-      });
-      if (repId) params.set('repId', String(repId));
+  const fetchReport = useCallback(
+    async (g: Granularity, from: string, to: string, repId: number | null) => {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams({
+          'performance-report': 'true',
+          granularity: g,
+          from,
+          to,
+          scope: ANALYTICS_SCOPE,
+        });
+        if (repId) params.set('repId', String(repId));
 
-      const res = await apiFetch(`/api/package-photos?${params.toString()}`);
-      if (res.ok) {
-        const json = await res.json();
-        setReport(json.data);
-        if (!repId && json.data.reps?.length) {
-          setAvailableReps(json.data.reps);
+        const res = await apiFetch(`/api/package-photos?${params.toString()}`);
+        if (res.ok) {
+          const json = await res.json();
+          setReport(json.data);
+          if (!repId && json.data.reps?.length) {
+            setAvailableReps(json.data.reps);
+          }
         }
+      } catch {
+        /* non-critical */
+      } finally {
+        setLoading(false);
       }
-    } catch { /* non-critical */ }
-    finally { setLoading(false); }
-  }, []);
+    },
+    []
+  );
 
-  const handlePreset = useCallback((preset: typeof PERF_PRESETS[number]) => {
-    const to = calendarTodayClient();
-    let from: string;
-    const tz = getBrowserIANATimeZone();
-    if (preset.days === -1) {
-      const now = new Date();
-      from = toCalendarDateStringInTz(new Date(now.getFullYear(), now.getMonth(), 1), tz);
-    } else {
-      from = toCalendarDateStringInTz(new Date(Date.now() - preset.days * 86400000), tz);
-    }
-    setGranularity(preset.granularity);
-    setPerfFrom(from);
-    setPerfTo(to);
-    setExpandedInterval(null);
-    fetchReport(preset.granularity, from, to, selectedRepId);
-  }, [fetchReport, selectedRepId]);
+  const handlePreset = useCallback(
+    (preset: (typeof PERF_PRESETS)[number]) => {
+      const to = calendarTodayClient();
+      let from: string;
+      const tz = getBrowserIANATimeZone();
+      if (preset.days === -1) {
+        const now = new Date();
+        from = toCalendarDateStringInTz(new Date(now.getFullYear(), now.getMonth(), 1), tz);
+      } else {
+        from = toCalendarDateStringInTz(new Date(Date.now() - preset.days * 86400000), tz);
+      }
+      setGranularity(preset.granularity);
+      setPerfFrom(from);
+      setPerfTo(to);
+      setExpandedInterval(null);
+      fetchReport(preset.granularity, from, to, selectedRepId);
+    },
+    [fetchReport, selectedRepId]
+  );
 
-  const handleRepChange = useCallback((repId: number | null) => {
-    setSelectedRepId(repId);
-    setExpandedInterval(null);
-    fetchReport(granularity, perfFrom, perfTo, repId);
-  }, [fetchReport, granularity, perfFrom, perfTo]);
+  const handleRepChange = useCallback(
+    (repId: number | null) => {
+      setSelectedRepId(repId);
+      setExpandedInterval(null);
+      fetchReport(granularity, perfFrom, perfTo, repId);
+    },
+    [fetchReport, granularity, perfFrom, perfTo]
+  );
 
   const handlePull = useCallback(() => {
     setExpandedInterval(null);
@@ -2757,11 +3283,14 @@ function PerformanceReports() {
     if (!report) return;
     const g = report.granularity;
     const header = `Interval,Total,Matched,Unmatched,Match Rate,Reps\n`;
-    const rows = report.intervals.map((i) => {
-      const repStr = i.reps.map((r) => `${r.name}:${r.total}`).join('; ');
-      return `"${i.label}",${i.total},${i.matched},${i.unmatched},${i.matchRate}%,"${repStr}"`;
-    }).join('\n');
-    const repSection = `\n\nRep Summary\nName,Total,Matched,Match Rate\n` +
+    const rows = report.intervals
+      .map((i) => {
+        const repStr = i.reps.map((r) => `${r.name}:${r.total}`).join('; ');
+        return `"${i.label}",${i.total},${i.matched},${i.unmatched},${i.matchRate}%,"${repStr}"`;
+      })
+      .join('\n');
+    const repSection =
+      `\n\nRep Summary\nName,Total,Matched,Match Rate\n` +
       report.reps.map((r) => `"${r.name}",${r.total},${r.matched},${r.matchRate}%`).join('\n');
     const summary = `\n\nSummary\nTotal Packages,${report.summary.totalPackages}\nMatched,${report.summary.totalMatched}\nUnmatched,${report.summary.totalUnmatched}\nMatch Rate,${report.summary.matchRate}%\nAvg per ${g === 'hourly' ? 'Hour' : g === 'weekly' ? 'Week' : 'Day'},${report.summary.avgPerInterval}`;
     const blob = new Blob([header + rows + repSection + summary], { type: 'text/csv' });
@@ -2773,7 +3302,9 @@ function PerformanceReports() {
     URL.revokeObjectURL(url);
   }, [report, perfFrom, perfTo, selectedRepId]);
 
-  const selectedRepName = selectedRepId ? availableReps.find((r) => r.userId === selectedRepId)?.name : null;
+  const selectedRepName = selectedRepId
+    ? availableReps.find((r) => r.userId === selectedRepId)?.name
+    : null;
 
   return (
     <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4">
@@ -2781,7 +3312,9 @@ function PerformanceReports() {
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:gap-3">
         {/* Granularity selector */}
         <div>
-          <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">Granularity</label>
+          <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+            Granularity
+          </label>
           <div className="flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
             {GRANULARITY_OPTIONS.map((opt) => {
               const Icon = opt.icon;
@@ -2806,7 +3339,9 @@ function PerformanceReports() {
 
         {/* Rep selector */}
         <div>
-          <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">Rep</label>
+          <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+            Rep
+          </label>
           <select
             value={selectedRepId ?? ''}
             onChange={(e) => handleRepChange(e.target.value ? parseInt(e.target.value, 10) : null)}
@@ -2814,14 +3349,18 @@ function PerformanceReports() {
           >
             <option value="">All Reps (Team)</option>
             {availableReps.map((rep) => (
-              <option key={rep.userId} value={rep.userId}>{rep.name}</option>
+              <option key={rep.userId} value={rep.userId}>
+                {rep.name}
+              </option>
             ))}
           </select>
         </div>
 
         {/* Date range */}
         <div>
-          <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">From</label>
+          <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+            From
+          </label>
           <input
             type="date"
             value={perfFrom}
@@ -2830,7 +3369,9 @@ function PerformanceReports() {
           />
         </div>
         <div>
-          <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">To</label>
+          <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+            To
+          </label>
           <input
             type="date"
             value={perfTo}
@@ -2845,7 +3386,11 @@ function PerformanceReports() {
           disabled={loading}
           className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
         >
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <BarChart3 className="h-4 w-4" />}
+          {loading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <BarChart3 className="h-4 w-4" />
+          )}
           Pull Report
         </button>
 
@@ -2910,20 +3455,36 @@ function PerformanceReports() {
           {/* Summary cards */}
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
             <div className="rounded-lg bg-gray-50 px-3 py-2.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Total Pkgs</p>
-              <p className="text-xl font-bold text-gray-900">{report.summary.totalPackages.toLocaleString()}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                Total Pkgs
+              </p>
+              <p className="text-xl font-bold text-gray-900">
+                {report.summary.totalPackages.toLocaleString()}
+              </p>
             </div>
             <div className="rounded-lg bg-gray-50 px-3 py-2.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Matched</p>
-              <p className="text-xl font-bold text-emerald-600">{report.summary.totalMatched.toLocaleString()}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                Matched
+              </p>
+              <p className="text-xl font-bold text-emerald-600">
+                {report.summary.totalMatched.toLocaleString()}
+              </p>
             </div>
             <div className="rounded-lg bg-gray-50 px-3 py-2.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Unmatched</p>
-              <p className="text-xl font-bold text-amber-600">{report.summary.totalUnmatched.toLocaleString()}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                Unmatched
+              </p>
+              <p className="text-xl font-bold text-amber-600">
+                {report.summary.totalUnmatched.toLocaleString()}
+              </p>
             </div>
             <div className="rounded-lg bg-gray-50 px-3 py-2.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Match Rate</p>
-              <p className={`text-xl font-bold ${report.summary.matchRate >= 60 ? 'text-emerald-600' : report.summary.matchRate >= 40 ? 'text-amber-600' : 'text-red-500'}`}>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                Match Rate
+              </p>
+              <p
+                className={`text-xl font-bold ${report.summary.matchRate >= 60 ? 'text-emerald-600' : report.summary.matchRate >= 40 ? 'text-amber-600' : 'text-red-500'}`}
+              >
                 {report.summary.matchRate}%
               </p>
             </div>
@@ -2934,7 +3495,9 @@ function PerformanceReports() {
               <p className="text-xl font-bold text-violet-600">{report.summary.avgPerInterval}</p>
             </div>
             <div className="rounded-lg bg-gray-50 px-3 py-2.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Active Reps</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                Active Reps
+              </p>
               <p className="text-xl font-bold text-gray-900">{report.summary.totalReps}</p>
             </div>
           </div>
@@ -2944,7 +3507,12 @@ function PerformanceReports() {
             <div className="rounded-xl border border-gray-100 bg-white p-4">
               <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
                 <BarChart3 className="h-4 w-4 text-violet-500" />
-                {granularity === 'hourly' ? 'Hourly' : granularity === 'weekly' ? 'Weekly' : 'Daily'} Volume
+                {granularity === 'hourly'
+                  ? 'Hourly'
+                  : granularity === 'weekly'
+                    ? 'Weekly'
+                    : 'Daily'}{' '}
+                Volume
                 <span className="ml-auto text-xs font-normal text-gray-400">
                   {report.range.from} to {report.range.to}
                 </span>
@@ -2956,11 +3524,16 @@ function PerformanceReports() {
                   const unmatchedH = (interval.unmatched / maxVal) * 100;
                   const isLast = idx === report.intervals.length - 1;
                   return (
-                    <div key={`${interval.date}-${interval.hour ?? idx}`} className="group relative flex flex-1 flex-col items-center">
+                    <div
+                      key={`${interval.date}-${interval.hour ?? idx}`}
+                      className="group relative flex flex-1 flex-col items-center"
+                    >
                       <div className="absolute -top-12 z-10 hidden min-w-[100px] rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-center shadow-lg group-hover:block">
                         <p className="text-[10px] font-medium text-gray-500">{interval.label}</p>
                         <p className="text-xs font-bold text-gray-900">{interval.total} pkgs</p>
-                        <p className="text-[10px] text-emerald-600">{interval.matched}m / {interval.unmatched}u</p>
+                        <p className="text-[10px] text-emerald-600">
+                          {interval.matched}m / {interval.unmatched}u
+                        </p>
                       </div>
                       <div className="flex w-full flex-col items-stretch" style={{ height: 120 }}>
                         <div className="flex-1" />
@@ -2977,21 +3550,27 @@ function PerformanceReports() {
                           />
                         )}
                       </div>
-                      <span className={`mt-1 max-w-full truncate text-[8px] ${isLast ? 'font-bold text-violet-600' : 'text-gray-400'}`}>
+                      <span
+                        className={`mt-1 max-w-full truncate text-[8px] ${isLast ? 'font-bold text-violet-600' : 'text-gray-400'}`}
+                      >
                         {granularity === 'hourly'
                           ? interval.label.split('–')[0]
                           : granularity === 'weekly'
                             ? interval.label.split(' – ')[0]
-                            : interval.label.split(', ')[0]?.replace(/^[A-Z][a-z]+\s/, '') ?? interval.label
-                        }
+                            : (interval.label.split(', ')[0]?.replace(/^[A-Z][a-z]+\s/, '') ??
+                              interval.label)}
                       </span>
                     </div>
                   );
                 })}
               </div>
               <div className="mt-2 flex items-center justify-center gap-4 text-[10px] text-gray-400">
-                <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-sm bg-emerald-500" /> Matched</span>
-                <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-sm bg-amber-300" /> Unmatched</span>
+                <span className="flex items-center gap-1">
+                  <span className="inline-block h-2 w-2 rounded-sm bg-emerald-500" /> Matched
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="inline-block h-2 w-2 rounded-sm bg-amber-300" /> Unmatched
+                </span>
               </div>
             </div>
           )}
@@ -3017,22 +3596,38 @@ function PerformanceReports() {
                       onClick={() => handleRepChange(rep.userId)}
                       className="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-violet-50"
                     >
-                      <span className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold ${
-                        idx === 0 ? 'bg-amber-100 text-amber-700' : idx === 1 ? 'bg-gray-100 text-gray-600' : idx === 2 ? 'bg-orange-50 text-orange-600' : 'bg-gray-50 text-gray-400'
-                      }`}>
+                      <span
+                        className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold ${
+                          idx === 0
+                            ? 'bg-amber-100 text-amber-700'
+                            : idx === 1
+                              ? 'bg-gray-100 text-gray-600'
+                              : idx === 2
+                                ? 'bg-orange-50 text-orange-600'
+                                : 'bg-gray-50 text-gray-400'
+                        }`}
+                      >
                         {idx + 1}
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between">
-                          <span className="truncate text-sm font-medium text-gray-700">{rep.name}</span>
+                          <span className="truncate text-sm font-medium text-gray-700">
+                            {rep.name}
+                          </span>
                           <span className="ml-2 flex-shrink-0 text-xs text-gray-400">
                             {rep.total} pkgs &middot; {rep.matchRate}% match
                           </span>
                         </div>
                         <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-gray-100">
                           <div className="flex h-full">
-                            <div className="rounded-l-full bg-emerald-500 transition-all" style={{ width: `${(rep.matched / maxTotal) * 100}%` }} />
-                            <div className="bg-amber-300 transition-all" style={{ width: `${((rep.total - rep.matched) / maxTotal) * 100}%` }} />
+                            <div
+                              className="rounded-l-full bg-emerald-500 transition-all"
+                              style={{ width: `${(rep.matched / maxTotal) * 100}%` }}
+                            />
+                            <div
+                              className="bg-amber-300 transition-all"
+                              style={{ width: `${((rep.total - rep.matched) / maxTotal) * 100}%` }}
+                            />
                           </div>
                         </div>
                       </div>
@@ -3069,56 +3664,89 @@ function PerformanceReports() {
                       >
                         <div className="sm:hidden">
                           <div className="flex items-center justify-between">
-                            <span className="text-sm font-semibold text-gray-900">{interval.label}</span>
-                            <span className="text-lg font-bold text-gray-900">{interval.total}</span>
+                            <span className="text-sm font-semibold text-gray-900">
+                              {interval.label}
+                            </span>
+                            <span className="text-lg font-bold text-gray-900">
+                              {interval.total}
+                            </span>
                           </div>
                           <div className="mt-1 flex items-center gap-3 text-[11px]">
                             <span className="text-emerald-600">{interval.matched} matched</span>
                             <span className="text-amber-600">{interval.unmatched} unmatched</span>
                             <span className="text-gray-400">{interval.matchRate}%</span>
                             {interval.reps.length > 0 && (
-                              <span className="text-gray-300">{interval.reps.length} rep{interval.reps.length !== 1 ? 's' : ''}</span>
+                              <span className="text-gray-300">
+                                {interval.reps.length} rep{interval.reps.length !== 1 ? 's' : ''}
+                              </span>
                             )}
                           </div>
                         </div>
                         <div className="hidden sm:grid sm:grid-cols-12 sm:items-center sm:gap-2">
                           <div className="col-span-3">
-                            <span className="text-sm font-semibold text-gray-900">{interval.label}</span>
+                            <span className="text-sm font-semibold text-gray-900">
+                              {interval.label}
+                            </span>
                           </div>
                           <div className="col-span-2 text-right">
-                            <span className={`text-sm font-bold ${aboveAvg ? 'text-gray-900' : 'text-gray-500'}`}>{interval.total}</span>
-                            {aboveAvg && <span className="ml-1 text-[10px] text-emerald-500">&#9650;</span>}
+                            <span
+                              className={`text-sm font-bold ${aboveAvg ? 'text-gray-900' : 'text-gray-500'}`}
+                            >
+                              {interval.total}
+                            </span>
+                            {aboveAvg && (
+                              <span className="ml-1 text-[10px] text-emerald-500">&#9650;</span>
+                            )}
                           </div>
-                          <div className="col-span-2 text-right text-sm font-medium text-emerald-600">{interval.matched}</div>
-                          <div className="col-span-2 text-right text-sm font-medium text-amber-600">{interval.unmatched}</div>
+                          <div className="col-span-2 text-right text-sm font-medium text-emerald-600">
+                            {interval.matched}
+                          </div>
+                          <div className="col-span-2 text-right text-sm font-medium text-amber-600">
+                            {interval.unmatched}
+                          </div>
                           <div className="col-span-2 text-right">
-                            <span className={`text-sm font-bold ${interval.matchRate >= 60 ? 'text-emerald-600' : interval.matchRate >= 40 ? 'text-amber-600' : 'text-red-500'}`}>
+                            <span
+                              className={`text-sm font-bold ${interval.matchRate >= 60 ? 'text-emerald-600' : interval.matchRate >= 40 ? 'text-amber-600' : 'text-red-500'}`}
+                            >
                               {interval.matchRate}%
                             </span>
                           </div>
                           <div className="col-span-1 text-right">
-                            {interval.reps.length > 0 && (
-                              isExpanded
-                                ? <ChevronUp className="ml-auto h-4 w-4 text-gray-400" />
-                                : <ChevronDown className="ml-auto h-4 w-4 text-gray-300" />
-                            )}
+                            {interval.reps.length > 0 &&
+                              (isExpanded ? (
+                                <ChevronUp className="ml-auto h-4 w-4 text-gray-400" />
+                              ) : (
+                                <ChevronDown className="ml-auto h-4 w-4 text-gray-300" />
+                              ))}
                           </div>
                         </div>
                       </button>
                       {isExpanded && interval.reps.length > 0 && (
                         <div className="border-t border-gray-100 bg-gray-50/50 px-4 py-3">
-                          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Rep Breakdown</p>
+                          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                            Rep Breakdown
+                          </p>
                           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                             {interval.reps.map((rep) => {
-                              const repRate = rep.total > 0 ? Math.round((rep.matched / rep.total) * 100) : 0;
+                              const repRate =
+                                rep.total > 0 ? Math.round((rep.matched / rep.total) * 100) : 0;
                               return (
-                                <div key={rep.userId} className="flex items-center justify-between rounded-lg bg-white px-3 py-2 shadow-sm">
-                                  <span className="text-sm font-medium text-gray-700">{rep.name}</span>
+                                <div
+                                  key={rep.userId}
+                                  className="flex items-center justify-between rounded-lg bg-white px-3 py-2 shadow-sm"
+                                >
+                                  <span className="text-sm font-medium text-gray-700">
+                                    {rep.name}
+                                  </span>
                                   <div className="flex items-center gap-2 text-xs">
                                     <span className="font-bold text-gray-900">{rep.total}</span>
                                     <span className="text-emerald-600">{rep.matched}m</span>
-                                    <span className="text-amber-600">{rep.total - rep.matched}u</span>
-                                    <span className={`font-semibold ${repRate >= 60 ? 'text-emerald-600' : repRate >= 40 ? 'text-amber-600' : 'text-red-500'}`}>
+                                    <span className="text-amber-600">
+                                      {rep.total - rep.matched}u
+                                    </span>
+                                    <span
+                                      className={`font-semibold ${repRate >= 60 ? 'text-emerald-600' : repRate >= 40 ? 'text-amber-600' : 'text-red-500'}`}
+                                    >
                                       {repRate}%
                                     </span>
                                   </div>
@@ -3161,12 +3789,16 @@ function AuditDetailModal({
   assignableClinics: AssignableClinic[];
   onAssigned?: (photoId: number, clinic: { id: number; name: string } | null) => void;
 }) {
-  const [localAssigned, setLocalAssigned] = useState<{ id: number; name: string } | null>(photo.assignedClinic);
+  const [localAssigned, setLocalAssigned] = useState<{ id: number; name: string } | null>(
+    photo.assignedClinic
+  );
   const [assigning, setAssigning] = useState(false);
   const [assignError, setAssignError] = useState<string | null>(null);
 
   useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
     document.addEventListener('keydown', handleEsc);
     return () => document.removeEventListener('keydown', handleEsc);
   }, [onClose]);
@@ -3195,7 +3827,10 @@ function AuditDetailModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4"
+      onClick={onClose}
+    >
       <div
         className="w-full max-w-lg overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:max-h-[90vh] sm:overflow-y-auto sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
@@ -3280,9 +3915,13 @@ function AuditDetailModal({
                   defaultValue=""
                   className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20 disabled:opacity-50"
                 >
-                  <option value="" disabled>Select clinic...</option>
+                  <option value="" disabled>
+                    Select clinic...
+                  </option>
                   {assignableClinics.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
                   ))}
                 </select>
               )}
@@ -3291,9 +3930,7 @@ function AuditDetailModal({
                   <Loader2 className="h-3 w-3 animate-spin" /> Saving...
                 </div>
               )}
-              {assignError && (
-                <p className="mt-1.5 text-xs text-red-600">{assignError}</p>
-              )}
+              {assignError && <p className="mt-1.5 text-xs text-red-600">{assignError}</p>}
             </div>
           )}
 
@@ -3319,7 +3956,10 @@ function AuditDetailModal({
                 <Shield className="h-3 w-3" /> Chain of Custody
               </p>
               <p className="text-sm text-gray-900">
-                Captured by <span className="font-semibold">{photo.capturedBy.firstName} {photo.capturedBy.lastName}</span>
+                Captured by{' '}
+                <span className="font-semibold">
+                  {photo.capturedBy.firstName} {photo.capturedBy.lastName}
+                </span>
               </p>
               <p className="flex items-center gap-1.5 text-xs text-gray-500">
                 <Clock className="h-3 w-3" />
@@ -3354,7 +3994,9 @@ function AuditDetailModal({
                 <span className="font-medium text-gray-900">
                   #{photo.order.id}
                   {photo.order.lifefileOrderId && (
-                    <span className="ml-1 text-xs text-gray-400">(LF: {photo.order.lifefileOrderId})</span>
+                    <span className="ml-1 text-xs text-gray-400">
+                      (LF: {photo.order.lifefileOrderId})
+                    </span>
                   )}
                 </span>
               </div>
@@ -3365,7 +4007,9 @@ function AuditDetailModal({
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-500">Matched via</span>
                 <span className="text-gray-700">
-                  {photo.matchStrategy === 'lifefileOrderId' ? 'LifeFile Order ID' : 'Patient LifeFile ID'}
+                  {photo.matchStrategy === 'lifefileOrderId'
+                    ? 'LifeFile Order ID'
+                    : 'Patient LifeFile ID'}
                 </span>
               </div>
             )}
@@ -3382,7 +4026,9 @@ function AuditDetailModal({
             {photo.patient && (
               <a
                 href={`/admin/patients/${photo.patient.id}`}
-                onMouseEnter={() => photo.patient && prefetchRoute(`/admin/patients/${photo.patient.id}`)}
+                onMouseEnter={() =>
+                  photo.patient && prefetchRoute(`/admin/patients/${photo.patient.id}`)
+                }
                 className="mt-2 flex items-center justify-center gap-1.5 rounded-xl border border-violet-200 bg-violet-50 py-2.5 text-xs font-semibold text-violet-700 transition-colors hover:bg-violet-100"
               >
                 <ExternalLink className="h-3.5 w-3.5" />
@@ -3433,7 +4079,11 @@ function DownloadPdfButton({ photoId, lifefileId }: { photoId: number; lifefileI
       disabled={downloading}
       className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white py-2.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
     >
-      {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+      {downloading ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      ) : (
+        <Download className="h-3.5 w-3.5" />
+      )}
       {downloading ? 'Generating PDF...' : 'Download Audit PDF'}
     </button>
   );

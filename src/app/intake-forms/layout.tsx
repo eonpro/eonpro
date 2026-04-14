@@ -100,7 +100,10 @@ function IntakeFormsLayoutInner({ children }: { children: React.ReactNode }) {
     }
     try {
       const parsed = safeParseJsonString<Record<string, unknown>>(user);
-      if (!parsed) { router.push('/login'); return; }
+      if (!parsed) {
+        router.push('/login');
+        return;
+      }
       const role = String(parsed?.role ?? '').toLowerCase();
       if (!ALLOWED_ROLES.includes(role)) {
         router.push('/dashboard');

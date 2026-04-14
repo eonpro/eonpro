@@ -253,7 +253,11 @@ export function MilestoneCelebration({
     weight_loss: { icon: Star, color: 'text-yellow-500', bg: 'bg-yellow-100' },
     streak: { icon: Flame, color: 'text-orange-500', bg: 'bg-orange-100' },
     goal: { icon: CheckCircle, color: 'text-green-500', bg: 'bg-green-100' },
-    achievement: { icon: Trophy, color: 'text-[var(--brand-primary)]', bg: 'bg-[var(--brand-primary-light)]' },
+    achievement: {
+      icon: Trophy,
+      color: 'text-[var(--brand-primary)]',
+      bg: 'bg-[var(--brand-primary-light)]',
+    },
   };
 
   const { icon: Icon, color, bg } = icons[type];

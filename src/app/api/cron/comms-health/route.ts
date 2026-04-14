@@ -81,9 +81,8 @@ async function checkSES(): Promise<ServiceCheck> {
       };
     }
 
-    const usagePercent = quota.max24HourSend > 0
-      ? Math.round((quota.sentLast24Hours / quota.max24HourSend) * 100)
-      : 0;
+    const usagePercent =
+      quota.max24HourSend > 0 ? Math.round((quota.sentLast24Hours / quota.max24HourSend) * 100) : 0;
 
     const status = usagePercent > 90 ? 'degraded' : latencyMs > 3000 ? 'degraded' : 'healthy';
 
@@ -91,9 +90,10 @@ async function checkSES(): Promise<ServiceCheck> {
       name: 'AWS SES (Email)',
       status,
       latencyMs,
-      message: status === 'healthy'
-        ? `Operational — ${quota.sentLast24Hours}/${quota.max24HourSend} emails sent (${usagePercent}% of quota)`
-        : `High usage: ${usagePercent}% of daily quota consumed`,
+      message:
+        status === 'healthy'
+          ? `Operational — ${quota.sentLast24Hours}/${quota.max24HourSend} emails sent (${usagePercent}% of quota)`
+          : `High usage: ${usagePercent}% of daily quota consumed`,
       details: { quota, usagePercent },
     };
   } catch (error) {

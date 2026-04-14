@@ -150,7 +150,8 @@ export default function VerificationQueuePage() {
         stats: { byStatus: {} },
       });
     } catch (error) {
-      process.env.NODE_ENV === 'development' && console.error('Failed to fetch verifications:', error);
+      process.env.NODE_ENV === 'development' &&
+        console.error('Failed to fetch verifications:', error);
       setError('Failed to load verification queue.');
       setData({
         verifications: [],
@@ -166,7 +167,10 @@ export default function VerificationQueuePage() {
     fetchVerifications();
   }, [fetchVerifications]);
 
-  const handleVerify = async (photoId: number, action: 'approve' | 'reject' | 'request_resubmit') => {
+  const handleVerify = async (
+    photoId: number,
+    action: 'approve' | 'reject' | 'request_resubmit'
+  ) => {
     setProcessing(true);
     try {
       const response = await apiFetch('/api/admin/verification-queue', {
@@ -183,7 +187,15 @@ export default function VerificationQueuePage() {
         if (selectedVerification) {
           const updatedPhotos = selectedVerification.photos.map((p) =>
             p.id === photoId
-              ? { ...p, verificationStatus: action === 'approve' ? 'VERIFIED' : action === 'reject' ? 'REJECTED' : 'EXPIRED' }
+              ? {
+                  ...p,
+                  verificationStatus:
+                    action === 'approve'
+                      ? 'VERIFIED'
+                      : action === 'reject'
+                        ? 'REJECTED'
+                        : 'EXPIRED',
+                }
               : p
           );
           setSelectedVerification({ ...selectedVerification, photos: updatedPhotos });
@@ -212,7 +224,8 @@ export default function VerificationQueuePage() {
             body: JSON.stringify({ photoId: photo.id, action: 'approve' }),
           });
         } catch (error) {
-          process.env.NODE_ENV === 'development' && console.error('Failed to approve photo:', photo.id);
+          process.env.NODE_ENV === 'development' &&
+            console.error('Failed to approve photo:', photo.id);
         }
       }
     }
@@ -327,7 +340,10 @@ export default function VerificationQueuePage() {
             return (
               <button
                 key={tab.key}
-                onClick={() => { setStatusFilter(tab.key); setPage(1); }}
+                onClick={() => {
+                  setStatusFilter(tab.key);
+                  setPage(1);
+                }}
                 className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
                   isActive
                     ? 'bg-white text-gray-900 shadow-sm'
@@ -374,7 +390,11 @@ export default function VerificationQueuePage() {
             <div
               key={verification.patient.id}
               className={`group overflow-hidden rounded-xl border bg-white shadow-sm transition-all hover:shadow-md ${
-                allVerified ? 'border-emerald-200' : hasRejection ? 'border-red-200' : 'border-gray-200'
+                allVerified
+                  ? 'border-emerald-200'
+                  : hasRejection
+                    ? 'border-red-200'
+                    : 'border-gray-200'
               }`}
             >
               <div className="flex items-center gap-4 p-4">
@@ -401,7 +421,11 @@ export default function VerificationQueuePage() {
                     )}
                   </div>
                   <p className="truncate text-xs text-gray-500">
-                    ID: {formatPatientDisplayId(verification.patient.patientId, verification.patient.id)}
+                    ID:{' '}
+                    {formatPatientDisplayId(
+                      verification.patient.patientId,
+                      verification.patient.id
+                    )}
                     <span className="mx-1.5 text-gray-300">·</span>
                     {verification.clinic.name}
                     <span className="mx-1.5 text-gray-300">·</span>
@@ -413,12 +437,18 @@ export default function VerificationQueuePage() {
                 <div className="hidden items-center gap-1.5 sm:flex">
                   {verification.photos.map((photo) => {
                     const isVerified = photo.verificationStatus === 'VERIFIED';
-                    const isRejected = photo.verificationStatus === 'REJECTED' || photo.verificationStatus === 'EXPIRED';
+                    const isRejected =
+                      photo.verificationStatus === 'REJECTED' ||
+                      photo.verificationStatus === 'EXPIRED';
                     return (
                       <div
                         key={photo.id}
                         className={`relative h-12 w-10 overflow-hidden rounded-lg border-2 ${
-                          isVerified ? 'border-emerald-400' : isRejected ? 'border-red-400' : 'border-gray-200'
+                          isVerified
+                            ? 'border-emerald-400'
+                            : isRejected
+                              ? 'border-red-400'
+                              : 'border-gray-200'
                         }`}
                       >
                         {photo.thumbnailUrl || photo.s3Url ? (
@@ -521,7 +551,9 @@ export default function VerificationQueuePage() {
       {selectedVerification && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
-          onClick={(e) => { if (e.target === e.currentTarget) setSelectedVerification(null); }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedVerification(null);
+          }}
         >
           <div className="max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-2xl">
             {/* Modal Header */}
@@ -537,7 +569,11 @@ export default function VerificationQueuePage() {
                   <p className="text-xs text-gray-500">
                     {selectedVerification.clinic.name}
                     <span className="mx-1.5 text-gray-300">·</span>
-                    ID: {formatPatientDisplayId(selectedVerification.patient.patientId, selectedVerification.patient.id)}
+                    ID:{' '}
+                    {formatPatientDisplayId(
+                      selectedVerification.patient.patientId,
+                      selectedVerification.patient.id
+                    )}
                   </p>
                 </div>
               </div>
@@ -553,10 +589,17 @@ export default function VerificationQueuePage() {
             <div className="max-h-[60vh] overflow-y-auto p-6">
               <div className="grid gap-4 sm:grid-cols-3">
                 {selectedVerification.photos.map((photo) => {
-                  const isPending = photo.verificationStatus === 'PENDING' || photo.verificationStatus === 'IN_REVIEW';
+                  const isPending =
+                    photo.verificationStatus === 'PENDING' ||
+                    photo.verificationStatus === 'IN_REVIEW';
                   const isVerified = photo.verificationStatus === 'VERIFIED';
-                  const isRejected = photo.verificationStatus === 'REJECTED' || photo.verificationStatus === 'EXPIRED';
-                  const typeInfo = photoTypeConfig[photo.type] || { label: photo.type, icon: Camera };
+                  const isRejected =
+                    photo.verificationStatus === 'REJECTED' ||
+                    photo.verificationStatus === 'EXPIRED';
+                  const typeInfo = photoTypeConfig[photo.type] || {
+                    label: photo.type,
+                    icon: Camera,
+                  };
                   const Icon = typeInfo.icon;
 
                   return (
@@ -574,7 +617,9 @@ export default function VerificationQueuePage() {
                       <div className="flex items-center justify-between px-3 py-2">
                         <div className="flex items-center gap-1.5">
                           <Icon className="h-3.5 w-3.5 text-gray-400" />
-                          <span className="text-xs font-medium text-gray-600">{typeInfo.label}</span>
+                          <span className="text-xs font-medium text-gray-600">
+                            {typeInfo.label}
+                          </span>
                         </div>
                         {isVerified && (
                           <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600">
@@ -636,11 +681,16 @@ export default function VerificationQueuePage() {
                         <div className="border-t border-gray-100 px-3 py-1.5">
                           <p className="text-[10px] text-gray-400">
                             {new Date(photo.verifiedAt).toLocaleDateString('en-US', {
-                              month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+                              month: 'short',
+                              day: 'numeric',
+                              hour: 'numeric',
+                              minute: '2-digit',
                             })}
                           </p>
                           {photo.verificationNotes && (
-                            <p className="mt-0.5 text-[10px] text-gray-500">{photo.verificationNotes}</p>
+                            <p className="mt-0.5 text-[10px] text-gray-500">
+                              {photo.verificationNotes}
+                            </p>
                           )}
                         </div>
                       )}
@@ -681,7 +731,10 @@ export default function VerificationQueuePage() {
                     <button
                       onClick={() => {
                         for (const photo of selectedVerification.photos) {
-                          if (photo.verificationStatus === 'PENDING' || photo.verificationStatus === 'IN_REVIEW') {
+                          if (
+                            photo.verificationStatus === 'PENDING' ||
+                            photo.verificationStatus === 'IN_REVIEW'
+                          ) {
                             handleVerify(photo.id, 'request_resubmit');
                           }
                         }

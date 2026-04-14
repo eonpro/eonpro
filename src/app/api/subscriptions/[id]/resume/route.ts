@@ -61,7 +61,6 @@ async function postHandler(request: NextRequest, user: AuthUser, context?: Route
 
     return NextResponse.json(updatedSubscription);
   } catch (error: unknown) {
-
     logger.error('Error resuming subscription:', error);
     return NextResponse.json({ error: 'Failed to resume subscription' }, { status: 500 });
   }

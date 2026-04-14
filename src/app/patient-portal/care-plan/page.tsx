@@ -170,7 +170,10 @@ export default function CarePlanPage() {
 
   const overallProgress =
     (carePlan?.goals?.length ?? 0) > 0
-      ? Math.round((carePlan.goals?.reduce((sum, g) => sum + g.progress, 0) ?? 0) / (carePlan.goals?.length ?? 1))
+      ? Math.round(
+          (carePlan.goals?.reduce((sum, g) => sum + g.progress, 0) ?? 0) /
+            (carePlan.goals?.length ?? 1)
+        )
       : 0;
 
   return (
@@ -237,7 +240,7 @@ export default function CarePlanPage() {
       {activeTab === 'overview' && (
         <div className="space-y-6">
           {/* Quick Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="rounded-xl bg-white p-4 shadow-sm">
               <div className="mb-1 flex items-center gap-2">
                 <Target className="h-5 w-5 text-blue-500" />
@@ -362,7 +365,8 @@ export default function CarePlanPage() {
                       {goal.targetDate && (
                         <p className="mt-2 flex items-center gap-1 text-xs text-gray-500">
                           <Clock className="h-3 w-3" />
-                          Target: {goal.targetDate ? new Date(goal.targetDate).toLocaleDateString() : ''}
+                          Target:{' '}
+                          {goal.targetDate ? new Date(goal.targetDate).toLocaleDateString() : ''}
                         </p>
                       )}
                     </>
@@ -408,7 +412,12 @@ export default function CarePlanPage() {
                       {activity.frequency}
                     </span>
                     {activity.lastCompletedAt && (
-                      <span>Last: {activity.lastCompletedAt ? new Date(activity.lastCompletedAt).toLocaleDateString() : 'Never'}</span>
+                      <span>
+                        Last:{' '}
+                        {activity.lastCompletedAt
+                          ? new Date(activity.lastCompletedAt).toLocaleDateString()
+                          : 'Never'}
+                      </span>
                     )}
                   </div>
                 </div>

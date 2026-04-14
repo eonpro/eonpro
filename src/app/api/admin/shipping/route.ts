@@ -22,7 +22,6 @@ function safeDecrypt(value: string | null | undefined): string {
   }
 }
 
-
 async function handleGetShipping(req: NextRequest, user: AuthUser) {
   try {
     const { searchParams } = new URL(req.url);
@@ -103,7 +102,9 @@ async function handleGetShipping(req: NextRequest, user: AuthUser) {
             const fullName = `${fn} ${ln}`;
             matchesSearch =
               fullName.includes(searchLower) ||
-              terms.every((t) => fn.includes(t) || ln.includes(t) || em.includes(t) || pid.includes(t));
+              terms.every(
+                (t) => fn.includes(t) || ln.includes(t) || em.includes(t) || pid.includes(t)
+              );
           }
 
           if (matchesSearch) {
@@ -124,16 +125,18 @@ async function handleGetShipping(req: NextRequest, user: AuthUser) {
         if (selfHealUpdates.length > 0) {
           Promise.all(
             selfHealUpdates.map(({ id, searchIndex }) =>
-              prisma.patient.update({
-                where: { id },
-                data: { searchIndex },
-              }).catch((err) => {
-                logger.warn('[ADMIN-SHIPPING] Self-heal searchIndex failed', {
-                  patientId: id,
-                  error: err instanceof Error ? err.message : String(err),
-                });
-                return null;
-              })
+              prisma.patient
+                .update({
+                  where: { id },
+                  data: { searchIndex },
+                })
+                .catch((err) => {
+                  logger.warn('[ADMIN-SHIPPING] Self-heal searchIndex failed', {
+                    patientId: id,
+                    error: err instanceof Error ? err.message : String(err),
+                  });
+                  return null;
+                })
             )
           ).catch((err) => {
             logger.warn('[ADMIN-SHIPPING] Self-heal batch failed', {
@@ -180,7 +183,7 @@ async function handleGetShipping(req: NextRequest, user: AuthUser) {
       });
 
       const advancedKeys = new Set(
-        advancedRecords.map((r) => `${r.trackingNumber}::${r.patientId}`),
+        advancedRecords.map((r) => `${r.trackingNumber}::${r.patientId}`)
       );
 
       excludeIds = subordinateRecords
@@ -210,7 +213,12 @@ async function handleGetShipping(req: NextRequest, user: AuthUser) {
             select: { id: true, firstName: true, lastName: true },
           },
           order: {
-            select: { id: true, lifefileOrderId: true, primaryMedName: true, primaryMedStrength: true },
+            select: {
+              id: true,
+              lifefileOrderId: true,
+              primaryMedName: true,
+              primaryMedStrength: true,
+            },
           },
         },
       }),
@@ -220,27 +228,26 @@ async function handleGetShipping(req: NextRequest, user: AuthUser) {
     const trackingNumbers = records.map((r) => r.trackingNumber);
     const patientIds = records.map((r) => r.patientId).filter((id): id is number => id !== null);
 
-    const labels = trackingNumbers.length > 0
-      ? await prisma.shipmentLabel.findMany({
-          where: {
-            trackingNumber: { in: trackingNumbers },
-            ...(patientIds.length > 0 ? { patientId: { in: patientIds } } : {}),
-          },
-          select: {
-            id: true,
-            trackingNumber: true,
-            patientId: true,
-            status: true,
-            labelFormat: true,
-            labelS3Key: true,
-            labelPdfBase64: true,
-          },
-        })
-      : [];
+    const labels =
+      trackingNumbers.length > 0
+        ? await prisma.shipmentLabel.findMany({
+            where: {
+              trackingNumber: { in: trackingNumbers },
+              ...(patientIds.length > 0 ? { patientId: { in: patientIds } } : {}),
+            },
+            select: {
+              id: true,
+              trackingNumber: true,
+              patientId: true,
+              status: true,
+              labelFormat: true,
+              labelS3Key: true,
+              labelPdfBase64: true,
+            },
+          })
+        : [];
 
-    const labelMap = new Map(
-      labels.map((l) => [`${l.trackingNumber}-${l.patientId}`, l]),
-    );
+    const labelMap = new Map(labels.map((l) => [`${l.trackingNumber}-${l.patientId}`, l]));
 
     const formatted = records.map((r) => {
       const label = labelMap.get(`${r.trackingNumber}-${r.patientId}`);

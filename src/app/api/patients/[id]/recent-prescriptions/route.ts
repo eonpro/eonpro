@@ -15,11 +15,7 @@ import { checkRecentPrescriptions } from '@/domains/prescription';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
-async function handler(
-  req: NextRequest,
-  user: AuthUser,
-  context?: unknown,
-) {
+async function handler(req: NextRequest, user: AuthUser, context?: unknown) {
   const ctx = context as { params: Promise<{ id: string }> };
   const { id } = await ctx.params;
   const patientId = parseInt(id, 10);

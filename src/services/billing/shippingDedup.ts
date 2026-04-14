@@ -47,8 +47,7 @@ export function isShippingLineItem(item: LineItemLike): boolean {
   const cat = (item.category || '').toLowerCase();
   const prod = (item.product || '').toLowerCase();
   return (
-    cat === 'shipping' ||
-    SHIPPING_KEYWORDS.some((kw) => desc.includes(kw) || prod.includes(kw))
+    cat === 'shipping' || SHIPPING_KEYWORDS.some((kw) => desc.includes(kw) || prod.includes(kw))
   );
 }
 
@@ -74,7 +73,7 @@ export function isAddonLineItem(item: LineItemLike): boolean {
 export async function hasShippingChargedTodayForAddons(
   patientId: number,
   clinicId: number | undefined,
-  referenceDate: Date = new Date(),
+  referenceDate: Date = new Date()
 ): Promise<boolean> {
   const dayStart = startOfDay(referenceDate);
   const dayEnd = endOfDay(referenceDate);
@@ -111,7 +110,7 @@ export async function hasShippingChargedTodayForAddons(
 export async function deduplicateShipping<T extends LineItemLike>(
   lineItems: T[],
   patientId: number,
-  clinicId: number | undefined,
+  clinicId: number | undefined
 ): Promise<{ items: T[]; shippingRemoved: boolean }> {
   const hasAddon = lineItems.some(isAddonLineItem);
   const hasShipping = lineItems.some(isShippingLineItem);

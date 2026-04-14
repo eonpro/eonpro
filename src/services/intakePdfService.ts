@@ -6,10 +6,7 @@ import type { Patient } from '@prisma/client';
 import type { IntakeEntry, NormalizedIntake } from '@/lib/medlink/types';
 import { logger } from '@/lib/logger';
 import { BRAND } from '@/lib/constants/brand-assets';
-import {
-  decryptPatientPHI,
-  DEFAULT_PHI_FIELDS,
-} from '@/lib/security/phi-encryption';
+import { decryptPatientPHI, DEFAULT_PHI_FIELDS } from '@/lib/security/phi-encryption';
 
 const BACKGROUND = rgb(0.964, 0.956, 0.945);
 const PRIMARY = rgb(0.09, 0.667, 0.482);
@@ -238,7 +235,10 @@ export async function generateIntakePdf(intake: NormalizedIntake, patient: Patie
     {
       title: 'Patient Profile',
       entries: [
-        { label: 'Patient', value: `${patientForPdf.firstName ?? ''} ${patientForPdf.lastName ?? ''}`.trim() || '—' },
+        {
+          label: 'Patient',
+          value: `${patientForPdf.firstName ?? ''} ${patientForPdf.lastName ?? ''}`.trim() || '—',
+        },
         { label: 'DOB', value: formatDobForPdf(patientForPdf.dob) },
         { label: 'Gender', value: formatGender(patientForPdf.gender) },
         { label: 'Phone', value: patientForPdf.phone ?? '—' },
@@ -256,10 +256,9 @@ export async function generateIntakePdf(intake: NormalizedIntake, patient: Patie
   const valueColumnX = margin + labelColumnWidth + 20; // X position for values
 
   const displaySections = buildDisplaySections(intake);
-  logger.debug(
-    '[PDF] Sections to render:',
-    { sections: displaySections.map((s: any) => `${s.title} (${s.entries.length} items)`) }
-  );
+  logger.debug('[PDF] Sections to render:', {
+    sections: displaySections.map((s: any) => `${s.title} (${s.entries.length} items)`),
+  });
 
   displaySections.forEach((section: any) => {
     const drawHeader = (suffix = '') => {

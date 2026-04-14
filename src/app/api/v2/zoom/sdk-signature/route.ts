@@ -48,7 +48,7 @@ export const POST = withProviderAuth(async (req: NextRequest, user: AuthUser) =>
     if (!parsed.success) {
       return NextResponse.json(
         { error: 'Validation failed', details: parsed.error.flatten() },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -79,20 +79,14 @@ export const POST = withProviderAuth(async (req: NextRequest, user: AuthUser) =>
 
     if (!sdkKey || !sdkSecret) {
       if (!isZoomConfigured()) {
-        return NextResponse.json(
-          { error: 'Zoom Telehealth is not enabled' },
-          { status: 403 },
-        );
+        return NextResponse.json({ error: 'Zoom Telehealth is not enabled' }, { status: 403 });
       }
       sdkKey = zoomConfig.sdkKey || zoomConfig.clientId;
       sdkSecret = zoomConfig.sdkSecret || zoomConfig.clientSecret;
     }
 
     if (!sdkKey || !sdkSecret) {
-      return NextResponse.json(
-        { error: 'Zoom SDK credentials not configured' },
-        { status: 500 },
-      );
+      return NextResponse.json({ error: 'Zoom SDK credentials not configured' }, { status: 500 });
     }
 
     if (!accessToken && isZoomConfigured()) {
@@ -105,10 +99,13 @@ export const POST = withProviderAuth(async (req: NextRequest, user: AuthUser) =>
     if (role === 1 && session && accessToken) {
       zak = await fetchZakToken(accessToken);
       if (!zak) {
-        logger.warn('[ZOOM_SDK] ZAK unavailable — provider will still join but may not have full host controls', {
-          userId: user.id,
-          meetingNumber,
-        });
+        logger.warn(
+          '[ZOOM_SDK] ZAK unavailable — provider will still join but may not have full host controls',
+          {
+            userId: user.id,
+            meetingNumber,
+          }
+        );
       }
     }
 
@@ -130,7 +127,7 @@ export const POST = withProviderAuth(async (req: NextRequest, user: AuthUser) =>
         tokenExp: exp,
       },
       sdkSecret,
-      { header: { alg: 'HS256', typ: 'JWT' } },
+      { header: { alg: 'HS256', typ: 'JWT' } }
     );
 
     logger.info('[ZOOM_SDK] Signature generated', {
@@ -171,9 +168,6 @@ export const POST = withProviderAuth(async (req: NextRequest, user: AuthUser) =>
       error: errorMessage,
       userId: user.id,
     });
-    return NextResponse.json(
-      { error: 'Failed to generate SDK signature' },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: 'Failed to generate SDK signature' }, { status: 500 });
   }
 });

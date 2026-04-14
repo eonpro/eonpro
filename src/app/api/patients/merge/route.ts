@@ -131,7 +131,11 @@ const mergeHandler = withAuth(
               { context: { route: 'POST /api/patients/merge' } }
             );
           }
-          if (msg.includes('undefined') || msg.includes('updateMany') || msg.includes('is not a function')) {
+          if (
+            msg.includes('undefined') ||
+            msg.includes('updateMany') ||
+            msg.includes('is not a function')
+          ) {
             return handleApiError(
               new InternalError(
                 'Merge failed: server configuration issue. Contact support or try again after the next deployment.'

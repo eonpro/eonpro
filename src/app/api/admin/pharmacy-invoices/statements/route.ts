@@ -11,7 +11,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { z } from 'zod';
 import { handleApiError } from '@/domains/shared/errors';
-import { listStatements, createConsolidatedStatement } from '@/services/invoices/pharmacyInvoiceService';
+import {
+  listStatements,
+  createConsolidatedStatement,
+} from '@/services/invoices/pharmacyInvoiceService';
 import { requirePermission, toPermissionContext } from '@/lib/rbac/permissions';
 
 export const GET = withAuth(
@@ -19,7 +22,8 @@ export const GET = withAuth(
     try {
       requirePermission(toPermissionContext(user), 'invoice:view');
       const clinicId = user.clinicId;
-      if (!clinicId) return NextResponse.json({ error: 'Clinic context required' }, { status: 400 });
+      if (!clinicId)
+        return NextResponse.json({ error: 'Clinic context required' }, { status: 400 });
 
       const statements = await listStatements(clinicId);
       return NextResponse.json({ success: true, data: statements });
@@ -41,12 +45,16 @@ export const POST = withAuth(
     try {
       requirePermission(toPermissionContext(user), 'invoice:create');
       const clinicId = user.clinicId;
-      if (!clinicId) return NextResponse.json({ error: 'Clinic context required' }, { status: 400 });
+      if (!clinicId)
+        return NextResponse.json({ error: 'Clinic context required' }, { status: 400 });
 
       const body = await req.json();
       const parsed = createSchema.safeParse(body);
       if (!parsed.success) {
-        return NextResponse.json({ error: 'Invalid data', details: parsed.error.flatten() }, { status: 400 });
+        return NextResponse.json(
+          { error: 'Invalid data', details: parsed.error.flatten() },
+          { status: 400 }
+        );
       }
 
       const statement = await createConsolidatedStatement(

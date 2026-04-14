@@ -9,11 +9,15 @@ import { handleApiError } from '@/domains/shared/errors';
 const schema = z.object({
   dataSource: z.string(),
   columns: z.array(z.string()).optional(),
-  filters: z.array(z.object({
-    field: z.string(),
-    operator: z.enum(['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'between', 'contains']),
-    value: z.any(),
-  })).optional(),
+  filters: z
+    .array(
+      z.object({
+        field: z.string(),
+        operator: z.enum(['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'between', 'contains']),
+        value: z.any(),
+      })
+    )
+    .optional(),
   groupBy: z.string().optional(),
   sortBy: z.string().optional(),
   sortDir: z.enum(['asc', 'desc']).optional(),
@@ -27,7 +31,10 @@ async function handler(req: NextRequest, user: AuthUser) {
     const body = await req.json();
     const parsed = schema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Validation failed', details: parsed.error.flatten() }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Validation failed', details: parsed.error.flatten() },
+        { status: 400 }
+      );
     }
 
     const config = {
@@ -37,9 +44,10 @@ async function handler(req: NextRequest, user: AuthUser) {
       clinicId: user.role === 'super_admin' ? parsed.data.clinicId : user.clinicId || undefined,
     } as ReportConfig;
 
-    const result = user.role === 'super_admin'
-      ? await withoutClinicFilter(() => runReport(config))
-      : await runReport(config);
+    const result =
+      user.role === 'super_admin'
+        ? await withoutClinicFilter(() => runReport(config))
+        : await runReport(config);
 
     return NextResponse.json(result);
   } catch (error) {

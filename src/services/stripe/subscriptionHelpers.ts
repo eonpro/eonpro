@@ -63,7 +63,7 @@ export async function getOrCreateStripePrice(
   stripe: Stripe,
   sub: SubscriptionInfo,
   amountCents: number,
-  stripeAccountId?: string | null,
+  stripeAccountId?: string | null
 ): Promise<Stripe.Price> {
   const connectOpts = stripeAccountId ? { stripeAccount: stripeAccountId } : undefined;
 
@@ -86,9 +86,7 @@ export async function getOrCreateStripePrice(
     }
   }
 
-  const lookupKey = isCustomPrice
-    ? `${sub.planId}_custom_${amountCents}`
-    : sub.planId;
+  const lookupKey = isCustomPrice ? `${sub.planId}_custom_${amountCents}` : sub.planId;
 
   const listParams = { lookup_keys: [lookupKey], limit: 1 };
   const existing = connectOpts
@@ -99,7 +97,10 @@ export async function getOrCreateStripePrice(
 
   const productParams = {
     name: isCustomPrice ? `${sub.planName} (Custom)` : sub.planName,
-    metadata: { planId: sub.planId, ...(isCustomPrice ? { customAmount: String(amountCents) } : {}) },
+    metadata: {
+      planId: sub.planId,
+      ...(isCustomPrice ? { customAmount: String(amountCents) } : {}),
+    },
   };
   const product = connectOpts
     ? await stripe.products.create(productParams, connectOpts)

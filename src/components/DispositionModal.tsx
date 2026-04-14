@@ -80,11 +80,7 @@ function formatPrice(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
-export default function DispositionModal({
-  patient,
-  onClose,
-  onSubmitted,
-}: DispositionModalProps) {
+export default function DispositionModal({ patient, onClose, onSubmitted }: DispositionModalProps) {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -238,7 +234,10 @@ export default function DispositionModal({
                 className="rounded-lg p-2"
                 style={{ backgroundColor: 'var(--brand-primary-light, rgba(14, 165, 233, 0.1))' }}
               >
-                <ClipboardCheck className="h-5 w-5" style={{ color: 'var(--brand-primary, #0EA5E9)' }} />
+                <ClipboardCheck
+                  className="h-5 w-5"
+                  style={{ color: 'var(--brand-primary, #0EA5E9)' }}
+                />
               </div>
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">New Sale</h2>

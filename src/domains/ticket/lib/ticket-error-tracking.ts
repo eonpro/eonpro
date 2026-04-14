@@ -44,6 +44,8 @@ export function reportTicketError(error: unknown, context: TicketErrorContext): 
     });
   } catch (reportError) {
     // Never throw from error reporting
-    logger.error('[TicketErrorTracking] Failed to report error', { error: reportError instanceof Error ? reportError.message : String(reportError) });
+    logger.error('[TicketErrorTracking] Failed to report error', {
+      error: reportError instanceof Error ? reportError.message : String(reportError),
+    });
   }
 }

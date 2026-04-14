@@ -59,7 +59,7 @@ const manualEnrollHandler = withAuthParams(
         return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
       }
 
-      const clinicId = user.role === 'super_admin' ? undefined : user.clinicId ?? undefined;
+      const clinicId = user.role === 'super_admin' ? undefined : (user.clinicId ?? undefined);
       if (ensureTenantResource(patient, clinicId)) return tenantNotFoundResponse();
 
       const plan = getPlanById(planId, (patient as any).clinic?.subdomain);
@@ -100,9 +100,7 @@ const manualEnrollHandler = withAuthParams(
           data: {
             subscriptionId: sub.id,
             actionType: 'CREATED',
-            reason: notes
-              ? `Manual enrollment: ${notes}`
-              : 'Manual enrollment (EMR transition)',
+            reason: notes ? `Manual enrollment: ${notes}` : 'Manual enrollment (EMR transition)',
             performedBy: `${user.role}:${user.id}`,
           },
         });

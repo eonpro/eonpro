@@ -238,8 +238,9 @@ export async function alertHealthDegraded(healthReport: {
     (c) => c.status === 'unhealthy' || c.status === 'degraded'
   );
 
-  const severity: AlertSeverity =
-    unhealthyChecks.some((c) => c.status === 'unhealthy') ? 'critical' : 'warning';
+  const severity: AlertSeverity = unhealthyChecks.some((c) => c.status === 'unhealthy')
+    ? 'critical'
+    : 'warning';
 
   const details: Record<string, unknown> = {};
   for (const check of unhealthyChecks) {

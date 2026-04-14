@@ -290,579 +290,622 @@ export function createPatientMergeService(db: PrismaClient = prisma): PatientMer
       const clinicId = preview.target.clinicId;
 
       // Execute merge in a transaction
-      const mergeResult = await db.$transaction(async (tx) => {
-        // =====================================================================
-        // 1. RE-POINT ALL RELATIONS FROM SOURCE TO TARGET
-        // =====================================================================
+      const mergeResult = await db.$transaction(
+        async (tx) => {
+          // =====================================================================
+          // 1. RE-POINT ALL RELATIONS FROM SOURCE TO TARGET
+          // =====================================================================
 
-        // Orders
-        await tx.order.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // Invoices
-        await tx.invoice.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // Payments
-        await tx.payment.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // Payment Methods — collect Stripe IDs before moving if migration is needed
-        if (needsStripePaymentMethodMigration) {
-          const sourcePMs = await tx.paymentMethod.findMany({
-            where: { patientId: sourcePatientId, isActive: true, stripePaymentMethodId: { not: null } },
-            select: { stripePaymentMethodId: true },
-          });
-          stripePaymentMethodIdsToMigrate = sourcePMs
-            .map((pm) => pm.stripePaymentMethodId)
-            .filter((id): id is string => !!id);
-        }
-        await tx.paymentMethod.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // Subscriptions
-        await tx.subscription.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // SOAP Notes
-        await tx.sOAPNote.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // Patient Documents
-        await tx.patientDocument.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // Intake Form Submissions
-        await tx.intakeFormSubmission.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // Appointments
-        await tx.appointment.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // Superbills
-        await tx.superbill.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // Care Plans
-        await tx.carePlan.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // Tickets
-        await tx.ticket.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // Progress Tracking Logs
-        await tx.patientWeightLog.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // Medication reminders — @@unique([patientId, medicationName, dayOfWeek])
-        const [sourceReminders, targetReminders] = await Promise.all([
-          tx.patientMedicationReminder.findMany({
-            where: { patientId: sourcePatientId },
-            select: { id: true, medicationName: true, dayOfWeek: true },
-          }),
-          tx.patientMedicationReminder.findMany({
-            where: { patientId: targetPatientId },
-            select: { medicationName: true, dayOfWeek: true },
-          }),
-        ]);
-        const targetReminderKeys = new Set(targetReminders.map((r) => `${r.medicationName}|${r.dayOfWeek}`));
-        const conflictingReminderIds = sourceReminders
-          .filter((r) => targetReminderKeys.has(`${r.medicationName}|${r.dayOfWeek}`))
-          .map((r) => r.id);
-        if (conflictingReminderIds.length > 0) {
-          await tx.patientMedicationReminder.deleteMany({ where: { id: { in: conflictingReminderIds } } });
-        }
-        await tx.patientMedicationReminder.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        await tx.patientWaterLog.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        await tx.patientExerciseLog.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        await tx.patientSleepLog.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        await tx.patientNutritionLog.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // AI Conversations
-        await tx.aIConversation.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // Chat Messages
-        await tx.patientChatMessage.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // SMS Logs
-        await tx.smsLog.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // SMS Opt-outs (TCPA compliance - re-point so target keeps opt-out record)
-        await tx.smsOptOut.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // Affiliate Referrals
-        await tx.affiliateReferral.updateMany({
-          where: { referredPatientId: sourcePatientId },
-          data: { referredPatientId: targetPatientId },
-        });
-
-        // Discount Usages
-        await tx.discountUsage.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // Shipping Updates
-        await tx.patientShippingUpdate.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // Payment Reconciliation
-        await tx.paymentReconciliation.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // HIPAA Audit Entries
-        await tx.hIPAAAuditEntry.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // Phone OTPs
-        await tx.phoneOtp.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // Patient Notes (profile notes with author attribution)
-        await tx.patientNote.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // Sales Rep assignments
-        await tx.patientSalesRepAssignment.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // Refill queue
-        await tx.refillQueue.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // Patient photos (portal progress/ID)
-        await tx.patientPhoto.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // Lab reports
-        await tx.labReport.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // Patient device connections (wellness/Terra)
-        await tx.patientDeviceConnection.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // Wellness: streaks — @@unique([patientId, streakType])
-        // Delete source streaks that conflict with target, then move the rest
-        const [sourceStreaks, targetStreaks] = await Promise.all([
-          tx.patientStreak.findMany({ where: { patientId: sourcePatientId }, select: { id: true, streakType: true } }),
-          tx.patientStreak.findMany({ where: { patientId: targetPatientId }, select: { streakType: true } }),
-        ]);
-        const targetStreakTypes = new Set(targetStreaks.map((s) => s.streakType));
-        const conflictingStreakIds = sourceStreaks.filter((s) => targetStreakTypes.has(s.streakType)).map((s) => s.id);
-        if (conflictingStreakIds.length > 0) {
-          await tx.patientStreak.deleteMany({ where: { id: { in: conflictingStreakIds } } });
-        }
-        await tx.patientStreak.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // Wellness: achievements — @@unique([patientId, achievementId])
-        const [sourceAchievements, targetAchievements] = await Promise.all([
-          tx.patientAchievement.findMany({ where: { patientId: sourcePatientId }, select: { id: true, achievementId: true } }),
-          tx.patientAchievement.findMany({ where: { patientId: targetPatientId }, select: { achievementId: true } }),
-        ]);
-        const targetAchievementIds = new Set(targetAchievements.map((a) => a.achievementId));
-        const conflictingAchievementIds = sourceAchievements.filter((a) => targetAchievementIds.has(a.achievementId)).map((a) => a.id);
-        if (conflictingAchievementIds.length > 0) {
-          await tx.patientAchievement.deleteMany({ where: { id: { in: conflictingAchievementIds } } });
-        }
-        await tx.patientAchievement.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        await tx.pointsHistory.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // Wellness: challenge participation — @@unique([challengeId, patientId])
-        const [sourceParticipants, targetParticipants] = await Promise.all([
-          tx.challengeParticipant.findMany({ where: { patientId: sourcePatientId }, select: { id: true, challengeId: true } }),
-          tx.challengeParticipant.findMany({ where: { patientId: targetPatientId }, select: { challengeId: true } }),
-        ]);
-        const targetChallengeIds = new Set(targetParticipants.map((c) => c.challengeId));
-        const conflictingParticipantIds = sourceParticipants.filter((c) => targetChallengeIds.has(c.challengeId)).map((c) => c.id);
-        if (conflictingParticipantIds.length > 0) {
-          await tx.challengeParticipant.deleteMany({ where: { id: { in: conflictingParticipantIds } } });
-        }
-        await tx.challengeParticipant.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // PatientPoints is one-to-one (unique patientId) - move only if target has none
-        const sourcePoints = await tx.patientPoints.findUnique({
-          where: { patientId: sourcePatientId },
-        });
-        const targetPoints = await tx.patientPoints.findUnique({
-          where: { patientId: targetPatientId },
-        });
-        if (sourcePoints && !targetPoints) {
-          await tx.patientPoints.update({
+          // Orders
+          await tx.order.updateMany({
             where: { patientId: sourcePatientId },
             data: { patientId: targetPatientId },
           });
-        }
 
-        // Shipment labels (FedEx)
-        await tx.shipmentLabel.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // Intake form drafts (optional patientId)
-        await tx.intakeFormDraft.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // Portal invites
-        await tx.patientPortalInvite.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // Telehealth sessions
-        await tx.telehealthSession.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // Prescription cycles (platform billing) — @@unique([clinicId, patientId, medicationKey])
-        const [sourceCycles, targetCycles] = await Promise.all([
-          tx.patientPrescriptionCycle.findMany({
+          // Invoices
+          await tx.invoice.updateMany({
             where: { patientId: sourcePatientId },
-            select: { id: true, clinicId: true, medicationKey: true },
-          }),
-          tx.patientPrescriptionCycle.findMany({
-            where: { patientId: targetPatientId },
-            select: { clinicId: true, medicationKey: true },
-          }),
-        ]);
-        const targetCycleKeys = new Set(targetCycles.map((c) => `${c.clinicId}|${c.medicationKey}`));
-        const conflictingCycleIds = sourceCycles
-          .filter((c) => targetCycleKeys.has(`${c.clinicId}|${c.medicationKey}`))
-          .map((c) => c.id);
-        if (conflictingCycleIds.length > 0) {
-          await tx.patientPrescriptionCycle.deleteMany({ where: { id: { in: conflictingCycleIds } } });
-        }
-        await tx.patientPrescriptionCycle.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // Platform fee events (optional patientId)
-        await tx.platformFeeEvent.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // Push subscriptions (portal notifications)
-        await tx.pushSubscription.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // =====================================================================
-        // 2. HANDLE UNIQUE CONSTRAINT RELATIONS
-        // =====================================================================
-
-        // ReferralTracking (one-to-one) - Delete source's if target has one
-        const sourceReferral = await tx.referralTracking.findFirst({
-          where: { patientId: sourcePatientId },
-        });
-        const targetReferral = await tx.referralTracking.findFirst({
-          where: { patientId: targetPatientId },
-        });
-
-        if (sourceReferral) {
-          if (targetReferral) {
-            // Delete commissions for source referral first
-            await tx.commission.deleteMany({
-              where: { referralId: sourceReferral.id },
-            });
-            // Delete source referral
-            await tx.referralTracking.delete({
-              where: { id: sourceReferral.id },
-            });
-          } else {
-            // Move referral to target
-            await tx.referralTracking.update({
-              where: { id: sourceReferral.id },
-              data: { patientId: targetPatientId },
-            });
-          }
-        }
-
-        // User account (one-to-one) - Re-point source's user to target if target has no user
-        const sourceUser = await tx.user.findFirst({
-          where: { patientId: sourcePatientId },
-        });
-        const targetUser = await tx.user.findFirst({
-          where: { patientId: targetPatientId },
-        });
-
-        if (sourceUser) {
-          if (targetUser) {
-            // Target already has a user - nullify source's user patient link
-            await tx.user.update({
-              where: { id: sourceUser.id },
-              data: { patientId: null },
-            });
-          } else {
-            // Move user account to target
-            await tx.user.update({
-              where: { id: sourceUser.id },
-              data: { patientId: targetPatientId },
-            });
-          }
-        }
-
-        // =====================================================================
-        // 3. MERGE PROFILE FIELDS AND METADATA
-        // =====================================================================
-
-        let mergedFields = fieldOverrides
-          ? { ...preview.mergedProfile, ...fieldOverrides }
-          : preview.mergedProfile;
-
-        // Preserve target's existing values when merged value is empty or placeholder.
-        // This prevents the merge from overwriting good data with blank/placeholder.
-        mergedFields = preserveTargetWhenMergedEmpty(
-          mergedFields,
-          preview.target as unknown as PatientMergeFields
-        );
-
-        // Merge sourceMetadata (intake data)
-        const mergedSourceMetadata = mergeSourceMetadata(
-          preview.source.sourceMetadata as Record<string, unknown> | null,
-          preview.target.sourceMetadata as Record<string, unknown> | null
-        );
-
-        // Merge tags (union)
-        const sourceTags = Array.isArray(preview.source.tags) ? preview.source.tags : [];
-        const targetTags = Array.isArray(preview.target.tags) ? preview.target.tags : [];
-        const mergedTags = [...new Set([...targetTags, ...sourceTags])];
-
-        // Determine which Stripe customer ID to keep
-        let stripeCustomerId = preview.target.stripeCustomerId;
-        if (!stripeCustomerId && preview.source.stripeCustomerId) {
-          stripeCustomerId = preview.source.stripeCustomerId;
-        }
-
-        // Determine which Lifefile ID to keep
-        let lifefileId = preview.target.lifefileId;
-        if (!lifefileId && preview.source.lifefileId) {
-          lifefileId = preview.source.lifefileId;
-        }
-
-        // Use earliest createdAt
-        const earliestCreatedAt =
-          preview.source.createdAt < preview.target.createdAt
-            ? preview.source.createdAt
-            : preview.target.createdAt;
-
-        // =====================================================================
-        // 3a. CLEAR UNIQUE FIELDS FROM SOURCE BEFORE UPDATING TARGET
-        // =====================================================================
-        // stripeCustomerId has a @unique constraint. If we're moving it from
-        // source to target, we must clear it from source FIRST to avoid a
-        // unique constraint violation during the target update.
-        if (
-          preview.source.stripeCustomerId &&
-          preview.source.stripeCustomerId === stripeCustomerId
-        ) {
-          await tx.patient.update({
-            where: { id: sourcePatientId },
-            data: { stripeCustomerId: null },
+            data: { patientId: targetPatientId },
           });
-        }
 
-        // Encrypt PHI fields before writing to database
-        let encryptedMergedFields: Record<string, unknown>;
-        try {
-          encryptedMergedFields = encryptPatientPHI(
-            mergedFields as unknown as Record<string, unknown>,
-            [...PHI_FIELDS]
+          // Payments
+          await tx.payment.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          // Payment Methods — collect Stripe IDs before moving if migration is needed
+          if (needsStripePaymentMethodMigration) {
+            const sourcePMs = await tx.paymentMethod.findMany({
+              where: {
+                patientId: sourcePatientId,
+                isActive: true,
+                stripePaymentMethodId: { not: null },
+              },
+              select: { stripePaymentMethodId: true },
+            });
+            stripePaymentMethodIdsToMigrate = sourcePMs
+              .map((pm) => pm.stripePaymentMethodId)
+              .filter((id): id is string => !!id);
+          }
+          await tx.paymentMethod.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          // Subscriptions
+          await tx.subscription.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          // SOAP Notes
+          await tx.sOAPNote.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          // Patient Documents
+          await tx.patientDocument.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          // Intake Form Submissions
+          await tx.intakeFormSubmission.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          // Appointments
+          await tx.appointment.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          // Superbills
+          await tx.superbill.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          // Care Plans
+          await tx.carePlan.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          // Tickets
+          await tx.ticket.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          // Progress Tracking Logs
+          await tx.patientWeightLog.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          // Medication reminders — @@unique([patientId, medicationName, dayOfWeek])
+          const [sourceReminders, targetReminders] = await Promise.all([
+            tx.patientMedicationReminder.findMany({
+              where: { patientId: sourcePatientId },
+              select: { id: true, medicationName: true, dayOfWeek: true },
+            }),
+            tx.patientMedicationReminder.findMany({
+              where: { patientId: targetPatientId },
+              select: { medicationName: true, dayOfWeek: true },
+            }),
+          ]);
+          const targetReminderKeys = new Set(
+            targetReminders.map((r) => `${r.medicationName}|${r.dayOfWeek}`)
           );
-        } catch (encErr) {
-          const msg = encErr instanceof Error ? encErr.message : String(encErr);
-          logger.error('Patient merge: encryption failed', {
+          const conflictingReminderIds = sourceReminders
+            .filter((r) => targetReminderKeys.has(`${r.medicationName}|${r.dayOfWeek}`))
+            .map((r) => r.id);
+          if (conflictingReminderIds.length > 0) {
+            await tx.patientMedicationReminder.deleteMany({
+              where: { id: { in: conflictingReminderIds } },
+            });
+          }
+          await tx.patientMedicationReminder.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          await tx.patientWaterLog.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          await tx.patientExerciseLog.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          await tx.patientSleepLog.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          await tx.patientNutritionLog.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          // AI Conversations
+          await tx.aIConversation.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          // Chat Messages
+          await tx.patientChatMessage.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          // SMS Logs
+          await tx.smsLog.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          // SMS Opt-outs (TCPA compliance - re-point so target keeps opt-out record)
+          await tx.smsOptOut.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          // Affiliate Referrals
+          await tx.affiliateReferral.updateMany({
+            where: { referredPatientId: sourcePatientId },
+            data: { referredPatientId: targetPatientId },
+          });
+
+          // Discount Usages
+          await tx.discountUsage.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          // Shipping Updates
+          await tx.patientShippingUpdate.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          // Payment Reconciliation
+          await tx.paymentReconciliation.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          // HIPAA Audit Entries
+          await tx.hIPAAAuditEntry.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          // Phone OTPs
+          await tx.phoneOtp.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          // Patient Notes (profile notes with author attribution)
+          await tx.patientNote.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          // Sales Rep assignments
+          await tx.patientSalesRepAssignment.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          // Refill queue
+          await tx.refillQueue.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          // Patient photos (portal progress/ID)
+          await tx.patientPhoto.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          // Lab reports
+          await tx.labReport.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          // Patient device connections (wellness/Terra)
+          await tx.patientDeviceConnection.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          // Wellness: streaks — @@unique([patientId, streakType])
+          // Delete source streaks that conflict with target, then move the rest
+          const [sourceStreaks, targetStreaks] = await Promise.all([
+            tx.patientStreak.findMany({
+              where: { patientId: sourcePatientId },
+              select: { id: true, streakType: true },
+            }),
+            tx.patientStreak.findMany({
+              where: { patientId: targetPatientId },
+              select: { streakType: true },
+            }),
+          ]);
+          const targetStreakTypes = new Set(targetStreaks.map((s) => s.streakType));
+          const conflictingStreakIds = sourceStreaks
+            .filter((s) => targetStreakTypes.has(s.streakType))
+            .map((s) => s.id);
+          if (conflictingStreakIds.length > 0) {
+            await tx.patientStreak.deleteMany({ where: { id: { in: conflictingStreakIds } } });
+          }
+          await tx.patientStreak.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          // Wellness: achievements — @@unique([patientId, achievementId])
+          const [sourceAchievements, targetAchievements] = await Promise.all([
+            tx.patientAchievement.findMany({
+              where: { patientId: sourcePatientId },
+              select: { id: true, achievementId: true },
+            }),
+            tx.patientAchievement.findMany({
+              where: { patientId: targetPatientId },
+              select: { achievementId: true },
+            }),
+          ]);
+          const targetAchievementIds = new Set(targetAchievements.map((a) => a.achievementId));
+          const conflictingAchievementIds = sourceAchievements
+            .filter((a) => targetAchievementIds.has(a.achievementId))
+            .map((a) => a.id);
+          if (conflictingAchievementIds.length > 0) {
+            await tx.patientAchievement.deleteMany({
+              where: { id: { in: conflictingAchievementIds } },
+            });
+          }
+          await tx.patientAchievement.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          await tx.pointsHistory.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          // Wellness: challenge participation — @@unique([challengeId, patientId])
+          const [sourceParticipants, targetParticipants] = await Promise.all([
+            tx.challengeParticipant.findMany({
+              where: { patientId: sourcePatientId },
+              select: { id: true, challengeId: true },
+            }),
+            tx.challengeParticipant.findMany({
+              where: { patientId: targetPatientId },
+              select: { challengeId: true },
+            }),
+          ]);
+          const targetChallengeIds = new Set(targetParticipants.map((c) => c.challengeId));
+          const conflictingParticipantIds = sourceParticipants
+            .filter((c) => targetChallengeIds.has(c.challengeId))
+            .map((c) => c.id);
+          if (conflictingParticipantIds.length > 0) {
+            await tx.challengeParticipant.deleteMany({
+              where: { id: { in: conflictingParticipantIds } },
+            });
+          }
+          await tx.challengeParticipant.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          // PatientPoints is one-to-one (unique patientId) - move only if target has none
+          const sourcePoints = await tx.patientPoints.findUnique({
+            where: { patientId: sourcePatientId },
+          });
+          const targetPoints = await tx.patientPoints.findUnique({
+            where: { patientId: targetPatientId },
+          });
+          if (sourcePoints && !targetPoints) {
+            await tx.patientPoints.update({
+              where: { patientId: sourcePatientId },
+              data: { patientId: targetPatientId },
+            });
+          }
+
+          // Shipment labels (FedEx)
+          await tx.shipmentLabel.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          // Intake form drafts (optional patientId)
+          await tx.intakeFormDraft.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          // Portal invites
+          await tx.patientPortalInvite.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          // Telehealth sessions
+          await tx.telehealthSession.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          // Prescription cycles (platform billing) — @@unique([clinicId, patientId, medicationKey])
+          const [sourceCycles, targetCycles] = await Promise.all([
+            tx.patientPrescriptionCycle.findMany({
+              where: { patientId: sourcePatientId },
+              select: { id: true, clinicId: true, medicationKey: true },
+            }),
+            tx.patientPrescriptionCycle.findMany({
+              where: { patientId: targetPatientId },
+              select: { clinicId: true, medicationKey: true },
+            }),
+          ]);
+          const targetCycleKeys = new Set(
+            targetCycles.map((c) => `${c.clinicId}|${c.medicationKey}`)
+          );
+          const conflictingCycleIds = sourceCycles
+            .filter((c) => targetCycleKeys.has(`${c.clinicId}|${c.medicationKey}`))
+            .map((c) => c.id);
+          if (conflictingCycleIds.length > 0) {
+            await tx.patientPrescriptionCycle.deleteMany({
+              where: { id: { in: conflictingCycleIds } },
+            });
+          }
+          await tx.patientPrescriptionCycle.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          // Platform fee events (optional patientId)
+          await tx.platformFeeEvent.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          // Push subscriptions (portal notifications)
+          await tx.pushSubscription.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+
+          // =====================================================================
+          // 2. HANDLE UNIQUE CONSTRAINT RELATIONS
+          // =====================================================================
+
+          // ReferralTracking (one-to-one) - Delete source's if target has one
+          const sourceReferral = await tx.referralTracking.findFirst({
+            where: { patientId: sourcePatientId },
+          });
+          const targetReferral = await tx.referralTracking.findFirst({
+            where: { patientId: targetPatientId },
+          });
+
+          if (sourceReferral) {
+            if (targetReferral) {
+              // Delete commissions for source referral first
+              await tx.commission.deleteMany({
+                where: { referralId: sourceReferral.id },
+              });
+              // Delete source referral
+              await tx.referralTracking.delete({
+                where: { id: sourceReferral.id },
+              });
+            } else {
+              // Move referral to target
+              await tx.referralTracking.update({
+                where: { id: sourceReferral.id },
+                data: { patientId: targetPatientId },
+              });
+            }
+          }
+
+          // User account (one-to-one) - Re-point source's user to target if target has no user
+          const sourceUser = await tx.user.findFirst({
+            where: { patientId: sourcePatientId },
+          });
+          const targetUser = await tx.user.findFirst({
+            where: { patientId: targetPatientId },
+          });
+
+          if (sourceUser) {
+            if (targetUser) {
+              // Target already has a user - nullify source's user patient link
+              await tx.user.update({
+                where: { id: sourceUser.id },
+                data: { patientId: null },
+              });
+            } else {
+              // Move user account to target
+              await tx.user.update({
+                where: { id: sourceUser.id },
+                data: { patientId: targetPatientId },
+              });
+            }
+          }
+
+          // =====================================================================
+          // 3. MERGE PROFILE FIELDS AND METADATA
+          // =====================================================================
+
+          let mergedFields = fieldOverrides
+            ? { ...preview.mergedProfile, ...fieldOverrides }
+            : preview.mergedProfile;
+
+          // Preserve target's existing values when merged value is empty or placeholder.
+          // This prevents the merge from overwriting good data with blank/placeholder.
+          mergedFields = preserveTargetWhenMergedEmpty(
+            mergedFields,
+            preview.target as unknown as PatientMergeFields
+          );
+
+          // Merge sourceMetadata (intake data)
+          const mergedSourceMetadata = mergeSourceMetadata(
+            preview.source.sourceMetadata as Record<string, unknown> | null,
+            preview.target.sourceMetadata as Record<string, unknown> | null
+          );
+
+          // Merge tags (union)
+          const sourceTags = Array.isArray(preview.source.tags) ? preview.source.tags : [];
+          const targetTags = Array.isArray(preview.target.tags) ? preview.target.tags : [];
+          const mergedTags = [...new Set([...targetTags, ...sourceTags])];
+
+          // Determine which Stripe customer ID to keep
+          let stripeCustomerId = preview.target.stripeCustomerId;
+          if (!stripeCustomerId && preview.source.stripeCustomerId) {
+            stripeCustomerId = preview.source.stripeCustomerId;
+          }
+
+          // Determine which Lifefile ID to keep
+          let lifefileId = preview.target.lifefileId;
+          if (!lifefileId && preview.source.lifefileId) {
+            lifefileId = preview.source.lifefileId;
+          }
+
+          // Use earliest createdAt
+          const earliestCreatedAt =
+            preview.source.createdAt < preview.target.createdAt
+              ? preview.source.createdAt
+              : preview.target.createdAt;
+
+          // =====================================================================
+          // 3a. CLEAR UNIQUE FIELDS FROM SOURCE BEFORE UPDATING TARGET
+          // =====================================================================
+          // stripeCustomerId has a @unique constraint. If we're moving it from
+          // source to target, we must clear it from source FIRST to avoid a
+          // unique constraint violation during the target update.
+          if (
+            preview.source.stripeCustomerId &&
+            preview.source.stripeCustomerId === stripeCustomerId
+          ) {
+            await tx.patient.update({
+              where: { id: sourcePatientId },
+              data: { stripeCustomerId: null },
+            });
+          }
+
+          // Encrypt PHI fields before writing to database
+          let encryptedMergedFields: Record<string, unknown>;
+          try {
+            encryptedMergedFields = encryptPatientPHI(
+              mergedFields as unknown as Record<string, unknown>,
+              [...PHI_FIELDS]
+            );
+          } catch (encErr) {
+            const msg = encErr instanceof Error ? encErr.message : String(encErr);
+            logger.error('Patient merge: encryption failed', {
+              sourcePatientId,
+              targetPatientId,
+              errorMessage: msg,
+            });
+            throw new InternalError(
+              'Merge could not encrypt profile data. Ensure ENCRYPTION_KEY is set and valid (see server logs).'
+            );
+          }
+
+          // Rebuild search index from plain-text BEFORE encryption
+          const searchIndex = buildPatientSearchIndex({
+            firstName: mergedFields.firstName,
+            lastName: mergedFields.lastName,
+            email: mergedFields.email,
+            phone: mergedFields.phone,
+            patientId: preview.target.patientId,
+          });
+
+          // Update target patient with merged data (encrypted)
+          const updatedPatient = await tx.patient.update({
+            where: { id: targetPatientId },
+            data: {
+              ...encryptedMergedFields,
+              gender: mergedFields.gender,
+              notes: mergedFields.notes,
+              tags: mergedTags as Prisma.InputJsonValue,
+              sourceMetadata: mergedSourceMetadata as Prisma.InputJsonValue,
+              stripeCustomerId,
+              lifefileId,
+              createdAt: earliestCreatedAt,
+              searchIndex,
+            },
+          });
+
+          // =====================================================================
+          // 4. CREATE AUDIT ENTRIES
+          // =====================================================================
+
+          // Create audit entry for the merge (no PHI in audit diffs)
+          const auditDiff = {
+            type: 'PATIENT_MERGE',
             sourcePatientId,
             targetPatientId,
-            errorMessage: msg,
+            sourcePatientData: {
+              id: preview.source.id,
+              patientId: preview.source.patientId,
+            },
+            recordsMoved: preview.totalRecordsToMove,
+            mergedFieldNames: Object.keys(mergedFields),
+            performedByRole: audit.actorRole,
+            performedByProviderId: performedBy.providerId ?? null,
+            performedAt: new Date().toISOString(),
+          };
+          const auditEntry = await tx.patientAudit.create({
+            data: {
+              patientId: targetPatientId,
+              action: 'MERGE',
+              actorEmail: audit.actorEmail,
+              diff: auditDiff as unknown as Prisma.InputJsonValue,
+            },
           });
-          throw new InternalError(
-            'Merge could not encrypt profile data. Ensure ENCRYPTION_KEY is set and valid (see server logs).'
-          );
-        }
 
-        // Rebuild search index from plain-text BEFORE encryption
-        const searchIndex = buildPatientSearchIndex({
-          firstName: mergedFields.firstName,
-          lastName: mergedFields.lastName,
-          email: mergedFields.email,
-          phone: mergedFields.phone,
-          patientId: preview.target.patientId,
-        });
+          // Move source patient's audit entries to target (for history preservation)
+          await tx.patientAudit.updateMany({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
 
-        // Update target patient with merged data (encrypted)
-        const updatedPatient = await tx.patient.update({
-          where: { id: targetPatientId },
-          data: {
-            ...encryptedMergedFields,
-            gender: mergedFields.gender,
-            notes: mergedFields.notes,
-            tags: mergedTags as Prisma.InputJsonValue,
-            sourceMetadata: mergedSourceMetadata as Prisma.InputJsonValue,
-            stripeCustomerId,
-            lifefileId,
-            createdAt: earliestCreatedAt,
-            searchIndex,
-          },
-        });
+          // =====================================================================
+          // 5. DELETE SOURCE PATIENT
+          // =====================================================================
 
-        // =====================================================================
-        // 4. CREATE AUDIT ENTRIES
-        // =====================================================================
+          // Delete the source patient
+          await tx.patient.delete({
+            where: { id: sourcePatientId },
+          });
 
-        // Create audit entry for the merge (no PHI in audit diffs)
-        const auditDiff = {
-          type: 'PATIENT_MERGE',
-          sourcePatientId,
-          targetPatientId,
-          sourcePatientData: {
-            id: preview.source.id,
-            patientId: preview.source.patientId,
-          },
-          recordsMoved: preview.totalRecordsToMove,
-          mergedFieldNames: Object.keys(mergedFields),
-          performedByRole: audit.actorRole,
-          performedByProviderId: performedBy.providerId ?? null,
-          performedAt: new Date().toISOString(),
-        };
-        const auditEntry = await tx.patientAudit.create({
-          data: {
-            patientId: targetPatientId,
-            action: 'MERGE',
-            actorEmail: audit.actorEmail,
-            diff: auditDiff as unknown as Prisma.InputJsonValue,
-          },
-        });
+          logger.info('Patient merge completed', {
+            sourcePatientId,
+            targetPatientId,
+            recordsMoved: preview.totalRecordsToMove,
+            performedBy: audit.actorEmail,
+            performedByRole: audit.actorRole,
+            performedByProviderId: performedBy.providerId ?? null,
+          });
 
-        // Move source patient's audit entries to target (for history preservation)
-        await tx.patientAudit.updateMany({
-          where: { patientId: sourcePatientId },
-          data: { patientId: targetPatientId },
-        });
-
-        // =====================================================================
-        // 5. DELETE SOURCE PATIENT
-        // =====================================================================
-
-        // Delete the source patient
-        await tx.patient.delete({
-          where: { id: sourcePatientId },
-        });
-
-        logger.info('Patient merge completed', {
-          sourcePatientId,
-          targetPatientId,
-          recordsMoved: preview.totalRecordsToMove,
-          performedBy: audit.actorEmail,
-          performedByRole: audit.actorRole,
-          performedByProviderId: performedBy.providerId ?? null,
-        });
-
-        return {
-          mergedPatient: decryptPatient(updatedPatient) as PatientEntity,
-          deletedPatientId: sourcePatientId,
-          recordsMoved: preview.totalRecordsToMove,
-          auditId: auditEntry.id,
-        };
-      }, { timeout: 60000 });
+          return {
+            mergedPatient: decryptPatient(updatedPatient) as PatientEntity,
+            deletedPatientId: sourcePatientId,
+            recordsMoved: preview.totalRecordsToMove,
+            auditId: auditEntry.id,
+          };
+        },
+        { timeout: 60000 }
+      );
 
       // =====================================================================
       // POST-TRANSACTION: Migrate Stripe payment methods between customers
@@ -1250,11 +1293,14 @@ async function migrateStripePaymentMethods(params: StripeMigrationParams): Promi
     // the modern PaymentMethods API.
     if (pmId.startsWith('card_')) {
       skippedLegacy++;
-      logger.info('Skipping legacy card_ token during merge migration (deactivating local record)', {
-        paymentMethodId: pmId,
-        sourcePatientId,
-        targetPatientId,
-      });
+      logger.info(
+        'Skipping legacy card_ token during merge migration (deactivating local record)',
+        {
+          paymentMethodId: pmId,
+          sourcePatientId,
+          targetPatientId,
+        }
+      );
       try {
         await prisma.paymentMethod.updateMany({
           where: { stripePaymentMethodId: pmId, patientId: targetPatientId },

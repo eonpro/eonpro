@@ -144,9 +144,7 @@ async function clearHandler(
     // affiliate login, main login, and other authRateLimiter-wrapped routes
     if (ip) {
       const simpleIdentifiers = ['auth', 'password-reset', 'otp'];
-      await Promise.all(
-        simpleIdentifiers.map((id) => clearSimpleRateLimit(id, ip))
-      );
+      await Promise.all(simpleIdentifiers.map((id) => clearSimpleRateLimit(id, ip)));
     }
 
     // Log admin action with full audit trail

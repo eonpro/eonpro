@@ -161,7 +161,9 @@ export default function SalesRepAssignmentModal({
                   />
                   <div
                     className={`flex h-4 w-4 items-center justify-center rounded-full border-2 ${
-                      selectedSalesRepId === rep.id ? 'border-[var(--brand-primary,#4fa77e)]' : 'border-gray-300'
+                      selectedSalesRepId === rep.id
+                        ? 'border-[var(--brand-primary,#4fa77e)]'
+                        : 'border-gray-300'
                     }`}
                   >
                     {selectedSalesRepId === rep.id && (

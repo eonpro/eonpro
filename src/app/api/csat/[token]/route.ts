@@ -10,7 +10,9 @@ import { NextResponse, NextRequest } from 'next/server';
 import { ticketCsatService } from '@/domains/ticket/services/ticket-csat.service';
 import { logger } from '@/lib/logger';
 
-interface RouteContext { params: Promise<{ token: string }>; }
+interface RouteContext {
+  params: Promise<{ token: string }>;
+}
 
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
@@ -23,7 +25,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     return NextResponse.json({ survey });
   } catch (error) {
-    logger.error('[CSAT API] GET error', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('[CSAT API] GET error', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json({ error: 'Failed to load survey' }, { status: 500 });
   }
 }

@@ -234,7 +234,9 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     if (stored) {
       try {
         setPreferences((prev) => ({ ...prev, ...JSON.parse(stored) }));
-      } catch { /* ignore corrupt data */ }
+      } catch {
+        /* ignore corrupt data */
+      }
     }
   }, []);
 

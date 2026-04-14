@@ -371,7 +371,8 @@ export default function AdminOrdersPage() {
             <div>
               <p className="text-sm text-gray-500">Avg Wait Time</p>
               <p className="text-xl font-bold text-gray-900">
-                {awaitingStats.avgWaitDays} <span className="text-sm font-normal text-gray-500">days</span>
+                {awaitingStats.avgWaitDays}{' '}
+                <span className="text-sm font-normal text-gray-500">days</span>
               </p>
             </div>
           </div>
@@ -523,10 +524,7 @@ export default function AdminOrdersPage() {
             <tbody className="divide-y divide-gray-200">
               {orders.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={activeTab === 'tracked' ? 8 : 7}
-                    className="px-6 py-12 text-center"
-                  >
+                  <td colSpan={activeTab === 'tracked' ? 8 : 7} className="px-6 py-12 text-center">
                     {activeTab === 'tracked' ? (
                       <>
                         <Package className="mx-auto mb-4 h-12 w-12 text-gray-300" />
@@ -538,7 +536,9 @@ export default function AdminOrdersPage() {
                     ) : (
                       <>
                         <CheckCircle className="mx-auto mb-4 h-12 w-12 text-green-300" />
-                        <p className="text-sm text-gray-500">No prescriptions awaiting fulfillment</p>
+                        <p className="text-sm text-gray-500">
+                          No prescriptions awaiting fulfillment
+                        </p>
                         <p className="mt-1 text-xs text-gray-400">
                           All sent prescriptions have tracking numbers
                         </p>
@@ -548,11 +548,18 @@ export default function AdminOrdersPage() {
                 </tr>
               ) : activeTab === 'tracked' ? (
                 filteredTrackedOrders.map((order) => (
-                  <TrackedOrderRow key={order._isShipmentOnly ? `ship-${order._shipmentId}` : order.id} order={order} />
+                  <TrackedOrderRow
+                    key={order._isShipmentOnly ? `ship-${order._shipmentId}` : order.id}
+                    order={order}
+                  />
                 ))
               ) : (
                 awaitingOrders.map((order) => (
-                  <AwaitingOrderRow key={order.id} order={order} onDisposition={handleDispositionRequest} />
+                  <AwaitingOrderRow
+                    key={order.id}
+                    order={order}
+                    onDisposition={handleDispositionRequest}
+                  />
                 ))
               )}
             </tbody>
@@ -685,10 +692,13 @@ function DispositionModal({
     setCarrierAutoDetected(false);
   }, []);
 
-  const handleTrackingNumberChange = useCallback((value: string) => {
-    setTrackingNumber(value);
-    detectCarrier(value);
-  }, [detectCarrier]);
+  const handleTrackingNumberChange = useCallback(
+    (value: string) => {
+      setTrackingNumber(value);
+      detectCarrier(value);
+    },
+    [detectCarrier]
+  );
 
   const titles: Record<DispositionAction, string> = {
     add_tracking: 'Add Tracking Number',
@@ -745,7 +755,9 @@ function DispositionModal({
         completed: `Order #${target.orderId} marked completed`,
       };
 
-      onSuccess(data.warning ? `${messages[target.action]} — ${data.warning}` : messages[target.action]);
+      onSuccess(
+        data.warning ? `${messages[target.action]} — ${data.warning}` : messages[target.action]
+      );
     } catch {
       setError('Network error. Please try again.');
     } finally {
@@ -754,7 +766,10 @@ function DispositionModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      onClick={onClose}
+    >
       <div
         className="w-full max-w-md rounded-xl bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
@@ -809,7 +824,10 @@ function DispositionModal({
                 </label>
                 <select
                   value={carrier}
-                  onChange={(e) => { setCarrier(e.target.value); setCarrierAutoDetected(false); }}
+                  onChange={(e) => {
+                    setCarrier(e.target.value);
+                    setCarrierAutoDetected(false);
+                  }}
                   className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
                     carrierAutoDetected ? 'border-emerald-300 bg-emerald-50' : 'border-gray-300'
                   }`}
@@ -824,7 +842,10 @@ function DispositionModal({
               </div>
               {trackingUrl && (
                 <div className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-500">
-                  Tracking URL auto-generated: <span className="font-mono text-gray-700">{trackingUrl.length > 50 ? trackingUrl.slice(0, 50) + '...' : trackingUrl}</span>
+                  Tracking URL auto-generated:{' '}
+                  <span className="font-mono text-gray-700">
+                    {trackingUrl.length > 50 ? trackingUrl.slice(0, 50) + '...' : trackingUrl}
+                  </span>
                 </div>
               )}
             </div>
@@ -836,7 +857,8 @@ function DispositionModal({
                 <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3">
                   <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-500" />
                   <p className="text-sm text-red-700">
-                    This will mark the order as cancelled in our system. It does not cancel in LifeFile — use this when the order was already cancelled elsewhere.
+                    This will mark the order as cancelled in our system. It does not cancel in
+                    LifeFile — use this when the order was already cancelled elsewhere.
                   </p>
                 </div>
               )}
@@ -883,7 +905,9 @@ function DispositionModal({
           <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
             <div className="mb-2 flex items-center gap-2">
               <Lock className="h-4 w-4 text-amber-600" />
-              <span className="text-sm font-medium text-amber-800">Admin Verification Required</span>
+              <span className="text-sm font-medium text-amber-800">
+                Admin Verification Required
+              </span>
             </div>
             <input
               type="password"

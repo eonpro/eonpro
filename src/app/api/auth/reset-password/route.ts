@@ -77,7 +77,10 @@ export const POST = strictRateLimit(async (req: NextRequest) => {
     if (viaSMS && !isSmsConfigured()) {
       logger.error('SMS service not configured - cannot send password reset code via text');
       return NextResponse.json(
-        { error: 'Text message service is temporarily unavailable. Please try resetting via email instead.' },
+        {
+          error:
+            'Text message service is temporarily unavailable. Please try resetting via email instead.',
+        },
         { status: 503 }
       );
     }
@@ -282,7 +285,10 @@ export const PUT = strictRateLimit(async (req: NextRequest) => {
                 },
               })
               .catch((err) => {
-                logger.warn('[ResetPassword] Failed to create audit log for patient password reset', { error: err instanceof Error ? err.message : String(err) });
+                logger.warn(
+                  '[ResetPassword] Failed to create audit log for patient password reset',
+                  { error: err instanceof Error ? err.message : String(err) }
+                );
                 return null;
               });
           }

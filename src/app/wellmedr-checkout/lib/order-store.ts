@@ -52,11 +52,16 @@ export async function createOrder(params: {
     createdAt: new Date(),
   };
   orders.set(record.subscriptionId, record);
-  logger.info('[wellmedr-order] Created order', { orderId: record.id, subscriptionId: record.subscriptionId });
+  logger.info('[wellmedr-order] Created order', {
+    orderId: record.id,
+    subscriptionId: record.subscriptionId,
+  });
   return record;
 }
 
-export async function findOrderBySubscriptionId(subscriptionId: string): Promise<OrderRecord | null> {
+export async function findOrderBySubscriptionId(
+  subscriptionId: string
+): Promise<OrderRecord | null> {
   return orders.get(subscriptionId) || null;
 }
 
@@ -76,7 +81,10 @@ export async function updateOrderPaymentStatus(orderId: string, status: string):
   }
 }
 
-export async function updateOrderSubscriptionStatus(orderId: string, status: string): Promise<void> {
+export async function updateOrderSubscriptionStatus(
+  orderId: string,
+  status: string
+): Promise<void> {
   for (const order of orders.values()) {
     if (order.id === orderId) {
       order.subscriptionStatus = status;
@@ -94,7 +102,10 @@ export async function updateOrderStatus(orderId: string, status: string): Promis
   }
 }
 
-export async function updateOrderPaymentDetails(orderId: string, details: Record<string, unknown>): Promise<void> {
+export async function updateOrderPaymentDetails(
+  orderId: string,
+  details: Record<string, unknown>
+): Promise<void> {
   for (const order of orders.values()) {
     if (order.id === orderId) {
       Object.assign(order, details);

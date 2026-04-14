@@ -47,12 +47,12 @@ export const GET = withAuth(
       let orderGroups = groupResult.orderGroups;
 
       if (providerId && user.role === 'provider') {
-        const providerOrderIds = await prisma.order.findMany({
-          where: { providerId, clinicId },
-          select: { lifefileOrderId: true },
-        }).then((orders) =>
-          new Set(orders.map((o) => o.lifefileOrderId).filter(Boolean))
-        );
+        const providerOrderIds = await prisma.order
+          .findMany({
+            where: { providerId, clinicId },
+            select: { lifefileOrderId: true },
+          })
+          .then((orders) => new Set(orders.map((o) => o.lifefileOrderId).filter(Boolean)));
 
         orderGroups = orderGroups.filter(
           (g) => g.lifefileOrderId && providerOrderIds.has(g.lifefileOrderId)

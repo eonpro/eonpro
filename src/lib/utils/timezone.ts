@@ -24,7 +24,7 @@ export function normalizeIANATimeZone(tz: string | null | undefined): string | n
  */
 export function getDatePartsInTz(tz: string = DEFAULT_TIMEZONE): {
   year: number;
-  month: number;   // 0-indexed (0 = Jan)
+  month: number; // 0-indexed (0 = Jan)
   day: number;
   dayOfWeek: number; // 0 = Sunday
 } {
@@ -66,7 +66,7 @@ export function midnightInTz(
   year: number,
   month: number,
   day: number,
-  tz: string = DEFAULT_TIMEZONE,
+  tz: string = DEFAULT_TIMEZONE
 ): Date {
   const guess = new Date(Date.UTC(year, month, day, 12, 0, 0));
   try {
@@ -149,7 +149,7 @@ export function getTimezoneAwareBoundaries(tz: string = DEFAULT_TIMEZONE): {
  */
 export function getCalendarDatePartsInTz(
   d: Date,
-  tz: string,
+  tz: string
 ): { year: number; month: number; day: number; dayOfWeek: number } {
   try {
     const formatter = new Intl.DateTimeFormat('en-US', {
@@ -226,7 +226,7 @@ export function addCalendarDaysET(d: Date, deltaDays: number): Date {
     rolled.getUTCFullYear(),
     rolled.getUTCMonth(),
     rolled.getUTCDate(),
-    EASTERN_TZ,
+    EASTERN_TZ
   );
 }
 
@@ -297,6 +297,11 @@ export function todayET(): string {
 }
 
 /** @internal Eastern calendar parts for a Date (scheduling / legacy ET helpers). */
-function getDatePartsForDate(d: Date): { year: number; month: number; day: number; dayOfWeek: number } {
+function getDatePartsForDate(d: Date): {
+  year: number;
+  month: number;
+  day: number;
+  dayOfWeek: number;
+} {
   return getCalendarDatePartsInTz(d, EASTERN_TZ);
 }

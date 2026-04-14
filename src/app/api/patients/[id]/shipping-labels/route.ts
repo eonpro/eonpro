@@ -8,11 +8,7 @@ type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
-async function handleGetLabels(
-  req: NextRequest,
-  user: AuthUser,
-  context: RouteContext,
-) {
+async function handleGetLabels(req: NextRequest, user: AuthUser, context: RouteContext) {
   try {
     const { id } = await context.params;
     const patientId = parseInt(id, 10);

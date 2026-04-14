@@ -16,7 +16,7 @@ export default function ResourcesLoading() {
         {Array.from({ length: 6 }).map((_, i) => (
           <div key={i} className="rounded-2xl border border-gray-100 bg-white shadow-sm">
             <div className="aspect-video w-full rounded-t-2xl bg-gray-200" />
-            <div className="p-4 space-y-2">
+            <div className="space-y-2 p-4">
               <div className="h-5 w-3/4 rounded bg-gray-200" />
               <div className="h-3 w-full rounded bg-gray-100" />
               <div className="h-3 w-2/3 rounded bg-gray-100" />

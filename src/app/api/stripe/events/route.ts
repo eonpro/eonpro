@@ -115,10 +115,7 @@ async function getEventsHandler(request: NextRequest, user: AuthUser) {
       ...(deliverySuccess !== null && { delivery_success: deliverySuccess === 'true' }),
     };
 
-    const events = await stripe.events.list(
-      eventParams as Record<string, unknown>,
-      stripeOpts
-    );
+    const events = await stripe.events.list(eventParams as Record<string, unknown>, stripeOpts);
 
     // Process events
     const typeBreakdown: Record<string, number> = {};
@@ -221,7 +218,10 @@ async function getEventsHandler(request: NextRequest, user: AuthUser) {
   } catch (error: unknown) {
     logger.error('[STRIPE EVENTS] Error:', error);
 
-    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) || 'Failed to fetch events' }, { status: 500 });
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : String(error) || 'Failed to fetch events' },
+      { status: 500 }
+    );
   }
 }
 

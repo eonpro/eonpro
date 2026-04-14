@@ -20,14 +20,18 @@ export default function StepRenderer({ uid, patientData }: StepRendererProps) {
   }
 
   return (
-    <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 pt-4 sm:pt-8 pb-8">
-      <div className="flex items-center gap-2 text-sm mb-6" style={{ color: '#999' }}>
-        <button onClick={() => window.history.back()} className="hover:underline">Choose</button>
+    <div className="mx-auto w-full max-w-6xl px-4 pb-8 pt-4 sm:px-6 sm:pt-8">
+      <div className="mb-6 flex items-center gap-2 text-sm" style={{ color: '#999' }}>
+        <button onClick={() => window.history.back()} className="hover:underline">
+          Choose
+        </button>
         <span>›</span>
-        <span className="font-medium" style={{ color: '#101010' }}>Checkout</span>
+        <span className="font-medium" style={{ color: '#101010' }}>
+          Checkout
+        </span>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:gap-12">
         {/* Left: Shipping + Payment */}
         <div>
           {currentStep === 'shipping' && <ShippingStep uid={uid} />}
@@ -36,7 +40,9 @@ export default function StepRenderer({ uid, patientData }: StepRendererProps) {
 
         {/* Right: Order Summary */}
         <div className="lg:sticky lg:top-8 lg:self-start">
-          <h2 className="text-xl font-bold mb-4" style={{ color: '#101010' }}>Order Summary</h2>
+          <h2 className="mb-4 text-xl font-bold" style={{ color: '#101010' }}>
+            Order Summary
+          </h2>
           <OrderSummary />
         </div>
       </div>

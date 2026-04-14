@@ -91,11 +91,23 @@ export type BuilderAction =
   | { type: 'DUPLICATE_FIELD'; stepId: string; fieldId: string }
   | { type: 'REORDER_FIELDS'; stepId: string; activeId: string; overId: string }
   | { type: 'UPDATE_FIELD'; stepId: string; fieldId: string; updates: Partial<FormField> }
-  | { type: 'MOVE_FIELD_TO_STEP'; fromStepId: string; toStepId: string; fieldId: string; atIndex?: number }
+  | {
+      type: 'MOVE_FIELD_TO_STEP';
+      fromStepId: string;
+      toStepId: string;
+      fieldId: string;
+      atIndex?: number;
+    }
   // Field options
   | { type: 'ADD_OPTION'; stepId: string; fieldId: string }
   | { type: 'DELETE_OPTION'; stepId: string; fieldId: string; optionId: string }
-  | { type: 'UPDATE_OPTION'; stepId: string; fieldId: string; optionId: string; updates: Partial<FieldOption> }
+  | {
+      type: 'UPDATE_OPTION';
+      stepId: string;
+      fieldId: string;
+      optionId: string;
+      updates: Partial<FieldOption>;
+    }
   | { type: 'REORDER_OPTIONS'; stepId: string; fieldId: string; activeId: string; overId: string }
   // Navigation
   | { type: 'SET_NEXT_STEP'; stepId: string; nextStep: StepNavigation }

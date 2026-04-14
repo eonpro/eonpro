@@ -47,7 +47,8 @@ export const POST = withAuth(async (request, user) => {
     }
 
     const body = await request.json();
-    if (!body.name?.trim()) return NextResponse.json({ error: 'Team name is required' }, { status: 400 });
+    if (!body.name?.trim())
+      return NextResponse.json({ error: 'Team name is required' }, { status: 400 });
 
     const team = await prisma.ticketTeam.create({
       data: {

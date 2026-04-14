@@ -36,7 +36,10 @@ const dispositionSchema = z
       }
       return true;
     },
-    { message: 'trackingNumber and carrier are required for add_tracking', path: ['trackingNumber'] }
+    {
+      message: 'trackingNumber and carrier are required for add_tracking',
+      path: ['trackingNumber'],
+    }
   );
 
 type RouteContext = {
@@ -278,11 +281,11 @@ async function handler(req: NextRequest, user: AuthUser, context: RouteContext) 
 
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
   } catch (error: unknown) {
-    logger.error('[DISPOSITION] Error:', { error: (error as any).message, stack: (error as any).stack });
-    return NextResponse.json(
-      { error: 'Failed to disposition order' },
-      { status: 500 }
-    );
+    logger.error('[DISPOSITION] Error:', {
+      error: (error as any).message,
+      stack: (error as any).stack,
+    });
+    return NextResponse.json({ error: 'Failed to disposition order' }, { status: 500 });
   }
 }
 

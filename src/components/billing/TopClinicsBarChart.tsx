@@ -1,18 +1,14 @@
 'use client';
 
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import type { ClinicRevenue } from '@/services/billing/billingAnalyticsService';
 
 const formatCurrency = (cents: number) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(cents / 100);
+  new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  }).format(cents / 100);
 
 interface Props {
   data: ClinicRevenue[];
@@ -38,7 +34,11 @@ export default function TopClinicsBarChart({ data }: Props) {
 
   return (
     <ResponsiveContainer width="100%" height={320}>
-      <BarChart data={chartData} layout="vertical" margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+      <BarChart
+        data={chartData}
+        layout="vertical"
+        margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+      >
         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
         <XAxis
           type="number"
@@ -46,18 +46,42 @@ export default function TopClinicsBarChart({ data }: Props) {
           tick={{ fontSize: 12 }}
           stroke="#9ca3af"
         />
-        <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} stroke="#9ca3af" width={120} />
+        <YAxis
+          type="category"
+          dataKey="name"
+          tick={{ fontSize: 11 }}
+          stroke="#9ca3af"
+          width={120}
+        />
         <Tooltip
-          formatter={((value: number | undefined, name: string) => [formatCurrency(value ?? 0), name]) as any}
-          labelFormatter={((_label: React.ReactNode, payload: unknown) => {
-            const items = payload as { payload?: { fullName?: string; rate?: number } }[];
-            const item = items?.[0]?.payload;
-            return item ? `${item.fullName ?? ''} (${item.rate ?? 0}% collected)` : '';
-          }) as any}
+          formatter={
+            ((value: number | undefined, name: string) => [formatCurrency(value ?? 0), name]) as any
+          }
+          labelFormatter={
+            ((_label: React.ReactNode, payload: unknown) => {
+              const items = payload as { payload?: { fullName?: string; rate?: number } }[];
+              const item = items?.[0]?.payload;
+              return item ? `${item.fullName ?? ''} (${item.rate ?? 0}% collected)` : '';
+            }) as any
+          }
           contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb' }}
         />
-        <Bar dataKey="paid" name="Paid" stackId="a" fill="#4fa77e" radius={[0, 0, 0, 0]} barSize={20} />
-        <Bar dataKey="outstanding" name="Outstanding" stackId="a" fill="#e5e7eb" radius={[0, 4, 4, 0]} barSize={20} />
+        <Bar
+          dataKey="paid"
+          name="Paid"
+          stackId="a"
+          fill="#4fa77e"
+          radius={[0, 0, 0, 0]}
+          barSize={20}
+        />
+        <Bar
+          dataKey="outstanding"
+          name="Outstanding"
+          stackId="a"
+          fill="#e5e7eb"
+          radius={[0, 4, 4, 0]}
+          barSize={20}
+        />
       </BarChart>
     </ResponsiveContainer>
   );

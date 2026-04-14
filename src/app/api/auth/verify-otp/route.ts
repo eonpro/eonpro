@@ -263,14 +263,16 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
     ];
     if (user) {
       clearPromises.push(
-        prisma.user.update({
-          where: { id: user.id },
-          data: { failedLoginAttempts: 0, lockedUntil: null },
-        }).catch((err: unknown) => {
-          logger.warn('[VERIFY-OTP] Lockout clear failed', {
-            error: err instanceof Error ? err.message : 'Unknown error',
-          });
-        })
+        prisma.user
+          .update({
+            where: { id: user.id },
+            data: { failedLoginAttempts: 0, lockedUntil: null },
+          })
+          .catch((err: unknown) => {
+            logger.warn('[VERIFY-OTP] Lockout clear failed', {
+              error: err instanceof Error ? err.message : 'Unknown error',
+            });
+          })
       );
     }
     if (clearPromises.length > 0) {
@@ -300,22 +302,25 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
       .sign(JWT_REFRESH_SECRET);
 
     if (user) {
-      prisma.userSession.create({
-        data: {
-          userId: user.id,
-          token: token.substring(0, 64),
-          refreshToken: refreshToken.substring(0, 64),
-          refreshTokenHash: hashRefreshToken(refreshToken),
-          ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown',
-          userAgent: req.headers.get('user-agent') || 'unknown',
-          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-          lastActivity: new Date(),
-        },
-      }).catch((err: unknown) => {
-        logger.warn('[VERIFY-OTP] UserSession creation failed', {
-          error: err instanceof Error ? err.message : 'Unknown',
+      prisma.userSession
+        .create({
+          data: {
+            userId: user.id,
+            token: token.substring(0, 64),
+            refreshToken: refreshToken.substring(0, 64),
+            refreshTokenHash: hashRefreshToken(refreshToken),
+            ipAddress:
+              req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown',
+            userAgent: req.headers.get('user-agent') || 'unknown',
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+            lastActivity: new Date(),
+          },
+        })
+        .catch((err: unknown) => {
+          logger.warn('[VERIFY-OTP] UserSession creation failed', {
+            error: err instanceof Error ? err.message : 'Unknown',
+          });
         });
-      });
     }
 
     logger.info('Successful OTP login', {
@@ -363,7 +368,8 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
             lastName: user!.lastName,
             role: user!.role,
             clinicId: user!.clinicId,
-            patientId: 'patientId' in user! && (user as any).patientId ? (user as any).patientId : undefined,
+            patientId:
+              'patientId' in user! && (user as any).patientId ? (user as any).patientId : undefined,
           };
 
     const response = NextResponse.json({

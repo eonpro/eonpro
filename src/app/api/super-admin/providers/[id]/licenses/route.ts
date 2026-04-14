@@ -38,10 +38,7 @@ export const GET = withSuperAdminAuth(
       return NextResponse.json({ licenses });
     } catch (error: unknown) {
       logger.error('[SUPER-ADMIN/PROVIDERS/LICENSES] Error fetching licenses', { error });
-      return NextResponse.json(
-        { error: 'Failed to fetch licenses' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to fetch licenses' }, { status: 500 });
     }
   }
 );
@@ -62,32 +59,48 @@ export const PUT = withSuperAdminAuth(
       const body = await req.json();
       const raw = Array.isArray(body.licenses) ? body.licenses : [];
 
-      const licenses = raw.map((l: unknown) => {
-        if (l && typeof l === 'object' && 'state' in l && 'licenseNumber' in l && 'expiresAt' in l) {
-          const state = String((l as { state: unknown }).state).trim().toUpperCase().slice(0, 2);
-          const licenseNumber = String((l as { licenseNumber: unknown }).licenseNumber).trim();
-          const expiresAt = (l as { expiresAt: unknown }).expiresAt;
-          const issuedAt = (l as { issuedAt?: unknown }).issuedAt;
-          if (!state || !licenseNumber) return null;
-          const expiresDate =
-            typeof expiresAt === 'string'
-              ? new Date(expiresAt)
-              : typeof expiresAt === 'number'
+      const licenses = raw
+        .map((l: unknown) => {
+          if (
+            l &&
+            typeof l === 'object' &&
+            'state' in l &&
+            'licenseNumber' in l &&
+            'expiresAt' in l
+          ) {
+            const state = String((l as { state: unknown }).state)
+              .trim()
+              .toUpperCase()
+              .slice(0, 2);
+            const licenseNumber = String((l as { licenseNumber: unknown }).licenseNumber).trim();
+            const expiresAt = (l as { expiresAt: unknown }).expiresAt;
+            const issuedAt = (l as { issuedAt?: unknown }).issuedAt;
+            if (!state || !licenseNumber) return null;
+            const expiresDate =
+              typeof expiresAt === 'string'
                 ? new Date(expiresAt)
-                : null;
-          const issuedDate =
-            issuedAt == null
-              ? undefined
-              : typeof issuedAt === 'string'
-                ? new Date(issuedAt)
-                : typeof issuedAt === 'number'
+                : typeof expiresAt === 'number'
+                  ? new Date(expiresAt)
+                  : null;
+            const issuedDate =
+              issuedAt == null
+                ? undefined
+                : typeof issuedAt === 'string'
                   ? new Date(issuedAt)
-                  : undefined;
-          if (!expiresDate || isNaN(expiresDate.getTime())) return null;
-          return { state, licenseNumber, expiresAt: expiresDate, issuedAt: issuedDate };
-        }
-        return null;
-      }).filter(Boolean) as Array<{ state: string; licenseNumber: string; expiresAt: Date; issuedAt?: Date }>;
+                  : typeof issuedAt === 'number'
+                    ? new Date(issuedAt)
+                    : undefined;
+            if (!expiresDate || isNaN(expiresDate.getTime())) return null;
+            return { state, licenseNumber, expiresAt: expiresDate, issuedAt: issuedDate };
+          }
+          return null;
+        })
+        .filter(Boolean) as Array<{
+        state: string;
+        licenseNumber: string;
+        expiresAt: Date;
+        issuedAt?: Date;
+      }>;
 
       const existing = await prisma.provider.findUnique({
         where: { id: providerId },
@@ -126,10 +139,7 @@ export const PUT = withSuperAdminAuth(
       return NextResponse.json({ licenses: updated });
     } catch (error: unknown) {
       logger.error('[SUPER-ADMIN/PROVIDERS/LICENSES] Error updating licenses', { error });
-      return NextResponse.json(
-        { error: 'Failed to update licenses' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to update licenses' }, { status: 500 });
     }
   }
 );

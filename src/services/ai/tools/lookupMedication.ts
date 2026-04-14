@@ -40,9 +40,7 @@ export const definition: ChatCompletionTool = {
   },
 };
 
-export async function execute(
-  params: { medication: string; topic: string },
-): Promise<unknown> {
+export async function execute(params: { medication: string; topic: string }): Promise<unknown> {
   const { medication, topic } = params;
 
   const meds =
@@ -64,7 +62,7 @@ export async function execute(
             indications: med.indications,
             forms: med.forms,
           },
-        ]),
+        ])
       );
 
     case 'dosing':
@@ -75,7 +73,7 @@ export async function execute(
             titrationProtocol: med.titrationProtocol,
             dosingAdjustments: CLINICAL_GUIDELINES.dosingAdjustments,
           },
-        ]),
+        ])
       );
 
     case 'side_effects':
@@ -86,23 +84,21 @@ export async function execute(
             sideEffects: med.sideEffects,
             whenToDiscontinue: CLINICAL_GUIDELINES.whenToHoldOrDiscontinue,
           },
-        ]),
+        ])
       );
 
     case 'contraindications':
       return Object.fromEntries(
-        Object.entries(meds).map(([name, med]) => [name, med.contraindications]),
+        Object.entries(meds).map(([name, med]) => [name, med.contraindications])
       );
 
     case 'drug_interactions':
       return Object.fromEntries(
-        Object.entries(meds).map(([name, med]) => [name, med.drugInteractions]),
+        Object.entries(meds).map(([name, med]) => [name, med.drugInteractions])
       );
 
     case 'monitoring':
-      return Object.fromEntries(
-        Object.entries(meds).map(([name, med]) => [name, med.monitoring]),
-      );
+      return Object.fromEntries(Object.entries(meds).map(([name, med]) => [name, med.monitoring]));
 
     case 'eligibility':
       return {

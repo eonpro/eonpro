@@ -984,6 +984,7 @@ async function importBatch(
   return { imported, skipped, errors };
 }
 
+// eslint-disable-next-line security-node/detect-unhandled-async-errors
 async function executeImport(records: CleanedRecord[]): Promise<void> {
   const prisma = new PrismaClient();
 

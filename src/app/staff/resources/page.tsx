@@ -1,15 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import {
-  BookOpen,
-  FileText,
-  Video,
-  Download,
-  ExternalLink,
-  Star,
-  Clock,
-} from 'lucide-react';
+import { BookOpen, FileText, Video, Download, ExternalLink, Star, Clock } from 'lucide-react';
 import { normalizedIncludes } from '@/lib/utils/search';
 
 interface Resource {

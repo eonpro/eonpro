@@ -34,7 +34,6 @@ export default function SignaturePadCanvas({ onChange, initialSignature }: Props
       try {
         pad.fromDataURL(initialSignature);
       } catch (err: unknown) {
-        
         logger.warn('Unable to load initial signature', { error: err });
       }
     }

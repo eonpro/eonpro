@@ -44,7 +44,7 @@ interface CreateInvoiceForPaymentInput {
  * Idempotent: if the payment already has an invoiceId, returns early.
  */
 export async function createInvoiceForProcessedPayment(
-  input: CreateInvoiceForPaymentInput,
+  input: CreateInvoiceForPaymentInput
 ): Promise<{ invoiceId: number } | null> {
   const {
     paymentId,
@@ -86,84 +86,92 @@ export async function createInvoiceForProcessedPayment(
       ? lineItems.filter((li) => li.amount > 0).reduce((sum, li) => sum + li.amount, 0)
       : amount;
 
-    const result = await prisma.$transaction(async (tx) => {
-      const freshPayment = await tx.payment.findUnique({
-        where: { id: paymentId },
-        select: { invoiceId: true },
-      });
-
-      if (freshPayment?.invoiceId) {
-        logger.info('[CreateInvoiceForPayment] Invoice created by concurrent webhook — skipping', {
-          paymentId,
-          invoiceId: freshPayment.invoiceId,
+    const result = await prisma.$transaction(
+      async (tx) => {
+        const freshPayment = await tx.payment.findUnique({
+          where: { id: paymentId },
+          select: { invoiceId: true },
         });
-        return { id: freshPayment.invoiceId, raceResolved: true };
-      }
 
-      const invoice = await tx.invoice.create({
-        data: {
-          patientId,
-          clinicId,
-          description,
-          amount,
-          amountDue: 0,
-          amountPaid: amount,
-          currency: 'usd',
-          status: 'PAID' as InvoiceStatus,
-          prescriptionProcessed: false,
-          paidAt: new Date(),
-          lineItems: invoiceLineItems,
-          metadata: {
-            source: 'process_payment',
-            paymentIntentId: stripePaymentIntentId || undefined,
-            chargeId: stripeChargeId || undefined,
-            ...(planId ? { planId } : {}),
-            ...(planName ? { planName } : {}),
-            ...(discountAmount > 0 ? {
-              summary: {
-                subtotal: subtotalBeforeDiscount,
-                discountAmount,
-                taxAmount: 0,
-                total: amount,
-                amountPaid: amount,
-                amountDue: 0,
-              },
-            } : {}),
+        if (freshPayment?.invoiceId) {
+          logger.info(
+            '[CreateInvoiceForPayment] Invoice created by concurrent webhook — skipping',
+            {
+              paymentId,
+              invoiceId: freshPayment.invoiceId,
+            }
+          );
+          return { id: freshPayment.invoiceId, raceResolved: true };
+        }
+
+        const invoice = await tx.invoice.create({
+          data: {
+            patientId,
+            clinicId,
+            description,
+            amount,
+            amountDue: 0,
+            amountPaid: amount,
+            currency: 'usd',
+            status: 'PAID' as InvoiceStatus,
+            prescriptionProcessed: false,
+            paidAt: new Date(),
+            lineItems: invoiceLineItems,
+            metadata: {
+              source: 'process_payment',
+              paymentIntentId: stripePaymentIntentId || undefined,
+              chargeId: stripeChargeId || undefined,
+              ...(planId ? { planId } : {}),
+              ...(planName ? { planName } : {}),
+              ...(discountAmount > 0
+                ? {
+                    summary: {
+                      subtotal: subtotalBeforeDiscount,
+                      discountAmount,
+                      taxAmount: 0,
+                      total: amount,
+                      amountPaid: amount,
+                      amountDue: 0,
+                    },
+                  }
+                : {}),
+            },
           },
-        },
-      });
+        });
 
-      if (hasMultipleLines) {
-        for (const li of lineItems) {
+        if (hasMultipleLines) {
+          for (const li of lineItems) {
+            await tx.invoiceItem.create({
+              data: {
+                invoiceId: invoice.id,
+                description: li.description,
+                quantity: 1,
+                unitPrice: li.amount,
+                amount: li.amount,
+              },
+            });
+          }
+        } else {
           await tx.invoiceItem.create({
             data: {
               invoiceId: invoice.id,
-              description: li.description,
+              description,
               quantity: 1,
-              unitPrice: li.amount,
-              amount: li.amount,
+              unitPrice: amount,
+              amount,
             },
           });
         }
-      } else {
-        await tx.invoiceItem.create({
-          data: {
-            invoiceId: invoice.id,
-            description,
-            quantity: 1,
-            unitPrice: amount,
-            amount,
-          },
+
+        await tx.payment.update({
+          where: { id: paymentId },
+          data: { invoiceId: invoice.id },
         });
-      }
 
-      await tx.payment.update({
-        where: { id: paymentId },
-        data: { invoiceId: invoice.id },
-      });
-
-      return invoice;
-    }, { timeout: 15000 });
+        return invoice;
+      },
+      { timeout: 15000 }
+    );
 
     if ('raceResolved' in result) {
       return { invoiceId: result.id };
@@ -181,19 +189,19 @@ export async function createInvoiceForProcessedPayment(
     // Handle the narrow race where both webhook and confirm create invoices
     // simultaneously — the loser hits a unique constraint on payment.invoiceId.
     // Treat this as idempotent success rather than a failure.
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2002'
-    ) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       const racePayment = await prisma.payment.findUnique({
         where: { id: paymentId },
         select: { invoiceId: true },
       });
       if (racePayment?.invoiceId) {
-        logger.info('[CreateInvoiceForPayment] Race resolved via unique constraint — using webhook invoice', {
-          paymentId,
-          invoiceId: racePayment.invoiceId,
-        });
+        logger.info(
+          '[CreateInvoiceForPayment] Race resolved via unique constraint — using webhook invoice',
+          {
+            paymentId,
+            invoiceId: racePayment.invoiceId,
+          }
+        );
         return { invoiceId: racePayment.invoiceId };
       }
     }

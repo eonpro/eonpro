@@ -427,11 +427,17 @@ export default function PatientAppointmentsView({
                     <div className="min-w-[80px] text-center">
                       <div className="rounded-lg bg-gray-100 p-3">
                         <div className="text-xs uppercase text-gray-600">
-                          {aptDate.toLocaleDateString('en-US', { timeZone: EASTERN_TZ, month: 'short' })}
+                          {aptDate.toLocaleDateString('en-US', {
+                            timeZone: EASTERN_TZ,
+                            month: 'short',
+                          })}
                         </div>
                         <div className="text-2xl font-bold">{aptDate.getDate()}</div>
                         <div className="text-xs text-gray-600">
-                          {aptDate.toLocaleDateString('en-US', { timeZone: EASTERN_TZ, weekday: 'short' })}
+                          {aptDate.toLocaleDateString('en-US', {
+                            timeZone: EASTERN_TZ,
+                            weekday: 'short',
+                          })}
                         </div>
                       </div>
                     </div>

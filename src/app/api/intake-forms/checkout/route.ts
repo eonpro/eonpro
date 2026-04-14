@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json(
         { error: 'Validation failed', details: parsed.error.flatten() },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -71,7 +71,8 @@ export async function POST(req: NextRequest) {
     const defaultSuccessPath = `/intake/${clinicSlug}/${templateId}/qualified?checkout=success&session_id={CHECKOUT_SESSION_ID}`;
     const defaultCancelPath = `/intake/${clinicSlug}/${templateId}/review?checkout=cancelled`;
 
-    const lineItems: { price?: string; price_data?: Record<string, unknown>; quantity: number }[] = [];
+    const lineItems: { price?: string; price_data?: Record<string, unknown>; quantity: number }[] =
+      [];
 
     if (priceId) {
       lineItems.push({ price: priceId, quantity: 1 });
@@ -88,10 +89,7 @@ export async function POST(req: NextRequest) {
         quantity: 1,
       });
     } else {
-      return NextResponse.json(
-        { error: 'Either priceId or amount is required' },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: 'Either priceId or amount is required' }, { status: 400 });
     }
 
     const checkoutSession = await stripe.checkout.sessions.create({

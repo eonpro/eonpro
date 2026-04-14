@@ -177,7 +177,9 @@ async function sendSMSReminder(
             select: { zoomJoinUrl: true, videoLink: true },
           });
           joinLink = fresh?.zoomJoinUrl || fresh?.videoLink || null;
-        } catch { /* non-blocking */ }
+        } catch {
+          /* non-blocking */
+        }
       }
       if (appointment.type === 'VIDEO' && joinLink) {
         locationInfo = `\n\nJoin video call: ${joinLink}`;
@@ -252,7 +254,9 @@ async function sendEmailReminder(
           select: { zoomJoinUrl: true, videoLink: true },
         });
         emailJoinLink = fresh?.zoomJoinUrl || fresh?.videoLink || null;
-      } catch { /* non-blocking */ }
+      } catch {
+        /* non-blocking */
+      }
     }
     if (appointment.type === 'VIDEO' && emailJoinLink) {
       location = `Video Call: ${emailJoinLink}`;
@@ -315,18 +319,27 @@ async function processReminder(reminder: {
     ...reminder.appointment,
     patient: {
       ...reminder.appointment.patient,
-      firstName: decryptPHI(reminder.appointment.patient.firstName) ?? reminder.appointment.patient.firstName,
-      lastName: decryptPHI(reminder.appointment.patient.lastName) ?? reminder.appointment.patient.lastName,
+      firstName:
+        decryptPHI(reminder.appointment.patient.firstName) ??
+        reminder.appointment.patient.firstName,
+      lastName:
+        decryptPHI(reminder.appointment.patient.lastName) ?? reminder.appointment.patient.lastName,
       phone: decryptPHI(reminder.appointment.patient.phone) ?? reminder.appointment.patient.phone,
       email: decryptPHI(reminder.appointment.patient.email) ?? reminder.appointment.patient.email,
     },
   };
 
-  if (decryptedAppointment.patient.phone && (reminder.type === ReminderType.SMS || reminder.type === ReminderType.BOTH)) {
+  if (
+    decryptedAppointment.patient.phone &&
+    (reminder.type === ReminderType.SMS || reminder.type === ReminderType.BOTH)
+  ) {
     smsResult = await sendSMSReminder(decryptedAppointment, template);
   }
 
-  if (decryptedAppointment.patient.email && (reminder.type === ReminderType.EMAIL || reminder.type === ReminderType.BOTH)) {
+  if (
+    decryptedAppointment.patient.email &&
+    (reminder.type === ReminderType.EMAIL || reminder.type === ReminderType.BOTH)
+  ) {
     emailResult = await sendEmailReminder(decryptedAppointment, template);
   }
 
@@ -476,7 +489,8 @@ export async function sendAppointmentConfirmation(
       return { success: false, error: 'Appointment not found' };
     }
 
-    const patientFirstName = decryptPHI(appointment.patient.firstName) ?? appointment.patient.firstName ?? 'Patient';
+    const patientFirstName =
+      decryptPHI(appointment.patient.firstName) ?? appointment.patient.firstName ?? 'Patient';
     const patientEmail = decryptPHI(appointment.patient.email) ?? appointment.patient.email;
     const patientPhone = decryptPHI(appointment.patient.phone) ?? appointment.patient.phone;
     const providerName = `${appointment.provider.firstName} ${appointment.provider.lastName}`;
@@ -509,9 +523,10 @@ export async function sendAppointmentConfirmation(
     let smsResult: { success: boolean; messageId?: string } = { success: false };
     let emailResult: { success: boolean } = { success: false };
 
-    let videoLink = appointment.type === 'VIDEO'
-      ? appointment.zoomJoinUrl || appointment.videoLink || undefined
-      : undefined;
+    let videoLink =
+      appointment.type === 'VIDEO'
+        ? appointment.zoomJoinUrl || appointment.videoLink || undefined
+        : undefined;
 
     // For VIDEO appointments, re-fetch if the link wasn't available yet (Zoom may
     // have been provisioned after the initial appointment load)
@@ -522,16 +537,17 @@ export async function sendAppointmentConfirmation(
           select: { zoomJoinUrl: true, videoLink: true },
         });
         videoLink = refreshed?.zoomJoinUrl || refreshed?.videoLink || undefined;
-      } catch { /* non-blocking */ }
+      } catch {
+        /* non-blocking */
+      }
     }
 
     // Still no link — provision the Zoom meeting now so the patient gets a real
     // zoom.us join URL (not a portal URL that requires login)
     if (appointment.type === 'VIDEO' && !videoLink) {
       try {
-        const { ensureZoomMeetingForAppointment } = await import(
-          '@/lib/integrations/zoom/telehealthService'
-        );
+        const { ensureZoomMeetingForAppointment } =
+          await import('@/lib/integrations/zoom/telehealthService');
         const provisionResult = await ensureZoomMeetingForAppointment(appointmentId);
         if (provisionResult.success && provisionResult.session) {
           videoLink = provisionResult.session.joinUrl || undefined;
@@ -571,7 +587,10 @@ export async function sendAppointmentConfirmation(
         });
 
         smsResult = { success: true, messageId: message.sid };
-        logger.info('Appointment confirmation SMS sent', { appointmentId, messageSid: message.sid });
+        logger.info('Appointment confirmation SMS sent', {
+          appointmentId,
+          messageSid: message.sid,
+        });
       } catch (smsErr) {
         logger.error('Failed to send appointment confirmation SMS', {
           appointmentId,
@@ -583,9 +602,10 @@ export async function sendAppointmentConfirmation(
     if (patientEmail) {
       try {
         const { sendAppointmentConfirmationEmail } = await import('@/lib/email/automations');
-        const location = appointment.type === 'VIDEO'
-          ? `Video Call${videoLink ? `: ${videoLink}` : ''}`
-          : appointment.location || 'TBD';
+        const location =
+          appointment.type === 'VIDEO'
+            ? `Video Call${videoLink ? `: ${videoLink}` : ''}`
+            : appointment.location || 'TBD';
 
         emailResult = await sendAppointmentConfirmationEmail({
           patientEmail,

@@ -194,7 +194,9 @@ export default function AffiliateLoginPage() {
       }
 
       // Redirect to forgot-password success state
-      router.push(`/affiliate/forgot-password?sent=true&email=${encodeURIComponent(email.trim().toLowerCase())}`);
+      router.push(
+        `/affiliate/forgot-password?sent=true&email=${encodeURIComponent(email.trim().toLowerCase())}`
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
@@ -298,7 +300,7 @@ export default function AffiliateLoginPage() {
                   {branding.name}
                 </h1>
               )}
-              <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-gray-500 whitespace-nowrap">
+              <p className="mt-2 flex items-center justify-center gap-1.5 whitespace-nowrap text-xs text-gray-500">
                 Powered by{' '}
                 <img
                   src={EONPRO_LOGO}
@@ -310,13 +312,7 @@ export default function AffiliateLoginPage() {
               </p>
             </>
           ) : (
-            <img
-              src={EONPRO_LOGO}
-              alt="EONPRO"
-              className="h-10 w-auto"
-              width={160}
-              height={40}
-            />
+            <img src={EONPRO_LOGO} alt="EONPRO" className="h-10 w-auto" width={160} height={40} />
           )}
         </div>
 
@@ -345,7 +341,9 @@ export default function AffiliateLoginPage() {
                       Email address
                     </label>
                     <div className="relative">
-                      <div className={`absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${email ? 'opacity-0' : 'opacity-100'}`}>
+                      <div
+                        className={`absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${email ? 'opacity-0' : 'opacity-100'}`}
+                      >
                         <Mail className="h-5 w-5" />
                       </div>
                       <input
@@ -563,15 +561,17 @@ export default function AffiliateLoginPage() {
                       <KeyRound className="h-5 w-5" style={{ color: primaryColor }} />
                     </div>
                     <div>
-                      <h2 className="text-lg font-semibold text-gray-900">Welcome! Let&apos;s get you set up</h2>
+                      <h2 className="text-lg font-semibold text-gray-900">
+                        Welcome! Let&apos;s get you set up
+                      </h2>
                       <p className="text-xs text-gray-500">{email}</p>
                     </div>
                   </div>
 
                   <p className="mb-6 text-sm leading-relaxed text-gray-600">
-                    This is your first time logging in. We&apos;ll send you an email with a secure link
-                    to set up your partner account — view your compensation plan, update your info,
-                    and create your password.
+                    This is your first time logging in. We&apos;ll send you an email with a secure
+                    link to set up your partner account — view your compensation plan, update your
+                    info, and create your password.
                   </p>
 
                   {error && (
@@ -656,9 +656,7 @@ export default function AffiliateLoginPage() {
               Contact support
             </a>
           </p>
-          <p className="mt-2 text-xs text-gray-400">
-            © 2026 EONPro • Partner Portal
-          </p>
+          <p className="mt-2 text-xs text-gray-400">© 2026 EONPro • Partner Portal</p>
         </footer>
       </div>
     </div>

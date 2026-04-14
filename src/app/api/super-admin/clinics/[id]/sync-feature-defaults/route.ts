@@ -53,12 +53,17 @@ async function handler(req: NextRequest, user: AuthUser) {
   }
 
   try {
-    const [row] = await prisma.$queryRaw<Array<{ pg_is_in_recovery: boolean }>>`SELECT pg_is_in_recovery()`;
+    const [row] = await prisma.$queryRaw<
+      Array<{ pg_is_in_recovery: boolean }>
+    >`SELECT pg_is_in_recovery()`;
     if (row?.pg_is_in_recovery) {
-      logger.warn('[SyncFeatureDefaults] Writing to read replica - feature update may not propagate', {
-        clinicId,
-        clinicName: clinic.name,
-      });
+      logger.warn(
+        '[SyncFeatureDefaults] Writing to read replica - feature update may not propagate',
+        {
+          clinicId,
+          clinicName: clinic.name,
+        }
+      );
     }
   } catch {
     // Non-Postgres or query failed; proceed with update

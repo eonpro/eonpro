@@ -15,7 +15,11 @@ const bodySchema = z.object({
   budIsoDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD date format.'),
   quantity: z.number().int().min(1).max(VIAL_LABEL_SHEET_MAX),
   proofMode: z.boolean().optional().default(false),
-  yearColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional().default('#137bc1'),
+  yearColor: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .optional()
+    .default('#137bc1'),
 });
 
 async function postHandler(req: NextRequest, _user: AuthUser): Promise<Response> {
@@ -28,7 +32,7 @@ async function postHandler(req: NextRequest, _user: AuthUser): Promise<Response>
           error: 'Invalid label request payload.',
           details: parsed.error.flatten(),
         },
-        { status: 400 },
+        { status: 400 }
       );
     }
 

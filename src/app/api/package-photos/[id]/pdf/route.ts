@@ -15,11 +15,7 @@ const TRACKING_SOURCE_LABELS: Record<string, string> = {
   manual: 'Manual Entry',
 };
 
-async function getHandler(
-  req: NextRequest,
-  user: AuthUser,
-  context?: unknown,
-) {
+async function getHandler(req: NextRequest, user: AuthUser, context?: unknown) {
   try {
     const ctx = context as { params: Promise<{ id: string }> };
     const { id } = await ctx.params;
@@ -113,9 +109,7 @@ async function getHandler(
         if (!isJpeg && !isPng) {
           throw new Error(`Unsupported image format for PDF: ${photo.contentType}`);
         }
-        const image = isJpeg
-          ? await pdfDoc.embedJpg(imgBytes)
-          : await pdfDoc.embedPng(imgBytes);
+        const image = isJpeg ? await pdfDoc.embedJpg(imgBytes) : await pdfDoc.embedPng(imgBytes);
 
         const imgAspect = image.width / image.height;
         let drawWidth = contentWidth;
@@ -176,7 +170,13 @@ async function getHandler(
         photoBottom = y - 40;
       }
     } else {
-      page.drawText('[No photo available]', { x: margin, y: y - 20, size: 10, font, color: medGray });
+      page.drawText('[No photo available]', {
+        x: margin,
+        y: y - 20,
+        size: 10,
+        font,
+        color: medGray,
+      });
       photoBottom = y - 40;
     }
 
@@ -205,7 +205,10 @@ async function getHandler(
     if (photo.trackingNumber) {
       drawRow('Tracking', photo.trackingNumber, darkGray, mono);
       if (photo.trackingSource) {
-        drawRow('Tracking Source', TRACKING_SOURCE_LABELS[photo.trackingSource] || photo.trackingSource);
+        drawRow(
+          'Tracking Source',
+          TRACKING_SOURCE_LABELS[photo.trackingSource] || photo.trackingSource
+        );
       }
     }
 
@@ -218,7 +221,11 @@ async function getHandler(
     });
     y -= 15;
 
-    drawRow('Match Status', photo.matched ? 'Matched to Patient' : 'Unmatched — Stored for Search', photo.matched ? green : amber);
+    drawRow(
+      'Match Status',
+      photo.matched ? 'Matched to Patient' : 'Unmatched — Stored for Search',
+      photo.matched ? green : amber
+    );
 
     if (patientName) {
       drawRow('Patient', patientName.trim());
@@ -230,7 +237,10 @@ async function getHandler(
     }
 
     if (photo.matchStrategy) {
-      drawRow('Matched Via', photo.matchStrategy === 'lifefileOrderId' ? 'LifeFile Order ID' : 'Patient LifeFile ID');
+      drawRow(
+        'Matched Via',
+        photo.matchStrategy === 'lifefileOrderId' ? 'LifeFile Order ID' : 'Patient LifeFile ID'
+      );
     }
 
     if (photo.notes) {

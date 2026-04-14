@@ -1,6 +1,16 @@
-import { getStripeForClinic, getStripeForPlatform, withConnectedAccount } from '@/lib/stripe/connect';
+import {
+  getStripeForClinic,
+  getStripeForPlatform,
+  withConnectedAccount,
+} from '@/lib/stripe/connect';
 import { logger } from '@/lib/logger';
-import type { DataSourceAdapter, ReportConfig, ReportResult, DataSourceDef, ReportRow } from '../types';
+import type {
+  DataSourceAdapter,
+  ReportConfig,
+  ReportResult,
+  DataSourceDef,
+  ReportRow,
+} from '../types';
 
 const definition: DataSourceDef = {
   id: 'stripe-balance',
@@ -9,7 +19,14 @@ const definition: DataSourceDef = {
   icon: 'Wallet',
   columns: [
     { id: 'date', label: 'Date', type: 'date', sortable: true, filterable: true, groupable: true },
-    { id: 'type', label: 'Type', type: 'string', sortable: true, filterable: true, groupable: true },
+    {
+      id: 'type',
+      label: 'Type',
+      type: 'string',
+      sortable: true,
+      filterable: true,
+      groupable: true,
+    },
     { id: 'description', label: 'Description', type: 'string' },
     { id: 'gross', label: 'Gross', type: 'currency', sortable: true },
     { id: 'fee', label: 'Fee', type: 'currency', sortable: true },
@@ -18,11 +35,19 @@ const definition: DataSourceDef = {
     { id: 'sourceId', label: 'Source ID', type: 'string' },
   ],
   filters: [
-    { field: 'type', label: 'Transaction Type', type: 'multi_select', options: [
-      { value: 'charge', label: 'Charge' }, { value: 'refund', label: 'Refund' },
-      { value: 'payout', label: 'Payout' }, { value: 'transfer', label: 'Transfer' },
-      { value: 'adjustment', label: 'Adjustment' }, { value: 'stripe_fee', label: 'Stripe Fee' },
-    ]},
+    {
+      field: 'type',
+      label: 'Transaction Type',
+      type: 'multi_select',
+      options: [
+        { value: 'charge', label: 'Charge' },
+        { value: 'refund', label: 'Refund' },
+        { value: 'payout', label: 'Payout' },
+        { value: 'transfer', label: 'Transfer' },
+        { value: 'adjustment', label: 'Adjustment' },
+        { value: 'stripe_fee', label: 'Stripe Fee' },
+      ],
+    },
     { field: 'dateRange', label: 'Date Range', type: 'date_range' },
   ],
   groupByOptions: [
@@ -66,9 +91,7 @@ async function execute(config: ReportConfig): Promise<ReportResult> {
     };
 
     const response = await stripe.balanceTransactions.list(
-      context.stripeAccountId
-        ? withConnectedAccount(context, listParams)
-        : listParams
+      context.stripeAccountId ? withConnectedAccount(context, listParams) : listParams
     );
 
     for (const tx of response.data) {

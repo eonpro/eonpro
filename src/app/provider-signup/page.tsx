@@ -62,7 +62,6 @@ export default function ProviderSignupPage() {
       setUseSignaturePad(true);
       setStep('npi');
     } catch (err: unknown) {
-      
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       setStatus('error');
       setMessage(errorMessage ?? 'Something went wrong. Please try again.');
@@ -106,7 +105,6 @@ export default function ProviderSignupPage() {
       setStatus('success');
       setMessage('NPI verified and info populated.');
     } catch (err: unknown) {
-      
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       setStatus('error');
       setMessage(errorMessage ?? 'Failed to lookup NPI');

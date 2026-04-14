@@ -1,4 +1,4 @@
-import { JSX } from "react";
+import { JSX } from 'react';
 
 const WhatHappensNextItem = ({
   stepNo,
@@ -11,10 +11,10 @@ const WhatHappensNextItem = ({
 }) => {
   return (
     <li className="flex flex-col gap-3">
-      <span className="font-semibold text-sm -tracking-[1%] leading-[16px] text-primary uppercase">
+      <span className="text-primary text-sm font-semibold uppercase leading-[16px] -tracking-[1%]">
         Step {stepNo}
       </span>
-      <p className="text-lg sm:text-xl font-medium">{title}</p>
+      <p className="text-lg font-medium sm:text-xl">{title}</p>
       <p className="text-base sm:text-lg">{description}</p>
     </li>
   );

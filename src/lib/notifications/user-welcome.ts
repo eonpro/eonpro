@@ -60,7 +60,7 @@ function buildSetupUrl(
   rawToken: string,
   role: string,
   clinicSubdomain?: string | null,
-  _clinicCustomDomain?: string | null,
+  _clinicCustomDomain?: string | null
 ): string {
   // Always use subdomain.eonpro.io — custom domains may not have DNS configured
   const domain = clinicSubdomain ? `${clinicSubdomain}.eonpro.io` : 'app.eonpro.io';
@@ -166,7 +166,7 @@ export async function sendUserWelcomeNotification(
       rawToken,
       params.role,
       params.clinicSubdomain,
-      params.clinicCustomDomain,
+      params.clinicCustomDomain
     );
 
     // --- Email ---

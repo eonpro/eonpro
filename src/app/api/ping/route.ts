@@ -71,39 +71,62 @@ export async function GET(request: NextRequest) {
             const userCount = await prisma.user.count();
             tests.userCount = userCount;
           } catch (err: unknown) {
-            tests.userCount = { error: err instanceof Error ? err.message : String(err), name: err instanceof Error ? err.constructor.name : 'Unknown' };
+            tests.userCount = {
+              error: err instanceof Error ? err.message : String(err),
+              name: err instanceof Error ? err.constructor.name : 'Unknown',
+            };
           }
           // Test 2: clinic-filtered patient query
           try {
             const patientCount = await prisma.patient.count();
             tests.patientCount = patientCount;
           } catch (err: unknown) {
-            tests.patientCount = { error: err instanceof Error ? err.message : String(err), name: err instanceof Error ? err.constructor.name : 'Unknown', stack: err instanceof Error ? err.stack?.split('\n').slice(0, 5) : undefined };
+            tests.patientCount = {
+              error: err instanceof Error ? err.message : String(err),
+              name: err instanceof Error ? err.constructor.name : 'Unknown',
+              stack: err instanceof Error ? err.stack?.split('\n').slice(0, 5) : undefined,
+            };
           }
           // Test 3: clinic-filtered notification query
           try {
             const notifCount = await prisma.notification.count();
             tests.notificationCount = notifCount;
           } catch (err: unknown) {
-            tests.notificationCount = { error: err instanceof Error ? err.message : String(err), name: err instanceof Error ? err.constructor.name : 'Unknown' };
+            tests.notificationCount = {
+              error: err instanceof Error ? err.message : String(err),
+              name: err instanceof Error ? err.constructor.name : 'Unknown',
+            };
           }
           // Test 4: clinic-filtered internal message query
           try {
             const msgCount = await prisma.internalMessage.count();
             tests.messageCount = msgCount;
           } catch (err: unknown) {
-            tests.messageCount = { error: err instanceof Error ? err.message : String(err), name: err instanceof Error ? err.constructor.name : 'Unknown' };
+            tests.messageCount = {
+              error: err instanceof Error ? err.message : String(err),
+              name: err instanceof Error ? err.constructor.name : 'Unknown',
+            };
           }
           // Test 5: basePrisma clinic lookup
           try {
-            const clinic = await basePrisma.clinic.findUnique({ where: { id: cid }, select: { id: true, name: true, status: true } });
+            const clinic = await basePrisma.clinic.findUnique({
+              where: { id: cid },
+              select: { id: true, name: true, status: true },
+            });
             tests.clinicLookup = clinic || 'NOT_FOUND';
           } catch (err: unknown) {
-            tests.clinicLookup = { error: err instanceof Error ? err.message : String(err), name: err instanceof Error ? err.constructor.name : 'Unknown' };
+            tests.clinicLookup = {
+              error: err instanceof Error ? err.message : String(err),
+              name: err instanceof Error ? err.constructor.name : 'Unknown',
+            };
           }
         });
       } catch (err: unknown) {
-        tests._contextError = { error: err instanceof Error ? err.message : String(err), name: err instanceof Error ? err.constructor.name : 'Unknown', stack: err instanceof Error ? err.stack?.split('\n').slice(0, 5) : undefined };
+        tests._contextError = {
+          error: err instanceof Error ? err.message : String(err),
+          name: err instanceof Error ? err.constructor.name : 'Unknown',
+          stack: err instanceof Error ? err.stack?.split('\n').slice(0, 5) : undefined,
+        };
       }
       dbStatus = { ...dbStatus, clinicContextTests: tests };
     }
@@ -111,7 +134,11 @@ export async function GET(request: NextRequest) {
 
   const payload: Record<string, unknown> = {
     gitSha: process.env.VERCEL_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || 'unknown',
-    buildId: process.env.VERCEL_GIT_COMMIT_SHA || process.env.VERCEL_BUILD_ID || process.env.NEXT_BUILD_ID || 'local',
+    buildId:
+      process.env.VERCEL_GIT_COMMIT_SHA ||
+      process.env.VERCEL_BUILD_ID ||
+      process.env.NEXT_BUILD_ID ||
+      'local',
     host,
     pathname,
     timestamp: new Date().toISOString(),

@@ -2,7 +2,7 @@
 
 /**
  * useIntakePrefill Hook
- * 
+ *
  * React hook for retrieving prefill data from Heyflow intake
  * Checks URL parameters first, then falls back to cookies
  */
@@ -43,11 +43,11 @@ const defaultOptions: UseIntakePrefillOptions = {
 
 /**
  * Hook to retrieve and manage intake prefill data
- * 
+ *
  * @example
  * ```tsx
  * const { data, isLoading, error, clearPrefill } = useIntakePrefill();
- * 
+ *
  * useEffect(() => {
  *   if (data) {
  *     setPatientData({
@@ -65,7 +65,7 @@ export function useIntakePrefill(options: UseIntakePrefillOptions = {}): Prefill
   refetch: () => Promise<void>;
 } {
   const opts = { ...defaultOptions, ...options };
-  
+
   const [result, setResult] = useState<PrefillResult>({
     data: null,
     source: null,
@@ -73,41 +73,44 @@ export function useIntakePrefill(options: UseIntakePrefillOptions = {}): Prefill
     error: null,
     isLoading: true,
   });
-  
-  const log = useCallback((...args: unknown[]) => {
-    if (opts.debug) {
-      console.log('[useIntakePrefill]', ...args);
-    }
-  }, [opts.debug]);
-  
+
+  const log = useCallback(
+    (...args: unknown[]) => {
+      if (opts.debug) {
+        console.log('[useIntakePrefill]', ...args);
+      }
+    },
+    [opts.debug]
+  );
+
   /**
    * Load prefill data from all sources
    */
   const loadPrefillData = useCallback(async () => {
     log('Loading prefill data...');
-    setResult(prev => ({ ...prev, isLoading: true, error: null }));
-    
+    setResult((prev) => ({ ...prev, isLoading: true, error: null }));
+
     try {
       // 1. Try URL parameters first (primary source)
       const urlResult = await parseIntakeUrlParams();
-      
+
       if (urlResult.success && urlResult.data) {
         log('Got data from URL params:', urlResult.source);
-        
+
         // Save to cookie and session for persistence
         if (opts.saveToCookie) {
           await savePrefillCookie(urlResult.data, urlResult.intakeId || undefined);
           saveToSession(urlResult.data, urlResult.intakeId || undefined);
         }
-        
+
         // Clean URL
         if (opts.cleanUrlAfterParse) {
           cleanUrl();
         }
-        
+
         // Map source: airtable stays as airtable, others become 'url'
         const mappedSource = urlResult.source === 'airtable' ? 'airtable' : 'url';
-        
+
         setResult({
           data: urlResult.data,
           source: mappedSource,
@@ -117,12 +120,12 @@ export function useIntakePrefill(options: UseIntakePrefillOptions = {}): Prefill
         });
         return;
       }
-      
+
       // Log URL parse errors if any
       if (urlResult.errors.length > 0) {
         log('URL parse errors:', urlResult.errors);
       }
-      
+
       // 2. Try sessionStorage (same-tab persistence)
       const sessionData = loadFromSession();
       if (sessionData.data) {
@@ -136,10 +139,10 @@ export function useIntakePrefill(options: UseIntakePrefillOptions = {}): Prefill
         });
         return;
       }
-      
+
       // 3. Try encrypted cookie (cross-subdomain)
       const cookieData = await loadPrefillCookie();
-      
+
       if (cookieData.expired) {
         log('Cookie data expired');
         setResult({
@@ -151,12 +154,12 @@ export function useIntakePrefill(options: UseIntakePrefillOptions = {}): Prefill
         });
         return;
       }
-      
+
       if (cookieData.data) {
         log('Got data from cookie');
         // Also save to session for faster access
         saveToSession(cookieData.data, cookieData.intakeId || undefined);
-        
+
         setResult({
           data: cookieData.data,
           source: 'cookie',
@@ -166,7 +169,7 @@ export function useIntakePrefill(options: UseIntakePrefillOptions = {}): Prefill
         });
         return;
       }
-      
+
       // No prefill data found
       log('No prefill data found');
       setResult({
@@ -176,7 +179,6 @@ export function useIntakePrefill(options: UseIntakePrefillOptions = {}): Prefill
         error: null,
         isLoading: false,
       });
-      
     } catch (error) {
       console.error('[useIntakePrefill] Error loading data:', error);
       setResult({
@@ -188,7 +190,7 @@ export function useIntakePrefill(options: UseIntakePrefillOptions = {}): Prefill
       });
     }
   }, [opts.saveToCookie, opts.cleanUrlAfterParse, log]);
-  
+
   /**
    * Clear all prefill data
    */
@@ -203,12 +205,12 @@ export function useIntakePrefill(options: UseIntakePrefillOptions = {}): Prefill
       isLoading: false,
     });
   }, [log]);
-  
+
   // Load on mount
   useEffect(() => {
     loadPrefillData();
   }, [loadPrefillData]);
-  
+
   return {
     ...result,
     clearPrefill,
@@ -224,7 +226,7 @@ export function useIntakePrefill(options: UseIntakePrefillOptions = {}): Prefill
  * Hook to get just the intake ID (for tracking)
  */
 export function useIntakeId(): string | null {
-  const { intakeId } = useIntakePrefill({ 
+  const { intakeId } = useIntakePrefill({
     cleanUrlAfterParse: false,
     saveToCookie: false,
   });
@@ -289,7 +291,9 @@ export function prefillToShippingAddress(prefill: IntakePrefillData): {
 /**
  * Get medication selection from prefill
  */
-export function prefillToMedication(prefill: IntakePrefillData): 'semaglutide' | 'tirzepatide' | null {
+export function prefillToMedication(
+  prefill: IntakePrefillData
+): 'semaglutide' | 'tirzepatide' | null {
   return prefill.medication || null;
 }
 
@@ -298,7 +302,7 @@ export function prefillToMedication(prefill: IntakePrefillData): 'semaglutide' |
  */
 export function prefillToPlan(prefill: IntakePrefillData): string | null {
   if (!prefill.plan) return null;
-  
+
   // Map to plan type string used in checkout
   switch (prefill.plan) {
     case 'monthly':

@@ -65,8 +65,14 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`Redis op timed out after ${ms}ms`)), ms);
     promise.then(
-      (val) => { clearTimeout(timer); resolve(val); },
-      (err) => { clearTimeout(timer); reject(err); },
+      (val) => {
+        clearTimeout(timer);
+        resolve(val);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      }
     );
   });
 }
@@ -80,7 +86,7 @@ async function checkRateLimit(key: string, config: RateLimitConfig): Promise<Rat
   const redisResult = await cache.withClient<RateLimitResult | null>(
     'rateLimiterRedis:checkRateLimit',
     null,
-    async (redis) => checkRateLimitRedis(redis, key, config, now),
+    async (redis) => checkRateLimitRedis(redis, key, config, now)
   );
   return redisResult ?? checkRateLimitMemory(key, config, now);
 }
@@ -127,7 +133,7 @@ async function checkRateLimitRedis(
         const blockUntil = now + config.blockDurationSeconds;
         await withTimeout(
           redis.setex(blockKey, config.blockDurationSeconds, blockUntil.toString()),
-          REDIS_OP_TIMEOUT_MS,
+          REDIS_OP_TIMEOUT_MS
         );
       }
 
@@ -393,7 +399,7 @@ export async function getRateLimitStatus(
         remaining: 0,
         reset: now + (ttl > 0 ? ttl : 0),
       };
-    },
+    }
   );
   if (redisStatus) return redisStatus;
   if (cache.isReady()) return null;
@@ -420,7 +426,7 @@ export async function clearRateLimit(identifier: string, key: string): Promise<b
       const blockKey = `ratelimit:block:${identifier}:${key}`;
       await redis.del(windowKey, blockKey);
       return true;
-    },
+    }
   );
   if (redisCleared) return true;
   if (cache.isReady()) return false;

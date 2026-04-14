@@ -59,7 +59,9 @@ export function PatientPortalLanguageProvider({ children }: { children: React.Re
         if (!cancelled) setLoading(false);
       });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const value: PatientPortalLanguageContextValue = {

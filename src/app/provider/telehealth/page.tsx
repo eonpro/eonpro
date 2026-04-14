@@ -46,9 +46,11 @@ function TelehealthDisabledFallback() {
             <div>
               <p className="text-sm font-semibold text-amber-900">Video appointments detected</p>
               <p className="mt-1 text-xs text-amber-700">
-                You have upcoming video appointments but Zoom Telehealth is not enabled.
-                Set <code className="rounded bg-amber-100 px-1 py-0.5 font-mono text-[11px]">NEXT_PUBLIC_ENABLE_ZOOM_TELEHEALTH=&quot;true&quot;</code> in
-                your environment and ensure Zoom API credentials are configured.
+                You have upcoming video appointments but Zoom Telehealth is not enabled. Set{' '}
+                <code className="rounded bg-amber-100 px-1 py-0.5 font-mono text-[11px]">
+                  NEXT_PUBLIC_ENABLE_ZOOM_TELEHEALTH=&quot;true&quot;
+                </code>{' '}
+                in your environment and ensure Zoom API credentials are configured.
               </p>
             </div>
           </div>
@@ -112,10 +114,7 @@ function TelehealthContent() {
   }
 
   return (
-    <Feature
-      feature="ZOOM_TELEHEALTH"
-      fallback={<TelehealthDisabledFallback />}
-    >
+    <Feature feature="ZOOM_TELEHEALTH" fallback={<TelehealthDisabledFallback />}>
       <TelehealthDashboard
         userName={userName}
         userEmail={userEmail}

@@ -14,16 +14,25 @@ import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
-import { decryptPatientPHI, decryptPHI, encryptPHI, computeEmailHash, computeDobHash } from '@/lib/security/phi-encryption';
+import {
+  decryptPatientPHI,
+  decryptPHI,
+  encryptPHI,
+  computeEmailHash,
+  computeDobHash,
+} from '@/lib/security/phi-encryption';
 import { handleApiError } from '@/domains/shared/errors';
 import { buildPatientSearchIndex } from '@/lib/utils/search';
 
-const addressSchema = z.object({
-  street: z.string().max(200).optional(),
-  city: z.string().max(100).optional(),
-  state: z.string().max(50).optional(),
-  zip: z.string().max(20).optional(),
-}).optional().nullable();
+const addressSchema = z
+  .object({
+    street: z.string().max(200).optional(),
+    city: z.string().max(100).optional(),
+    state: z.string().max(50).optional(),
+    zip: z.string().max(20).optional(),
+  })
+  .optional()
+  .nullable();
 
 const updateProfileSchema = z.object({
   firstName: z.string().min(1, 'First name is required').max(100).optional(),
@@ -81,13 +90,26 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     if (dbUser.patientId) {
       const patient = await prisma.patient.findUnique({
         where: { id: dbUser.patientId },
-        select: { dob: true, phone: true, address1: true, address2: true, city: true, state: true, zip: true },
+        select: {
+          dob: true,
+          phone: true,
+          address1: true,
+          address2: true,
+          city: true,
+          state: true,
+          zip: true,
+        },
       });
       if (patient) {
-        const decrypted = decryptPatientPHI(
-          patient as Record<string, unknown>,
-          ['dob', 'phone', 'address1', 'address2', 'city', 'state', 'zip']
-        );
+        const decrypted = decryptPatientPHI(patient as Record<string, unknown>, [
+          'dob',
+          'phone',
+          'address1',
+          'address2',
+          'city',
+          'state',
+          'zip',
+        ]);
         dateOfBirth = (decrypted.dob as string) || null;
         patientPhone = (decrypted.phone as string) || null;
         const street = [decrypted.address1, decrypted.address2].filter(Boolean).join(', ');
@@ -141,7 +163,8 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
       );
     }
 
-    const { firstName, lastName, email, phone, dateOfBirth, address, preferredLanguage } = parseResult.data;
+    const { firstName, lastName, email, phone, dateOfBirth, address, preferredLanguage } =
+      parseResult.data;
 
     const userUpdateData: Record<string, unknown> = {};
     const patientUpdateData: Record<string, unknown> = {};
@@ -184,7 +207,10 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
         const now = new Date();
         const age = now.getFullYear() - dob.getFullYear();
         if (age < 0 || age > 150) {
-          return NextResponse.json({ error: 'Date of birth is out of valid range' }, { status: 400 });
+          return NextResponse.json(
+            { error: 'Date of birth is out of valid range' },
+            { status: 400 }
+          );
         }
       }
       patientUpdateData.dob = dateOfBirth ? encryptPHI(dateOfBirth) : '';
@@ -225,48 +251,63 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
       select: { patientId: true },
     });
 
-    await prisma.$transaction(async (tx) => {
-      if (Object.keys(userUpdateData).length > 0) {
-        await tx.user.update({ where: { id: user.id }, data: userUpdateData });
-      }
-      if (Object.keys(patientUpdateData).length > 0 && dbUser?.patientId) {
-        const phiChanged = firstName !== undefined || lastName !== undefined ||
-          email !== undefined || phone !== undefined;
+    await prisma.$transaction(
+      async (tx) => {
+        if (Object.keys(userUpdateData).length > 0) {
+          await tx.user.update({ where: { id: user.id }, data: userUpdateData });
+        }
+        if (Object.keys(patientUpdateData).length > 0 && dbUser?.patientId) {
+          const phiChanged =
+            firstName !== undefined ||
+            lastName !== undefined ||
+            email !== undefined ||
+            phone !== undefined;
 
-        const existing = await tx.patient.findUnique({
-          where: { id: dbUser.patientId },
-          select: {
-            firstName: true, lastName: true, email: true, phone: true,
-            patientId: true, profileStatus: true, dob: true,
-          },
-        });
-
-        if (phiChanged && existing) {
-          const safeDecrypt = (v: unknown): string => {
-            if (v == null || v === '') return '';
-            try { return decryptPHI(String(v)) ?? ''; } catch { return String(v); }
-          };
-
-          patientUpdateData.searchIndex = buildPatientSearchIndex({
-            firstName: firstName ?? safeDecrypt(existing.firstName),
-            lastName: lastName ?? safeDecrypt(existing.lastName),
-            email: email ?? safeDecrypt(existing.email),
-            phone: phone ?? safeDecrypt(existing.phone),
-            patientId: existing.patientId ?? null,
+          const existing = await tx.patient.findUnique({
+            where: { id: dbUser.patientId },
+            select: {
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+              patientId: true,
+              profileStatus: true,
+              dob: true,
+            },
           });
-        }
 
-        if (existing?.profileStatus === 'PENDING_COMPLETION') {
-          const hasPhone = phone ? !!phone.trim() : !!existing.phone;
-          const hasDob = dateOfBirth ? !!dateOfBirth.trim() : !!existing.dob;
-          if (hasPhone && hasDob) {
-            patientUpdateData.profileStatus = 'ACTIVE';
+          if (phiChanged && existing) {
+            const safeDecrypt = (v: unknown): string => {
+              if (v == null || v === '') return '';
+              try {
+                return decryptPHI(String(v)) ?? '';
+              } catch {
+                return String(v);
+              }
+            };
+
+            patientUpdateData.searchIndex = buildPatientSearchIndex({
+              firstName: firstName ?? safeDecrypt(existing.firstName),
+              lastName: lastName ?? safeDecrypt(existing.lastName),
+              email: email ?? safeDecrypt(existing.email),
+              phone: phone ?? safeDecrypt(existing.phone),
+              patientId: existing.patientId ?? null,
+            });
           }
-        }
 
-        await tx.patient.update({ where: { id: dbUser.patientId }, data: patientUpdateData });
-      }
-    }, { timeout: 10000 });
+          if (existing?.profileStatus === 'PENDING_COMPLETION') {
+            const hasPhone = phone ? !!phone.trim() : !!existing.phone;
+            const hasDob = dateOfBirth ? !!dateOfBirth.trim() : !!existing.dob;
+            if (hasPhone && hasDob) {
+              patientUpdateData.profileStatus = 'ACTIVE';
+            }
+          }
+
+          await tx.patient.update({ where: { id: dbUser.patientId }, data: patientUpdateData });
+        }
+      },
+      { timeout: 10000 }
+    );
 
     logger.info('[User Profile] Updated', {
       userId: user.id,

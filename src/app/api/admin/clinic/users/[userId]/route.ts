@@ -232,9 +232,9 @@ export const PATCH = async (request: NextRequest, context: RouteContext) => {
         }
 
         logger.info('[CLINIC-USERS] Admin updated user', {
-        userId: user.id,
-        targetUserId: targetUser.id,
-      });
+          userId: user.id,
+          targetUserId: targetUser.id,
+        });
 
         return NextResponse.json({
           user: updatedUser,
@@ -332,9 +332,9 @@ export const DELETE = async (request: NextRequest, context: RouteContext) => {
         }
 
         logger.info('[CLINIC-USERS] Admin deactivated user', {
-        userId: user.id,
-        targetUserId: targetUser.id,
-      });
+          userId: user.id,
+          targetUserId: targetUser.id,
+        });
 
         return NextResponse.json({
           message: 'User deactivated successfully',

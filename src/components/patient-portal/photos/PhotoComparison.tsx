@@ -216,7 +216,14 @@ function SideBySideView({
     <div className="grid grid-cols-2 gap-2 sm:gap-4">
       {/* Before */}
       <div className="relative aspect-[3/4] overflow-hidden rounded-xl bg-gray-100">
-        <img src={beforeUrl} alt="Before" width={300} height={400} loading="lazy" className="h-full w-full object-cover" />
+        <img
+          src={beforeUrl}
+          alt="Before"
+          width={300}
+          height={400}
+          loading="lazy"
+          className="h-full w-full object-cover"
+        />
         <div className="absolute left-3 top-3 rounded-full bg-black/60 px-3 py-1.5 text-sm font-medium text-white">
           {beforeLabel}
         </div>
@@ -230,7 +237,14 @@ function SideBySideView({
 
       {/* After */}
       <div className="relative aspect-[3/4] overflow-hidden rounded-xl bg-gray-100">
-        <img src={afterUrl} alt="After" width={300} height={400} loading="lazy" className="h-full w-full object-cover" />
+        <img
+          src={afterUrl}
+          alt="After"
+          width={300}
+          height={400}
+          loading="lazy"
+          className="h-full w-full object-cover"
+        />
         <div className="absolute right-3 top-3 rounded-full bg-black/60 px-3 py-1.5 text-sm font-medium text-white">
           {afterLabel}
         </div>
@@ -261,7 +275,13 @@ function OverlayView({ beforeUrl, afterUrl }: OverlayViewProps) {
     <div className="space-y-4">
       <div className="relative aspect-[3/4] overflow-hidden rounded-xl bg-gray-100 sm:aspect-square">
         {/* Before Image */}
-        <img src={beforeUrl} alt="Before" width={400} height={533} className="absolute inset-0 h-full w-full object-cover" />
+        <img
+          src={beforeUrl}
+          alt="Before"
+          width={400}
+          height={533}
+          className="absolute inset-0 h-full w-full object-cover"
+        />
         {/* After Image with opacity */}
         <img
           src={afterUrl}

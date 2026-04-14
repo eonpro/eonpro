@@ -212,7 +212,9 @@ export async function POST(req: NextRequest) {
 
         logger.info('[REGENERATE] PDF generated successfully', { patientId });
       } catch (error: unknown) {
-        logger.error('[REGENERATE] PDF generation failed', { error: error instanceof Error ? error.message : String(error) });
+        logger.error('[REGENERATE] PDF generation failed', {
+          error: error instanceof Error ? error.message : String(error),
+        });
         results.actions.push({
           type: 'pdf_error',
           error: error instanceof Error ? error.message : String(error),
@@ -262,7 +264,9 @@ export async function POST(req: NextRequest) {
           }
         }
       } catch (error: unknown) {
-        logger.error('[REGENERATE] SOAP generation failed', { error: error instanceof Error ? error.message : String(error) });
+        logger.error('[REGENERATE] SOAP generation failed', {
+          error: error instanceof Error ? error.message : String(error),
+        });
         results.actions.push({
           type: 'soap_error',
           error: error instanceof Error ? error.message : String(error),

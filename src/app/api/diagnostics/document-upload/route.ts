@@ -12,11 +12,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { HeadBucketCommand } from '@aws-sdk/client-s3';
 import { withAuth } from '@/lib/auth/middleware';
-import {
-  isS3Enabled,
-  isS3Configured,
-  s3Config,
-} from '@/lib/integrations/aws/s3Config';
+import { isS3Enabled, isS3Configured, s3Config } from '@/lib/integrations/aws/s3Config';
 import { isFeatureEnabled } from '@/lib/features';
 import { getS3Client, generateSignedUrl } from '@/lib/integrations/aws/s3Service';
 
@@ -60,9 +56,7 @@ export const GET = withAuth(
       // Test 1: HeadBucket — verifies bucket exists and credentials are valid
       try {
         const client = getS3Client();
-        await client.send(
-          new HeadBucketCommand({ Bucket: s3Config.bucketName })
-        );
+        await client.send(new HeadBucketCommand({ Bucket: s3Config.bucketName }));
         headBucketOk = true;
       } catch (err: unknown) {
         headBucketOk = false;
@@ -102,12 +96,13 @@ export const GET = withAuth(
       suggestions.push('Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in Vercel.');
     }
     if (!hasBucket) {
-      suggestions.push(
-        'Set AWS_S3_DOCUMENTS_BUCKET_NAME or AWS_S3_BUCKET_NAME in Vercel.'
-      );
+      suggestions.push('Set AWS_S3_DOCUMENTS_BUCKET_NAME or AWS_S3_BUCKET_NAME in Vercel.');
     }
     if (!hasRegion) {
-      suggestions.push('Set AWS_REGION (or AWS_S3_REGION) in Vercel (e.g. us-east-2). Currently defaulting to: ' + s3Config.region);
+      suggestions.push(
+        'Set AWS_REGION (or AWS_S3_REGION) in Vercel (e.g. us-east-2). Currently defaulting to: ' +
+          s3Config.region
+      );
     }
     if (enabled && headBucketOk === false) {
       const hint =
@@ -127,7 +122,11 @@ export const GET = withAuth(
     return NextResponse.json({
       ok,
       diagnostics,
-      suggestions: suggestions.length ? suggestions : ok ? [] : ['See docs/DOCUMENT_UPLOAD_503_RUNBOOK.md'],
+      suggestions: suggestions.length
+        ? suggestions
+        : ok
+          ? []
+          : ['See docs/DOCUMENT_UPLOAD_503_RUNBOOK.md'],
     });
   },
   { roles: ['admin', 'provider', 'super_admin'] }

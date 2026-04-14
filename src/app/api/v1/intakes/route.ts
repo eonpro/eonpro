@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
           submissionId: normalized.submissionId,
           timestamp: new Date().toISOString(),
         },
-      },
+      }
     );
     const patient = result.patient;
     const isNewPatient = result.isNew;
@@ -122,10 +122,10 @@ export async function POST(req: NextRequest) {
       };
 
       // Dual-write: S3 + DB `data` column (Phase 3.3)
-      const { s3DataKey, dataBuffer: intakeDataBuffer } = await storeIntakeData(
-        intakeDataToStore,
-        { patientId: patient.id, clinicId }
-      );
+      const { s3DataKey, dataBuffer: intakeDataBuffer } = await storeIntakeData(intakeDataToStore, {
+        patientId: patient.id,
+        clinicId,
+      });
 
       const doc = await prisma.patientDocument.create({
         data: {

@@ -9,7 +9,11 @@ import { logger } from '@/lib/logger';
 
 export interface AppointmentService {
   listByPatient(patientId: number, clinicId: number): Promise<Record<string, unknown>[]>;
-  listByProvider(providerId: number, clinicId: number, dateRange?: { start: Date; end: Date }): Promise<Record<string, unknown>[]>;
+  listByProvider(
+    providerId: number,
+    clinicId: number,
+    dateRange?: { start: Date; end: Date }
+  ): Promise<Record<string, unknown>[]>;
   create(data: Record<string, unknown>): Promise<Record<string, unknown>>;
   cancel(id: number, reason?: string): Promise<Record<string, unknown>>;
 }

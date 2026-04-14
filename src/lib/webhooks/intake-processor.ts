@@ -14,7 +14,10 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { generateIntakePdf } from '@/services/intakePdfService';
 import { generateSOAPFromIntake } from '@/services/ai/soapNoteService';
-import { attributeFromIntake, tagPatientWithReferralCodeOnly } from '@/services/affiliate/attributionService';
+import {
+  attributeFromIntake,
+  tagPatientWithReferralCodeOnly,
+} from '@/services/affiliate/attributionService';
 import { attributeFromIntakeSalesRep } from '@/services/sales-rep/attributionService';
 import { generatePatientId } from '@/lib/patients';
 import { buildPatientSearchIndex } from '@/lib/utils/search';
@@ -98,9 +101,16 @@ export class IntakeProcessor {
     // Step 3: Generate and store PDF
     let document = null;
     try {
-      document = await this.generateAndStoreDocument(normalized, patient, clinicId, options.treatmentType);
+      document = await this.generateAndStoreDocument(
+        normalized,
+        patient,
+        clinicId,
+        options.treatmentType
+      );
     } catch (error: unknown) {
-      this.errors.push(`PDF generation failed: ${(error instanceof Error ? error.message : String(error))}`);
+      this.errors.push(
+        `PDF generation failed: ${error instanceof Error ? error.message : String(error)}`
+      );
       logger.error(`[INTAKE ${this.requestId}] PDF generation failed:`, error);
     }
 
@@ -110,7 +120,9 @@ export class IntakeProcessor {
       try {
         weightLog = await this.createInitialWeightLog(normalized, patient);
       } catch (error: unknown) {
-        this.errors.push(`Weight log creation failed: ${(error instanceof Error ? error.message : String(error))}`);
+        this.errors.push(
+          `Weight log creation failed: ${error instanceof Error ? error.message : String(error)}`
+        );
         logger.error(`[INTAKE ${this.requestId}] Weight log creation failed:`, error);
       }
     }
@@ -121,7 +133,9 @@ export class IntakeProcessor {
       try {
         soapNote = await this.generateSoapNote(patient.id, document.id, options.treatmentType);
       } catch (error: unknown) {
-        this.errors.push(`SOAP generation failed: ${(error instanceof Error ? error.message : String(error))}`);
+        this.errors.push(
+          `SOAP generation failed: ${error instanceof Error ? error.message : String(error)}`
+        );
         logger.error(`[INTAKE ${this.requestId}] SOAP generation failed:`, error);
       }
     }
@@ -129,9 +143,16 @@ export class IntakeProcessor {
     // Step 6: Track referral (if promo code provided)
     if (options.promoCode) {
       try {
-        await this.trackReferralAttribution(patient.id, options.promoCode, clinicId, options.referralSource);
+        await this.trackReferralAttribution(
+          patient.id,
+          options.promoCode,
+          clinicId,
+          options.referralSource
+        );
       } catch (error: unknown) {
-        this.errors.push(`Referral tracking failed: ${(error instanceof Error ? error.message : String(error))}`);
+        this.errors.push(
+          `Referral tracking failed: ${error instanceof Error ? error.message : String(error)}`
+        );
       }
     }
 
@@ -310,8 +331,11 @@ export class IntakeProcessor {
         logger.debug(`[INTAKE ${this.requestId}] PDF uploaded to S3: ${s3Result.key}`);
       }
     } catch (err) {
-      const errMsg = err instanceof Error ? (err instanceof Error ? err.message : String(err)) : String(err);
-      logger.warn(`[INTAKE ${this.requestId}] PDF S3 upload failed (non-fatal):`, { error: errMsg });
+      const errMsg =
+        err instanceof Error ? (err instanceof Error ? err.message : String(err)) : String(err);
+      logger.warn(`[INTAKE ${this.requestId}] PDF S3 upload failed (non-fatal):`, {
+        error: errMsg,
+      });
       this.errors.push(`PDF S3 upload failed: ${errMsg}`);
     }
 
@@ -331,10 +355,11 @@ export class IntakeProcessor {
       select: { id: true, externalUrl: true },
     });
 
-    const { s3DataKey, dataBuffer: intakeDataBuffer } = await storeIntakeData(
-      intakeDataToStore,
-      { documentId: existingDocument?.id, patientId: patient.id, clinicId }
-    );
+    const { s3DataKey, dataBuffer: intakeDataBuffer } = await storeIntakeData(intakeDataToStore, {
+      documentId: existingDocument?.id,
+      patientId: patient.id,
+      clinicId,
+    });
 
     let document;
     if (existingDocument) {
@@ -374,7 +399,11 @@ export class IntakeProcessor {
   /**
    * Generate SOAP note from intake
    */
-  private async generateSoapNote(patientId: number, documentId: number, treatmentType?: string): Promise<{ id: number }> {
+  private async generateSoapNote(
+    patientId: number,
+    documentId: number,
+    treatmentType?: string
+  ): Promise<{ id: number }> {
     logger.debug(`[INTAKE ${this.requestId}] Generating SOAP note...`);
     const soapNote = await generateSOAPFromIntake(patientId, documentId, undefined, treatmentType);
     logger.info(`[INTAKE ${this.requestId}] SOAP note generated: ${soapNote.id}`);
@@ -393,9 +422,12 @@ export class IntakeProcessor {
     const normalizedCode = promoCode.trim().toUpperCase();
 
     if (!clinicId) {
-      logger.warn(`[INTAKE ${this.requestId}] Cannot track affiliate attribution without clinicId`, {
-        promoCode: normalizedCode,
-      });
+      logger.warn(
+        `[INTAKE ${this.requestId}] Cannot track affiliate attribution without clinicId`,
+        {
+          promoCode: normalizedCode,
+        }
+      );
       return;
     }
 
@@ -433,16 +465,21 @@ export class IntakeProcessor {
         // No AffiliateRefCode exists yet - tag patient for later reconciliation
         const tagged = await tagPatientWithReferralCodeOnly(patientId, normalizedCode, clinicId);
         if (tagged) {
-          logger.info(`[INTAKE ${this.requestId}] Profile tagged with referral code (no affiliate yet): ${normalizedCode}`);
-        } else {
-          logger.debug(
-            `[INTAKE ${this.requestId}] No affiliate match for code: ${normalizedCode}`
+          logger.info(
+            `[INTAKE ${this.requestId}] Profile tagged with referral code (no affiliate yet): ${normalizedCode}`
           );
+        } else {
+          logger.debug(`[INTAKE ${this.requestId}] No affiliate match for code: ${normalizedCode}`);
         }
       }
     } catch (error) {
       logger.warn(`[INTAKE ${this.requestId}] Affiliate attribution failed:`, {
-        error: error instanceof Error ? (error instanceof Error ? error.message : String(error)) : 'Unknown error',
+        error:
+          error instanceof Error
+            ? error instanceof Error
+              ? error.message
+              : String(error)
+            : 'Unknown error',
       });
     }
   }
@@ -479,7 +516,12 @@ export class IntakeProcessor {
         },
       });
     } catch (error) {
-      const errMsg = error instanceof Error ? (error instanceof Error ? error.message : String(error)) : 'Unknown error';
+      const errMsg =
+        error instanceof Error
+          ? error instanceof Error
+            ? error.message
+            : String(error)
+          : 'Unknown error';
       logger.warn(`[INTAKE ${this.requestId}] Audit log failed:`, { error: errMsg });
     }
   }

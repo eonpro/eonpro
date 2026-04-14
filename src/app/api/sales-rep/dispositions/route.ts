@@ -109,12 +109,8 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     const action = searchParams.get('action');
 
     if (action === 'stats') {
-      const fromDate = searchParams.get('from')
-        ? new Date(searchParams.get('from')!)
-        : undefined;
-      const toDate = searchParams.get('to')
-        ? new Date(searchParams.get('to')!)
-        : undefined;
+      const fromDate = searchParams.get('from') ? new Date(searchParams.get('from')!) : undefined;
+      const toDate = searchParams.get('to') ? new Date(searchParams.get('to')!) : undefined;
 
       const stats = await runWithClinicContext(user.clinicId, () =>
         getDispositionStats(user.clinicId!, user.id, fromDate, toDate)

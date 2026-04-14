@@ -311,7 +311,9 @@ export default function LinksPage() {
                           </span>
                         )}
                       </div>
-                      <p className="mt-1 font-mono text-sm text-gray-500">/affiliate/{refCode.code}</p>
+                      <p className="mt-1 font-mono text-sm text-gray-500">
+                        /affiliate/{refCode.code}
+                      </p>
                     </div>
                     <div className="flex gap-2">
                       <button

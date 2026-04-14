@@ -1,13 +1,14 @@
 'use client';
 
 import { createContext, useContext, ReactNode } from 'react';
-import { ProductNameType, MedicationType, ProductType } from '@/app/wellmedr-checkout/types/checkout';
+import {
+  ProductNameType,
+  MedicationType,
+  ProductType,
+} from '@/app/wellmedr-checkout/types/checkout';
 import { products as fallbackProducts } from '@/app/wellmedr-checkout/data/products';
 
-type PriceIdsMap = Record<
-  ProductNameType,
-  Record<MedicationType, Record<string, string>>
->;
+type PriceIdsMap = Record<ProductNameType, Record<MedicationType, Record<string, string>>>;
 
 interface ProductsContextValue {
   products: Record<ProductNameType, ProductType>;
@@ -16,7 +17,7 @@ interface ProductsContextValue {
   getStripePriceId: (
     productName: ProductNameType,
     medicationType: MedicationType,
-    planType: 'monthly' | 'quarterly' | 'sixMonth' | 'annual',
+    planType: 'monthly' | 'quarterly' | 'sixMonth' | 'annual'
   ) => string;
 }
 
@@ -38,7 +39,7 @@ export function ProductsProvider({
   const getStripePriceId = (
     productName: ProductNameType,
     medicationType: MedicationType,
-    planType: 'monthly' | 'quarterly' | 'sixMonth' | 'annual',
+    planType: 'monthly' | 'quarterly' | 'sixMonth' | 'annual'
   ): string => {
     if (priceIds) {
       const priceId = priceIds[productName]?.[medicationType]?.[planType];
@@ -49,9 +50,7 @@ export function ProductsProvider({
   };
 
   return (
-    <ProductsContext.Provider
-      value={{ products, priceIds, isFromStripe, getStripePriceId }}
-    >
+    <ProductsContext.Provider value={{ products, priceIds, isFromStripe, getStripePriceId }}>
       {children}
     </ProductsContext.Provider>
   );

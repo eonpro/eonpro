@@ -14,7 +14,9 @@ const listQuerySchema = z.object({
     .string()
     .optional()
     .transform((v) => (v ? parseInt(v) : undefined)),
-  status: z.enum(['DRAFT', 'PENDING', 'SENT', 'PAID', 'PARTIALLY_PAID', 'OVERDUE', 'CANCELLED']).optional(),
+  status: z
+    .enum(['DRAFT', 'PENDING', 'SENT', 'PAID', 'PARTIALLY_PAID', 'OVERDUE', 'CANCELLED'])
+    .optional(),
   periodType: z.enum(['WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY', 'CUSTOM']).optional(),
   startDate: z
     .string()
@@ -46,7 +48,7 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
     if (!result.success) {
       return NextResponse.json(
         { error: 'Invalid query parameters', details: result.error.flatten() },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -54,7 +56,15 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
 
     const [{ invoices, total }, summary] = await withoutClinicFilter(() =>
       Promise.all([
-        clinicInvoiceService.listInvoices({ clinicId, status, periodType, startDate, endDate, limit, offset }),
+        clinicInvoiceService.listInvoices({
+          clinicId,
+          status,
+          periodType,
+          startDate,
+          endDate,
+          limit,
+          offset,
+        }),
         clinicInvoiceService.getInvoiceSummary(clinicId),
       ])
     );
@@ -96,11 +106,19 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
     if (!result.success) {
       return NextResponse.json(
         { error: 'Validation failed', details: result.error.flatten() },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
-    const { clinicId, periodType, periodStart, periodEnd, notes, externalNotes, createStripeInvoice } = result.data;
+    const {
+      clinicId,
+      periodType,
+      periodStart,
+      periodEnd,
+      notes,
+      externalNotes,
+      createStripeInvoice,
+    } = result.data;
 
     let invoice = await withoutClinicFilter(() =>
       clinicInvoiceService.generateInvoice({
@@ -135,7 +153,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
     });
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to generate invoice' },
-      { status: 500 },
+      { status: 500 }
     );
   }
 });

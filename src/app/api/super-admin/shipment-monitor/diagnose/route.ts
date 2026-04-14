@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withSuperAdminAuth, type AuthUser } from '@/lib/auth/middleware';
 import { basePrisma } from '@/lib/db';
-import { resolveCredentialsWithAttribution, resolveTrackCredentials, fedexEnvironment } from '@/lib/fedex';
+import {
+  resolveCredentialsWithAttribution,
+  resolveTrackCredentials,
+  fedexEnvironment,
+} from '@/lib/fedex';
 import { logger } from '@/lib/logger';
 
 export const maxDuration = 30;
@@ -17,7 +21,9 @@ async function handleDiagnose(_req: NextRequest, _user: AuthUser) {
   diagnostics.hasAccountNumber = !!process.env.FEDEX_ACCOUNT_NUMBER;
   diagnostics.hasTrackClientId = !!process.env.FEDEX_TRACK_CLIENT_ID;
   diagnostics.hasTrackClientSecret = !!process.env.FEDEX_TRACK_CLIENT_SECRET;
-  diagnostics.usingDedicatedTrackCredentials = !!(process.env.FEDEX_TRACK_CLIENT_ID && process.env.FEDEX_TRACK_CLIENT_SECRET);
+  diagnostics.usingDedicatedTrackCredentials = !!(
+    process.env.FEDEX_TRACK_CLIENT_ID && process.env.FEDEX_TRACK_CLIENT_SECRET
+  );
 
   // 2. Get a sample tracking number from the DB
   const { searchParams } = new URL(_req.url);
@@ -31,7 +37,10 @@ async function handleDiagnose(_req: NextRequest, _user: AuthUser) {
   } else if (mode === 'delivered') {
     sampleWhere = { carrier: { in: ['FedEx', 'FEDEX', 'fedex'] }, status: 'DELIVERED' };
   } else {
-    sampleWhere = { carrier: { in: ['FedEx', 'FEDEX', 'fedex'] }, status: { notIn: ['DELIVERED', 'CANCELLED', 'RETURNED'] } };
+    sampleWhere = {
+      carrier: { in: ['FedEx', 'FEDEX', 'fedex'] },
+      status: { notIn: ['DELIVERED', 'CANCELLED', 'RETURNED'] },
+    };
   }
 
   const sample = await basePrisma.patientShippingUpdate.findFirst({
@@ -56,7 +65,13 @@ async function handleDiagnose(_req: NextRequest, _user: AuthUser) {
     const allowEnvFallback = process.env.FEDEX_ALLOW_ENV_FALLBACK_FOR_CLINIC_SHIPPING === 'true';
     const clinic = await basePrisma.clinic.findUnique({
       where: { id: sample.clinicId },
-      select: { id: true, fedexClientId: true, fedexClientSecret: true, fedexAccountNumber: true, fedexEnabled: true },
+      select: {
+        id: true,
+        fedexClientId: true,
+        fedexClientSecret: true,
+        fedexAccountNumber: true,
+        fedexEnabled: true,
+      },
     });
     const resolution = resolveCredentialsWithAttribution(clinic ?? undefined, { allowEnvFallback });
     credentials = resolution.credentials;
@@ -72,13 +87,16 @@ async function handleDiagnose(_req: NextRequest, _user: AuthUser) {
   const trackCreds = resolveTrackCredentials();
   const effectiveTrackCreds = trackCreds || credentials;
   diagnostics.trackCredentialSource = trackCreds
-    ? (process.env.FEDEX_TRACK_CLIENT_ID ? 'dedicated_track_credentials' : 'shared_ship_credentials')
+    ? process.env.FEDEX_TRACK_CLIENT_ID
+      ? 'dedicated_track_credentials'
+      : 'shared_ship_credentials'
     : 'shared_ship_credentials';
 
   // 5. Get OAuth token using Track credentials
-  const fedexApiBase = process.env.FEDEX_SANDBOX === 'true'
-    ? 'https://apis-sandbox.fedex.com'
-    : 'https://apis.fedex.com';
+  const fedexApiBase =
+    process.env.FEDEX_SANDBOX === 'true'
+      ? 'https://apis-sandbox.fedex.com'
+      : 'https://apis.fedex.com';
 
   let accessToken: string;
   try {

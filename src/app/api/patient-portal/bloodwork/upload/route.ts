@@ -24,7 +24,10 @@ const bloodworkUploadRateLimit = rateLimit({
   message: 'Too many uploads. Please try again in 15 minutes.',
 });
 
-async function postHandler(req: NextRequest, user: { id: number; role: string; patientId?: number }) {
+async function postHandler(
+  req: NextRequest,
+  user: { id: number; role: string; patientId?: number }
+) {
   if (!user.patientId) {
     return NextResponse.json({ error: 'Patient profile not found' }, { status: 404 });
   }
@@ -34,7 +37,10 @@ async function postHandler(req: NextRequest, user: { id: number; role: string; p
     formData = await req.formData();
   } catch {
     return NextResponse.json(
-      { error: 'Invalid request body. Use multipart/form-data with a "file" field containing the PDF.' },
+      {
+        error:
+          'Invalid request body. Use multipart/form-data with a "file" field containing the PDF.',
+      },
       { status: 400 }
     );
   }
@@ -80,10 +86,17 @@ async function postHandler(req: NextRequest, user: { id: number; role: string; p
       mimeType: file.type,
       uploadedByUserId: user.id,
     });
-    await logPHICreate(req, { id: user.id, role: user.role, clinicId: patient.clinicId }, 'LabReport', result.labReportId, patient.id, {
-      documentId: result.documentId,
-      resultCount: result.resultCount,
-    });
+    await logPHICreate(
+      req,
+      { id: user.id, role: user.role, clinicId: patient.clinicId },
+      'LabReport',
+      result.labReportId,
+      patient.id,
+      {
+        documentId: result.documentId,
+        resultCount: result.resultCount,
+      }
+    );
     return NextResponse.json(
       {
         success: true,

@@ -13,16 +13,16 @@
 
 // ─── Product IDs ───────────────────────────────────────────────────────────────
 
-const SEMA_1ML = '203448971';       // Semaglutide 2.5mg/mL, 1 mL vial
-const SEMA_2ML = '203448947';       // Semaglutide 2.5mg/mL, 2 mL vial
-const SEMA_3ML = '203449363';       // Semaglutide 2.5mg/mL, 3 mL vial
-const SEMA_5MG_2ML = '202851329';   // Semaglutide 5mg/mL, 2 mL vial
+const SEMA_1ML = '203448971'; // Semaglutide 2.5mg/mL, 1 mL vial
+const SEMA_2ML = '203448947'; // Semaglutide 2.5mg/mL, 2 mL vial
+const SEMA_3ML = '203449363'; // Semaglutide 2.5mg/mL, 3 mL vial
+const SEMA_5MG_2ML = '202851329'; // Semaglutide 5mg/mL, 2 mL vial
 
-const TIRZ_1ML = '203448972';       // Tirzepatide 10mg/mL, 1 mL vial
-const TIRZ_2ML = '203448973';       // Tirzepatide 10mg/mL, 2 mL vial
-const TIRZ_3ML = '203449364';       // Tirzepatide 10mg/mL, 3 mL vial
-const TIRZ_4ML = '203449500';       // Tirzepatide 10mg/mL, 4 mL vial
-const TIRZ_30MG_2ML = '203418602';  // Tirzepatide 30mg/mL, 2 mL vial
+const TIRZ_1ML = '203448972'; // Tirzepatide 10mg/mL, 1 mL vial
+const TIRZ_2ML = '203448973'; // Tirzepatide 10mg/mL, 2 mL vial
+const TIRZ_3ML = '203449364'; // Tirzepatide 10mg/mL, 3 mL vial
+const TIRZ_4ML = '203449500'; // Tirzepatide 10mg/mL, 4 mL vial
+const TIRZ_30MG_2ML = '203418602'; // Tirzepatide 30mg/mL, 2 mL vial
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -307,11 +307,7 @@ export function findOrderSetByName(
   orderSets: Array<{ id: number; name: string; [key: string]: unknown }>,
   targetName: string
 ): { id: number; name: string } | null {
-  const normalize = (s: string) =>
-    s
-      .toLowerCase()
-      .replace(/\s+/g, ' ')
-      .trim();
+  const normalize = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
 
   const target = normalize(targetName);
 
@@ -342,7 +338,8 @@ export function findOrderSetByName(
   // 4. Substring containment
   return (
     orderSets.find(
-      (s) => fuzzyNormalize(s.name).includes(fuzzyTarget) || fuzzyTarget.includes(fuzzyNormalize(s.name))
+      (s) =>
+        fuzzyNormalize(s.name).includes(fuzzyTarget) || fuzzyTarget.includes(fuzzyNormalize(s.name))
     ) || null
   );
 }

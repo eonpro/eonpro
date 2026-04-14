@@ -16,7 +16,10 @@ export default function ShipmentsLoading() {
       {/* Shipment cards */}
       <div className="space-y-4">
         {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+          <div
+            key={i}
+            className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm"
+          >
             <div className="border-b border-gray-100 px-5 py-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">

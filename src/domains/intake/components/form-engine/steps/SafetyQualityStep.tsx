@@ -61,81 +61,100 @@ export default function SafetyQualityStep({
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col" onClick={handleClick}>
-      <div className="w-full h-1 bg-gray-200">
-        <div 
+    <div className="flex min-h-screen flex-col bg-white" onClick={handleClick}>
+      <div className="h-1 w-full bg-gray-200">
+        <div
           className="h-full bg-[var(--intake-accent,#f0feab)] transition-all duration-300"
           style={{ width: `${progressPercent}%` }}
         />
       </div>
-      
+
       {prevStep && (
-        <div className="px-6 lg:px-8 pt-8 lg:pt-6">
-          <button 
-            onClick={(e) => { e.stopPropagation(); handleBack(); }} 
-            className="inline-block p-2 -ml-2 hover:bg-gray-100 rounded-lg transition-colors"
+        <div className="px-6 pt-8 lg:px-8 lg:pt-6">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleBack();
+            }}
+            className="-ml-2 inline-block rounded-lg p-2 transition-colors hover:bg-gray-100"
           >
-            <svg className="w-6 h-6 text-[#413d3d]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+            <svg
+              className="h-6 w-6 text-[#413d3d]"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
           </button>
         </div>
       )}
 
-      <div className="flex-1 flex flex-col px-6 lg:px-8 py-8 pb-40 max-w-md lg:max-w-2xl mx-auto w-full">
-        <div 
-          className={`${isOt ? 'bg-[#f5ecd8]' : 'bg-[#e5fbab]'} rounded-3xl p-6 md:p-8 transition-all duration-700 ease-out
-            hover:shadow-xl cursor-pointer
-            ${animate ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}
+      <div className="mx-auto flex w-full max-w-md flex-1 flex-col px-6 py-8 pb-40 lg:max-w-2xl lg:px-8">
+        <div
+          className={`${isOt ? 'bg-[#f5ecd8]' : 'bg-[#e5fbab]'} cursor-pointer rounded-3xl p-6 transition-all duration-700 ease-out hover:shadow-xl md:p-8 ${animate ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}`}
         >
           <div className="flex flex-col space-y-6">
             <div className="space-y-4">
-              <h1 
-                className={`text-2xl lg:text-3xl font-semibold leading-tight text-black transition-all duration-700 ease-out ${
-                  animate ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+              <h1
+                className={`text-2xl font-semibold leading-tight text-black transition-all duration-700 ease-out lg:text-3xl ${
+                  animate ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
                 }`}
                 style={{ transitionDelay: '200ms' }}
               >
-                {isSpanish 
+                {isSpanish
                   ? 'Comprometidos con la seguridad y la máxima calidad en cada paso.'
                   : 'Committed to safety and the highest quality at every step.'}
               </h1>
-              
-              <p 
-                className={`text-base lg:text-lg text-gray-700 leading-relaxed transition-all duration-700 ease-out ${
-                  animate ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+
+              <p
+                className={`text-base leading-relaxed text-gray-700 transition-all duration-700 ease-out lg:text-lg ${
+                  animate ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
                 }`}
                 style={{ transitionDelay: '350ms' }}
               >
                 {isSpanish
-                  ? (isOt ? 'Optimize by OT Men\'s Health colabora con algunas de las mejores farmacias 503A licenciadas del país para elaborar tratamientos personalizados y seguros para ti.' : 'EONMeds colabora con algunas de las mejores farmacias 503A licenciadas del país para elaborar tratamientos personalizados y seguros para ti.')
-                  : (isOt ? 'Optimize by OT Men\'s Health collaborates with some of the best 503A licensed pharmacies in the country to develop personalized and safe treatments for you.' : 'EONMeds collaborates with some of the best 503A licensed pharmacies in the country to develop personalized and safe treatments for you.')}
+                  ? isOt
+                    ? "Optimize by OT Men's Health colabora con algunas de las mejores farmacias 503A licenciadas del país para elaborar tratamientos personalizados y seguros para ti."
+                    : 'EONMeds colabora con algunas de las mejores farmacias 503A licenciadas del país para elaborar tratamientos personalizados y seguros para ti.'
+                  : isOt
+                    ? "Optimize by OT Men's Health collaborates with some of the best 503A licensed pharmacies in the country to develop personalized and safe treatments for you."
+                    : 'EONMeds collaborates with some of the best 503A licensed pharmacies in the country to develop personalized and safe treatments for you.'}
               </p>
             </div>
 
-            <div 
-              className={`rounded-2xl overflow-hidden transition-all duration-700 ease-out max-w-[260px] mx-auto ${
-                animate ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
+            <div
+              className={`mx-auto max-w-[260px] overflow-hidden rounded-2xl transition-all duration-700 ease-out ${
+                animate ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
               }`}
               style={{ transitionDelay: '500ms' }}
             >
-              <img 
+              <img
                 src="https://static.wixstatic.com/media/c49a9b_08d4b9a9d0394b3a83c2284def597b09~mv2.webp"
                 alt={isSpanish ? 'Farmacia de calidad' : 'Quality pharmacy'}
-                className="w-full h-auto hover:scale-105 transition-transform duration-500"
+                className="h-auto w-full transition-transform duration-500 hover:scale-105"
               />
             </div>
           </div>
         </div>
       </div>
 
-      <div 
-        className={`px-6 lg:px-8 pb-8 max-w-md lg:max-w-2xl mx-auto w-full transition-all duration-700 ease-out ${
+      <div
+        className={`mx-auto w-full max-w-md px-6 pb-8 transition-all duration-700 ease-out lg:max-w-2xl lg:px-8 ${
           animate ? 'opacity-100' : 'opacity-0'
         }`}
         style={{ transitionDelay: '700ms' }}
       >
-        <p className="copyright-text text-center">© 2026 EONPro, LLC. All rights reserved.<br/>Exclusive and protected process.</p>
+        <p className="copyright-text text-center">
+          © 2026 EONPro, LLC. All rights reserved.
+          <br />
+          Exclusive and protected process.
+        </p>
       </div>
     </div>
   );

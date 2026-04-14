@@ -184,7 +184,9 @@ async function getCouponsHandler(request: NextRequest, user: AuthUser) {
     logger.error('[STRIPE COUPONS] Error:', error);
 
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : String(error) || 'Failed to fetch coupons' },
+      {
+        error: error instanceof Error ? error.message : String(error) || 'Failed to fetch coupons',
+      },
       { status: 500 }
     );
   }
@@ -292,7 +294,9 @@ async function createCouponHandler(request: NextRequest, user: AuthUser) {
     }
 
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : String(error) || 'Failed to create coupon' },
+      {
+        error: error instanceof Error ? error.message : String(error) || 'Failed to create coupon',
+      },
       { status: 500 }
     );
   }

@@ -34,7 +34,11 @@ async function handleRefreshAll(_req: NextRequest, _user: AuthUser) {
     });
 
     if (allActive.length === 0) {
-      return NextResponse.json({ success: true, message: 'No active FedEx shipments to refresh', updated: 0 });
+      return NextResponse.json({
+        success: true,
+        message: 'No active FedEx shipments to refresh',
+        updated: 0,
+      });
     }
 
     const byClinic = new Map<number, typeof allActive>();
@@ -56,9 +60,17 @@ async function handleRefreshAll(_req: NextRequest, _user: AuthUser) {
       try {
         const clinic = await basePrisma.clinic.findUnique({
           where: { id: clinicId },
-          select: { id: true, fedexClientId: true, fedexClientSecret: true, fedexAccountNumber: true, fedexEnabled: true },
+          select: {
+            id: true,
+            fedexClientId: true,
+            fedexClientSecret: true,
+            fedexAccountNumber: true,
+            fedexEnabled: true,
+          },
         });
-        const resolution = resolveCredentialsWithAttribution(clinic ?? undefined, { allowEnvFallback });
+        const resolution = resolveCredentialsWithAttribution(clinic ?? undefined, {
+          allowEnvFallback,
+        });
         credentials = resolution.credentials;
       } catch {
         totalErrors += shipments.length;

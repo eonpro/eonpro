@@ -57,10 +57,7 @@ interface SSEWriter {
  *   - done: { sessionId, messageId, usage }
  *   - error: { message: string }
  */
-export async function runStreamingAssistant(
-  ctx: StreamContext,
-  writer: SSEWriter,
-): Promise<void> {
+export async function runStreamingAssistant(ctx: StreamContext, writer: SSEWriter): Promise<void> {
   const startMs = Date.now();
   let firstTokenMs: number | null = null;
   let toolCallsCount = 0;
@@ -163,7 +160,7 @@ export async function runStreamingAssistant(
         }
         const result = await routeToolCall(tc.name, args, ctx.clinicId);
         return { tc, result };
-      }),
+      })
     );
 
     // Emit results and build response messages
@@ -216,7 +213,7 @@ export async function runStreamingAssistant(
   const messageCount = (conversation.messages?.length ?? 0) + 2; // +2 for new user+assistant
   if (messageCount >= 10 && messageCount % 10 < 2) {
     summarizeConversation(conversation.id, client, model).catch((err) =>
-      logger.warn('[BeccaV2] Background summarization failed', { error: String(err) }),
+      logger.warn('[BeccaV2] Background summarization failed', { error: String(err) })
     );
   }
 
@@ -260,7 +257,7 @@ async function resolveConversation(ctx: StreamContext) {
 
 function buildMessages(
   ctx: StreamContext,
-  conversation: { messages: Array<{ role: string; content: string }>; summary?: string | null },
+  conversation: { messages: Array<{ role: string; content: string }>; summary?: string | null }
 ): OpenAI.Chat.ChatCompletionMessageParam[] {
   const msgs: OpenAI.Chat.ChatCompletionMessageParam[] = [];
 
@@ -354,7 +351,7 @@ function extractSuggestions(content: string): string[] {
 async function summarizeConversation(
   conversationId: number,
   client: OpenAI,
-  model: string,
+  model: string
 ): Promise<void> {
   const messages = await prisma.aIMessage.findMany({
     where: { conversationId },
@@ -364,9 +361,7 @@ async function summarizeConversation(
 
   if (messages.length < 6) return;
 
-  const transcript = messages
-    .map((m) => `${m.role}: ${m.content.slice(0, 300)}`)
-    .join('\n');
+  const transcript = messages.map((m) => `${m.role}: ${m.content.slice(0, 300)}`).join('\n');
 
   const completion = await client.chat.completions.create({
     model,
@@ -388,6 +383,9 @@ async function summarizeConversation(
       where: { id: conversationId },
       data: { summary },
     });
-    logger.info('[BeccaV2] Conversation summarized', { conversationId, summaryLength: summary.length });
+    logger.info('[BeccaV2] Conversation summarized', {
+      conversationId,
+      summaryLength: summary.length,
+    });
   }
 }

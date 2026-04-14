@@ -41,7 +41,10 @@ export async function GET(req: NextRequest) {
     });
 
     if (!clinic?.stripeAccountId) {
-      return NextResponse.json({ skipped: true, reason: 'No WellMedR clinic or no stripeAccountId' });
+      return NextResponse.json({
+        skipped: true,
+        reason: 'No WellMedR clinic or no stripeAccountId',
+      });
     }
 
     const { getStripeForClinic } = await import('@/lib/stripe/connect');
@@ -98,4 +101,3 @@ export async function GET(req: NextRequest) {
     return handleApiError(error, { context: { route: 'GET /api/cron/addon-unmatched-digest' } });
   }
 }
-

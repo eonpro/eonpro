@@ -40,8 +40,7 @@ const tirzepatideConfig: ProductConfig = {
       id: 'tirz-10',
       name: 'Maintenance Dose',
       strength: '10mg',
-      description:
-        'Standard maintenance dose for long-term use. Effective for most patients.',
+      description: 'Standard maintenance dose for long-term use. Effective for most patients.',
       isMaintenanceDose: true,
     },
     {
@@ -56,8 +55,7 @@ const tirzepatideConfig: ProductConfig = {
       id: 'tirz-15',
       name: 'Maximum Dose',
       strength: '15mg',
-      description:
-        'Maximum FDA-approved dose for patients who have plateaued on lower doses.',
+      description: 'Maximum FDA-approved dose for patients who have plateaued on lower doses.',
       isAdvanced: true,
       requiresPriorExperience: true,
     },
@@ -85,8 +83,7 @@ const tirzepatideConfig: ProductConfig = {
       savings: 96,
       badge: 'Save $96',
       badgeEs: 'Ahorra $96',
-      stripePriceId:
-        process.env.NEXT_PUBLIC_STRIPE_PRICE_TIRZ_3MONTH || 'price_tirzepatide_3month',
+      stripePriceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_TIRZ_3MONTH || 'price_tirzepatide_3month',
       stripePriceIdTest: 'price_test_tirzepatide_3month',
     },
     {
@@ -99,8 +96,7 @@ const tirzepatideConfig: ProductConfig = {
       savings: 300,
       badge: 'Best Value',
       badgeEs: 'Mejor Valor',
-      stripePriceId:
-        process.env.NEXT_PUBLIC_STRIPE_PRICE_TIRZ_6MONTH || 'price_tirzepatide_6month',
+      stripePriceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_TIRZ_6MONTH || 'price_tirzepatide_6month',
       stripePriceIdTest: 'price_test_tirzepatide_6month',
     },
     {
@@ -126,8 +122,7 @@ const tirzepatideConfig: ProductConfig = {
       basePrice: 39,
       icon: 'pill',
       hasDuration: true,
-      stripePriceId:
-        process.env.NEXT_PUBLIC_STRIPE_PRICE_NAUSEA || 'price_nausea_relief',
+      stripePriceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_NAUSEA || 'price_nausea_relief',
       stripePriceIdTest: 'price_test_nausea_relief',
     },
     {
@@ -139,8 +134,7 @@ const tirzepatideConfig: ProductConfig = {
       basePrice: 99,
       icon: 'flame',
       hasDuration: true,
-      stripePriceId:
-        process.env.NEXT_PUBLIC_STRIPE_PRICE_FATBURNER || 'price_fat_burner',
+      stripePriceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_FATBURNER || 'price_fat_burner',
       stripePriceIdTest: 'price_test_fat_burner',
     },
   ],

@@ -66,7 +66,15 @@ export default function BillingAnalyticsPage() {
     );
   }
 
-  const { overview, revenueTrend, arAging, feeBreakdown, collectionMetrics, topClinics, monthComparison } = data;
+  const {
+    overview,
+    revenueTrend,
+    arAging,
+    feeBreakdown,
+    collectionMetrics,
+    topClinics,
+    monthComparison,
+  } = data;
 
   return (
     <div>
@@ -153,7 +161,9 @@ export default function BillingAnalyticsPage() {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Metric</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                  Metric
+                </th>
                 <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">
                   {monthComparison.current.month}
                 </th>
@@ -163,8 +173,12 @@ export default function BillingAnalyticsPage() {
                 <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">
                   {monthComparison.lastYear.month}
                 </th>
-                <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">MoM</th>
-                <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">YoY</th>
+                <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">
+                  MoM
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">
+                  YoY
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -250,8 +264,7 @@ function ComparisonRow({
   lastYear: number;
   format: 'currency' | 'number';
 }) {
-  const fmt = (v: number) =>
-    format === 'currency' ? formatCurrency(v) : v.toLocaleString();
+  const fmt = (v: number) => (format === 'currency' ? formatCurrency(v) : v.toLocaleString());
 
   const momDelta = previous > 0 ? ((current - previous) / previous) * 100 : 0;
   const yoyDelta = lastYear > 0 ? ((current - lastYear) / lastYear) * 100 : 0;
@@ -260,8 +273,14 @@ function ComparisonRow({
     if (delta === 0) return <span className="text-gray-400">-</span>;
     const positive = delta > 0;
     return (
-      <span className={`inline-flex items-center gap-0.5 text-sm font-medium ${positive ? 'text-green-600' : 'text-red-600'}`}>
-        {positive ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
+      <span
+        className={`inline-flex items-center gap-0.5 text-sm font-medium ${positive ? 'text-green-600' : 'text-red-600'}`}
+      >
+        {positive ? (
+          <ArrowUpRight className="h-3.5 w-3.5" />
+        ) : (
+          <ArrowDownRight className="h-3.5 w-3.5" />
+        )}
         {Math.abs(Math.round(delta))}%
       </span>
     );
@@ -273,8 +292,12 @@ function ComparisonRow({
       <td className="px-4 py-3 text-right text-sm font-semibold text-gray-900">{fmt(current)}</td>
       <td className="px-4 py-3 text-right text-sm text-gray-600">{fmt(previous)}</td>
       <td className="px-4 py-3 text-right text-sm text-gray-600">{fmt(lastYear)}</td>
-      <td className="px-4 py-3 text-right"><DeltaBadge delta={momDelta} /></td>
-      <td className="px-4 py-3 text-right"><DeltaBadge delta={yoyDelta} /></td>
+      <td className="px-4 py-3 text-right">
+        <DeltaBadge delta={momDelta} />
+      </td>
+      <td className="px-4 py-3 text-right">
+        <DeltaBadge delta={yoyDelta} />
+      </td>
     </tr>
   );
 }

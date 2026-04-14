@@ -1,5 +1,11 @@
 import { prisma } from '@/lib/db';
-import type { DataSourceAdapter, ReportConfig, ReportResult, DataSourceDef, ReportRow } from '../types';
+import type {
+  DataSourceAdapter,
+  ReportConfig,
+  ReportResult,
+  DataSourceDef,
+  ReportRow,
+} from '../types';
 
 const definition: DataSourceDef = {
   id: 'commissions',
@@ -17,22 +23,42 @@ const definition: DataSourceDef = {
     { id: 'volumeTierBonus', label: 'Volume Tier Bonus', type: 'currency' },
     { id: 'productBonus', label: 'Product Bonus', type: 'currency' },
     { id: 'multiItemBonus', label: 'Multi-Item Bonus', type: 'currency' },
-    { id: 'status', label: 'Status', type: 'string', sortable: true, filterable: true, groupable: true },
+    {
+      id: 'status',
+      label: 'Status',
+      type: 'string',
+      sortable: true,
+      filterable: true,
+      groupable: true,
+    },
     { id: 'isRecurring', label: 'Recurring', type: 'boolean', filterable: true, groupable: true },
     { id: 'isManual', label: 'Manual', type: 'boolean', filterable: true },
     { id: 'planName', label: 'Plan', type: 'string', groupable: true },
     { id: 'type', label: 'Type', type: 'string', groupable: true },
   ],
   filters: [
-    { field: 'status', label: 'Status', type: 'multi_select', options: [
-      { value: 'PENDING', label: 'Pending' }, { value: 'APPROVED', label: 'Approved' },
-      { value: 'PAID', label: 'Paid' }, { value: 'REVERSED', label: 'Reversed' },
-    ]},
+    {
+      field: 'status',
+      label: 'Status',
+      type: 'multi_select',
+      options: [
+        { value: 'PENDING', label: 'Pending' },
+        { value: 'APPROVED', label: 'Approved' },
+        { value: 'PAID', label: 'Paid' },
+        { value: 'REVERSED', label: 'Reversed' },
+      ],
+    },
     { field: 'clinicId', label: 'Clinic', type: 'select' },
     { field: 'salesRepId', label: 'Sales Rep', type: 'select' },
-    { field: 'isRecurring', label: 'New vs Recurring', type: 'select', options: [
-      { value: 'false', label: 'New Sale' }, { value: 'true', label: 'Recurring' },
-    ]},
+    {
+      field: 'isRecurring',
+      label: 'New vs Recurring',
+      type: 'select',
+      options: [
+        { value: 'false', label: 'New Sale' },
+        { value: 'true', label: 'Recurring' },
+      ],
+    },
     { field: 'dateRange', label: 'Date Range', type: 'date_range' },
   ],
   groupByOptions: [
@@ -76,7 +102,13 @@ async function execute(config: ReportConfig): Promise<ReportResult> {
   const where = buildWhere(config);
   const events = await prisma.salesRepCommissionEvent.findMany({
     where,
-    orderBy: { [config.sortBy === 'commission' ? 'commissionAmountCents' : config.sortBy === 'revenue' ? 'eventAmountCents' : 'occurredAt']: config.sortDir || 'desc' },
+    orderBy: {
+      [config.sortBy === 'commission'
+        ? 'commissionAmountCents'
+        : config.sortBy === 'revenue'
+          ? 'eventAmountCents'
+          : 'occurredAt']: config.sortDir || 'desc',
+    },
     take: config.limit || 1000,
     include: {
       salesRep: { select: { id: true, firstName: true, lastName: true, email: true } },
@@ -87,7 +119,10 @@ async function execute(config: ReportConfig): Promise<ReportResult> {
   const rows: ReportRow[] = events.map((e) => ({
     id: e.id,
     date: e.occurredAt.toISOString(),
-    salesRepName: `${e.salesRep?.firstName || ''} ${e.salesRep?.lastName || ''}`.trim() || e.salesRep?.email || '',
+    salesRepName:
+      `${e.salesRep?.firstName || ''} ${e.salesRep?.lastName || ''}`.trim() ||
+      e.salesRep?.email ||
+      '',
     salesRepEmail: e.salesRep?.email || '',
     clinicName: e.clinic?.name || '',
     revenue: e.eventAmountCents,
@@ -111,11 +146,25 @@ async function execute(config: ReportConfig): Promise<ReportResult> {
     totalRevenue: events.reduce((a, e) => a + e.eventAmountCents, 0),
     totalCommission: events.reduce((a, e) => a + e.commissionAmountCents, 0),
     totalEvents: events.length,
-    newSaleCommission: events.filter((e) => !e.isRecurring).reduce((a, e) => a + e.commissionAmountCents, 0),
-    recurringCommission: events.filter((e) => e.isRecurring).reduce((a, e) => a + e.commissionAmountCents, 0),
+    newSaleCommission: events
+      .filter((e) => !e.isRecurring)
+      .reduce((a, e) => a + e.commissionAmountCents, 0),
+    recurringCommission: events
+      .filter((e) => e.isRecurring)
+      .reduce((a, e) => a + e.commissionAmountCents, 0),
   };
 
-  return { rows: grouped, summary, meta: { totalRows: grouped.length, executedAt: new Date().toISOString(), dataSource: 'commissions', dateRange: config.dateRange, groupBy: config.groupBy } };
+  return {
+    rows: grouped,
+    summary,
+    meta: {
+      totalRows: grouped.length,
+      executedAt: new Date().toISOString(),
+      dataSource: 'commissions',
+      dateRange: config.dateRange,
+      groupBy: config.groupBy,
+    },
+  };
 }
 
 function groupRows(rows: ReportRow[], groupBy: string): ReportRow[] {

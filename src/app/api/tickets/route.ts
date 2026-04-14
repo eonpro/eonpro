@@ -76,7 +76,8 @@ export const GET = withAuth(async (request, user) => {
     // Non–super_admin without clinicId: return empty list (no leak) so the UI still loads
     const effectiveClinicId =
       user.role === 'super_admin' ? undefined : (user.clinicId ?? undefined);
-    const hasClinicContext = user.role === 'super_admin' || (user.clinicId != null && user.clinicId !== undefined);
+    const hasClinicContext =
+      user.role === 'super_admin' || (user.clinicId != null && user.clinicId !== undefined);
 
     const { searchParams } = new URL(request.url);
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
@@ -117,8 +118,12 @@ export const GET = withAuth(async (request, user) => {
 
     const filters: TicketListFilters = {
       clinicId: effectiveClinicId,
-      status: statusList.length ? (statusList as import('@prisma/client').TicketStatus[]) : undefined,
-      priority: priorityList.length ? (priorityList as import('@prisma/client').TicketPriority[]) : undefined,
+      status: statusList.length
+        ? (statusList as import('@prisma/client').TicketStatus[])
+        : undefined,
+      priority: priorityList.length
+        ? (priorityList as import('@prisma/client').TicketPriority[])
+        : undefined,
       assignedToId,
       myTickets,
       isUnassigned,
@@ -129,8 +134,16 @@ export const GET = withAuth(async (request, user) => {
     const options: TicketListOptions = {
       page,
       limit,
-      sortBy: ['createdAt', 'updatedAt', 'lastActivityAt', 'priority', 'status', 'ticketNumber', 'dueDate'].includes(sortBy)
-        ? sortBy as TicketListOptions['sortBy']
+      sortBy: [
+        'createdAt',
+        'updatedAt',
+        'lastActivityAt',
+        'priority',
+        'status',
+        'ticketNumber',
+        'dueDate',
+      ].includes(sortBy)
+        ? (sortBy as TicketListOptions['sortBy'])
         : 'createdAt',
       sortOrder,
     };
@@ -153,15 +166,24 @@ export const GET = withAuth(async (request, user) => {
 
     // Fallback: inline Prisma query with full filter support and lastActivityAt + sla
     const skip = (page - 1) * limit;
-    const validSortFields = ['createdAt', 'updatedAt', 'lastActivityAt', 'priority', 'status', 'ticketNumber'];
+    const validSortFields = [
+      'createdAt',
+      'updatedAt',
+      'lastActivityAt',
+      'priority',
+      'status',
+      'ticketNumber',
+    ];
     const orderByField = validSortFields.includes(sortBy) ? sortBy : 'createdAt';
     const orderBy = { [orderByField]: sortOrder };
 
     const whereClause: Prisma.TicketWhereInput = {
       clinicId: user.clinicId ?? undefined,
     };
-    if (statusList.length) whereClause.status = { in: statusList as import('@prisma/client').TicketStatus[] };
-    if (priorityList.length) whereClause.priority = { in: priorityList as import('@prisma/client').TicketPriority[] };
+    if (statusList.length)
+      whereClause.status = { in: statusList as import('@prisma/client').TicketStatus[] };
+    if (priorityList.length)
+      whereClause.priority = { in: priorityList as import('@prisma/client').TicketPriority[] };
     if (myTickets) whereClause.assignedToId = user.id;
     else if (isUnassigned) whereClause.assignedToId = null;
     else if (assignedToId != null) whereClause.assignedToId = assignedToId;
@@ -325,11 +347,14 @@ export const GET = withAuth(async (request, user) => {
 
     // Circuit breaker open — return empty list gracefully
     if (error instanceof CircuitOpenError) {
-      return NextResponse.json({
-        tickets: [],
-        pagination: { page: 1, limit: 20, total: 0, totalPages: 0, hasMore: false },
-        warning: 'Service temporarily degraded. Retrying shortly.',
-      }, { status: 503, headers: { 'Retry-After': '10' } });
+      return NextResponse.json(
+        {
+          tickets: [],
+          pagination: { page: 1, limit: 20, total: 0, totalPages: 0, hasMore: false },
+          warning: 'Service temporarily degraded. Retrying shortly.',
+        },
+        { status: 503, headers: { 'Retry-After': '10' } }
+      );
     }
 
     // Database connection errors should return 503 (Service Unavailable)
@@ -386,9 +411,7 @@ export const POST = withAuth(async (request, user) => {
     const body = await request.json();
 
     // Only super_admin may specify a different clinic
-    const clinicId = user.role === 'super_admin'
-      ? (body.clinicId || user.clinicId)
-      : user.clinicId;
+    const clinicId = user.role === 'super_admin' ? body.clinicId || user.clinicId : user.clinicId;
 
     if (!clinicId) {
       return NextResponse.json({ error: 'Clinic ID is required' }, { status: 400 });

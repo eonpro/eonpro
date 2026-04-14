@@ -43,7 +43,10 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
         _count: true,
       });
       const pendingMap = new Map(
-        pendingByClinic.map((a) => [a.clinicId, { amountCents: a._sum.amountCents ?? 0, count: a._count }])
+        pendingByClinic.map((a) => [
+          a.clinicId,
+          { amountCents: a._sum.amountCents ?? 0, count: a._count },
+        ])
       );
 
       const clinicsWithConfigs = clinics.map((clinic) => {
@@ -97,7 +100,9 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
   } catch (error) {
     logger.error('[SuperAdmin] Error listing clinic fee configs', {
       error: error instanceof Error ? error.message : 'Unknown error',
-      ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
+      ...(process.env.NODE_ENV === 'development' && {
+        stack: error instanceof Error ? error.stack : undefined,
+      }),
     });
     return NextResponse.json(
       {

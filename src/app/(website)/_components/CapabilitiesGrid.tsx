@@ -51,8 +51,10 @@ export default function CapabilitiesGrid() {
     const el = ref.current;
     if (!el) return;
     const obs = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) setVisible(true); },
-      { threshold: 0.1 },
+      ([entry]) => {
+        if (entry.isIntersecting) setVisible(true);
+      },
+      { threshold: 0.1 }
     );
     obs.observe(el);
     return () => obs.disconnect();
@@ -82,12 +84,14 @@ export default function CapabilitiesGrid() {
             return (
               <div
                 key={cap.label}
-                className={`group flex flex-col items-center rounded-2xl border border-gray-100 bg-[#fafaf8] p-5 text-center transition-all duration-500 hover:border-[#4fa77e]/30 hover:bg-[#4fa77e]/5 hover:-translate-y-1 hover:shadow-md ${
-                  visible ? 'translate-y-0 scale-100 opacity-100' : 'translate-y-6 scale-95 opacity-0'
+                className={`group flex flex-col items-center rounded-2xl border border-gray-100 bg-[#fafaf8] p-5 text-center transition-all duration-500 hover:-translate-y-1 hover:border-[#4fa77e]/30 hover:bg-[#4fa77e]/5 hover:shadow-md ${
+                  visible
+                    ? 'translate-y-0 scale-100 opacity-100'
+                    : 'translate-y-6 scale-95 opacity-0'
                 }`}
                 style={{ transitionDelay: `${200 + row * 100 + col * 60}ms` }}
               >
-                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-[#4fa77e]/10 text-[#4fa77e] transition-all duration-300 group-hover:bg-[#4fa77e] group-hover:text-white group-hover:scale-110 group-hover:rotate-3">
+                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-[#4fa77e]/10 text-[#4fa77e] transition-all duration-300 group-hover:rotate-3 group-hover:scale-110 group-hover:bg-[#4fa77e] group-hover:text-white">
                   <Icon className="h-5 w-5" />
                 </div>
                 <h3 className="text-sm font-semibold text-[#1f2933]">{cap.label}</h3>

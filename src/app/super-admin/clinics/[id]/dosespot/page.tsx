@@ -222,9 +222,7 @@ export default function ClinicDoseSpotSettingsPage() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              SSO Login URL *
-            </label>
+            <label className="mb-1 block text-sm font-medium text-gray-700">SSO Login URL *</label>
             <input
               type="url"
               value={form.doseSpotSsoUrl}
@@ -301,18 +299,10 @@ export default function ClinicDoseSpotSettingsPage() {
       <div className="mb-6 rounded-xl border border-teal-200 bg-teal-50 p-6">
         <h3 className="font-semibold text-teal-900">How DoseSpot works</h3>
         <ul className="mt-2 space-y-1 text-sm text-teal-800">
-          <li>
-            Providers open the DoseSpot UI via SSO to write prescriptions
-          </li>
-          <li>
-            Prescriptions are sent electronically to the patient&apos;s chosen pharmacy
-          </li>
-          <li>
-            Patients and providers are synced to DoseSpot automatically on first use
-          </li>
-          <li>
-            This is separate from Lifefile (in-network) prescriptions
-          </li>
+          <li>Providers open the DoseSpot UI via SSO to write prescriptions</li>
+          <li>Prescriptions are sent electronically to the patient&apos;s chosen pharmacy</li>
+          <li>Patients and providers are synced to DoseSpot automatically on first use</li>
+          <li>This is separate from Lifefile (in-network) prescriptions</li>
         </ul>
       </div>
 

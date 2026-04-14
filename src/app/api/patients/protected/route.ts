@@ -73,58 +73,64 @@ export const POST = withProviderAuth(async (req, user) => {
 
     const clinicId = body.clinicId ?? user.clinicId;
     if (!clinicId) {
-      return Response.json({ error: 'clinicId is required (or user must have clinic context)' }, { status: 400 });
+      return Response.json(
+        { error: 'clinicId is required (or user must have clinic context)' },
+        { status: 400 }
+      );
     }
 
     // Create patient with audit trail
     // IMPORTANT: Use user.providerId (Provider table ID), NOT user.id (User table ID)
-    const patient = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      // Build search index from plain-text data before create
-      const searchIndex = buildPatientSearchIndex({
-        firstName: body.firstName,
-        lastName: body.lastName,
-        email: body.email,
-        phone: body.phone,
-      });
-
-      // Whitelist fields to prevent mass assignment of privileged fields
-      const newPatient = await tx.patient.create({
-        data: {
-          clinicId,
+    const patient = await prisma.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        // Build search index from plain-text data before create
+        const searchIndex = buildPatientSearchIndex({
           firstName: body.firstName,
           lastName: body.lastName,
           email: body.email,
           phone: body.phone,
-          dob: body.dob,
-          emailHash: computeEmailHash(body.email),
-          dobHash: computeDobHash(body.dob),
-          gender: body.gender,
-          address1: body.address1,
-          address2: body.address2,
-          city: body.city,
-          state: body.state,
-          zip: body.zip,
-          searchIndex,
-          ...(user.role === 'provider' && user.providerId
-            ? { providerId: user.providerId }
-            : body.providerId != null
-              ? { providerId: body.providerId }
-              : {}),
-        },
-      });
+        });
 
-      // Create audit log (actorId uses user.id, but providerId should use the actual provider ID)
-      await tx.patientAudit.create({
-        data: {
-          patientId: newPatient.id,
-          action: 'CREATE',
-          actorEmail: user.email,
-          diff: JSON.stringify(body),
-        },
-      });
+        // Whitelist fields to prevent mass assignment of privileged fields
+        const newPatient = await tx.patient.create({
+          data: {
+            clinicId,
+            firstName: body.firstName,
+            lastName: body.lastName,
+            email: body.email,
+            phone: body.phone,
+            dob: body.dob,
+            emailHash: computeEmailHash(body.email),
+            dobHash: computeDobHash(body.dob),
+            gender: body.gender,
+            address1: body.address1,
+            address2: body.address2,
+            city: body.city,
+            state: body.state,
+            zip: body.zip,
+            searchIndex,
+            ...(user.role === 'provider' && user.providerId
+              ? { providerId: user.providerId }
+              : body.providerId != null
+                ? { providerId: body.providerId }
+                : {}),
+          },
+        });
 
-      return newPatient;
-    }, { timeout: 15000 });
+        // Create audit log (actorId uses user.id, but providerId should use the actual provider ID)
+        await tx.patientAudit.create({
+          data: {
+            patientId: newPatient.id,
+            action: 'CREATE',
+            actorEmail: user.email,
+            diff: JSON.stringify(body),
+          },
+        });
+
+        return newPatient;
+      },
+      { timeout: 15000 }
+    );
 
     return Response.json({
       patient,

@@ -20,7 +20,7 @@ export function getWellMedrConnectStripe(): Stripe {
   if (!key) {
     throw new Error(
       'STRIPE_CONNECT_PLATFORM_SECRET_KEY is not configured. ' +
-      'Direct charges require the platform secret key, not the connected account key.'
+        'Direct charges require the platform secret key, not the connected account key.'
     );
   }
 
@@ -38,7 +38,7 @@ export function getWellMedrAccountId(): string {
   if (!id) {
     throw new Error(
       'WELLMEDR_STRIPE_ACCOUNT_ID is not configured. ' +
-      'Set this to the WellMedR connected account ID (acct_xxx).'
+        'Set this to the WellMedR connected account ID (acct_xxx).'
     );
   }
   return id;

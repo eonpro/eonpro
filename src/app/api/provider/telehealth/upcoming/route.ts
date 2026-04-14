@@ -74,22 +74,28 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
               ORDER BY a."startTime" ASC
               LIMIT 20`;
 
-        const fallbackSessions = await Promise.all(rows.map(async (r: any) => ({
-          id: r.id,
-          topic: r.title ?? r.reason ?? 'Video Consultation',
-          scheduledAt: new Date(r.startTime).toISOString(),
-          duration: r.duration ?? 15,
-          status: r.status === 'CONFIRMED' ? 'SCHEDULED' : r.status,
-          joinUrl: r.zoomJoinUrl ?? r.videoLink ?? '',
-          hostUrl: null,
-          meetingId: r.zoomMeetingId,
-          password: null,
-          patient: r.patientId
-            ? safeDecryptPatient({ id: r.patientId, firstName: r.firstName, lastName: r.lastName })
-            : null,
-          appointment: { id: r.id, title: r.title, reason: r.reason },
-          source: 'fallback',
-        })));
+        const fallbackSessions = await Promise.all(
+          rows.map(async (r: any) => ({
+            id: r.id,
+            topic: r.title ?? r.reason ?? 'Video Consultation',
+            scheduledAt: new Date(r.startTime).toISOString(),
+            duration: r.duration ?? 15,
+            status: r.status === 'CONFIRMED' ? 'SCHEDULED' : r.status,
+            joinUrl: r.zoomJoinUrl ?? r.videoLink ?? '',
+            hostUrl: null,
+            meetingId: r.zoomMeetingId,
+            password: null,
+            patient: r.patientId
+              ? safeDecryptPatient({
+                  id: r.patientId,
+                  firstName: r.firstName,
+                  lastName: r.lastName,
+                })
+              : null,
+            appointment: { id: r.id, title: r.title, reason: r.reason },
+            source: 'fallback',
+          }))
+        );
 
         return NextResponse.json({
           sessions: fallbackSessions,
@@ -129,10 +135,7 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
       const telehealthSessions = await prisma.telehealthSession.findMany({
         where: {
           providerId: provider.id,
-          OR: [
-            { scheduledAt: { gte: lookbackStart, lte: endDate } },
-            { status: 'IN_PROGRESS' },
-          ],
+          OR: [{ scheduledAt: { gte: lookbackStart, lte: endDate } }, { status: 'IN_PROGRESS' }],
           status: { in: ['SCHEDULED', 'WAITING', 'IN_PROGRESS'] },
         },
         include: {
@@ -149,9 +152,7 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
 
       for (const s of telehealthSessions) {
         if (s.appointmentId) seenAppointmentIds.add(s.appointmentId);
-        const patient = s.patient
-          ? safeDecryptPatient(s.patient)
-          : s.patient;
+        const patient = s.patient ? safeDecryptPatient(s.patient) : s.patient;
         sessionResults.push({
           id: s.id,
           topic: s.topic,
@@ -178,51 +179,44 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
     // 2. Also fetch VIDEO appointments that don't have a TelehealthSession
     let videoAppointments: any[] = [];
     try {
-    videoAppointments = await prisma.appointment.findMany({
-      where: {
-        providerId: provider.id,
-        type: 'VIDEO',
-        OR: [
-          { startTime: { gte: lookbackStart, lte: endDate } },
-          { status: 'IN_PROGRESS' },
-        ],
-        status: { in: ['SCHEDULED', 'CONFIRMED', 'IN_PROGRESS'] },
-        ...(seenAppointmentIds.size > 0
-          ? { id: { notIn: Array.from(seenAppointmentIds) } }
-          : {}),
-      },
-      include: {
-        patient: {
-          select: { id: true, firstName: true, lastName: true },
+      videoAppointments = await prisma.appointment.findMany({
+        where: {
+          providerId: provider.id,
+          type: 'VIDEO',
+          OR: [{ startTime: { gte: lookbackStart, lte: endDate } }, { status: 'IN_PROGRESS' }],
+          status: { in: ['SCHEDULED', 'CONFIRMED', 'IN_PROGRESS'] },
+          ...(seenAppointmentIds.size > 0 ? { id: { notIn: Array.from(seenAppointmentIds) } } : {}),
         },
-      },
-      orderBy: { startTime: 'asc' },
-      take: 20,
-    });
-
-    for (const apt of videoAppointments) {
-      const patient = apt.patient
-        ? safeDecryptPatient(apt.patient)
-        : null;
-      sessionResults.push({
-        id: apt.id,
-        topic: apt.title ?? apt.reason ?? 'Video Consultation',
-        scheduledAt: apt.startTime.toISOString(),
-        duration: apt.duration ?? 15,
-        status: apt.status === 'CONFIRMED' ? 'SCHEDULED' : apt.status,
-        joinUrl: apt.zoomJoinUrl ?? apt.videoLink ?? '',
-        hostUrl: null,
-        meetingId: apt.zoomMeetingId,
-        password: null,
-        patient,
-        appointment: {
-          id: apt.id,
-          title: apt.title,
-          reason: apt.reason,
+        include: {
+          patient: {
+            select: { id: true, firstName: true, lastName: true },
+          },
         },
-        source: 'appointment',
+        orderBy: { startTime: 'asc' },
+        take: 20,
       });
-    }
+
+      for (const apt of videoAppointments) {
+        const patient = apt.patient ? safeDecryptPatient(apt.patient) : null;
+        sessionResults.push({
+          id: apt.id,
+          topic: apt.title ?? apt.reason ?? 'Video Consultation',
+          scheduledAt: apt.startTime.toISOString(),
+          duration: apt.duration ?? 15,
+          status: apt.status === 'CONFIRMED' ? 'SCHEDULED' : apt.status,
+          joinUrl: apt.zoomJoinUrl ?? apt.videoLink ?? '',
+          hostUrl: null,
+          meetingId: apt.zoomMeetingId,
+          password: null,
+          patient,
+          appointment: {
+            id: apt.id,
+            title: apt.title,
+            reason: apt.reason,
+          },
+          source: 'appointment',
+        });
+      }
     } catch (aptErr) {
       logger.error('Error querying video appointments', {
         error: aptErr instanceof Error ? aptErr.message : 'Unknown',
@@ -250,9 +244,12 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Failed to fetch upcoming telehealth sessions', { error: errorMessage });
-    return NextResponse.json({
-      error: 'Failed to fetch sessions',
-      debug: { message: errorMessage },
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Failed to fetch sessions',
+        debug: { message: errorMessage },
+      },
+      { status: 500 }
+    );
   }
 });

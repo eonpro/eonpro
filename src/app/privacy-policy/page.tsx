@@ -57,9 +57,7 @@ export default function PrivacyPolicyPage() {
             </p>
 
             <h2>4. Information Sharing</h2>
-            <p>
-              We do not sell your personal information. We may share your information with:
-            </p>
+            <p>We do not sell your personal information. We may share your information with:</p>
             <ul>
               <li>Healthcare providers involved in your care</li>
               <li>Pharmacies for prescription fulfillment</li>
@@ -71,9 +69,9 @@ export default function PrivacyPolicyPage() {
             <h2>5. Data Security</h2>
             <p>
               We implement industry-standard security measures including encryption, access
-              controls, audit logging, and regular security assessments to protect your data.
-              All third-party service providers that handle PHI are required to sign Business
-              Associate Agreements (BAAs).
+              controls, audit logging, and regular security assessments to protect your data. All
+              third-party service providers that handle PHI are required to sign Business Associate
+              Agreements (BAAs).
             </p>
 
             <h2>6. Your Rights</h2>
@@ -89,8 +87,8 @@ export default function PrivacyPolicyPage() {
             <h2>7. Data Retention</h2>
             <p>
               We retain your health records in accordance with applicable state and federal
-              regulations. Non-medical data is retained for as long as necessary to provide
-              our services or as required by law.
+              regulations. Non-medical data is retained for as long as necessary to provide our
+              services or as required by law.
             </p>
 
             <h2>8. Contact Us</h2>

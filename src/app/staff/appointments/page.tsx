@@ -1,16 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import {
-  Calendar,
-  Clock,
-  User,
-  MapPin,
-  Phone,
-  Video,
-  Loader2,
-  AlertCircle,
-} from 'lucide-react';
+import { Calendar, Clock, User, MapPin, Phone, Video, Loader2, AlertCircle } from 'lucide-react';
 import BookTelehealthWizard from '@/components/BookTelehealthWizard';
 import { apiFetch } from '@/lib/api/fetch';
 import { todayET, EASTERN_TZ } from '@/lib/utils/timezone';
@@ -96,20 +87,14 @@ export default function StaffAppointmentsPage() {
       const data = await res.json();
       const mapped: Appointment[] = (data.appointments || []).map((apt: any) => ({
         id: apt.id,
-        patientName: apt.patient
-          ? `${apt.patient.firstName} ${apt.patient.lastName}`
-          : 'Unknown',
+        patientName: apt.patient ? `${apt.patient.firstName} ${apt.patient.lastName}` : 'Unknown',
         providerName: apt.provider
           ? `${apt.provider.firstName} ${apt.provider.lastName}`
           : 'Unknown',
         date: new Date(apt.startTime),
         duration: apt.duration || 15,
         type:
-          apt.type === 'VIDEO'
-            ? 'telehealth'
-            : apt.type === 'IN_PERSON'
-              ? 'in-person'
-              : 'phone',
+          apt.type === 'VIDEO' ? 'telehealth' : apt.type === 'IN_PERSON' ? 'in-person' : 'phone',
         status: apt.status?.toLowerCase() || 'scheduled',
         reason: apt.reason,
         zoomJoinUrl: apt.zoomJoinUrl || apt.videoLink,
@@ -291,9 +276,7 @@ export default function StaffAppointmentsPage() {
                           {apt.status.replace('_', ' ')}
                         </span>
                       </div>
-                      {apt.reason && (
-                        <div className="mb-1 text-sm text-gray-600">{apt.reason}</div>
-                      )}
+                      {apt.reason && <div className="mb-1 text-sm text-gray-600">{apt.reason}</div>}
                       <div className="flex items-center gap-4 text-sm text-gray-500">
                         <span className="flex items-center gap-1">
                           {getTypeIcon(apt.type)}
@@ -344,7 +327,9 @@ export default function StaffAppointmentsPage() {
           ) : (
             <div className="py-12 text-center">
               <Calendar className="mx-auto mb-3 h-8 w-8 text-gray-300" />
-              <p className="text-sm text-gray-500">No appointments found for the selected criteria</p>
+              <p className="text-sm text-gray-500">
+                No appointments found for the selected criteria
+              </p>
               <button
                 onClick={() => setShowBookWizard(true)}
                 className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700"

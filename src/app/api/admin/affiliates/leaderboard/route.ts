@@ -128,9 +128,7 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
         _count: true,
       }),
       // Batch: revenue by affiliate (use occurredAt for accurate period-based revenue)
-      prisma.$queryRaw<
-        Array<{ affiliateId: number; revenueCents: number }>
-      >`
+      prisma.$queryRaw<Array<{ affiliateId: number; revenueCents: number }>>`
         SELECT
           "affiliateId",
           COALESCE(SUM("eventAmountCents"), 0)::int as "revenueCents"
@@ -138,7 +136,7 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
         WHERE "affiliateId" = ANY(${affiliateIds})
           AND "occurredAt" >= ${dateFrom}
           AND "status" IN ('PENDING', 'APPROVED', 'PAID')
-          ${clinicFilter.clinicId ? prisma.$queryRaw`AND "clinicId" = ${clinicFilter.clinicId}` : (user.role === 'super_admin' ? prisma.$queryRaw`` : prisma.$queryRaw`AND "clinicId" = ${user.clinicId!}`)}
+          ${clinicFilter.clinicId ? prisma.$queryRaw`AND "clinicId" = ${clinicFilter.clinicId}` : user.role === 'super_admin' ? prisma.$queryRaw`` : prisma.$queryRaw`AND "clinicId" = ${user.clinicId!}`}
         GROUP BY "affiliateId"
       `,
     ]);
@@ -146,7 +144,9 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
     // Build lookup maps for O(1) per-affiliate access
     const clicksMap = new Map(clicksByAffiliate.map((r) => [r.affiliateId, r._count]));
     const conversionsMap = new Map(conversionsByAffiliate.map((r) => [r.affiliateId, r._count]));
-    const revenueMap = new Map((revenueByAffiliate || []).map((r) => [r.affiliateId, r.revenueCents]));
+    const revenueMap = new Map(
+      (revenueByAffiliate || []).map((r) => [r.affiliateId, r.revenueCents])
+    );
 
     const affiliateMetrics = affiliates.map((affiliate: AffiliateWithRefCodes) => {
       const refCodes = affiliate.refCodes.map((rc: { refCode: string }) => rc.refCode);

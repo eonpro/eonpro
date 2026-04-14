@@ -1,4 +1,4 @@
-import { SVGProps } from "react";
+import { SVGProps } from 'react';
 
 const Star = (props: SVGProps<SVGSVGElement>) => (
   <svg

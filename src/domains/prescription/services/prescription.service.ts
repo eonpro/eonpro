@@ -18,7 +18,13 @@
 import { prisma, basePrisma, withRetry } from '@/lib/db';
 import { Prisma } from '@prisma/client';
 import { logger } from '@/lib/logger';
-import { MEDS, GLP1_PRODUCT_IDS, SYRINGE_KIT_PRODUCT_ID, ELITE_ADDON_PRODUCT_IDS, ELITE_SYRINGE_KIT_QUANTITY } from '@/lib/medications';
+import {
+  MEDS,
+  GLP1_PRODUCT_IDS,
+  SYRINGE_KIT_PRODUCT_ID,
+  ELITE_ADDON_PRODUCT_IDS,
+  ELITE_SYRINGE_KIT_QUANTITY,
+} from '@/lib/medications';
 import { SHIPPING_METHODS } from '@/lib/shipping';
 import { generatePrescriptionPDF } from '@/lib/pdf';
 import { buildPatientSearchIndex } from '@/lib/utils/search';
@@ -109,7 +115,10 @@ export function createPrescriptionService(): PrescriptionService {
     ): Promise<PrescriptionResult> {
       const providerId = input.providerId ?? user.providerId;
       if (!providerId) {
-        throw new PrescriptionError('Provider selection required. Please select a provider before submitting.', 400);
+        throw new PrescriptionError(
+          'Provider selection required. Please select a provider before submitting.',
+          400
+        );
       }
 
       // Look up provider
@@ -118,7 +127,10 @@ export function createPrescriptionService(): PrescriptionService {
         include: { clinic: true },
       });
       if (!provider) {
-        throw new PrescriptionError('Invalid providerId. Please ensure a provider profile is configured.', 400);
+        throw new PrescriptionError(
+          'Invalid providerId. Please ensure a provider profile is configured.',
+          400
+        );
       }
 
       // Verify provider authorization
@@ -150,7 +162,10 @@ export function createPrescriptionService(): PrescriptionService {
       if (user.role !== 'super_admin') {
         const hasAccess = await verifyProviderClinicAccess(provider, activeClinicId);
         if (!hasAccess) {
-          throw new PrescriptionError('Provider is not authorized to prescribe for this clinic', 403);
+          throw new PrescriptionError(
+            'Provider is not authorized to prescribe for this clinic',
+            403
+          );
         }
       }
 
@@ -158,7 +173,10 @@ export function createPrescriptionService(): PrescriptionService {
       const { client: lifefileClient, credentials: lifefileCredentials } =
         await resolveLifefileClient(activeClinicId);
       if (!lifefileCredentials) {
-        throw new PrescriptionError('Lifefile not configured. Please contact your administrator.', 400);
+        throw new PrescriptionError(
+          'Lifefile not configured. Please contact your administrator.',
+          400
+        );
       }
 
       // Save signature if needed
@@ -182,14 +200,13 @@ export function createPrescriptionService(): PrescriptionService {
 
       if (glp1Rxs.length > 0) {
         const explicitPlanMonths = (input as any).planMonths ?? (input as any).planDurationMonths;
-        const maxDaysSupply = Math.max(
-          ...input.rxs.map((rx: any) => Number(rx.daysSupply) || 30)
-        );
+        const maxDaysSupply = Math.max(...input.rxs.map((rx: any) => Number(rx.daysSupply) || 30));
         // When planMonths isn't explicitly provided, also check total vial count:
         // multiple GLP-1 vials means multi-month plan (each vial ≈ 1 month)
-        const is1Month = explicitPlanMonths != null
-          ? Number(explicitPlanMonths) <= 1
-          : totalGlp1Vials <= 1 && maxDaysSupply <= 30;
+        const is1Month =
+          explicitPlanMonths != null
+            ? Number(explicitPlanMonths) <= 1
+            : totalGlp1Vials <= 1 && maxDaysSupply <= 30;
         const isMultiMonth = explicitPlanMonths != null && Number(explicitPlanMonths) > 1;
 
         // 1-month: block >1 vial
@@ -247,8 +264,8 @@ export function createPrescriptionService(): PrescriptionService {
 
         // Auto-add 5 syringe kits for Elite Bundle injectables (NAD+, Sermorelin, B12)
         if (glp1VialCount === 0) {
-          const hasEliteAddonMed = rxsWithMeds.some(
-            ({ med }) => ELITE_ADDON_PRODUCT_IDS.has(med.id)
+          const hasEliteAddonMed = rxsWithMeds.some(({ med }) =>
+            ELITE_ADDON_PRODUCT_IDS.has(med.id)
           );
           const alreadyHasSyringeKit = rxsWithMeds.some(
             ({ med }) => med.id === SYRINGE_KIT_PRODUCT_ID
@@ -284,7 +301,9 @@ export function createPrescriptionService(): PrescriptionService {
       if (!input.patient.dob || !String(input.patient.dob).trim()) {
         missingForPharmacy.push('date of birth');
       } else if (!dobIso || dobIso.length < 8) {
-        missingForPharmacy.push(`valid date of birth (received "${input.patient.dob}" which is not a real calendar date)`);
+        missingForPharmacy.push(
+          `valid date of birth (received "${input.patient.dob}" which is not a real calendar date)`
+        );
       }
       const addr1 = (input.patient.address1 ?? '').trim();
       const city = (input.patient.city ?? '').trim();
@@ -326,7 +345,11 @@ export function createPrescriptionService(): PrescriptionService {
           dea: provider.dea,
           licenseNumber: provider.licenseNumber,
           address1: lifefileCredentials.practiceAddress || process.env.LIFEFILE_PRACTICE_ADDRESS,
-          phone: lifefileCredentials.practicePhone || process.env.LIFEFILE_PRACTICE_PHONE || provider.phone || undefined,
+          phone:
+            lifefileCredentials.practicePhone ||
+            process.env.LIFEFILE_PRACTICE_PHONE ||
+            provider.phone ||
+            undefined,
         },
         patient: {
           firstName: input.patient.firstName,
@@ -334,7 +357,12 @@ export function createPrescriptionService(): PrescriptionService {
           phone: input.patient.phone,
           email: input.patient.email,
           dob: dobIso,
-          gender: input.patient.gender === 'm' ? 'Male' : input.patient.gender === 'f' ? 'Female' : 'Unknown',
+          gender:
+            input.patient.gender === 'm'
+              ? 'Male'
+              : input.patient.gender === 'f'
+                ? 'Female'
+                : 'Unknown',
           address1: input.patient.address1,
           address2: input.patient.address2,
           city: input.patient.city,
@@ -350,7 +378,9 @@ export function createPrescriptionService(): PrescriptionService {
           daysSupply: Number(rx.daysSupply) || 30,
         })) as any[],
         shipping: {
-          methodLabel: SHIPPING_METHODS.find((m: any) => m.id === input.shippingMethod)?.label ?? `Service ${input.shippingMethod}`,
+          methodLabel:
+            SHIPPING_METHODS.find((m: any) => m.id === input.shippingMethod)?.label ??
+            `Service ${input.shippingMethod}`,
           addressLine1: input.patient.address1,
           addressLine2: input.patient.address2,
           city: input.patient.city,
@@ -372,12 +402,19 @@ export function createPrescriptionService(): PrescriptionService {
             dea: provider.dea ?? undefined,
             firstName: provider.firstName,
             lastName: provider.lastName,
-            phone: provider.phone || lifefileCredentials.practicePhone || process.env.LIFEFILE_PRACTICE_PHONE || undefined,
+            phone:
+              provider.phone ||
+              lifefileCredentials.practicePhone ||
+              process.env.LIFEFILE_PRACTICE_PHONE ||
+              undefined,
             email: provider.email ?? undefined,
           },
           practice: {
             id: lifefileCredentials.practiceId || process.env.LIFEFILE_PRACTICE_ID,
-            name: lifefileCredentials.practiceName || process.env.LIFEFILE_PRACTICE_NAME || 'APOLLO BASED HEALTH LLC',
+            name:
+              lifefileCredentials.practiceName ||
+              process.env.LIFEFILE_PRACTICE_NAME ||
+              'APOLLO BASED HEALTH LLC',
           },
           patient: {
             firstName: input.patient.firstName,
@@ -429,122 +466,128 @@ export function createPrescriptionService(): PrescriptionService {
 
       const txResult = await withRetry<TxResult>(
         () =>
-          prisma.$transaction(async (tx: any) => {
-            // Idempotency check
-            const existing = await tx.order.findFirst({
-              where: { messageId, clinicId: activeClinicId },
-              include: { patient: true },
-            });
-            if (existing) return { order: existing, patient: existing.patient, isNew: false };
+          prisma.$transaction(
+            async (tx: any) => {
+              // Idempotency check
+              const existing = await tx.order.findFirst({
+                where: { messageId, clinicId: activeClinicId },
+                include: { patient: true },
+              });
+              if (existing) return { order: existing, patient: existing.patient, isNew: false };
 
-            // Resolve patient
-            let patientRecord: any = null;
-            let patientClinicId = activeClinicId;
+              // Resolve patient
+              let patientRecord: any = null;
+              let patientClinicId = activeClinicId;
 
-            if (input.patientId) {
-              patientRecord = await tx.patient.findUnique({ where: { id: input.patientId } });
-              if (patientRecord) {
-                patientClinicId = patientRecord.clinicId;
+              if (input.patientId) {
+                patientRecord = await tx.patient.findUnique({ where: { id: input.patientId } });
+                if (patientRecord) {
+                  patientClinicId = patientRecord.clinicId;
+                }
               }
-            }
 
-            if (!patientRecord) {
-              patientRecord = await tx.patient.findFirst({
-                where: {
+              if (!patientRecord) {
+                patientRecord = await tx.patient.findFirst({
+                  where: {
+                    firstName: input.patient.firstName,
+                    lastName: input.patient.lastName,
+                    dob: input.patient.dob,
+                    clinicId: activeClinicId,
+                  },
+                });
+              }
+
+              // Self-heal: ensure existing patient has searchIndex so admin search finds them
+              if (
+                patientRecord &&
+                (!patientRecord.searchIndex || !String(patientRecord.searchIndex).trim())
+              ) {
+                const searchIndex = buildPatientSearchIndex({
                   firstName: input.patient.firstName,
                   lastName: input.patient.lastName,
-                  dob: input.patient.dob,
-                  clinicId: activeClinicId,
-                },
-              });
-            }
-
-            // Self-heal: ensure existing patient has searchIndex so admin search finds them
-            if (patientRecord && (!patientRecord.searchIndex || !String(patientRecord.searchIndex).trim())) {
-              const searchIndex = buildPatientSearchIndex({
-                firstName: input.patient.firstName,
-                lastName: input.patient.lastName,
-                email: input.patient.email,
-                phone: input.patient.phone,
-                patientId: patientRecord.patientId,
-              });
-              if (searchIndex) {
-                await tx.patient.update({
-                  where: { id: patientRecord.id },
-                  data: { searchIndex },
+                  email: input.patient.email,
+                  phone: input.patient.phone,
+                  patientId: patientRecord.patientId,
                 });
-                patientRecord = { ...patientRecord, searchIndex };
+                if (searchIndex) {
+                  await tx.patient.update({
+                    where: { id: patientRecord.id },
+                    data: { searchIndex },
+                  });
+                  patientRecord = { ...patientRecord, searchIndex };
+                }
               }
-            }
 
-            if (!patientRecord) {
-              const searchIndex = buildPatientSearchIndex({
-                firstName: input.patient.firstName,
-                lastName: input.patient.lastName,
-                email: input.patient.email,
-                phone: input.patient.phone,
-              });
-              const phiData = encryptPatientPHI({
-                firstName: input.patient.firstName,
-                lastName: input.patient.lastName,
-                email: input.patient.email,
-                phone: input.patient.phone,
-                dob: input.patient.dob,
-              });
-              patientRecord = await tx.patient.create({
+              if (!patientRecord) {
+                const searchIndex = buildPatientSearchIndex({
+                  firstName: input.patient.firstName,
+                  lastName: input.patient.lastName,
+                  email: input.patient.email,
+                  phone: input.patient.phone,
+                });
+                const phiData = encryptPatientPHI({
+                  firstName: input.patient.firstName,
+                  lastName: input.patient.lastName,
+                  email: input.patient.email,
+                  phone: input.patient.phone,
+                  dob: input.patient.dob,
+                });
+                patientRecord = await tx.patient.create({
+                  data: {
+                    ...phiData,
+                    emailHash: computeEmailHash(input.patient.email),
+                    dobHash: computeDobHash(input.patient.dob),
+                    gender: input.patient.gender,
+                    address1: input.patient.address1,
+                    address2: input.patient.address2 ?? null,
+                    city: input.patient.city,
+                    state: input.patient.state,
+                    zip: input.patient.zip,
+                    clinicId: activeClinicId,
+                    searchIndex,
+                  },
+                });
+                patientClinicId = activeClinicId;
+              }
+
+              const orderStatus = input.queueForProvider ? 'queued_for_provider' : 'PENDING';
+              const order = await tx.order.create({
                 data: {
-                  ...phiData,
-                  emailHash: computeEmailHash(input.patient.email),
-                  dobHash: computeDobHash(input.patient.dob),
-                  gender: input.patient.gender,
-                  address1: input.patient.address1,
-                  address2: input.patient.address2 ?? null,
-                  city: input.patient.city,
-                  state: input.patient.state,
-                  zip: input.patient.zip,
-                  clinicId: activeClinicId,
-                  searchIndex,
+                  messageId,
+                  referenceId,
+                  patientId: patientRecord.id,
+                  providerId,
+                  clinicId: patientClinicId,
+                  shippingMethod: input.shippingMethod,
+                  primaryMedName: primary.med.name,
+                  primaryMedStrength: primary.med.strength,
+                  primaryMedForm: primary.med.formLabel ?? primary.med.form,
+                  status: orderStatus,
+                  requestJson: JSON.stringify(orderPayload),
+                  ...(input.queueForProvider
+                    ? { queuedForProviderAt: now, queuedByUserId: user.id }
+                    : {}),
                 },
               });
-              patientClinicId = activeClinicId;
-            }
 
-            const orderStatus = input.queueForProvider ? 'queued_for_provider' : 'PENDING';
-            const order = await tx.order.create({
-              data: {
-                messageId,
-                referenceId,
-                patientId: patientRecord.id,
-                providerId,
-                clinicId: patientClinicId,
-                shippingMethod: input.shippingMethod,
-                primaryMedName: primary.med.name,
-                primaryMedStrength: primary.med.strength,
-                primaryMedForm: primary.med.formLabel ?? primary.med.form,
-                status: orderStatus,
-                requestJson: JSON.stringify(orderPayload),
-                ...(input.queueForProvider
-                  ? { queuedForProviderAt: now, queuedByUserId: user.id }
-                  : {}),
-              },
-            });
+              await tx.rx.createMany({
+                data: rxsWithMeds.map(({ rx, med }) => ({
+                  orderId: order.id,
+                  medicationKey: rx.medicationKey,
+                  medName: med.name,
+                  strength: med.strength,
+                  form: med.form,
+                  quantity: rx.quantity,
+                  refills: rx.refills,
+                  sig: rx.sig,
+                  daysSupply: Number(rx.daysSupply) || 30,
+                })),
+              });
 
-            await tx.rx.createMany({
-              data: rxsWithMeds.map(({ rx, med }) => ({
-                orderId: order.id,
-                medicationKey: rx.medicationKey,
-                medName: med.name,
-                strength: med.strength,
-                form: med.form,
-                quantity: rx.quantity,
-                refills: rx.refills,
-                sig: rx.sig,
-                daysSupply: Number(rx.daysSupply) || 30,
-              })),
-            });
-
-            return { order, patient: patientRecord, isNew: true };
-          }, { isolationLevel: 'Serializable' as any, timeout: 30000 }) as unknown as Promise<TxResult>,
+              return { order, patient: patientRecord, isNew: true };
+            },
+            { isolationLevel: 'Serializable' as any, timeout: 30000 }
+          ) as unknown as Promise<TxResult>,
         {
           maxRetries: 3,
           initialDelayMs: 200,
@@ -585,7 +628,10 @@ export function createPrescriptionService(): PrescriptionService {
         orderResponse = await lifefileClient.createFullOrder(orderPayload);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Unknown Lifefile error';
-        logger.error('[PrescriptionService] Lifefile submission failed', { orderId: order.id, error: msg });
+        logger.error('[PrescriptionService] Lifefile submission failed', {
+          orderId: order.id,
+          error: msg,
+        });
         await prisma.order.update({
           where: { id: order.id },
           data: { status: 'error', errorMessage: `Lifefile submission failed: ${msg}` },
@@ -607,16 +653,17 @@ export function createPrescriptionService(): PrescriptionService {
 
       // Auto-mark invoice and link to this order
       if (input.invoiceId) {
-        await safeAsync(() =>
-          prisma.invoice.update({
-            where: { id: input.invoiceId },
-            data: {
-              prescriptionProcessed: true,
-              prescriptionProcessedAt: new Date(),
-              prescriptionProcessedBy: user.providerId ?? null,
-              orderId: order.id,
-            },
-          }),
+        await safeAsync(
+          () =>
+            prisma.invoice.update({
+              where: { id: input.invoiceId },
+              data: {
+                prescriptionProcessed: true,
+                prescriptionProcessedAt: new Date(),
+                prescriptionProcessedBy: user.providerId ?? null,
+                orderId: order.id,
+              },
+            }),
           'invoice auto-mark'
         );
       }
@@ -632,12 +679,13 @@ export function createPrescriptionService(): PrescriptionService {
 
       // Provider compensation
       await safeAsync(
-        () => providerCompensationService.recordPrescription(updated.id, providerId, {
-          patientId: patientRecord.id,
-          patientState: input.patient.state,
-          medicationName: primary.med.name,
-          invoiceId: input.invoiceId,
-        }),
+        () =>
+          providerCompensationService.recordPrescription(updated.id, providerId, {
+            patientId: patientRecord.id,
+            patientState: input.patient.state,
+            medicationName: primary.med.name,
+            invoiceId: input.invoiceId,
+          }),
         'provider compensation'
       );
 
@@ -658,7 +706,11 @@ export function createPrescriptionService(): PrescriptionService {
         order: updated,
         lifefile: orderResponse,
         refill: refillResult
-          ? { currentId: refillResult.current.id, nextId: refillResult.next?.id, nextRefillDate: refillResult.next?.nextRefillDate }
+          ? {
+              currentId: refillResult.current.id,
+              nextId: refillResult.next?.id,
+              nextRefillDate: refillResult.next?.nextRefillDate,
+            }
           : null,
       };
     },

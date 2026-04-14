@@ -101,8 +101,8 @@ export function createWebhookService(): WebhookService {
     },
 
     async ingest(options: WebhookIngestOptions): Promise<WebhookIngestResult> {
-      const idempotencyKey = options.idempotencyKey ||
-        crypto.createHash('sha256').update(options.rawBody).digest('hex');
+      const idempotencyKey =
+        options.idempotencyKey || crypto.createHash('sha256').update(options.rawBody).digest('hex');
 
       // Step 1: Deduplication check
       const existing = await basePrisma.idempotencyRecord.findFirst({

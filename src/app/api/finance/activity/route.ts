@@ -40,7 +40,6 @@ interface Activity {
 
 async function getHandler(request: NextRequest, user: AuthUser) {
   try {
-
     // Get clinic ID from context or fall back to user's clinic
     const contextClinicId = getClinicContext();
     const clinicId = contextClinicId || user.clinicId;

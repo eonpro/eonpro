@@ -182,15 +182,17 @@ async function verifyUnlockCode(
   if (user) {
     // Clear the durable lockout (User.lockedUntil + failedLoginAttempts)
     // Without this, the login route's lockedUntil check still blocks the user
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { failedLoginAttempts: 0, lockedUntil: null },
-    }).catch((err) => {
-      logger.error('[UnlockAccount] Failed to clear durable lockout', {
-        error: err instanceof Error ? err.message : String(err),
-        userId: user.id,
+    await prisma.user
+      .update({
+        where: { id: user.id },
+        data: { failedLoginAttempts: 0, lockedUntil: null },
+      })
+      .catch((err) => {
+        logger.error('[UnlockAccount] Failed to clear durable lockout', {
+          error: err instanceof Error ? err.message : String(err),
+          userId: user.id,
+        });
       });
-    });
 
     await prisma.userAuditLog
       .create({

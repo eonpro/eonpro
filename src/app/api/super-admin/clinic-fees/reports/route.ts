@@ -201,8 +201,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
 
     const { clinicId, periodType, startDate, endDate, format } = result.data;
     // Service enum has no DAILY; use CUSTOM for date-based query
-    const periodTypeForService =
-      periodType === 'DAILY' ? 'CUSTOM' : periodType;
+    const periodTypeForService = periodType === 'DAILY' ? 'CUSTOM' : periodType;
 
     // Generate report
     const report = await clinicInvoiceService.getFeeReport({

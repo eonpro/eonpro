@@ -53,7 +53,6 @@ export default function SettingsDashboard() {
       const data = await response.json();
       setDashboard(data);
     } catch (err: unknown) {
-      
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);

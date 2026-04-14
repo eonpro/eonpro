@@ -66,114 +66,118 @@ export const GET = withAuth<RouteParams>(async (request, user, { params } = {} a
  * PATCH /api/tickets/[id]
  * Update a ticket
  */
-export const PATCH = withAuth<RouteParams>(async (request, user, { params } = {} as RouteParams) => {
-  try {
-    const { id } = await params;
-    const ticketId = parseInt(id, 10);
+export const PATCH = withAuth<RouteParams>(
+  async (request, user, { params } = {} as RouteParams) => {
+    try {
+      const { id } = await params;
+      const ticketId = parseInt(id, 10);
 
-    if (isNaN(ticketId)) {
-      return NextResponse.json({ error: 'Invalid ticket ID' }, { status: 400 });
+      if (isNaN(ticketId)) {
+        return NextResponse.json({ error: 'Invalid ticket ID' }, { status: 400 });
+      }
+
+      const body = await request.json();
+
+      const userContext = {
+        id: user.id,
+        email: user.email,
+        role: user.role.toLowerCase() as 'super_admin' | 'admin' | 'provider' | 'staff' | 'patient',
+        clinicId: user.clinicId,
+      };
+
+      const input: UpdateTicketInput = {};
+
+      // Only include fields that are present in the request
+      if (body.title !== undefined) input.title = body.title;
+      if (body.description !== undefined) input.description = body.description;
+      if (body.category !== undefined) input.category = body.category;
+      if (body.priority !== undefined) input.priority = body.priority;
+      if (body.status !== undefined) input.status = body.status;
+      if (body.assignedToId !== undefined) input.assignedToId = body.assignedToId;
+      if (body.teamId !== undefined) input.teamId = body.teamId;
+      if (body.patientId !== undefined) input.patientId = body.patientId;
+      if (body.orderId !== undefined) input.orderId = body.orderId;
+      if (body.dueDate !== undefined) {
+        input.dueDate = body.dueDate ? new Date(body.dueDate) : null;
+      }
+      if (body.tags !== undefined) input.tags = body.tags;
+      if (body.customFields !== undefined) input.customFields = body.customFields;
+      if (body.internalNote !== undefined) input.internalNote = body.internalNote;
+
+      const ticket = await ticketService.update(ticketId, input, userContext);
+
+      logger.info('[API] Ticket updated', {
+        ticketId,
+        updatedFields: Object.keys(input),
+        updatedById: user.id,
+      });
+
+      return NextResponse.json({
+        ticket,
+        message: 'Ticket updated successfully',
+      });
+    } catch (error) {
+      const { id } = await params;
+      reportTicketError(error, {
+        route: `PATCH /api/tickets/${id}`,
+        ticketId: parseInt(id, 10),
+        clinicId: user.clinicId ?? undefined,
+        userId: user.id,
+        operation: 'update',
+      });
+      return handleApiError(error, { route: `PATCH /api/tickets/${id}` });
     }
-
-    const body = await request.json();
-
-    const userContext = {
-      id: user.id,
-      email: user.email,
-      role: user.role.toLowerCase() as 'super_admin' | 'admin' | 'provider' | 'staff' | 'patient',
-      clinicId: user.clinicId,
-    };
-
-    const input: UpdateTicketInput = {};
-
-    // Only include fields that are present in the request
-    if (body.title !== undefined) input.title = body.title;
-    if (body.description !== undefined) input.description = body.description;
-    if (body.category !== undefined) input.category = body.category;
-    if (body.priority !== undefined) input.priority = body.priority;
-    if (body.status !== undefined) input.status = body.status;
-    if (body.assignedToId !== undefined) input.assignedToId = body.assignedToId;
-    if (body.teamId !== undefined) input.teamId = body.teamId;
-    if (body.patientId !== undefined) input.patientId = body.patientId;
-    if (body.orderId !== undefined) input.orderId = body.orderId;
-    if (body.dueDate !== undefined) {
-      input.dueDate = body.dueDate ? new Date(body.dueDate) : null;
-    }
-    if (body.tags !== undefined) input.tags = body.tags;
-    if (body.customFields !== undefined) input.customFields = body.customFields;
-    if (body.internalNote !== undefined) input.internalNote = body.internalNote;
-
-    const ticket = await ticketService.update(ticketId, input, userContext);
-
-    logger.info('[API] Ticket updated', {
-      ticketId,
-      updatedFields: Object.keys(input),
-      updatedById: user.id,
-    });
-
-    return NextResponse.json({
-      ticket,
-      message: 'Ticket updated successfully',
-    });
-  } catch (error) {
-    const { id } = await params;
-    reportTicketError(error, {
-      route: `PATCH /api/tickets/${id}`,
-      ticketId: parseInt(id, 10),
-      clinicId: user.clinicId ?? undefined,
-      userId: user.id,
-      operation: 'update',
-    });
-    return handleApiError(error, { route: `PATCH /api/tickets/${id}` });
   }
-});
+);
 
 /**
  * DELETE /api/tickets/[id]
  * Soft delete a ticket (changes status to CANCELLED)
  */
-export const DELETE = withAuth<RouteParams>(async (request, user, { params } = {} as RouteParams) => {
-  try {
-    const { id } = await params;
-    const ticketId = parseInt(id, 10);
+export const DELETE = withAuth<RouteParams>(
+  async (request, user, { params } = {} as RouteParams) => {
+    try {
+      const { id } = await params;
+      const ticketId = parseInt(id, 10);
 
-    if (isNaN(ticketId)) {
-      return NextResponse.json({ error: 'Invalid ticket ID' }, { status: 400 });
+      if (isNaN(ticketId)) {
+        return NextResponse.json({ error: 'Invalid ticket ID' }, { status: 400 });
+      }
+
+      const userContext = {
+        id: user.id,
+        email: user.email,
+        role: user.role.toLowerCase() as 'super_admin' | 'admin' | 'provider' | 'staff' | 'patient',
+        clinicId: user.clinicId,
+      };
+
+      // Soft delete by changing status to CANCELLED
+      const ticket = await ticketService.changeStatus(
+        ticketId,
+        'CANCELLED',
+        'Ticket deleted',
+        userContext
+      );
+
+      logger.info('[API] Ticket deleted (cancelled)', {
+        ticketId,
+        deletedById: user.id,
+      });
+
+      return NextResponse.json({
+        ticket,
+        message: 'Ticket deleted successfully',
+      });
+    } catch (error) {
+      const { id } = await params;
+      reportTicketError(error, {
+        route: `DELETE /api/tickets/${id}`,
+        ticketId: parseInt(id, 10),
+        clinicId: user.clinicId ?? undefined,
+        userId: user.id,
+        operation: 'delete',
+      });
+      return handleApiError(error, { route: `DELETE /api/tickets/${id}` });
     }
-
-    const userContext = {
-      id: user.id,
-      email: user.email,
-      role: user.role.toLowerCase() as 'super_admin' | 'admin' | 'provider' | 'staff' | 'patient',
-      clinicId: user.clinicId,
-    };
-
-    // Soft delete by changing status to CANCELLED
-    const ticket = await ticketService.changeStatus(
-      ticketId,
-      'CANCELLED',
-      'Ticket deleted',
-      userContext
-    );
-
-    logger.info('[API] Ticket deleted (cancelled)', {
-      ticketId,
-      deletedById: user.id,
-    });
-
-    return NextResponse.json({
-      ticket,
-      message: 'Ticket deleted successfully',
-    });
-  } catch (error) {
-    const { id } = await params;
-    reportTicketError(error, {
-      route: `DELETE /api/tickets/${id}`,
-      ticketId: parseInt(id, 10),
-      clinicId: user.clinicId ?? undefined,
-      userId: user.id,
-      operation: 'delete',
-    });
-    return handleApiError(error, { route: `DELETE /api/tickets/${id}` });
   }
-});
+);

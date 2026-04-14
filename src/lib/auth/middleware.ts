@@ -15,17 +15,10 @@ import { runWithClinicContext, prisma, basePrisma } from '@/lib/db';
 import { validateSession } from './session-manager';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { logger } from '@/lib/logger';
-import {
-  getClinicBySubdomainCache,
-  setClinicBySubdomainCache,
-} from '@/lib/cache/request-scoped';
+import { getClinicBySubdomainCache, setClinicBySubdomainCache } from '@/lib/cache/request-scoped';
 import { handleApiError } from '@/domains/shared/errors';
 import cache from '@/lib/cache/redis';
-import {
-  isAuthBlocked,
-  recordAuthFailure,
-  clearAuthFailures,
-} from '@/lib/auth/auth-rate-limiter';
+import { isAuthBlocked, recordAuthFailure, clearAuthFailures } from '@/lib/auth/auth-rate-limiter';
 import {
   resolveSubdomainClinicId,
   hasClinicAccess,
@@ -299,7 +292,10 @@ function extractToken(req: NextRequest): ExtractedToken {
     const token = req.cookies.get(cookieName)?.value;
     if (token) {
       // Detection: warn when affiliate cookie is used as fallback on non-affiliate routes
-      if (!isAffiliateRoute && (cookieName === 'affiliate_session' || cookieName === 'affiliate-token')) {
+      if (
+        !isAffiliateRoute &&
+        (cookieName === 'affiliate_session' || cookieName === 'affiliate-token')
+      ) {
         logger.warn('[Auth] Stale affiliate cookie used as fallback on non-affiliate route', {
           route: pathname,
           cookieName,
@@ -480,11 +476,14 @@ export function withAuth<T = unknown>(
       // so blocking on *missing* sessionId while allowing *missing sessions* was
       // inconsistent and provided no real security benefit.
       if (options.skipSessionValidation) {
-        logger.warn('[Auth] DEPRECATED: skipSessionValidation used — will be enforced in future release', {
-          userId: user.id,
-          route: new URL(req.url).pathname,
-          requestId,
-        });
+        logger.warn(
+          '[Auth] DEPRECATED: skipSessionValidation used — will be enforced in future release',
+          {
+            userId: user.id,
+            route: new URL(req.url).pathname,
+            requestId,
+          }
+        );
       }
       if (!options.skipSessionValidation) {
         if (!user.sessionId) {
@@ -671,11 +670,11 @@ export function withAuth<T = unknown>(
             req.headers.get('x-forwarded-host')?.split(',')[0]?.trim() ??
             req.headers.get('host') ??
             '';
-          const hostname = host ? host.split(':')[0] ?? '' : '';
+          const hostname = host ? (host.split(':')[0] ?? '') : '';
           if (hostname.includes('.')) {
             const parts = hostname.split('.');
             const isLocalhostWithSub = hostname.includes('localhost') && parts.length >= 2;
-            const sub = parts.length >= 3 || isLocalhostWithSub ? parts[0] ?? null : null;
+            const sub = parts.length >= 3 || isLocalhostWithSub ? (parts[0] ?? null) : null;
             const reserved = ['www', 'app', 'api', 'admin', 'staging'];
             if (sub && !reserved.includes(sub.toLowerCase())) {
               subdomain = sub;
@@ -758,9 +757,7 @@ export function withAuth<T = unknown>(
 
       // Pass user with effective clinic so handlers see subdomain clinic when overridden
       let userForHandler: AuthUser =
-        effectiveClinicId !== user.clinicId
-          ? { ...user, clinicId: effectiveClinicId }
-          : user;
+        effectiveClinicId !== user.clinicId ? { ...user, clinicId: effectiveClinicId } : user;
 
       // Resolve patientId for patient role when missing from JWT.
       // This handles cases where User.patientId was never linked (e.g. encrypted-email
@@ -784,7 +781,12 @@ export function withAuth<T = unknown>(
       const response = await runWithClinicContext(effectiveClinicId, async () => {
         const { runWithRequestContext } = await import('@/lib/observability/request-context');
         return runWithRequestContext(
-          { requestId, clinicId: effectiveClinicId ?? undefined, userId: user.id, route: new URL(req.url).pathname },
+          {
+            requestId,
+            clinicId: effectiveClinicId ?? undefined,
+            userId: user.id,
+            route: new URL(req.url).pathname,
+          },
           () => handler(modifiedReq, userForHandler, context)
         );
       });
@@ -824,7 +826,8 @@ export function withAuth<T = unknown>(
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
       const errName = error instanceof Error ? error.constructor.name : 'Unknown';
-      const errStack = error instanceof Error ? error.stack?.split('\n').slice(0, 5).join(' | ') : '';
+      const errStack =
+        error instanceof Error ? error.stack?.split('\n').slice(0, 5).join(' | ') : '';
       console.error('[AUTH_MW_CATCH]', errName, errMsg, new URL(req.url).pathname);
       logger.error('AUTH_MIDDLEWARE_CATCH', {
         requestId,
@@ -1034,7 +1037,9 @@ export function withProviderAuth(
 export function withClinicalAuth(
   handler: (req: NextRequest, user: AuthUser, context?: unknown) => Promise<Response>
 ): (req: NextRequest, context?: unknown) => Promise<Response> {
-  return withAuth<unknown>(handler, { roles: ['super_admin', 'admin', 'provider', 'staff', 'pharmacy_rep', 'sales_rep'] });
+  return withAuth<unknown>(handler, {
+    roles: ['super_admin', 'admin', 'provider', 'staff', 'pharmacy_rep', 'sales_rep'],
+  });
 }
 
 /**

@@ -33,7 +33,6 @@ import Link from 'next/link';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import { safeParseJson } from '@/lib/utils/safe-json';
 import { logger } from '@/lib/logger';
-import { format, parseISO } from 'date-fns';
 
 // =============================================================================
 // Types
@@ -98,7 +97,7 @@ export default function PhotosHubPage() {
       const data = await safeParseJson(response);
       const photos =
         data !== null && typeof data === 'object' && 'photos' in data
-          ? (data as { photos?: unknown[] }).photos ?? []
+          ? ((data as { photos?: unknown[] }).photos ?? [])
           : [];
 
       if (data && typeof data === 'object' && 'warning' in data) {
@@ -174,9 +173,7 @@ export default function PhotosHubPage() {
       });
       if (response.ok) {
         setStats((prev) =>
-          prev
-            ? { ...prev, recent: prev.recent.filter((p) => p.id !== photo.id) }
-            : prev,
+          prev ? { ...prev, recent: prev.recent.filter((p) => p.id !== photo.id) } : prev
         );
         fetchStats();
       } else {
@@ -268,7 +265,7 @@ export default function PhotosHubPage() {
           </div>
           <div className="h-4 w-56 rounded bg-gray-100" />
         </div>
-        <div className="mb-6 grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="rounded-xl bg-white p-4 text-center shadow-sm">
               <div className="mx-auto mb-1 h-7 w-10 rounded bg-gray-200" />
@@ -344,7 +341,7 @@ export default function PhotosHubPage() {
       )}
 
       {/* Quick Stats */}
-      <div className="mb-6 grid grid-cols-2 sm:grid-cols-3 gap-3">
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
         <div className="rounded-xl bg-white p-4 text-center shadow-sm">
           <p className="text-2xl font-bold text-gray-900">{stats?.progress || 0}</p>
           <p className="text-xs text-gray-500">Progress</p>
@@ -406,7 +403,7 @@ export default function PhotosHubPage() {
       {stats && stats.recent.length > 0 && (
         <div className="mb-6">
           <h3 className="mb-3 text-sm font-semibold text-gray-700">Recent Uploads</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {stats.recent.map((photo) => {
               const deletable = isPhotoDeletable(photo);
               const isVerifiedId =
@@ -503,11 +500,7 @@ export default function PhotosHubPage() {
                 disabled={isDeleting}
                 className="flex-1 rounded-xl bg-red-600 py-3 font-semibold text-white transition-colors hover:bg-red-700"
               >
-                {isDeleting ? (
-                  <Loader2 className="mx-auto h-5 w-5 animate-spin" />
-                ) : (
-                  'Delete'
-                )}
+                {isDeleting ? <Loader2 className="mx-auto h-5 w-5 animate-spin" /> : 'Delete'}
               </button>
             </div>
           </div>

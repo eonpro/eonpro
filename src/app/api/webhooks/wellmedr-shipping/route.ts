@@ -51,12 +51,20 @@ function safeDecryptCredential(value: string | null | undefined): string | null 
 // Wellmedr clinic subdomain (hardcoded for this endpoint)
 const WELLMEDR_SUBDOMAIN = 'wellmedr';
 
-import { normalizeLifefilePayload, NormalizedShipment } from '@/lib/shipping/normalize-lifefile-payload';
+import {
+  normalizeLifefilePayload,
+  NormalizedShipment,
+} from '@/lib/shipping/normalize-lifefile-payload';
 
 /**
  * Accepted usernames for this webhook (LifeFile may use different usernames)
  */
-const ACCEPTED_USERNAMES = ['lifehook_user', 'wellmedr_shipping', 'lifefile_webhook', 'lifefile_datapush'];
+const ACCEPTED_USERNAMES = [
+  'lifehook_user',
+  'wellmedr_shipping',
+  'lifefile_webhook',
+  'lifefile_datapush',
+];
 
 interface AuthResult {
   success: boolean;
@@ -263,7 +271,9 @@ export async function POST(req: NextRequest) {
       webhookLogData.errorMessage = 'Authentication failed';
       webhookLogData.metadata = authResult.diagnostics;
 
-      await runWithClinicContext(clinic.id, () => prisma.webhookLog.create({ data: webhookLogData }));
+      await runWithClinicContext(clinic.id, () =>
+        prisma.webhookLog.create({ data: webhookLogData })
+      );
 
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -281,7 +291,9 @@ export async function POST(req: NextRequest) {
       webhookLogData.status = WebhookStatus.INVALID_PAYLOAD;
       webhookLogData.statusCode = 400;
       webhookLogData.errorMessage = 'Invalid JSON';
-      await runWithClinicContext(clinic.id, () => prisma.webhookLog.create({ data: webhookLogData }));
+      await runWithClinicContext(clinic.id, () =>
+        prisma.webhookLog.create({ data: webhookLogData })
+      );
       return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
     }
 
@@ -292,7 +304,9 @@ export async function POST(req: NextRequest) {
       webhookLogData.status = WebhookStatus.INVALID_PAYLOAD;
       webhookLogData.statusCode = 400;
       webhookLogData.errorMessage = 'Could not normalize Lifefile payload';
-      await runWithClinicContext(clinic.id, () => prisma.webhookLog.create({ data: webhookLogData }));
+      await runWithClinicContext(clinic.id, () =>
+        prisma.webhookLog.create({ data: webhookLogData })
+      );
       return NextResponse.json({ error: 'Invalid payload format' }, { status: 400 });
     }
 
@@ -305,221 +319,224 @@ export async function POST(req: NextRequest) {
     // REQUIRED for: order, patient, patientShippingUpdate, orderEvent
     // ═══════════════════════════════════════════════════════════════════
     return runWithClinicContext(clinic.id, async () => {
+      // Find patient and order using shared multi-strategy matching
+      const result = await findPatientForShipping(
+        clinic.id,
+        data.orderId,
+        'WELLMEDR SHIPPING',
+        data.patientEmail,
+        data.patientId
+      );
 
-    // Find patient and order using shared multi-strategy matching
-    const result = await findPatientForShipping(
-      clinic.id,
-      data.orderId,
-      'WELLMEDR SHIPPING',
-      data.patientEmail,
-      data.patientId
-    );
+      if (!result) {
+        logger.warn(
+          `[WELLMEDR SHIPPING] No match for order ${data.orderId} — storing as unmatched`
+        );
 
-    if (!result) {
-      logger.warn(`[WELLMEDR SHIPPING] No match for order ${data.orderId} — storing as unmatched`);
+        const unmatchedShipping = await prisma.patientShippingUpdate.create({
+          data: {
+            clinicId: clinic.id,
+            patientId: null,
+            orderId: null,
+            trackingNumber: data.trackingNumber,
+            carrier: data.carrier,
+            status: mapToShippingStatus(data.status || 'shipped'),
+            shippedAt: new Date(),
+            lifefileOrderId: data.orderId,
+            brand: 'Wellmedr',
+            source: 'lifefile',
+            rawPayload: rawPayload as any,
+            processedAt: new Date(),
+            matchedAt: null,
+          },
+        });
 
-      const unmatchedShipping = await prisma.patientShippingUpdate.create({
-        data: {
-          clinicId: clinic.id,
-          patientId: null,
-          orderId: null,
-          trackingNumber: data.trackingNumber,
-          carrier: data.carrier,
-          status: mapToShippingStatus(data.status || 'shipped'),
-          shippedAt: new Date(),
-          lifefileOrderId: data.orderId,
-          brand: 'Wellmedr',
-          source: 'lifefile',
-          rawPayload: rawPayload as any,
-          processedAt: new Date(),
-          matchedAt: null,
-        },
-      });
+        logger.info(`[WELLMEDR SHIPPING] Stored unmatched record ${unmatchedShipping.id}`);
 
-      logger.info(`[WELLMEDR SHIPPING] Stored unmatched record ${unmatchedShipping.id}`);
-
-      webhookLogData.status = WebhookStatus.SUCCESS;
-      webhookLogData.statusCode = 202;
-      webhookLogData.responseData = {
-        processed: true,
-        matched: false,
-        shippingUpdateId: unmatchedShipping.id,
-        orderId: data.orderId,
-        trackingNumber: data.trackingNumber,
-      };
-
-      await prisma.webhookLog.create({ data: webhookLogData });
-
-      return NextResponse.json(
-        {
-          success: true,
-          requestId,
-          message: 'Tracking stored as unmatched — will attempt matching later',
+        webhookLogData.status = WebhookStatus.SUCCESS;
+        webhookLogData.statusCode = 202;
+        webhookLogData.responseData = {
+          processed: true,
+          matched: false,
           shippingUpdateId: unmatchedShipping.id,
           orderId: data.orderId,
           trackingNumber: data.trackingNumber,
-        },
-        { status: 202 }
-      );
-    }
+        };
 
-    const { patient, order, matchStrategy } = result;
-    logger.info(`[WELLMEDR SHIPPING] Matched via strategy: ${matchStrategy}`);
+        await prisma.webhookLog.create({ data: webhookLogData });
 
-    // Check for existing shipping update with same tracking number
-    const existingUpdate = await prisma.patientShippingUpdate.findFirst({
-      where: {
-        clinicId: clinic.id,
-        patientId: patient.id,
-        trackingNumber: data.trackingNumber,
-      },
-    });
-
-    let shippingUpdate;
-    const shippingStatus = mapToShippingStatus(data.status || 'shipped');
-
-    const updateData = {
-      carrier: data.carrier,
-      trackingUrl: undefined as string | undefined,
-      status: shippingStatus,
-      statusNote: data.rxItems.map((r) => r.rxNumber).filter(Boolean).join(', ') || undefined,
-      shippedAt: shippingStatus === ShippingStatus.SHIPPED ? new Date() : undefined,
-      estimatedDelivery: parseDate(data.statusDateTime),
-      actualDelivery:
-        shippingStatus === ShippingStatus.DELIVERED ? new Date() : undefined,
-      lifefileOrderId: data.orderId,
-      brand: 'Wellmedr',
-      rawPayload: rawPayload as any,
-      processedAt: new Date(),
-    };
-
-    if (existingUpdate) {
-      // Update existing record
-      shippingUpdate = await prisma.patientShippingUpdate.update({
-        where: { id: existingUpdate.id },
-        data: updateData,
-      });
-      logger.info(`[WELLMEDR SHIPPING] Updated existing shipping record ${existingUpdate.id}`);
-    } else {
-      // Create new record
-      shippingUpdate = await prisma.patientShippingUpdate.create({
-        data: {
-          clinicId: clinic.id,
-          patientId: patient.id,
-          orderId: order?.id,
-          trackingNumber: data.trackingNumber,
-          source: 'lifefile',
-          matchedAt: new Date(),
-          matchStrategy,
-          ...updateData,
-        },
-      });
-      logger.info(`[WELLMEDR SHIPPING] Created new shipping record ${shippingUpdate.id}`);
-
-      // Send tracking SMS to patient (fire-and-forget, non-blocking)
-      sendTrackingNotificationSMS({
-        patientId: patient.id,
-        patientPhone: patient.phone,
-        patientEmail: patient.email,
-        patientFirstName: patient.firstName,
-        patientLastName: patient.lastName,
-        clinicId: clinic.id,
-        clinicName: clinic.name,
-        trackingNumber: data.trackingNumber,
-        carrier: data.carrier,
-        orderId: order?.id,
-      }).catch((err) => {
-        logger.warn('[WELLMEDR SHIPPING] Tracking SMS failed (non-blocking)', {
-          error: err instanceof Error ? err.message : String(err),
-          patientId: patient.id,
-        });
-      });
-    }
-
-    // Also update the Order record if we have one
-    if (order) {
-      // Build update data - also save lifefileOrderId if it wasn't set before
-      const orderUpdateData: any = {
-        trackingNumber: data.trackingNumber,
-        shippingStatus: data.status,
-        lastWebhookAt: new Date(),
-        lastWebhookPayload: JSON.stringify(rawPayload),
-      };
-
-      if (!order.lifefileOrderId && data.orderId) {
-        orderUpdateData.lifefileOrderId = data.orderId;
-        logger.info(
-          `[WELLMEDR SHIPPING] Saving lifefileOrderId ${data.orderId} to order ${order.id}`
+        return NextResponse.json(
+          {
+            success: true,
+            requestId,
+            message: 'Tracking stored as unmatched — will attempt matching later',
+            shippingUpdateId: unmatchedShipping.id,
+            orderId: data.orderId,
+            trackingNumber: data.trackingNumber,
+          },
+          { status: 202 }
         );
       }
 
-      await prisma.order.update({
-        where: { id: order.id },
-        data: orderUpdateData,
-      });
+      const { patient, order, matchStrategy } = result;
+      logger.info(`[WELLMEDR SHIPPING] Matched via strategy: ${matchStrategy}`);
 
-      await prisma.orderEvent.create({
-        data: {
-          orderId: order.id,
-          lifefileOrderId: data.orderId,
-          eventType: `shipping_${data.status || 'update'}`,
-          payload: rawPayload as any,
-          note: `Tracking: ${data.trackingNumber} via ${data.carrier} (${data.deliveryService})`,
+      // Check for existing shipping update with same tracking number
+      const existingUpdate = await prisma.patientShippingUpdate.findFirst({
+        where: {
+          clinicId: clinic.id,
+          patientId: patient.id,
+          trackingNumber: data.trackingNumber,
         },
       });
-    }
 
-    // Calculate processing time
-    const processingTime = Date.now() - startTime;
+      let shippingUpdate;
+      const shippingStatus = mapToShippingStatus(data.status || 'shipped');
 
-    // Log success
-    webhookLogData.status = WebhookStatus.SUCCESS;
-    webhookLogData.statusCode = 200;
-    webhookLogData.clinicId = clinic.id;
-    webhookLogData.responseData = {
-      shippingUpdateId: shippingUpdate.id,
-      patientId: patient.id,
-      orderId: order?.id,
-      trackingNumber: data.trackingNumber,
-      status: shippingStatus,
-    };
-    webhookLogData.processingTimeMs = processingTime;
+      const updateData = {
+        carrier: data.carrier,
+        trackingUrl: undefined as string | undefined,
+        status: shippingStatus,
+        statusNote:
+          data.rxItems
+            .map((r) => r.rxNumber)
+            .filter(Boolean)
+            .join(', ') || undefined,
+        shippedAt: shippingStatus === ShippingStatus.SHIPPED ? new Date() : undefined,
+        estimatedDelivery: parseDate(data.statusDateTime),
+        actualDelivery: shippingStatus === ShippingStatus.DELIVERED ? new Date() : undefined,
+        lifefileOrderId: data.orderId,
+        brand: 'Wellmedr',
+        rawPayload: rawPayload as any,
+        processedAt: new Date(),
+      };
 
-    await prisma.webhookLog.create({ data: webhookLogData });
+      if (existingUpdate) {
+        // Update existing record
+        shippingUpdate = await prisma.patientShippingUpdate.update({
+          where: { id: existingUpdate.id },
+          data: updateData,
+        });
+        logger.info(`[WELLMEDR SHIPPING] Updated existing shipping record ${existingUpdate.id}`);
+      } else {
+        // Create new record
+        shippingUpdate = await prisma.patientShippingUpdate.create({
+          data: {
+            clinicId: clinic.id,
+            patientId: patient.id,
+            orderId: order?.id,
+            trackingNumber: data.trackingNumber,
+            source: 'lifefile',
+            matchedAt: new Date(),
+            matchStrategy,
+            ...updateData,
+          },
+        });
+        logger.info(`[WELLMEDR SHIPPING] Created new shipping record ${shippingUpdate.id}`);
 
-    logger.info(`[WELLMEDR SHIPPING] Processing completed in ${processingTime}ms`);
-    logger.info('='.repeat(60));
+        // Send tracking SMS to patient (fire-and-forget, non-blocking)
+        sendTrackingNotificationSMS({
+          patientId: patient.id,
+          patientPhone: patient.phone,
+          patientEmail: patient.email,
+          patientFirstName: patient.firstName,
+          patientLastName: patient.lastName,
+          clinicId: clinic.id,
+          clinicName: clinic.name,
+          trackingNumber: data.trackingNumber,
+          carrier: data.carrier,
+          orderId: order?.id,
+        }).catch((err) => {
+          logger.warn('[WELLMEDR SHIPPING] Tracking SMS failed (non-blocking)', {
+            error: err instanceof Error ? err.message : String(err),
+            patientId: patient.id,
+          });
+        });
+      }
 
-    // Return success response
-    const decryptedFirstName = safeDecrypt(patient.firstName) || 'Patient';
-    const decryptedLastName = safeDecrypt(patient.lastName) || '';
-    const patientDisplayName = `${decryptedFirstName} ${decryptedLastName}`.trim();
+      // Also update the Order record if we have one
+      if (order) {
+        // Build update data - also save lifefileOrderId if it wasn't set before
+        const orderUpdateData: any = {
+          trackingNumber: data.trackingNumber,
+          shippingStatus: data.status,
+          lastWebhookAt: new Date(),
+          lastWebhookPayload: JSON.stringify(rawPayload),
+        };
 
-    return NextResponse.json({
-      success: true,
-      requestId,
-      message: existingUpdate ? 'Shipping update updated' : 'Shipping update created',
-      shippingUpdate: {
-        id: shippingUpdate.id,
-        trackingNumber: shippingUpdate.trackingNumber,
-        carrier: shippingUpdate.carrier,
-        status: shippingUpdate.status,
-        trackingUrl: shippingUpdate.trackingUrl,
-      },
-      patient: {
-        id: patient.id,
-        patientId: patient.patientId,
-        name: patientDisplayName,
-      },
-      order: order
-        ? {
-            id: order.id,
-            lifefileOrderId: order.lifefileOrderId,
-          }
-        : null,
-      processingTime: `${processingTime}ms`,
-    });
+        if (!order.lifefileOrderId && data.orderId) {
+          orderUpdateData.lifefileOrderId = data.orderId;
+          logger.info(
+            `[WELLMEDR SHIPPING] Saving lifefileOrderId ${data.orderId} to order ${order.id}`
+          );
+        }
 
+        await prisma.order.update({
+          where: { id: order.id },
+          data: orderUpdateData,
+        });
+
+        await prisma.orderEvent.create({
+          data: {
+            orderId: order.id,
+            lifefileOrderId: data.orderId,
+            eventType: `shipping_${data.status || 'update'}`,
+            payload: rawPayload as any,
+            note: `Tracking: ${data.trackingNumber} via ${data.carrier} (${data.deliveryService})`,
+          },
+        });
+      }
+
+      // Calculate processing time
+      const processingTime = Date.now() - startTime;
+
+      // Log success
+      webhookLogData.status = WebhookStatus.SUCCESS;
+      webhookLogData.statusCode = 200;
+      webhookLogData.clinicId = clinic.id;
+      webhookLogData.responseData = {
+        shippingUpdateId: shippingUpdate.id,
+        patientId: patient.id,
+        orderId: order?.id,
+        trackingNumber: data.trackingNumber,
+        status: shippingStatus,
+      };
+      webhookLogData.processingTimeMs = processingTime;
+
+      await prisma.webhookLog.create({ data: webhookLogData });
+
+      logger.info(`[WELLMEDR SHIPPING] Processing completed in ${processingTime}ms`);
+      logger.info('='.repeat(60));
+
+      // Return success response
+      const decryptedFirstName = safeDecrypt(patient.firstName) || 'Patient';
+      const decryptedLastName = safeDecrypt(patient.lastName) || '';
+      const patientDisplayName = `${decryptedFirstName} ${decryptedLastName}`.trim();
+
+      return NextResponse.json({
+        success: true,
+        requestId,
+        message: existingUpdate ? 'Shipping update updated' : 'Shipping update created',
+        shippingUpdate: {
+          id: shippingUpdate.id,
+          trackingNumber: shippingUpdate.trackingNumber,
+          carrier: shippingUpdate.carrier,
+          status: shippingUpdate.status,
+          trackingUrl: shippingUpdate.trackingUrl,
+        },
+        patient: {
+          id: patient.id,
+          patientId: patient.patientId,
+          name: patientDisplayName,
+        },
+        order: order
+          ? {
+              id: order.id,
+              lifefileOrderId: order.lifefileOrderId,
+            }
+          : null,
+        processingTime: `${processingTime}ms`,
+      });
     }); // end runWithClinicContext
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';

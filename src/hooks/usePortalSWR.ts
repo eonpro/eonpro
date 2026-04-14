@@ -29,7 +29,7 @@ const DEFAULT_CONFIG: SWRConfiguration = {
  */
 export function usePortalSWR<T = unknown>(
   key: string | null,
-  config?: SWRConfiguration<T>,
+  config?: SWRConfiguration<T>
 ): SWRResponse<T> {
   return useSWR<T>(key, portalSWRFetcher<T>, {
     ...DEFAULT_CONFIG,

@@ -202,10 +202,7 @@ export async function GET(req: NextRequest) {
                   const mainAddons = Array.isArray(mainMeta?.selectedAddons)
                     ? (mainMeta.selectedAddons as string[])
                     : [];
-                  if (
-                    mainAddons.includes(addon.addonKey) ||
-                    mainAddons.includes('elite_bundle')
-                  ) {
+                  if (mainAddons.includes(addon.addonKey) || mainAddons.includes('elite_bundle')) {
                     logger.info('[ADDON-SYNC] Skipping — main invoice already covers this addon', {
                       patientId: patientForDedup.id,
                       mainInvoiceId: recentMainInvoice.id,

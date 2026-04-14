@@ -150,9 +150,10 @@ export default function PrescriptionReportsPage() {
         const res = await apiFetch('/api/super-admin/clinics?limit=500');
         if (res.ok) {
           const json = await res.json();
-          const list = (json.clinics ?? json.data ?? []).map(
-            (c: { id: number; name: string }) => ({ id: c.id, name: c.name })
-          );
+          const list = (json.clinics ?? json.data ?? []).map((c: { id: number; name: string }) => ({
+            id: c.id,
+            name: c.name,
+          }));
           setClinics(list);
         }
       } catch {
@@ -171,7 +172,8 @@ export default function PrescriptionReportsPage() {
       try {
         const params = new URLSearchParams();
         params.set('period', period);
-        if (period === 'custom' && startDate) params.set('startDate', new Date(startDate).toISOString());
+        if (period === 'custom' && startDate)
+          params.set('startDate', new Date(startDate).toISOString());
         if (period === 'custom' && endDate) params.set('endDate', new Date(endDate).toISOString());
         if (clinicId) params.set('clinicId', clinicId);
         if (providerId) params.set('providerId', providerId);
@@ -209,9 +211,7 @@ export default function PrescriptionReportsPage() {
           ...(period === 'custom' && startDate
             ? { startDate: new Date(startDate).toISOString() }
             : {}),
-          ...(period === 'custom' && endDate
-            ? { endDate: new Date(endDate).toISOString() }
-            : {}),
+          ...(period === 'custom' && endDate ? { endDate: new Date(endDate).toISOString() } : {}),
           ...(clinicId ? { clinicId: parseInt(clinicId, 10) } : {}),
           ...(providerId ? { providerId: parseInt(providerId, 10) } : {}),
         }),
@@ -420,9 +420,7 @@ export default function PrescriptionReportsPage() {
               <Users className="h-4 w-4" />
               <span className="text-sm">Active Providers</span>
             </div>
-            <p className="mt-1 text-2xl font-bold text-[#4fa77e]">
-              {data.summary.activeProviders}
-            </p>
+            <p className="mt-1 text-2xl font-bold text-[#4fa77e]">{data.summary.activeProviders}</p>
           </div>
           <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
             <div className="flex items-center gap-2 text-gray-500">
@@ -437,7 +435,8 @@ export default function PrescriptionReportsPage() {
       {/* Date range label */}
       {data && (
         <div className="mb-4 text-sm text-gray-500">
-          Showing data from <span className="font-medium text-gray-700">{formatDate(data.dateRange.startDate)}</span>{' '}
+          Showing data from{' '}
+          <span className="font-medium text-gray-700">{formatDate(data.dateRange.startDate)}</span>{' '}
           to <span className="font-medium text-gray-700">{formatDate(data.dateRange.endDate)}</span>
         </div>
       )}
@@ -558,9 +557,10 @@ export default function PrescriptionReportsPage() {
                       {data.details.map((row) => {
                         const rowKey = `${row.orderId}-${row.date}`;
                         const isExpanded = expandedRows.has(rowKey);
-                        const breakdown = row.vialBreakdown && row.vialBreakdown.length > 0
-                          ? row.vialBreakdown
-                          : [row.medications];
+                        const breakdown =
+                          row.vialBreakdown && row.vialBreakdown.length > 0
+                            ? row.vialBreakdown
+                            : [row.medications];
 
                         return (
                           <Fragment key={rowKey}>
@@ -571,7 +571,9 @@ export default function PrescriptionReportsPage() {
                                   aria-expanded={isExpanded}
                                   onClick={() => toggleRow(rowKey)}
                                   className="inline-flex items-center rounded p-1 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
-                                  title={isExpanded ? 'Collapse vial details' : 'Expand vial details'}
+                                  title={
+                                    isExpanded ? 'Collapse vial details' : 'Expand vial details'
+                                  }
                                 >
                                   {isExpanded ? (
                                     <ChevronUp className="h-4 w-4" />
@@ -595,7 +597,10 @@ export default function PrescriptionReportsPage() {
                               <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
                                 {row.clinicName}
                               </td>
-                              <td className="max-w-xs truncate px-4 py-3 text-sm text-gray-600" title={row.medications}>
+                              <td
+                                className="max-w-xs truncate px-4 py-3 text-sm text-gray-600"
+                                title={row.medications}
+                              >
                                 {row.medications}
                               </td>
                               <td className="whitespace-nowrap px-4 py-3 text-sm">
@@ -618,7 +623,10 @@ export default function PrescriptionReportsPage() {
                                   </div>
                                   <ul className="mt-2 space-y-1 text-sm text-gray-700">
                                     {breakdown.map((line, idx) => (
-                                      <li key={`${rowKey}-vial-${idx}`} className="flex items-start gap-2">
+                                      <li
+                                        key={`${rowKey}-vial-${idx}`}
+                                        className="flex items-start gap-2"
+                                      >
                                         <span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-[#4fa77e]" />
                                         <span>{line}</span>
                                       </li>

@@ -8,11 +8,7 @@ import { EONPRO_LOGO } from '@/lib/constants/brand-assets';
  * This ensures the "Powered by EONPRO" logo displays on all clinic subdomains
  * (e.g. ot.eonpro.io) when referenced via /api/assets/eonpro-logo.
  */
-const LOGO_PATH = path.join(
-  process.cwd(),
-  'public',
-  EONPRO_LOGO.replace(/^\//, '')
-);
+const LOGO_PATH = path.join(process.cwd(), 'public', EONPRO_LOGO.replace(/^\//, ''));
 
 export async function GET() {
   try {

@@ -211,7 +211,10 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
     const commissionMap = new Map<string, { revenueCents: number; commissionCents: number }>();
     for (const row of commissionTrends || []) {
       const key = row.date instanceof Date ? instantToCalendarDate(row.date) : String(row.date);
-      commissionMap.set(key, { revenueCents: row.revenueCents, commissionCents: row.commissionCents });
+      commissionMap.set(key, {
+        revenueCents: row.revenueCents,
+        commissionCents: row.commissionCents,
+      });
     }
 
     const trends: ReportData['trends'] = [];

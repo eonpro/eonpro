@@ -78,13 +78,9 @@ interface DurableDlqRecord {
 
 async function withRequiredRedis<T>(
   label: string,
-  operation: (redis: NonNullable<ReturnType<typeof cache.getClient>>) => Promise<T>,
+  operation: (redis: NonNullable<ReturnType<typeof cache.getClient>>) => Promise<T>
 ): Promise<T> {
-  const result = await cache.withClient<T | null>(
-    `deadLetterQueue:${label}`,
-    null,
-    operation,
-  );
+  const result = await cache.withClient<T | null>(`deadLetterQueue:${label}`, null, operation);
   if (result === null) {
     throw new Error('Redis not configured — DLQ requires Upstash');
   }
@@ -138,8 +134,7 @@ function parseDurableSubmission(record: DurableDlqRecord): QueuedSubmission | nu
     typeof dlqMeta.createdAt === 'string' ? dlqMeta.createdAt : new Date().toISOString();
   const lastAttemptAt =
     typeof dlqMeta.lastAttemptAt === 'string' ? dlqMeta.lastAttemptAt : new Date().toISOString();
-  const lastError =
-    typeof dlqMeta.lastError === 'string' ? dlqMeta.lastError : 'Unknown error';
+  const lastError = typeof dlqMeta.lastError === 'string' ? dlqMeta.lastError : 'Unknown error';
 
   return {
     id,
@@ -230,7 +225,10 @@ async function listDurableFallbackRecords(): Promise<QueuedSubmission[]> {
   }
 }
 
-async function removeDurableFallbackRecord(id: string, source: QueuedSubmission['source']): Promise<void> {
+async function removeDurableFallbackRecord(
+  id: string,
+  source: QueuedSubmission['source']
+): Promise<void> {
   if (!DURABLE_FALLBACK_ENABLED) return;
   try {
     const { prisma } = await import('@/lib/db');
@@ -358,7 +356,7 @@ export async function getReadySubmissions(): Promise<QueuedSubmission[]> {
       .filter(
         (submission) =>
           new Date(submission.nextRetryAt).getTime() <= now &&
-          submission.attemptCount < MAX_RETRY_ATTEMPTS,
+          submission.attemptCount < MAX_RETRY_ATTEMPTS
       )
       .sort((a, b) => new Date(a.nextRetryAt).getTime() - new Date(b.nextRetryAt).getTime());
   }
@@ -425,7 +423,7 @@ export async function updateSubmissionAttempt(
   let raw: string | null = null;
   try {
     raw = await withRequiredRedis('updateSubmissionAttempt:get', async (redis) =>
-      redis.hget<string>(DLQ_KEY, id),
+      redis.hget<string>(DLQ_KEY, id)
     );
   } catch (error) {
     logger.warn('[DLQ] Redis read failed during update; trying durable fallback', {
@@ -443,9 +441,7 @@ export async function updateSubmissionAttempt(
         attemptCount: durable.attemptCount + 1,
         lastAttemptAt: new Date().toISOString(),
         lastError: error || durable.lastError,
-        nextRetryAt: success
-          ? durable.nextRetryAt
-          : calculateNextRetry(durable.attemptCount + 1),
+        nextRetryAt: success ? durable.nextRetryAt : calculateNextRetry(durable.attemptCount + 1),
       };
 
       if (success) {
@@ -518,7 +514,7 @@ export async function updateSubmissionAttempt(
 export async function removeSubmission(id: string): Promise<boolean> {
   try {
     const result = await withRequiredRedis('removeSubmission', async (redis) =>
-      redis.hdel(DLQ_KEY, id),
+      redis.hdel(DLQ_KEY, id)
     );
     if (result === 1) return true;
   } catch {
@@ -541,7 +537,7 @@ export async function getQueueStats(): Promise<DLQStats & { pending: number; exh
   let statsRaw: Record<string, string> | null = null;
   try {
     statsRaw = await withRequiredRedis('getQueueStats', async (redis) =>
-      redis.hgetall<Record<string, string>>(DLQ_STATS_KEY),
+      redis.hgetall<Record<string, string>>(DLQ_STATS_KEY)
     );
   } catch {
     statsRaw = null;

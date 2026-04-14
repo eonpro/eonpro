@@ -1,6 +1,6 @@
 /**
  * Intake URL Parameter Parser
- * 
+ *
  * Parses and validates URL parameters from multiple intake sources:
  * 1. Airtable ref parameter (?ref=recXXX) - fetches from weightlossintake API
  * 2. Signed (secure) parameters from Heyflow
@@ -58,7 +58,7 @@ interface AirtableApiResponse {
  */
 function sanitizeString(input: string | null | undefined): string {
   if (!input) return '';
-  
+
   return input
     .trim()
     .replace(/[<>]/g, '') // Remove angle brackets
@@ -101,19 +101,19 @@ function sanitizeDob(dob: string | null | undefined): string {
   if (!dob) return '';
   // Try to parse and reformat
   const cleaned = dob.replace(/[^\d-]/g, '');
-  
+
   // If already in YYYY-MM-DD format
   if (/^\d{4}-\d{2}-\d{2}$/.test(cleaned)) {
     return cleaned;
   }
-  
+
   // Try to parse MM/DD/YYYY or MM-DD-YYYY
   const match = dob.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
   if (match) {
     const [, month, day, year] = match;
     return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
   }
-  
+
   return cleaned;
 }
 
@@ -133,7 +133,7 @@ function parseSimpleParams(params: URLSearchParams): PartialIntakePrefillData {
     phone: sanitizePhone(params.get('phone') || params.get('tel') || params.get('phonenumber')),
     dob: sanitizeDob(params.get('dob') || params.get('dateOfBirth') || params.get('date_of_birth')),
     address: {
-      line1: '',  // User will enter address on checkout
+      line1: '', // User will enter address on checkout
       line2: '',
       city: '',
       state: '',
@@ -142,7 +142,7 @@ function parseSimpleParams(params: URLSearchParams): PartialIntakePrefillData {
     },
     medication: params.get('medication') as 'semaglutide' | 'tirzepatide' | undefined,
     plan: params.get('plan') as 'monthly' | '3month' | '6month' | undefined,
-    language: (sanitizeLang(params.get('lang') || params.get('language'))) as 'en' | 'es',
+    language: sanitizeLang(params.get('lang') || params.get('language')) as 'en' | 'es',
     intakeId: sanitizeString(params.get('intakeId') || params.get('intake_id') || params.get('id')),
     source: sanitizeString(params.get('source') || params.get('utm_source')),
   };
@@ -158,7 +158,7 @@ function parseSimpleParams(params: URLSearchParams): PartialIntakePrefillData {
  */
 async function parseSignedUrlParams(params: URLSearchParams): Promise<ParseResult> {
   const errors: string[] = [];
-  
+
   // Validate signed params structure
   const signedResult = parseSignedParams(params);
   if (!signedResult.success || !signedResult.data) {
@@ -171,12 +171,12 @@ async function parseSignedUrlParams(params: URLSearchParams): Promise<ParseResul
       errors: signedResult.errors || ['Invalid signed parameters'],
     };
   }
-  
+
   const { data: encodedData, ts, sig, lang } = signedResult.data;
-  
+
   // Verify signature
   const verification = await verifySignedParams(encodedData, ts, sig);
-  
+
   if (verification.expired) {
     errors.push('Link has expired (>30 minutes old)');
     return {
@@ -188,7 +188,7 @@ async function parseSignedUrlParams(params: URLSearchParams): Promise<ParseResul
       errors,
     };
   }
-  
+
   if (!verification.valid) {
     errors.push('Invalid signature - data may have been tampered with');
     return {
@@ -200,7 +200,7 @@ async function parseSignedUrlParams(params: URLSearchParams): Promise<ParseResul
       errors,
     };
   }
-  
+
   // Decode base64 payload
   let decodedData: unknown;
   try {
@@ -217,10 +217,10 @@ async function parseSignedUrlParams(params: URLSearchParams): Promise<ParseResul
       errors,
     };
   }
-  
+
   // Validate decoded data
   const validationResult = parseIntakePrefillData(decodedData);
-  
+
   if (!validationResult.success || !validationResult.data) {
     return {
       success: false,
@@ -231,7 +231,7 @@ async function parseSignedUrlParams(params: URLSearchParams): Promise<ParseResul
       errors: validationResult.errors || ['Data validation failed'],
     };
   }
-  
+
   return {
     success: true,
     data: validationResult.data,
@@ -252,11 +252,16 @@ const AIRTABLE_API_URL = 'https://weightlossintake.vercel.app/api/airtable';
  * Parse address string into components
  * Handles formats like: "123 Main St, Austin, TX 78701" or "123 Main St"
  */
-function parseAddressString(address: string): { line1: string; city: string; state: string; zip: string } {
+function parseAddressString(address: string): {
+  line1: string;
+  city: string;
+  state: string;
+  zip: string;
+} {
   if (!address) {
     return { line1: '', city: '', state: '', zip: '' };
   }
-  
+
   // Try to parse "Street, City, State ZIP" format
   const fullMatch = address.match(/^(.+?),\s*([^,]+),\s*([A-Z]{2})\s*(\d{5}(?:-\d{4})?)$/i);
   if (fullMatch) {
@@ -267,7 +272,7 @@ function parseAddressString(address: string): { line1: string; city: string; sta
       zip: fullMatch[4],
     };
   }
-  
+
   // Try to parse "Street, City, State" format (no ZIP)
   const noZipMatch = address.match(/^(.+?),\s*([^,]+),\s*([A-Z]{2})$/i);
   if (noZipMatch) {
@@ -278,7 +283,7 @@ function parseAddressString(address: string): { line1: string; city: string; sta
       zip: '',
     };
   }
-  
+
   // Try to parse "Street, City State ZIP" format (no comma before state)
   const altMatch = address.match(/^(.+?),\s*([^,]+)\s+([A-Z]{2})\s*(\d{5}(?:-\d{4})?)$/i);
   if (altMatch) {
@@ -289,7 +294,7 @@ function parseAddressString(address: string): { line1: string; city: string; sta
       zip: altMatch[4],
     };
   }
-  
+
   // Fallback: treat the whole string as line1
   return {
     line1: address.trim(),
@@ -302,9 +307,11 @@ function parseAddressString(address: string): { line1: string; city: string; sta
 /**
  * Map medication preference from Airtable to checkout format
  */
-function mapMedicationPreference(pref: string | undefined): 'semaglutide' | 'tirzepatide' | undefined {
+function mapMedicationPreference(
+  pref: string | undefined
+): 'semaglutide' | 'tirzepatide' | undefined {
   if (!pref) return undefined;
-  
+
   const lower = pref.toLowerCase();
   if (lower.includes('semaglutide') || lower.includes('ozempic') || lower.includes('wegovy')) {
     return 'semaglutide';
@@ -320,7 +327,7 @@ function mapMedicationPreference(pref: string | undefined): 'semaglutide' | 'tir
  */
 async function fetchAirtablePrefill(ref: string): Promise<ParseResult> {
   const errors: string[] = [];
-  
+
   // Validate ref format (Airtable record IDs start with "rec")
   if (!ref || !ref.startsWith('rec')) {
     errors.push('Invalid ref parameter format');
@@ -333,17 +340,17 @@ async function fetchAirtablePrefill(ref: string): Promise<ParseResult> {
       errors,
     };
   }
-  
+
   try {
     console.log(`[intakeParser] Fetching Airtable data for ref: ${ref}`);
-    
+
     const response = await fetch(`${AIRTABLE_API_URL}?ref=${encodeURIComponent(ref)}`, {
       method: 'GET',
       headers: {
-        'Accept': 'application/json',
+        Accept: 'application/json',
       },
     });
-    
+
     if (!response.ok) {
       const errorText = await response.text().catch(() => 'Unknown error');
       console.error(`[intakeParser] Airtable API error: ${response.status}`, errorText);
@@ -357,10 +364,10 @@ async function fetchAirtablePrefill(ref: string): Promise<ParseResult> {
         errors,
       };
     }
-    
+
     const apiResponse: AirtableApiResponse = await response.json();
     console.log('[intakeParser] Airtable API response:', apiResponse);
-    
+
     // Check if API returned success with data
     if (!apiResponse.success || !apiResponse.data) {
       errors.push(apiResponse.error || 'API returned no data');
@@ -373,17 +380,17 @@ async function fetchAirtablePrefill(ref: string): Promise<ParseResult> {
         errors,
       };
     }
-    
+
     const apiData = apiResponse.data;
-    
+
     // Parse address - could be a single string or separate fields
     let addressParts = parseAddressString(apiData.address || '');
-    
+
     // Override state if provided separately (more reliable than parsing)
     if (apiData.state) {
       addressParts.state = apiData.state.toUpperCase();
     }
-    
+
     // Build complete prefill data
     const prefillData: IntakePrefillData = {
       firstName: sanitizeString(apiData.firstName) || '',
@@ -405,15 +412,12 @@ async function fetchAirtablePrefill(ref: string): Promise<ParseResult> {
       intakeId: ref,
       source: 'airtable',
     };
-    
+
     // Check if we got meaningful data
     const hasData = Boolean(
-      prefillData.firstName ||
-      prefillData.lastName ||
-      prefillData.email ||
-      prefillData.phone
+      prefillData.firstName || prefillData.lastName || prefillData.email || prefillData.phone
     );
-    
+
     if (!hasData) {
       errors.push('No useful prefill data returned from Airtable');
       return {
@@ -425,7 +429,7 @@ async function fetchAirtablePrefill(ref: string): Promise<ParseResult> {
         errors,
       };
     }
-    
+
     console.log('[intakeParser] Successfully parsed Airtable prefill data');
     return {
       success: true,
@@ -435,7 +439,6 @@ async function fetchAirtablePrefill(ref: string): Promise<ParseResult> {
       source: 'airtable',
       errors: [],
     };
-    
   } catch (error) {
     console.error('[intakeParser] Error fetching Airtable data:', error);
     errors.push(`Network error: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -463,7 +466,7 @@ async function fetchAirtablePrefill(ref: string): Promise<ParseResult> {
  */
 export async function parseIntakeUrlParams(): Promise<ParseResult> {
   const params = new URLSearchParams(window.location.search);
-  
+
   // Check if there are any relevant params
   if (params.toString() === '') {
     return {
@@ -475,14 +478,14 @@ export async function parseIntakeUrlParams(): Promise<ParseResult> {
       errors: [],
     };
   }
-  
+
   // 1. Try Airtable ref parameter first (custom intake form)
   const ref = params.get('ref');
   if (ref && ref.startsWith('rec')) {
     console.log('[intakeParser] Found Airtable ref parameter, fetching data...');
     return fetchAirtablePrefill(ref);
   }
-  
+
   // 2. Try signed params (if crypto is configured)
   if (params.has('data') && params.has('ts') && params.has('sig')) {
     if (isCryptoConfigured()) {
@@ -492,19 +495,16 @@ export async function parseIntakeUrlParams(): Promise<ParseResult> {
       console.warn('[intakeParser] Signed params found but crypto not configured');
     }
   }
-  
+
   // 3. Fall back to simple params
   console.log('[intakeParser] Parsing simple URL parameters');
   const simpleData = parseSimpleParams(params);
-  
+
   // Check if we got any useful data
   const hasData = Boolean(
-    simpleData.firstName ||
-    simpleData.lastName ||
-    simpleData.email ||
-    simpleData.phone
+    simpleData.firstName || simpleData.lastName || simpleData.email || simpleData.phone
   );
-  
+
   if (!hasData) {
     return {
       success: false,
@@ -515,7 +515,7 @@ export async function parseIntakeUrlParams(): Promise<ParseResult> {
       errors: ['No prefill data found in URL'],
     };
   }
-  
+
   // Build complete data object with defaults
   const completeData: IntakePrefillData = {
     firstName: simpleData.firstName || '',
@@ -537,7 +537,7 @@ export async function parseIntakeUrlParams(): Promise<ParseResult> {
     intakeId: simpleData.intakeId,
     source: simpleData.source,
   };
-  
+
   return {
     success: true,
     data: completeData,
@@ -558,18 +558,41 @@ export async function parseIntakeUrlParams(): Promise<ParseResult> {
 export function cleanUrl(): void {
   const url = new URL(window.location.href);
   const params = url.searchParams;
-  
+
   // List of params to remove (includes Airtable ref and Heyflow params)
   const sensitiveParams = [
     'ref', // Airtable record reference
-    'data', 'ts', 'sig', // Signed params
-    'firstName', 'first_name', 'lastName', 'last_name',
-    'email', 'phone', 'tel', 'phonenumber', 'dob', 'dateOfBirth', 'date_of_birth',
-    'address', 'address1', 'address2', 'street', 'apt', 'apartment',
-    'city', 'state', 'zip', 'zipCode', 'postal', 'country',
-    'intakeId', 'intake_id', 'id',
+    'data',
+    'ts',
+    'sig', // Signed params
+    'firstName',
+    'first_name',
+    'lastName',
+    'last_name',
+    'email',
+    'phone',
+    'tel',
+    'phonenumber',
+    'dob',
+    'dateOfBirth',
+    'date_of_birth',
+    'address',
+    'address1',
+    'address2',
+    'street',
+    'apt',
+    'apartment',
+    'city',
+    'state',
+    'zip',
+    'zipCode',
+    'postal',
+    'country',
+    'intakeId',
+    'intake_id',
+    'id',
   ];
-  
+
   let hasChanges = false;
   for (const param of sensitiveParams) {
     if (params.has(param)) {
@@ -577,7 +600,7 @@ export function cleanUrl(): void {
       hasChanges = true;
     }
   }
-  
+
   if (hasChanges) {
     // Keep non-sensitive params like lang, source, utm_*
     const newUrl = url.pathname + (params.toString() ? `?${params.toString()}` : '');
@@ -591,7 +614,7 @@ export function cleanUrl(): void {
  */
 export function buildTestUrl(data: Partial<IntakePrefillData>): string {
   const params = new URLSearchParams();
-  
+
   if (data.firstName) params.set('firstName', data.firstName);
   if (data.lastName) params.set('lastName', data.lastName);
   if (data.email) params.set('email', data.email);
@@ -606,6 +629,6 @@ export function buildTestUrl(data: Partial<IntakePrefillData>): string {
   if (data.plan) params.set('plan', data.plan);
   if (data.language) params.set('lang', data.language);
   if (data.intakeId) params.set('intakeId', data.intakeId);
-  
+
   return `${window.location.origin}${window.location.pathname}?${params.toString()}`;
 }

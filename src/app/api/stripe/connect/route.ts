@@ -107,7 +107,10 @@ async function getConnectHandler(request: NextRequest, user: AuthUser) {
   } catch (error: unknown) {
     logger.error('[STRIPE CONNECT] GET Error:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : String(error) || 'Failed to get connect status' },
+      {
+        error:
+          error instanceof Error ? error.message : String(error) || 'Failed to get connect status',
+      },
       { status: 500 }
     );
   }
@@ -169,12 +172,24 @@ async function createConnectHandler(request: NextRequest, user: AuthUser) {
   } catch (error: unknown) {
     logger.error('[STRIPE CONNECT] POST Error:', error);
 
-    if (error instanceof Error ? error.message : String(error)?.includes('already has a connected account')) {
-      return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 409 });
+    if (
+      error instanceof Error
+        ? error.message
+        : String(error)?.includes('already has a connected account')
+    ) {
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : String(error) },
+        { status: 409 }
+      );
     }
 
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : String(error) || 'Failed to create connected account' },
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : String(error) || 'Failed to create connected account',
+      },
       { status: 500 }
     );
   }
@@ -225,7 +240,12 @@ async function deleteConnectHandler(request: NextRequest, user: AuthUser) {
   } catch (error: unknown) {
     logger.error('[STRIPE CONNECT] DELETE Error:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : String(error) || 'Failed to delete connected account' },
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : String(error) || 'Failed to delete connected account',
+      },
       { status: 500 }
     );
   }

@@ -83,11 +83,7 @@ function getInvoiceBreakdownLines(invoice: Invoice): { description: string; amou
     return invoice.lineItems.map((li) => {
       const desc = (li.description || 'Line item').trim();
       let amt = typeof li.amount === 'number' ? li.amount : 0;
-      if (
-        !amt &&
-        typeof li.unitPrice === 'number' &&
-        typeof li.quantity === 'number'
-      ) {
+      if (!amt && typeof li.unitPrice === 'number' && typeof li.quantity === 'number') {
         amt = Math.round(li.unitPrice * li.quantity);
       }
       return { description: desc, amount: amt };
@@ -111,7 +107,11 @@ interface ActiveSubscription {
   stripeSubscriptionId: string | null;
 }
 
-export function PatientBillingView({ patientId, patientName, clinicSubdomain }: PatientBillingViewProps) {
+export function PatientBillingView({
+  patientId,
+  patientName,
+  clinicSubdomain,
+}: PatientBillingViewProps) {
   const [activeTab, setActiveTab] = useState<
     'invoices' | 'payments' | 'subscriptions' | 'process-payment'
   >('invoices');
@@ -461,7 +461,7 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
           toast.error('No portal URL returned. Check Stripe billing portal configuration.');
         }
       } else {
-        const data = await res.json().catch(() => ({} as Record<string, unknown>));
+        const data = await res.json().catch(() => ({}) as Record<string, unknown>);
         toast.error((data.error as string) || 'Failed to open customer portal');
       }
     } catch (err: unknown) {
@@ -603,7 +603,12 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
               <div className="mb-2 flex items-center justify-between">
                 <h4 className="flex items-center gap-2 text-sm font-semibold text-blue-900">
                   <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    />
                   </svg>
                   Active Subscriptions ({activeSubscriptions.length})
                 </h4>
@@ -636,7 +641,10 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
                         </span>
                       </div>
                       <p className="text-xs text-gray-500">
-                        {formatCurrency(sub.amount)}/{sub.intervalCount === 1 ? sub.interval : `${sub.intervalCount} ${sub.interval}s`}
+                        {formatCurrency(sub.amount)}/
+                        {sub.intervalCount === 1
+                          ? sub.interval
+                          : `${sub.intervalCount} ${sub.interval}s`}
                         {sub.nextBillingDate && mounted
                           ? ` · Next: ${new Date(sub.nextBillingDate).toLocaleDateString()}`
                           : ''}
@@ -651,7 +659,9 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
                       </button>
                       {(sub.status === 'ACTIVE' || sub.status === 'PAUSED') && (
                         <button
-                          onClick={() => setCancelSubModal({ subscriptionId: sub.id, planName: sub.planName })}
+                          onClick={() =>
+                            setCancelSubModal({ subscriptionId: sub.id, planName: sub.planName })
+                          }
                           className="rounded-md bg-red-100 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-200"
                         >
                           Cancel
@@ -715,188 +725,201 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
                         const expanded = expandedInvoiceIds.has(invoice.id);
                         return (
                           <React.Fragment key={invoice.id}>
-                        <tr className="transition-colors hover:bg-gray-50">
-                          <td className="whitespace-nowrap px-4 py-4 text-sm font-medium text-gray-900">
-                            <div className="flex items-center gap-1">
-                              {breakdown.length > 0 ? (
-                                <button
-                                  type="button"
-                                  onClick={() => toggleInvoiceLines(invoice.id)}
-                                  className="rounded p-0.5 text-gray-500 hover:bg-gray-100 hover:text-[#4fa77e]"
-                                  title={expanded ? 'Hide line items' : 'Show line items'}
-                                  aria-expanded={expanded}
-                                >
-                                  {expanded ? (
-                                    <ChevronDown className="h-4 w-4 shrink-0" />
-                                  ) : (
-                                    <ChevronRight className="h-4 w-4 shrink-0" />
-                                  )}
-                                </button>
-                              ) : (
-                                <span className="inline-block w-5 shrink-0" aria-hidden />
-                              )}
-                              <span>{invoice.stripeInvoiceNumber || `INV-${invoice.id}`}</span>
-                            </div>
-                          </td>
-                          <td className="whitespace-nowrap px-4 py-4 text-sm text-gray-600">
-                            <div>{formatDate(invoice.createdAt)}</div>
-                            {invoice.dueDate && (
-                              <div className="text-xs text-gray-400">
-                                Due: {formatDate(invoice.dueDate)}
-                              </div>
-                            )}
-                          </td>
-                          <td className="max-w-[220px] truncate px-4 py-4 text-sm text-gray-700" title={getTreatmentSummary(invoice)}>
-                            {getTreatmentSummary(invoice)}
-                          </td>
-                          <td className="whitespace-nowrap px-4 py-4 text-sm text-gray-900">
-                            <div className="font-medium">{formatCurrency(invoice.amountDue)}</div>
-                            {invoice.amountPaid > 0 && (
-                              <div className="text-xs text-green-600">
-                                Paid: {formatCurrency(invoice.amountPaid)}
-                              </div>
-                            )}
-                          </td>
-                          <td className="whitespace-nowrap px-4 py-4">
-                            {getStatusBadge(invoice.status)}
-                          </td>
-                          <td className="whitespace-nowrap px-4 py-4 text-sm">
-                            <div className="flex items-center gap-3">
-                              <button
-                                onClick={() => handleViewInvoice(invoice)}
-                                className="font-medium text-[#4fa77e] hover:text-[#3f8660]"
-                              >
-                                View
-                              </button>
-                              {invoice.stripePdfUrl && (
-                                <a
-                                  href={invoice.stripePdfUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="font-medium text-[#4fa77e] hover:text-[#3f8660]"
-                                >
-                                  PDF
-                                </a>
-                              )}
-                              {invoice.status === 'DRAFT' && (
-                                <button
-                                  onClick={() => handleSendInvoice(invoice.id)}
-                                  className="font-medium text-green-600 hover:text-green-800"
-                                >
-                                  Send
-                                </button>
-                              )}
-                              {(invoice.status === 'DRAFT' || invoice.status === 'OPEN') && (
-                                <button
-                                  onClick={() =>
-                                    setMarkPaidModal({
-                                      invoiceId: invoice.id,
-                                      amount: invoice.amountDue,
-                                    })
-                                  }
-                                  className="font-medium text-blue-600 hover:text-blue-800"
-                                >
-                                  Mark Paid
-                                </button>
-                              )}
-                              {invoice.status === 'OPEN' && (
-                                <button
-                                  onClick={() => handleVoidInvoice(invoice.id)}
-                                  className="font-medium text-amber-600 hover:text-amber-800"
-                                >
-                                  Void
-                                </button>
-                              )}
-                              {invoice.status === 'PAID' && invoice.amountPaid > 0 && (
-                                <>
-                                  <button
-                                    onClick={() => handleGenerateHsaLetter(patientId, invoice.id)}
-                                    className="font-medium text-indigo-600 hover:text-indigo-800"
-                                    title="Generate HSA/FSA reimbursement letter"
-                                  >
-                                    HSA Letter
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      const invoicePayment = payments.find(
-                                        (p: any) =>
-                                          p.invoiceId === invoice.id && p.status === 'SUCCEEDED'
-                                      );
-                                      setRefundModal(
-                                        invoicePayment
-                                          ? {
-                                              invoiceId: invoice.id,
-                                              paymentId: invoicePayment.id,
-                                              maxAmount: invoice.amountPaid,
-                                            }
-                                          : {
-                                              invoiceId: invoice.id,
-                                              stripeInvoiceId: invoice.stripeInvoiceId,
-                                              maxAmount: invoice.amountPaid,
-                                            }
-                                      );
-                                    }}
-                                    className="font-medium text-[var(--brand-primary)] hover:text-[var(--brand-primary)]"
-                                  >
-                                    Refund
-                                  </button>
-                                  <button
-                                    onClick={() => handleCancelInvoice(invoice.id)}
-                                    className="font-medium text-red-600 hover:text-red-800"
-                                  >
-                                    Cancel
-                                  </button>
-                                </>
-                              )}
-                              {/* Edit and Delete for unpaid invoices */}
-                              {(invoice.status === 'DRAFT' ||
-                                invoice.status === 'OPEN' ||
-                                invoice.status === 'VOID') && (
-                                <>
-                                  <button
-                                    onClick={() =>
-                                      window.open(`/invoices/${invoice.id}?edit=true`, '_blank')
-                                    }
-                                    className="font-medium text-blue-600 hover:text-blue-800"
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteInvoice(invoice.id)}
-                                    className="font-medium text-red-600 hover:text-red-800"
-                                  >
-                                    Delete
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                        {expanded && breakdown.length > 0 ? (
-                          <tr className="bg-slate-50/90">
-                            <td colSpan={6} className="px-4 py-3">
-                              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                Invoice line items
-                              </p>
-                              <ul className="space-y-1.5">
-                                {breakdown.map((line, i) => {
-                                  const isDiscount = line.amount < 0;
-                                  return (
-                                    <li
-                                      key={i}
-                                      className={`flex justify-between gap-4 text-sm ${isDiscount ? 'text-red-600' : 'text-gray-800'}`}
+                            <tr className="transition-colors hover:bg-gray-50">
+                              <td className="whitespace-nowrap px-4 py-4 text-sm font-medium text-gray-900">
+                                <div className="flex items-center gap-1">
+                                  {breakdown.length > 0 ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleInvoiceLines(invoice.id)}
+                                      className="rounded p-0.5 text-gray-500 hover:bg-gray-100 hover:text-[#4fa77e]"
+                                      title={expanded ? 'Hide line items' : 'Show line items'}
+                                      aria-expanded={expanded}
                                     >
-                                      <span className={`min-w-0 break-words ${isDiscount ? 'italic' : ''}`}>{line.description}</span>
-                                      <span className={`shrink-0 font-mono tabular-nums ${isDiscount ? 'text-red-600' : 'text-gray-900'}`}>
-                                        {formatCurrency(line.amount)}
-                                      </span>
-                                    </li>
-                                  );
-                                })}
-                              </ul>
-                            </td>
-                          </tr>
-                        ) : null}
+                                      {expanded ? (
+                                        <ChevronDown className="h-4 w-4 shrink-0" />
+                                      ) : (
+                                        <ChevronRight className="h-4 w-4 shrink-0" />
+                                      )}
+                                    </button>
+                                  ) : (
+                                    <span className="inline-block w-5 shrink-0" aria-hidden />
+                                  )}
+                                  <span>{invoice.stripeInvoiceNumber || `INV-${invoice.id}`}</span>
+                                </div>
+                              </td>
+                              <td className="whitespace-nowrap px-4 py-4 text-sm text-gray-600">
+                                <div>{formatDate(invoice.createdAt)}</div>
+                                {invoice.dueDate && (
+                                  <div className="text-xs text-gray-400">
+                                    Due: {formatDate(invoice.dueDate)}
+                                  </div>
+                                )}
+                              </td>
+                              <td
+                                className="max-w-[220px] truncate px-4 py-4 text-sm text-gray-700"
+                                title={getTreatmentSummary(invoice)}
+                              >
+                                {getTreatmentSummary(invoice)}
+                              </td>
+                              <td className="whitespace-nowrap px-4 py-4 text-sm text-gray-900">
+                                <div className="font-medium">
+                                  {formatCurrency(invoice.amountDue)}
+                                </div>
+                                {invoice.amountPaid > 0 && (
+                                  <div className="text-xs text-green-600">
+                                    Paid: {formatCurrency(invoice.amountPaid)}
+                                  </div>
+                                )}
+                              </td>
+                              <td className="whitespace-nowrap px-4 py-4">
+                                {getStatusBadge(invoice.status)}
+                              </td>
+                              <td className="whitespace-nowrap px-4 py-4 text-sm">
+                                <div className="flex items-center gap-3">
+                                  <button
+                                    onClick={() => handleViewInvoice(invoice)}
+                                    className="font-medium text-[#4fa77e] hover:text-[#3f8660]"
+                                  >
+                                    View
+                                  </button>
+                                  {invoice.stripePdfUrl && (
+                                    <a
+                                      href={invoice.stripePdfUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="font-medium text-[#4fa77e] hover:text-[#3f8660]"
+                                    >
+                                      PDF
+                                    </a>
+                                  )}
+                                  {invoice.status === 'DRAFT' && (
+                                    <button
+                                      onClick={() => handleSendInvoice(invoice.id)}
+                                      className="font-medium text-green-600 hover:text-green-800"
+                                    >
+                                      Send
+                                    </button>
+                                  )}
+                                  {(invoice.status === 'DRAFT' || invoice.status === 'OPEN') && (
+                                    <button
+                                      onClick={() =>
+                                        setMarkPaidModal({
+                                          invoiceId: invoice.id,
+                                          amount: invoice.amountDue,
+                                        })
+                                      }
+                                      className="font-medium text-blue-600 hover:text-blue-800"
+                                    >
+                                      Mark Paid
+                                    </button>
+                                  )}
+                                  {invoice.status === 'OPEN' && (
+                                    <button
+                                      onClick={() => handleVoidInvoice(invoice.id)}
+                                      className="font-medium text-amber-600 hover:text-amber-800"
+                                    >
+                                      Void
+                                    </button>
+                                  )}
+                                  {invoice.status === 'PAID' && invoice.amountPaid > 0 && (
+                                    <>
+                                      <button
+                                        onClick={() =>
+                                          handleGenerateHsaLetter(patientId, invoice.id)
+                                        }
+                                        className="font-medium text-indigo-600 hover:text-indigo-800"
+                                        title="Generate HSA/FSA reimbursement letter"
+                                      >
+                                        HSA Letter
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          const invoicePayment = payments.find(
+                                            (p: any) =>
+                                              p.invoiceId === invoice.id && p.status === 'SUCCEEDED'
+                                          );
+                                          setRefundModal(
+                                            invoicePayment
+                                              ? {
+                                                  invoiceId: invoice.id,
+                                                  paymentId: invoicePayment.id,
+                                                  maxAmount: invoice.amountPaid,
+                                                }
+                                              : {
+                                                  invoiceId: invoice.id,
+                                                  stripeInvoiceId: invoice.stripeInvoiceId,
+                                                  maxAmount: invoice.amountPaid,
+                                                }
+                                          );
+                                        }}
+                                        className="font-medium text-[var(--brand-primary)] hover:text-[var(--brand-primary)]"
+                                      >
+                                        Refund
+                                      </button>
+                                      <button
+                                        onClick={() => handleCancelInvoice(invoice.id)}
+                                        className="font-medium text-red-600 hover:text-red-800"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </>
+                                  )}
+                                  {/* Edit and Delete for unpaid invoices */}
+                                  {(invoice.status === 'DRAFT' ||
+                                    invoice.status === 'OPEN' ||
+                                    invoice.status === 'VOID') && (
+                                    <>
+                                      <button
+                                        onClick={() =>
+                                          window.open(`/invoices/${invoice.id}?edit=true`, '_blank')
+                                        }
+                                        className="font-medium text-blue-600 hover:text-blue-800"
+                                      >
+                                        Edit
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteInvoice(invoice.id)}
+                                        className="font-medium text-red-600 hover:text-red-800"
+                                      >
+                                        Delete
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                            {expanded && breakdown.length > 0 ? (
+                              <tr className="bg-slate-50/90">
+                                <td colSpan={6} className="px-4 py-3">
+                                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                    Invoice line items
+                                  </p>
+                                  <ul className="space-y-1.5">
+                                    {breakdown.map((line, i) => {
+                                      const isDiscount = line.amount < 0;
+                                      return (
+                                        <li
+                                          key={i}
+                                          className={`flex justify-between gap-4 text-sm ${isDiscount ? 'text-red-600' : 'text-gray-800'}`}
+                                        >
+                                          <span
+                                            className={`min-w-0 break-words ${isDiscount ? 'italic' : ''}`}
+                                          >
+                                            {line.description}
+                                          </span>
+                                          <span
+                                            className={`shrink-0 font-mono tabular-nums ${isDiscount ? 'text-red-600' : 'text-gray-900'}`}
+                                          >
+                                            {formatCurrency(line.amount)}
+                                          </span>
+                                        </li>
+                                      );
+                                    })}
+                                  </ul>
+                                </td>
+                              </tr>
+                            ) : null}
                           </React.Fragment>
                         );
                       })}
@@ -911,176 +934,182 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
                   const mobileBreakdown = getInvoiceBreakdownLines(invoice);
                   const mobileExpanded = expandedInvoiceIds.has(invoice.id);
                   return (
-                  <div key={invoice.id} className="rounded-xl border border-gray-200 bg-white p-4">
-                    <div className="mb-2 flex items-start justify-between">
-                      <div>
-                        <p className="font-semibold text-gray-900">
-                          {invoice.stripeInvoiceNumber || `INV-${invoice.id}`}
-                        </p>
-                        <p className="text-xs text-gray-400">{formatDate(invoice.createdAt)}</p>
-                      </div>
-                      {getStatusBadge(invoice.status)}
-                    </div>
-
-                    <p className="mb-3 truncate text-sm text-gray-700" title={getTreatmentSummary(invoice)}>
-                      {getTreatmentSummary(invoice)}
-                    </p>
-
-                    <div className="mb-4 grid grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <p className="text-xs font-medium uppercase text-gray-500">Amount</p>
-                        <p className="font-semibold text-gray-900">
-                          {formatCurrency(invoice.amountDue)}
-                        </p>
-                        {invoice.amountPaid > 0 && (
-                          <p className="text-xs text-green-600">
-                            Paid: {formatCurrency(invoice.amountPaid)}
+                    <div
+                      key={invoice.id}
+                      className="rounded-xl border border-gray-200 bg-white p-4"
+                    >
+                      <div className="mb-2 flex items-start justify-between">
+                        <div>
+                          <p className="font-semibold text-gray-900">
+                            {invoice.stripeInvoiceNumber || `INV-${invoice.id}`}
                           </p>
-                        )}
+                          <p className="text-xs text-gray-400">{formatDate(invoice.createdAt)}</p>
+                        </div>
+                        {getStatusBadge(invoice.status)}
                       </div>
-                      <div>
-                        <p className="text-xs font-medium uppercase text-gray-500">Due Date</p>
-                        <p className="text-gray-900">{formatDate(invoice.dueDate)}</p>
-                      </div>
-                    </div>
 
-                    {mobileBreakdown.length > 0 ? (
-                      <div className="mb-3 rounded-lg border border-slate-100 bg-slate-50/80 p-3">
-                        <button
-                          type="button"
-                          onClick={() => toggleInvoiceLines(invoice.id)}
-                          className="flex w-full items-center justify-between text-left text-sm font-medium text-gray-800"
-                        >
-                          <span>Line items ({mobileBreakdown.length})</span>
-                          {mobileExpanded ? (
-                            <ChevronDown className="h-4 w-4 shrink-0 text-gray-500" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4 shrink-0 text-gray-500" />
-                          )}
-                        </button>
-                        {mobileExpanded ? (
-                          <ul className="mt-2 space-y-2 border-t border-slate-200/80 pt-2">
-                            {mobileBreakdown.map((line, i) => (
-                              <li
-                                key={i}
-                                className="flex justify-between gap-2 text-xs text-gray-800"
-                              >
-                                <span className="min-w-0 break-words">{line.description}</span>
-                                <span className="shrink-0 font-mono tabular-nums">
-                                  {formatCurrency(line.amount)}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                        ) : null}
-                      </div>
-                    ) : null}
-
-                    <div className="flex flex-wrap gap-2 border-t border-gray-100 pt-3">
-                      <button
-                        onClick={() => handleViewInvoice(invoice)}
-                        className="min-w-[60px] flex-1 rounded-lg bg-green-50 px-3 py-2 text-sm font-medium text-[#4fa77e] transition-colors hover:bg-green-100"
+                      <p
+                        className="mb-3 truncate text-sm text-gray-700"
+                        title={getTreatmentSummary(invoice)}
                       >
-                        View
-                      </button>
-                      {invoice.stripePdfUrl && (
-                        <a
-                          href={invoice.stripePdfUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="min-w-[60px] flex-1 rounded-lg bg-green-50 px-3 py-2 text-center text-sm font-medium text-[#4fa77e] transition-colors hover:bg-green-100"
-                        >
-                          PDF
-                        </a>
-                      )}
-                      {invoice.status === 'DRAFT' && (
-                        <button
-                          onClick={() => handleSendInvoice(invoice.id)}
-                          className="min-w-[60px] flex-1 rounded-lg bg-green-50 px-3 py-2 text-sm font-medium text-green-600 transition-colors hover:bg-green-100"
-                        >
-                          Send
-                        </button>
-                      )}
-                      {(invoice.status === 'DRAFT' || invoice.status === 'OPEN') && (
-                        <button
-                          onClick={() =>
-                            setMarkPaidModal({ invoiceId: invoice.id, amount: invoice.amountDue })
-                          }
-                          className="min-w-[60px] flex-1 rounded-lg bg-blue-50 px-3 py-2 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-100"
-                        >
-                          Mark Paid
-                        </button>
-                      )}
-                      {invoice.status === 'OPEN' && (
-                        <button
-                          onClick={() => handleVoidInvoice(invoice.id)}
-                          className="min-w-[60px] flex-1 rounded-lg bg-amber-50 px-3 py-2 text-sm font-medium text-amber-600 transition-colors hover:bg-amber-100"
-                        >
-                          Void
-                        </button>
-                      )}
-                      {invoice.status === 'PAID' && invoice.amountPaid > 0 && (
-                        <>
+                        {getTreatmentSummary(invoice)}
+                      </p>
+
+                      <div className="mb-4 grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <p className="text-xs font-medium uppercase text-gray-500">Amount</p>
+                          <p className="font-semibold text-gray-900">
+                            {formatCurrency(invoice.amountDue)}
+                          </p>
+                          {invoice.amountPaid > 0 && (
+                            <p className="text-xs text-green-600">
+                              Paid: {formatCurrency(invoice.amountPaid)}
+                            </p>
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium uppercase text-gray-500">Due Date</p>
+                          <p className="text-gray-900">{formatDate(invoice.dueDate)}</p>
+                        </div>
+                      </div>
+
+                      {mobileBreakdown.length > 0 ? (
+                        <div className="mb-3 rounded-lg border border-slate-100 bg-slate-50/80 p-3">
                           <button
-                            onClick={() => handleGenerateHsaLetter(patientId, invoice.id)}
-                            className="min-w-[60px] flex-1 rounded-lg bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-600 transition-colors hover:bg-indigo-100"
+                            type="button"
+                            onClick={() => toggleInvoiceLines(invoice.id)}
+                            className="flex w-full items-center justify-between text-left text-sm font-medium text-gray-800"
                           >
-                            HSA Letter
+                            <span>Line items ({mobileBreakdown.length})</span>
+                            {mobileExpanded ? (
+                              <ChevronDown className="h-4 w-4 shrink-0 text-gray-500" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4 shrink-0 text-gray-500" />
+                            )}
                           </button>
+                          {mobileExpanded ? (
+                            <ul className="mt-2 space-y-2 border-t border-slate-200/80 pt-2">
+                              {mobileBreakdown.map((line, i) => (
+                                <li
+                                  key={i}
+                                  className="flex justify-between gap-2 text-xs text-gray-800"
+                                >
+                                  <span className="min-w-0 break-words">{line.description}</span>
+                                  <span className="shrink-0 font-mono tabular-nums">
+                                    {formatCurrency(line.amount)}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : null}
+                        </div>
+                      ) : null}
+
+                      <div className="flex flex-wrap gap-2 border-t border-gray-100 pt-3">
+                        <button
+                          onClick={() => handleViewInvoice(invoice)}
+                          className="min-w-[60px] flex-1 rounded-lg bg-green-50 px-3 py-2 text-sm font-medium text-[#4fa77e] transition-colors hover:bg-green-100"
+                        >
+                          View
+                        </button>
+                        {invoice.stripePdfUrl && (
+                          <a
+                            href={invoice.stripePdfUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="min-w-[60px] flex-1 rounded-lg bg-green-50 px-3 py-2 text-center text-sm font-medium text-[#4fa77e] transition-colors hover:bg-green-100"
+                          >
+                            PDF
+                          </a>
+                        )}
+                        {invoice.status === 'DRAFT' && (
                           <button
-                            onClick={() => {
-                              const invoicePayment = payments.find(
-                                (p: any) => p.invoiceId === invoice.id && p.status === 'SUCCEEDED'
-                              );
-                              setRefundModal(
-                                invoicePayment
-                                  ? {
-                                      invoiceId: invoice.id,
-                                      paymentId: invoicePayment.id,
-                                      maxAmount: invoice.amountPaid,
-                                    }
-                                  : {
-                                      invoiceId: invoice.id,
-                                      stripeInvoiceId: invoice.stripeInvoiceId,
-                                      maxAmount: invoice.amountPaid,
-                                    }
-                              );
-                            }}
-                            className="min-w-[60px] flex-1 rounded-lg bg-[var(--brand-primary-light)] px-3 py-2 text-sm font-medium text-[var(--brand-primary)] transition-colors hover:bg-[var(--brand-primary-light)]"
+                            onClick={() => handleSendInvoice(invoice.id)}
+                            className="min-w-[60px] flex-1 rounded-lg bg-green-50 px-3 py-2 text-sm font-medium text-green-600 transition-colors hover:bg-green-100"
                           >
-                            Refund
+                            Send
                           </button>
-                          <button
-                            onClick={() => handleCancelInvoice(invoice.id)}
-                            className="min-w-[60px] flex-1 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-100"
-                          >
-                            Cancel
-                          </button>
-                        </>
-                      )}
-                      {/* Edit and Delete for unpaid invoices */}
-                      {(invoice.status === 'DRAFT' ||
-                        invoice.status === 'OPEN' ||
-                        invoice.status === 'VOID') && (
-                        <>
+                        )}
+                        {(invoice.status === 'DRAFT' || invoice.status === 'OPEN') && (
                           <button
                             onClick={() =>
-                              window.open(`/invoices/${invoice.id}?edit=true`, '_blank')
+                              setMarkPaidModal({ invoiceId: invoice.id, amount: invoice.amountDue })
                             }
                             className="min-w-[60px] flex-1 rounded-lg bg-blue-50 px-3 py-2 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-100"
                           >
-                            Edit
+                            Mark Paid
                           </button>
+                        )}
+                        {invoice.status === 'OPEN' && (
                           <button
-                            onClick={() => handleDeleteInvoice(invoice.id)}
-                            className="min-w-[60px] flex-1 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-100"
+                            onClick={() => handleVoidInvoice(invoice.id)}
+                            className="min-w-[60px] flex-1 rounded-lg bg-amber-50 px-3 py-2 text-sm font-medium text-amber-600 transition-colors hover:bg-amber-100"
                           >
-                            Delete
+                            Void
                           </button>
-                        </>
-                      )}
+                        )}
+                        {invoice.status === 'PAID' && invoice.amountPaid > 0 && (
+                          <>
+                            <button
+                              onClick={() => handleGenerateHsaLetter(patientId, invoice.id)}
+                              className="min-w-[60px] flex-1 rounded-lg bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-600 transition-colors hover:bg-indigo-100"
+                            >
+                              HSA Letter
+                            </button>
+                            <button
+                              onClick={() => {
+                                const invoicePayment = payments.find(
+                                  (p: any) => p.invoiceId === invoice.id && p.status === 'SUCCEEDED'
+                                );
+                                setRefundModal(
+                                  invoicePayment
+                                    ? {
+                                        invoiceId: invoice.id,
+                                        paymentId: invoicePayment.id,
+                                        maxAmount: invoice.amountPaid,
+                                      }
+                                    : {
+                                        invoiceId: invoice.id,
+                                        stripeInvoiceId: invoice.stripeInvoiceId,
+                                        maxAmount: invoice.amountPaid,
+                                      }
+                                );
+                              }}
+                              className="min-w-[60px] flex-1 rounded-lg bg-[var(--brand-primary-light)] px-3 py-2 text-sm font-medium text-[var(--brand-primary)] transition-colors hover:bg-[var(--brand-primary-light)]"
+                            >
+                              Refund
+                            </button>
+                            <button
+                              onClick={() => handleCancelInvoice(invoice.id)}
+                              className="min-w-[60px] flex-1 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-100"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        )}
+                        {/* Edit and Delete for unpaid invoices */}
+                        {(invoice.status === 'DRAFT' ||
+                          invoice.status === 'OPEN' ||
+                          invoice.status === 'VOID') && (
+                          <>
+                            <button
+                              onClick={() =>
+                                window.open(`/invoices/${invoice.id}?edit=true`, '_blank')
+                              }
+                              className="min-w-[60px] flex-1 rounded-lg bg-blue-50 px-3 py-2 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-100"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeleteInvoice(invoice.id)}
+                              className="min-w-[60px] flex-1 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-100"
+                            >
+                              Delete
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
-                  </div>
                   );
                 })}
               </div>
@@ -1262,7 +1291,11 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
 
       {/* Subscriptions Tab */}
       {activeTab === 'subscriptions' && (
-        <PatientSubscriptionManager patientId={patientId} patientName={patientName} clinicSubdomain={clinicSubdomain} />
+        <PatientSubscriptionManager
+          patientId={patientId}
+          patientName={patientName}
+          clinicSubdomain={clinicSubdomain}
+        />
       )}
 
       {/* Refund Modal */}
@@ -1310,7 +1343,8 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
           <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
             <h3 className="mb-1 text-lg font-semibold text-gray-900">Cancel Subscription</h3>
             <p className="mb-4 text-sm text-gray-600">
-              Cancel <span className="font-medium">{cancelSubModal.planName}</span> for {patientName}
+              Cancel <span className="font-medium">{cancelSubModal.planName}</span> for{' '}
+              {patientName}
             </p>
 
             <div className="mb-4 space-y-2">
@@ -1324,7 +1358,9 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
                 />
                 <div>
                   <p className="text-sm font-medium text-gray-900">Cancel at end of period</p>
-                  <p className="text-xs text-gray-500">Patient keeps access until current billing period ends</p>
+                  <p className="text-xs text-gray-500">
+                    Patient keeps access until current billing period ends
+                  </p>
                 </div>
               </label>
               <label className="flex cursor-pointer items-start gap-3 rounded-lg border-2 p-3 transition-colors has-[:checked]:border-red-500 has-[:checked]:bg-red-50">
@@ -1337,7 +1373,9 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
                 />
                 <div>
                   <p className="text-sm font-medium text-gray-900">Cancel immediately</p>
-                  <p className="text-xs text-gray-500">Stops billing and access right now. Refund must be processed separately.</p>
+                  <p className="text-xs text-gray-500">
+                    Stops billing and access right now. Refund must be processed separately.
+                  </p>
                 </div>
               </label>
             </div>
@@ -1516,9 +1554,14 @@ function ScheduledPaymentsSection({
   return (
     <div className="mt-6">
       <div className="mb-3 flex items-center justify-between">
-        <h4 className="flex items-center gap-2 text-sm font-semibold text-gray-500 uppercase tracking-wider">
+        <h4 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-gray-500">
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+            />
           </svg>
           Scheduled Payments
           {pendingPayments.length > 0 && (
@@ -1542,7 +1585,10 @@ function ScheduledPaymentsSection({
       {pendingPayments.length > 0 && (
         <div className="space-y-2">
           {pendingPayments.map((sp) => (
-            <div key={sp.id} className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <div
+              key={sp.id}
+              className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 p-3"
+            >
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-gray-900">
@@ -1559,7 +1605,8 @@ function ScheduledPaymentsSection({
                   </span>
                 </div>
                 <p className="text-xs text-gray-500">
-                  {formatCurrency(sp.amount)} · {mounted ? new Date(sp.scheduledDate).toLocaleDateString() : '—'}
+                  {formatCurrency(sp.amount)} ·{' '}
+                  {mounted ? new Date(sp.scheduledDate).toLocaleDateString() : '—'}
                   {sp.notes ? ` · ${sp.notes}` : ''}
                 </p>
               </div>
@@ -1591,16 +1638,24 @@ function ScheduledPaymentsSection({
           </summary>
           <div className="mt-1 space-y-1">
             {pastPayments.map((sp) => (
-              <div key={sp.id} className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 p-2">
+              <div
+                key={sp.id}
+                className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 p-2"
+              >
                 <div>
                   <span className="text-xs text-gray-600">
-                    {sp.planName || sp.description || 'Custom Payment'} — {formatCurrency(sp.amount)}
+                    {sp.planName || sp.description || 'Custom Payment'} —{' '}
+                    {formatCurrency(sp.amount)}
                   </span>
-                  <span className={`ml-2 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-                    sp.status === 'PROCESSED' ? 'bg-green-100 text-green-700'
-                    : sp.status === 'FAILED' ? 'bg-red-100 text-red-700'
-                    : 'bg-gray-100 text-gray-500'
-                  }`}>
+                  <span
+                    className={`ml-2 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                      sp.status === 'PROCESSED'
+                        ? 'bg-green-100 text-green-700'
+                        : sp.status === 'FAILED'
+                          ? 'bg-red-100 text-red-700'
+                          : 'bg-gray-100 text-gray-500'
+                    }`}
+                  >
                     {sp.status}
                   </span>
                 </div>
@@ -1669,7 +1724,9 @@ function ScheduledPaymentsSection({
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Description</label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    Description
+                  </label>
                   <input
                     type="text"
                     value={scheduleDescription}
@@ -1716,7 +1773,9 @@ function ScheduledPaymentsSection({
 
               {/* Notes */}
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Notes (optional)</label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Notes (optional)
+                </label>
                 <textarea
                   value={scheduleNotes}
                   onChange={(e) => setScheduleNotes(e.target.value)}
@@ -1837,7 +1896,11 @@ function RefundModal({
                 Refund Amount (max: {formatCurrency(maxAmount)})
               </label>
               <div className="relative">
-                <span className={`absolute left-4 top-2 text-gray-500 transition-opacity duration-200 ${amount ? 'opacity-0' : 'opacity-100'}`}>$</span>
+                <span
+                  className={`absolute left-4 top-2 text-gray-500 transition-opacity duration-200 ${amount ? 'opacity-0' : 'opacity-100'}`}
+                >
+                  $
+                </span>
                 <input
                   type="number"
                   value={amount}
@@ -1944,7 +2007,11 @@ function MarkPaidModal({
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Payment Amount</label>
             <div className="relative">
-              <span className={`absolute left-3 top-2 text-gray-500 transition-opacity duration-200 ${paymentAmount ? 'opacity-0' : 'opacity-100'}`}>$</span>
+              <span
+                className={`absolute left-3 top-2 text-gray-500 transition-opacity duration-200 ${paymentAmount ? 'opacity-0' : 'opacity-100'}`}
+              >
+                $
+              </span>
               <input
                 type="number"
                 value={paymentAmount}
@@ -2045,7 +2112,9 @@ function CreateInvoiceForm({
   onSuccess: () => void;
   onCancel: () => void;
 }) {
-  const [lineItems, setLineItems] = useState<Array<{ description: string; amount: number; productSlug?: string }>>([{ description: '', amount: 0 }]);
+  const [lineItems, setLineItems] = useState<
+    Array<{ description: string; amount: number; productSlug?: string }>
+  >([{ description: '', amount: 0 }]);
   const [autoSend, setAutoSend] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string>('');
@@ -2054,17 +2123,16 @@ function CreateInvoiceForm({
   const surcharge = getClinicSurcharge(clinicSubdomain);
 
   const lineItemSubtotal = lineItems.reduce((sum, item) => sum + (item.amount || 0), 0);
-  const ccFeeAmountCents = surcharge.ccProcessingFeeRate && includeCcFee
-    ? Math.round(lineItemSubtotal * surcharge.ccProcessingFeeRate)
-    : 0;
+  const ccFeeAmountCents =
+    surcharge.ccProcessingFeeRate && includeCcFee
+      ? Math.round(lineItemSubtotal * surcharge.ccProcessingFeeRate)
+      : 0;
 
   // Mark as Paid Externally fields
   const [markAsPaidExternally, setMarkAsPaidExternally] = useState(false);
   const [externalPaymentMethod, setExternalPaymentMethod] = useState('external_stripe');
   const [externalPaymentNotes, setExternalPaymentNotes] = useState('');
-  const [externalPaymentDate, setExternalPaymentDate] = useState(
-    calendarTodayServer()
-  );
+  const [externalPaymentDate, setExternalPaymentDate] = useState(calendarTodayServer());
 
   const handlePlanSelect = (planId: string) => {
     const plan = getPlanById(planId, clinicSubdomain);
@@ -2122,9 +2190,10 @@ function CreateInvoiceForm({
 
     setSubmitting(true);
 
-    const allItems = ccFeeAmountCents > 0
-      ? [...validItems, { description: surcharge.ccProcessingFeeLabel, amount: ccFeeAmountCents }]
-      : validItems;
+    const allItems =
+      ccFeeAmountCents > 0
+        ? [...validItems, { description: surcharge.ccProcessingFeeLabel, amount: ccFeeAmountCents }]
+        : validItems;
 
     const createPayload = {
       patientId,
@@ -2266,7 +2335,9 @@ function CreateInvoiceForm({
               </label>
             </div>
             <span className="text-sm font-medium text-gray-900">
-              {includeCcFee && ccFeeAmountCents > 0 ? `$${(ccFeeAmountCents / 100).toFixed(2)}` : '$0.00'}
+              {includeCcFee && ccFeeAmountCents > 0
+                ? `$${(ccFeeAmountCents / 100).toFixed(2)}`
+                : '$0.00'}
             </span>
           </div>
         )}
@@ -2465,8 +2536,8 @@ function GeneratePaymentLinkModal({
         });
         const retryData = await retryRes.json();
         if (retryRes.ok) {
-          const link = retryData.stripeInvoiceUrl ||
-            `${window.location.origin}/pay/${retryData.invoice?.id}`;
+          const link =
+            retryData.stripeInvoiceUrl || `${window.location.origin}/pay/${retryData.invoice?.id}`;
           setGeneratedLink(link);
           setInvoiceId(retryData.invoice?.id);
           onInvoiceCreated();
@@ -2477,8 +2548,7 @@ function GeneratePaymentLinkModal({
       } else {
         const data = await res.json();
         if (res.ok) {
-          const link = data.stripeInvoiceUrl ||
-            `${window.location.origin}/pay/${data.invoice?.id}`;
+          const link = data.stripeInvoiceUrl || `${window.location.origin}/pay/${data.invoice?.id}`;
           setGeneratedLink(link);
           setInvoiceId(data.invoice?.id);
           onInvoiceCreated();
@@ -2553,9 +2623,8 @@ function GeneratePaymentLinkModal({
     }
   };
 
-  const currentAmount = mode === 'plan'
-    ? (getSelectedPlanDetails()?.price || 0)
-    : Math.round(customAmount * 100);
+  const currentAmount =
+    mode === 'plan' ? getSelectedPlanDetails()?.price || 0 : Math.round(customAmount * 100);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
@@ -2571,7 +2640,12 @@ function GeneratePaymentLinkModal({
             className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
           >
             <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
@@ -2677,14 +2751,29 @@ function GeneratePaymentLinkModal({
               {/* Generate Button */}
               <button
                 onClick={handleGenerate}
-                disabled={generating || (mode === 'plan' && !selectedPlan) || (mode === 'custom' && (customAmount <= 0 || !customDescription.trim()))}
+                disabled={
+                  generating ||
+                  (mode === 'plan' && !selectedPlan) ||
+                  (mode === 'custom' && (customAmount <= 0 || !customDescription.trim()))
+                }
                 className="w-full rounded-lg bg-[#4fa77e] px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-[#3f8660] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {generating ? (
                   <span className="flex items-center justify-center gap-2">
                     <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                      />
                     </svg>
                     Generating...
                   </span>
@@ -2698,8 +2787,18 @@ function GeneratePaymentLinkModal({
             <div className="space-y-5">
               {/* Success Banner */}
               <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-center">
-                <svg className="mx-auto mb-2 h-10 w-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <svg
+                  className="mx-auto mb-2 h-10 w-10 text-green-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
                 <p className="text-sm font-medium text-green-800">Payment link generated!</p>
                 <p className="mt-1 text-lg font-bold text-green-700">
@@ -2727,15 +2826,35 @@ function GeneratePaymentLinkModal({
                   >
                     {copied ? (
                       <>
-                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        <svg
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 13l4 4L19 7"
+                          />
                         </svg>
                         Copied
                       </>
                     ) : (
                       <>
-                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        <svg
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                          />
                         </svg>
                         Copy
                       </>
@@ -2757,12 +2876,33 @@ function GeneratePaymentLinkModal({
                   >
                     {sendingMethod === 'sms' ? (
                       <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                        />
                       </svg>
                     ) : (
-                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"
+                        />
                       </svg>
                     )}
                     SMS
@@ -2774,12 +2914,33 @@ function GeneratePaymentLinkModal({
                   >
                     {sendingMethod === 'email' ? (
                       <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                        />
                       </svg>
                     ) : (
-                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                        />
                       </svg>
                     )}
                     Email
@@ -2791,12 +2952,33 @@ function GeneratePaymentLinkModal({
                   >
                     {sendingMethod === 'both' ? (
                       <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                        />
                       </svg>
                     ) : (
-                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                        />
                       </svg>
                     )}
                     Both
@@ -2804,11 +2986,13 @@ function GeneratePaymentLinkModal({
                 </div>
 
                 {sendResult && (
-                  <div className={`mt-2 rounded-lg px-3 py-2 text-sm ${
-                    sendResult.success
-                      ? 'border border-green-200 bg-green-50 text-green-700'
-                      : 'border border-red-200 bg-red-50 text-red-700'
-                  }`}>
+                  <div
+                    className={`mt-2 rounded-lg px-3 py-2 text-sm ${
+                      sendResult.success
+                        ? 'border border-green-200 bg-green-50 text-green-700'
+                        : 'border border-red-200 bg-red-50 text-red-700'
+                    }`}
+                  >
                     {sendResult.message}
                   </div>
                 )}

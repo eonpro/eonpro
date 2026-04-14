@@ -4,11 +4,7 @@ import { prisma } from '@/lib/db';
 import { downloadFromS3 } from '@/lib/integrations/aws/s3Service';
 import { logger } from '@/lib/logger';
 
-async function getHandler(
-  req: NextRequest,
-  user: AuthUser,
-  context?: unknown,
-) {
+async function getHandler(req: NextRequest, user: AuthUser, context?: unknown) {
   try {
     const ctx = context as { params: Promise<{ id: string }> };
     const { id } = await ctx.params;

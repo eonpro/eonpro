@@ -63,48 +63,51 @@ export const POST = withSuperAdminAuth(
       }
 
       // Archive the provider
-      const updatedProvider = await prisma.$transaction(async (tx: TransactionClient) => {
-        // Update provider status
-        const archived = await tx.provider.update({
-          where: { id: providerId },
-          data: {
-            status: 'ARCHIVED',
-            archivedAt: new Date(),
-            archivedBy: user.id,
-          },
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            npi: true,
-            status: true,
-            archivedAt: true,
-          },
-        });
-
-        // Deactivate all clinic assignments
-        await tx.providerClinic.updateMany({
-          where: { providerId },
-          data: { isActive: false },
-        });
-
-        // Create audit log
-        await tx.providerAudit.create({
-          data: {
-            providerId,
-            actorEmail: user.email,
-            action: 'ARCHIVE',
-            diff: {
-              previousStatus: provider.status,
-              newStatus: 'ARCHIVED',
-              archivedBy: user.email,
-              archivedAt: new Date().toISOString(),
+      const updatedProvider = await prisma.$transaction(
+        async (tx: TransactionClient) => {
+          // Update provider status
+          const archived = await tx.provider.update({
+            where: { id: providerId },
+            data: {
+              status: 'ARCHIVED',
+              archivedAt: new Date(),
+              archivedBy: user.id,
             },
-          },
-        });
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              npi: true,
+              status: true,
+              archivedAt: true,
+            },
+          });
 
-        return archived;
-      }, { timeout: 15000 });
+          // Deactivate all clinic assignments
+          await tx.providerClinic.updateMany({
+            where: { providerId },
+            data: { isActive: false },
+          });
+
+          // Create audit log
+          await tx.providerAudit.create({
+            data: {
+              providerId,
+              actorEmail: user.email,
+              action: 'ARCHIVE',
+              diff: {
+                previousStatus: provider.status,
+                newStatus: 'ARCHIVED',
+                archivedBy: user.email,
+                archivedAt: new Date().toISOString(),
+              },
+            },
+          });
+
+          return archived;
+        },
+        { timeout: 15000 }
+      );
 
       logger.info('[SUPER-ADMIN/PROVIDERS] Provider archived', {
         providerId,
@@ -118,7 +121,10 @@ export const POST = withSuperAdminAuth(
     } catch (error: unknown) {
       logger.error('[SUPER-ADMIN/PROVIDERS] Error archiving provider:', error);
       return NextResponse.json(
-        { error: error instanceof Error ? error.message : String(error) || 'Failed to archive provider' },
+        {
+          error:
+            error instanceof Error ? error.message : String(error) || 'Failed to archive provider',
+        },
         { status: 500 }
       );
     }
@@ -165,41 +171,44 @@ export const DELETE = withSuperAdminAuth(
       }
 
       // Unarchive the provider
-      const updatedProvider = await prisma.$transaction(async (tx: TransactionClient) => {
-        // Update provider status
-        const restored = await tx.provider.update({
-          where: { id: providerId },
-          data: {
-            status: 'ACTIVE',
-            archivedAt: null,
-            archivedBy: null,
-          },
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            npi: true,
-            status: true,
-          },
-        });
-
-        // Create audit log
-        await tx.providerAudit.create({
-          data: {
-            providerId,
-            actorEmail: user.email,
-            action: 'UNARCHIVE',
-            diff: {
-              previousStatus: 'ARCHIVED',
-              newStatus: 'ACTIVE',
-              restoredBy: user.email,
-              restoredAt: new Date().toISOString(),
+      const updatedProvider = await prisma.$transaction(
+        async (tx: TransactionClient) => {
+          // Update provider status
+          const restored = await tx.provider.update({
+            where: { id: providerId },
+            data: {
+              status: 'ACTIVE',
+              archivedAt: null,
+              archivedBy: null,
             },
-          },
-        });
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              npi: true,
+              status: true,
+            },
+          });
 
-        return restored;
-      }, { timeout: 15000 });
+          // Create audit log
+          await tx.providerAudit.create({
+            data: {
+              providerId,
+              actorEmail: user.email,
+              action: 'UNARCHIVE',
+              diff: {
+                previousStatus: 'ARCHIVED',
+                newStatus: 'ACTIVE',
+                restoredBy: user.email,
+                restoredAt: new Date().toISOString(),
+              },
+            },
+          });
+
+          return restored;
+        },
+        { timeout: 15000 }
+      );
 
       logger.info('[SUPER-ADMIN/PROVIDERS] Provider unarchived', {
         providerId,
@@ -213,7 +222,12 @@ export const DELETE = withSuperAdminAuth(
     } catch (error: unknown) {
       logger.error('[SUPER-ADMIN/PROVIDERS] Error unarchiving provider:', error);
       return NextResponse.json(
-        { error: error instanceof Error ? error.message : String(error) || 'Failed to unarchive provider' },
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : String(error) || 'Failed to unarchive provider',
+        },
         { status: 500 }
       );
     }

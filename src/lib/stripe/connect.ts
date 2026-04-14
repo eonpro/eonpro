@@ -152,7 +152,7 @@ export function getDedicatedAccountPublishableKey(subdomain: string): string | u
  */
 export function getPublishableKeyForContext(
   context: StripeContext,
-  clinicSubdomain?: string | null,
+  clinicSubdomain?: string | null
 ): string {
   // Dedicated accounts have their own publishable key
   if (context.isDedicatedAccount && clinicSubdomain) {
@@ -259,15 +259,17 @@ export async function getStripeForClinic(clinicId: number): Promise<StripeContex
     // Self-heal: if the clinic has stripeAccountId set but is actually the platform,
     // clear it to prevent future confusion.
     if (clinic.stripeAccountId && clinic.stripePlatformAccount !== true) {
-      prisma.clinic.update({
-        where: { id: clinic.id },
-        data: { stripePlatformAccount: true },
-      }).catch((err: Error) => {
-        logger.warn('[STRIPE CONNECT] Failed to self-heal clinic platform flag', {
-          clinicId: clinic.id,
-          error: err.message,
+      prisma.clinic
+        .update({
+          where: { id: clinic.id },
+          data: { stripePlatformAccount: true },
+        })
+        .catch((err: Error) => {
+          logger.warn('[STRIPE CONNECT] Failed to self-heal clinic platform flag', {
+            clinicId: clinic.id,
+            error: err.message,
+          });
         });
-      });
     }
 
     return {

@@ -90,7 +90,7 @@ class CircuitBreakerManager {
   constructor(config?: CircuitBreakerManagerConfig) {
     this.local = new LocalBreaker(config?.local);
     this.global = new GlobalBreaker(config?.global);
-    this.enabled = config?.enabled ?? (process.env.DB_CIRCUIT_BREAKER_ENABLED !== 'false');
+    this.enabled = config?.enabled ?? process.env.DB_CIRCUIT_BREAKER_ENABLED !== 'false';
   }
 
   // ---------------------------------------------------------------------------

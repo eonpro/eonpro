@@ -32,8 +32,4 @@ export {
   getTreatmentTypeFromMedicationName,
   getTreatmentTypeFromOrder,
 } from './treatment-from-prescription';
-export {
-  getPortalMode,
-  isLeadMode,
-  isPatientMode,
-} from './portal-mode';
+export { getPortalMode, isLeadMode, isPatientMode } from './portal-mode';

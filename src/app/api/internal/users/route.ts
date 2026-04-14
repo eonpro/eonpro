@@ -179,7 +179,9 @@ async function getHandler(request: NextRequest, user: AuthUser) {
     type TransformedUser = (typeof transformedUsers)[number];
     if (search) {
       const ranked = sortBySearchRelevance(transformedUsers, search, (u: TransformedUser) => [
-        u.firstName ?? '', u.lastName ?? '', u.email ?? '',
+        u.firstName ?? '',
+        u.lastName ?? '',
+        u.email ?? '',
       ]);
       transformedUsers.length = 0;
       transformedUsers.push(...ranked);

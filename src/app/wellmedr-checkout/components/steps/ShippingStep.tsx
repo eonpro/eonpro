@@ -16,9 +16,7 @@ export default function ShippingStep({ uid: _uid }: ShippingStepProps) {
   const { trigger, watch, getValues } = useFormContext<CheckoutFormData>();
   const { goToNextStep } = useCheckoutStep();
 
-  const isBillingSameAsShipping = watch(
-    'shippingAddress.billingAddressSameAsShipment',
-  );
+  const isBillingSameAsShipping = watch('shippingAddress.billingAddressSameAsShipment');
 
   const handleContinue = async () => {
     // Fields to validate
@@ -82,7 +80,7 @@ export default function ShippingStep({ uid: _uid }: ShippingStepProps) {
         e.preventDefault();
         handleContinue();
       }}
-      className="w-full flex flex-col gap-8 max-w-3xl mx-auto pt-2 sm:pt-8 pb-6"
+      className="mx-auto flex w-full max-w-3xl flex-col gap-8 pb-6 pt-2 sm:pt-8"
     >
       <ShippingSection />
       <div className="w-full">

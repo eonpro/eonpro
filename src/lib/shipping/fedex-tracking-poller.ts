@@ -94,13 +94,14 @@ export async function pollActiveFedExShipments(): Promise<PollerResult> {
     .map((o) => o.trackingNumber)
     .filter((tn): tn is string => tn != null && isFedExTrackingNumber(tn));
 
-  const allExistingRecords = candidateTrackingNumbers.length > 0
-    ? await basePrisma.patientShippingUpdate.findMany({
-        where: { trackingNumber: { in: candidateTrackingNumbers } },
-        select: { trackingNumber: true },
-        distinct: ['trackingNumber'],
-      })
-    : [];
+  const allExistingRecords =
+    candidateTrackingNumbers.length > 0
+      ? await basePrisma.patientShippingUpdate.findMany({
+          where: { trackingNumber: { in: candidateTrackingNumbers } },
+          select: { trackingNumber: true },
+          distinct: ['trackingNumber'],
+        })
+      : [];
 
   const coveredTrackingNumbers = new Set(
     Array.from(activeTrackingNumbers).concat(allExistingRecords.map((r) => r.trackingNumber))
@@ -166,7 +167,9 @@ export async function pollActiveFedExShipments(): Promise<PollerResult> {
           fedexEnabled: true,
         },
       });
-      const resolution = resolveCredentialsWithAttribution(clinic ?? undefined, { allowEnvFallback });
+      const resolution = resolveCredentialsWithAttribution(clinic ?? undefined, {
+        allowEnvFallback,
+      });
       credentials = resolution.credentials;
     } catch (err) {
       logger.warn('[FedEx Poller] Failed to resolve credentials for clinic', {
@@ -220,7 +223,8 @@ export async function pollActiveFedExShipments(): Promise<PollerResult> {
 
       const currentStatus = shipment.status as ShippingStatusValue;
       if (TERMINAL_STATUSES.includes(currentStatus)) continue;
-      if (result.status === currentStatus && !result.estimatedDelivery && !result.actualDelivery) continue;
+      if (result.status === currentStatus && !result.estimatedDelivery && !result.actualDelivery)
+        continue;
 
       try {
         await basePrisma.patientShippingUpdate.update({

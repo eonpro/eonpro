@@ -100,13 +100,17 @@ export async function POST(req: NextRequest) {
   } else {
     // Production: never accept when secret is required but unset (enterprise audit P0)
     if (process.env.NODE_ENV === 'production') {
-      logger.error(`[EONPRO INTAKE ${requestId}] SECURITY: No webhook secret configured in production - rejecting request`);
+      logger.error(
+        `[EONPRO INTAKE ${requestId}] SECURITY: No webhook secret configured in production - rejecting request`
+      );
       return Response.json(
         { error: 'Unauthorized', message: 'Webhook secret not configured' },
         { status: 401 }
       );
     }
-    logger.warn(`[EONPRO INTAKE ${requestId}] No webhook secret configured - accepting request (development only)`);
+    logger.warn(
+      `[EONPRO INTAKE ${requestId}] No webhook secret configured - accepting request (development only)`
+    );
   }
 
   // Parse payload
@@ -140,23 +144,38 @@ export async function POST(req: NextRequest) {
   // Derive a stable key from the submission ID or hash of email + payload signature
   const submissionId = payload.submissionId || payload.submission_id || '';
   const payloadEmail = payload.data?.email || payload.email || '';
-  const idempotencySource = submissionId || `${payloadEmail}_${JSON.stringify(payload).length}_${payload.submittedAt || ''}`;
+  const idempotencySource =
+    submissionId ||
+    `${payloadEmail}_${JSON.stringify(payload).length}_${payload.submittedAt || ''}`;
   const idempotencyKey = `eonpro-intake_${createHash('sha256').update(idempotencySource).digest('hex')}`;
 
-  const existingRecord = await prisma.idempotencyRecord.findUnique({
-    where: { key: idempotencyKey },
-  }).catch((err) => {
-    logger.warn(`[EONPRO INTAKE ${requestId}] Idempotency lookup failed, proceeding`, { error: err instanceof Error ? (err instanceof Error ? err.message : String(err)) : String(err) });
-    return null;
-  });
+  const existingRecord = await prisma.idempotencyRecord
+    .findUnique({
+      where: { key: idempotencyKey },
+    })
+    .catch((err) => {
+      logger.warn(`[EONPRO INTAKE ${requestId}] Idempotency lookup failed, proceeding`, {
+        error:
+          err instanceof Error ? (err instanceof Error ? err.message : String(err)) : String(err),
+      });
+      return null;
+    });
 
   if (existingRecord) {
-    logger.info(`[EONPRO INTAKE ${requestId}] Duplicate webhook detected, returning cached response`, {
-      idempotencyKey,
-      originalCreatedAt: existingRecord.createdAt,
-    });
+    logger.info(
+      `[EONPRO INTAKE ${requestId}] Duplicate webhook detected, returning cached response`,
+      {
+        idempotencyKey,
+        originalCreatedAt: existingRecord.createdAt,
+      }
+    );
     return Response.json(
-      { received: true, status: 'duplicate', requestId, originalResponse: existingRecord.responseBody },
+      {
+        received: true,
+        status: 'duplicate',
+        requestId,
+        originalResponse: existingRecord.responseBody,
+      },
       { status: existingRecord.responseStatus }
     );
   }
@@ -243,10 +262,11 @@ export async function POST(req: NextRequest) {
     });
 
     // Dual-write: S3 + DB `data` column (Phase 3.3)
-    const { s3DataKey, dataBuffer: intakeDataBuffer } = await storeIntakeData(
-      intakeDataToStore,
-      { documentId: existingDocument?.id, patientId: patient.id, clinicId }
-    );
+    const { s3DataKey, dataBuffer: intakeDataBuffer } = await storeIntakeData(intakeDataToStore, {
+      documentId: existingDocument?.id,
+      patientId: patient.id,
+      clinicId,
+    });
 
     let patientDocument;
     if (existingDocument) {
@@ -312,24 +332,31 @@ export async function POST(req: NextRequest) {
     };
 
     // Record idempotency key for duplicate detection
-    await prisma.idempotencyRecord.create({
-      data: {
-        key: idempotencyKey,
-        resource: 'eonpro-intake',
-        responseStatus: 200,
-        responseBody: response,
-      },
-    }).catch((err) => {
-      logger.warn(`[EONPRO INTAKE ${requestId}] Failed to store idempotency record`, { error: err instanceof Error ? (err instanceof Error ? err.message : String(err)) : String(err) });
-    });
+    await prisma.idempotencyRecord
+      .create({
+        data: {
+          key: idempotencyKey,
+          resource: 'eonpro-intake',
+          responseStatus: 200,
+          responseBody: response,
+        },
+      })
+      .catch((err) => {
+        logger.warn(`[EONPRO INTAKE ${requestId}] Failed to store idempotency record`, {
+          error:
+            err instanceof Error ? (err instanceof Error ? err.message : String(err)) : String(err),
+        });
+      });
 
     logger.debug(`[EONPRO INTAKE ${requestId}] Webhook completed successfully`);
     return Response.json(response, { status: 200 });
   } catch (err: unknown) {
     logger.error(`[EONPRO INTAKE ${requestId}] Failed to process intake`, {
-      error: (err instanceof Error ? err.message : String(err)),
+      error: err instanceof Error ? err.message : String(err),
       // Stack trace logged only in development for security
-      ...(process.env.NODE_ENV === 'development' && { stack: (err instanceof Error ? err.stack : undefined) }),
+      ...(process.env.NODE_ENV === 'development' && {
+        stack: err instanceof Error ? err.stack : undefined,
+      }),
     });
 
     return Response.json(
@@ -337,7 +364,8 @@ export async function POST(req: NextRequest) {
         success: false,
         requestId,
         error: 'Processing failed',
-        message: (err instanceof Error ? err.message : String(err)) || 'Failed to process intake data',
+        message:
+          (err instanceof Error ? err.message : String(err)) || 'Failed to process intake data',
       },
       { status: 500 }
     );

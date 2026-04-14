@@ -27,7 +27,7 @@ const patchHandler = withAuthParams(
         where: { id: patientId },
         select: { id: true, clinicId: true },
       });
-      const clinicId = user.role === 'super_admin' ? undefined : user.clinicId ?? undefined;
+      const clinicId = user.role === 'super_admin' ? undefined : (user.clinicId ?? undefined);
       if (ensureTenantResource(patient, clinicId)) return tenantNotFoundResponse();
       if (user.role === 'patient') {
         return NextResponse.json({ error: 'Patients cannot edit profile notes' }, { status: 403 });
@@ -121,7 +121,8 @@ const patchHandler = withAuthParams(
                 initials:
                   (note.createdBy.firstName?.slice(0, 1) || '') +
                   (note.createdBy.lastName?.slice(0, 1) || ''),
-                roleAbbrev: roleAbbrev[note.createdBy.role] ?? note.createdBy.role.slice(0, 2).toUpperCase(),
+                roleAbbrev:
+                  roleAbbrev[note.createdBy.role] ?? note.createdBy.role.slice(0, 2).toUpperCase(),
               }
             : null,
           center: formatCenter(note.clinic),
@@ -132,10 +133,7 @@ const patchHandler = withAuthParams(
         params: await params,
         error: err instanceof Error ? err.message : String(err),
       });
-      return NextResponse.json(
-        { error: 'Failed to update note' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to update note' }, { status: 500 });
     }
   },
   { roles: ['super_admin', 'admin', 'provider', 'staff', 'support', 'sales_rep'] }
@@ -155,10 +153,13 @@ const deleteHandler = withAuthParams(
         where: { id: patientId },
         select: { id: true, clinicId: true },
       });
-      const clinicId = user.role === 'super_admin' ? undefined : user.clinicId ?? undefined;
+      const clinicId = user.role === 'super_admin' ? undefined : (user.clinicId ?? undefined);
       if (ensureTenantResource(patient, clinicId)) return tenantNotFoundResponse();
       if (user.role === 'patient') {
-        return NextResponse.json({ error: 'Patients cannot delete profile notes' }, { status: 403 });
+        return NextResponse.json(
+          { error: 'Patients cannot delete profile notes' },
+          { status: 403 }
+        );
       }
 
       const existing = await prisma.patientNote.findFirst({
@@ -191,10 +192,7 @@ const deleteHandler = withAuthParams(
         params: await params,
         error: err instanceof Error ? err.message : String(err),
       });
-      return NextResponse.json(
-        { error: 'Failed to delete note' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to delete note' }, { status: 500 });
     }
   },
   { roles: ['super_admin', 'admin', 'provider', 'staff', 'support', 'sales_rep'] }

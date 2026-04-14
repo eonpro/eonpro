@@ -42,7 +42,10 @@ export const PATCH = withAuth(
       const body = await req.json();
       const parsed = paymentSchema.safeParse(body);
       if (!parsed.success) {
-        return NextResponse.json({ error: 'Invalid data', details: parsed.error.flatten() }, { status: 400 });
+        return NextResponse.json(
+          { error: 'Invalid data', details: parsed.error.flatten() },
+          { status: 400 }
+        );
       }
 
       const updated = await markInvoicePaid(uploadId, clinicId, parsed.data, user.id);

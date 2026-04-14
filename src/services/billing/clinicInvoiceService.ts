@@ -162,8 +162,7 @@ export const clinicInvoiceService = {
       }
     }
 
-    const totalAmountCents =
-      prescriptionFeeTotal + transmissionFeeTotal + adminFeeTotal;
+    const totalAmountCents = prescriptionFeeTotal + transmissionFeeTotal + adminFeeTotal;
 
     return {
       feeCount: pendingFees.length,
@@ -247,43 +246,46 @@ export const clinicInvoiceService = {
     dueDate.setDate(dueDate.getDate() + config.paymentTermsDays);
 
     // Create invoice and update fee events in a transaction
-    const invoice = await prisma.$transaction(async (tx) => {
-      // Create invoice
-      const newInvoice = await tx.clinicPlatformInvoice.create({
-        data: {
-          clinicId,
-          configId: config.id,
-          periodStart,
-          periodEnd,
-          periodType,
-          prescriptionFeeTotal,
-          transmissionFeeTotal,
-          adminFeeTotal,
-          totalAmountCents,
-          prescriptionCount,
-          transmissionCount,
-          invoiceNumber,
-          dueDate,
-          status: 'DRAFT',
-          generatedBy: actorId,
-          notes,
-          externalNotes,
-        },
-      });
+    const invoice = await prisma.$transaction(
+      async (tx) => {
+        // Create invoice
+        const newInvoice = await tx.clinicPlatformInvoice.create({
+          data: {
+            clinicId,
+            configId: config.id,
+            periodStart,
+            periodEnd,
+            periodType,
+            prescriptionFeeTotal,
+            transmissionFeeTotal,
+            adminFeeTotal,
+            totalAmountCents,
+            prescriptionCount,
+            transmissionCount,
+            invoiceNumber,
+            dueDate,
+            status: 'DRAFT',
+            generatedBy: actorId,
+            notes,
+            externalNotes,
+          },
+        });
 
-      // Update fee events to reference invoice
-      await tx.platformFeeEvent.updateMany({
-        where: {
-          id: { in: pendingFees.map((f) => f.id) },
-        },
-        data: {
-          invoiceId: newInvoice.id,
-          status: 'INVOICED',
-        },
-      });
+        // Update fee events to reference invoice
+        await tx.platformFeeEvent.updateMany({
+          where: {
+            id: { in: pendingFees.map((f) => f.id) },
+          },
+          data: {
+            invoiceId: newInvoice.id,
+            status: 'INVOICED',
+          },
+        });
 
-      return newInvoice;
-    }, { timeout: 15000 });
+        return newInvoice;
+      },
+      { timeout: 15000 }
+    );
 
     logger.info('[ClinicInvoiceService] Invoice generated', {
       invoiceId: invoice.id,
@@ -535,7 +537,9 @@ export const clinicInvoiceService = {
     if (invoice.status === 'PAID') throw new Error('Invoice is already fully paid');
     if (invoice.status === 'CANCELLED') throw new Error('Cannot pay a cancelled invoice');
 
-    const existingHistory = Array.isArray(invoice.paymentHistory) ? invoice.paymentHistory as Record<string, unknown>[] : [];
+    const existingHistory = Array.isArray(invoice.paymentHistory)
+      ? (invoice.paymentHistory as Record<string, unknown>[])
+      : [];
     const previouslyPaid = invoice.paidAmountCents ?? 0;
     const newTotalPaid = previouslyPaid + paymentDetails.amountCents;
     const fullyPaid = newTotalPaid >= invoice.totalAmountCents;
@@ -548,28 +552,31 @@ export const clinicInvoiceService = {
       recordedBy: actorId,
     };
 
-    const updated = await prisma.$transaction(async (tx) => {
-      const updatedInvoice = await tx.clinicPlatformInvoice.update({
-        where: { id: invoiceId },
-        data: {
-          status: fullyPaid ? 'PAID' : 'PARTIALLY_PAID',
-          paidAt: fullyPaid ? new Date() : invoice.paidAt,
-          paidAmountCents: newTotalPaid,
-          paymentMethod: paymentDetails.method,
-          paymentRef: paymentDetails.reference,
-          paymentHistory: [...existingHistory, newEntry] as Prisma.InputJsonValue,
-        },
-      });
-
-      if (fullyPaid) {
-        await tx.platformFeeEvent.updateMany({
-          where: { invoiceId },
-          data: { status: 'PAID' },
+    const updated = await prisma.$transaction(
+      async (tx) => {
+        const updatedInvoice = await tx.clinicPlatformInvoice.update({
+          where: { id: invoiceId },
+          data: {
+            status: fullyPaid ? 'PAID' : 'PARTIALLY_PAID',
+            paidAt: fullyPaid ? new Date() : invoice.paidAt,
+            paidAmountCents: newTotalPaid,
+            paymentMethod: paymentDetails.method,
+            paymentRef: paymentDetails.reference,
+            paymentHistory: [...existingHistory, newEntry] as Prisma.InputJsonValue,
+          },
         });
-      }
 
-      return updatedInvoice;
-    }, { timeout: 15000 });
+        if (fullyPaid) {
+          await tx.platformFeeEvent.updateMany({
+            where: { invoiceId },
+            data: { status: 'PAID' },
+          });
+        }
+
+        return updatedInvoice;
+      },
+      { timeout: 15000 }
+    );
 
     logger.info('[ClinicInvoiceService] Payment recorded', {
       invoiceId,
@@ -587,7 +594,11 @@ export const clinicInvoiceService = {
    */
   async createCreditNote(
     invoiceId: number,
-    data: { amountCents: number; reason: string; lineItems?: { description: string; amountCents: number }[] },
+    data: {
+      amountCents: number;
+      reason: string;
+      lineItems?: { description: string; amountCents: number }[];
+    },
     actorId?: number
   ) {
     const invoice = await prisma.clinicPlatformInvoice.findUnique({ where: { id: invoiceId } });
@@ -630,33 +641,42 @@ export const clinicInvoiceService = {
     const newTotalPaid = previouslyPaid + cn.amountCents;
     const fullyPaid = newTotalPaid >= cn.invoice.totalAmountCents;
 
-    await prisma.$transaction(async (tx) => {
-      await tx.clinicCreditNote.update({
-        where: { id: creditNoteId },
-        data: { status: 'APPLIED', appliedAt: new Date() },
-      });
+    await prisma.$transaction(
+      async (tx) => {
+        await tx.clinicCreditNote.update({
+          where: { id: creditNoteId },
+          data: { status: 'APPLIED', appliedAt: new Date() },
+        });
 
-      await tx.clinicPlatformInvoice.update({
-        where: { id: cn.invoiceId },
-        data: {
-          paidAmountCents: newTotalPaid,
-          status: fullyPaid ? 'PAID' : cn.invoice.status === 'DRAFT' ? 'DRAFT' : 'PARTIALLY_PAID',
-          paidAt: fullyPaid ? new Date() : cn.invoice.paidAt,
-          paymentHistory: [
-            ...(Array.isArray(cn.invoice.paymentHistory) ? (cn.invoice.paymentHistory as Prisma.InputJsonValue[]) : []),
-            {
-              amountCents: cn.amountCents,
-              method: 'credit_note',
-              reference: `CN-${creditNoteId}`,
-              date: new Date().toISOString(),
-              recordedBy: actorId,
-            } as Prisma.InputJsonValue,
-          ] as Prisma.InputJsonValue,
-        },
-      });
-    }, { timeout: 15000 });
+        await tx.clinicPlatformInvoice.update({
+          where: { id: cn.invoiceId },
+          data: {
+            paidAmountCents: newTotalPaid,
+            status: fullyPaid ? 'PAID' : cn.invoice.status === 'DRAFT' ? 'DRAFT' : 'PARTIALLY_PAID',
+            paidAt: fullyPaid ? new Date() : cn.invoice.paidAt,
+            paymentHistory: [
+              ...(Array.isArray(cn.invoice.paymentHistory)
+                ? (cn.invoice.paymentHistory as Prisma.InputJsonValue[])
+                : []),
+              {
+                amountCents: cn.amountCents,
+                method: 'credit_note',
+                reference: `CN-${creditNoteId}`,
+                date: new Date().toISOString(),
+                recordedBy: actorId,
+              } as Prisma.InputJsonValue,
+            ] as Prisma.InputJsonValue,
+          },
+        });
+      },
+      { timeout: 15000 }
+    );
 
-    logger.info('[ClinicInvoiceService] Credit note applied', { creditNoteId, invoiceId: cn.invoiceId, actorId });
+    logger.info('[ClinicInvoiceService] Credit note applied', {
+      creditNoteId,
+      invoiceId: cn.invoiceId,
+      actorId,
+    });
   },
 
   /**
@@ -697,32 +717,35 @@ export const clinicInvoiceService = {
     }
 
     // Update invoice and restore fee events in transaction
-    const updated = await prisma.$transaction(async (tx) => {
-      // Update invoice
-      const updatedInvoice = await tx.clinicPlatformInvoice.update({
-        where: { id: invoiceId },
-        data: {
-          status: 'CANCELLED',
-          notes: invoice.notes
-            ? `${invoice.notes}\n\nCancelled: ${reason}`
-            : `Cancelled: ${reason}`,
-        },
-      });
+    const updated = await prisma.$transaction(
+      async (tx) => {
+        // Update invoice
+        const updatedInvoice = await tx.clinicPlatformInvoice.update({
+          where: { id: invoiceId },
+          data: {
+            status: 'CANCELLED',
+            notes: invoice.notes
+              ? `${invoice.notes}\n\nCancelled: ${reason}`
+              : `Cancelled: ${reason}`,
+          },
+        });
 
-      // Restore fee events to PENDING (so they can be re-invoiced)
-      await tx.platformFeeEvent.updateMany({
-        where: {
-          invoiceId,
-          status: 'INVOICED',
-        },
-        data: {
-          invoiceId: null,
-          status: 'PENDING',
-        },
-      });
+        // Restore fee events to PENDING (so they can be re-invoiced)
+        await tx.platformFeeEvent.updateMany({
+          where: {
+            invoiceId,
+            status: 'INVOICED',
+          },
+          data: {
+            invoiceId: null,
+            status: 'PENDING',
+          },
+        });
 
-      return updatedInvoice;
-    }, { timeout: 15000 });
+        return updatedInvoice;
+      },
+      { timeout: 15000 }
+    );
 
     logger.info('[ClinicInvoiceService] Invoice cancelled', {
       invoiceId,
@@ -774,7 +797,10 @@ export const clinicInvoiceService = {
     });
 
     if (result.count > 0) {
-      logger.info('[ClinicInvoiceService] Marked invoices as overdue', { clinicId, count: result.count });
+      logger.info('[ClinicInvoiceService] Marked invoices as overdue', {
+        clinicId,
+        count: result.count,
+      });
     }
 
     return result.count;
@@ -970,7 +996,12 @@ export const clinicInvoiceService = {
     const margin = 50;
     let y = height - margin;
 
-    const drawText = (text: string, x: number, yPos: number, opts?: { font?: typeof font; size?: number; color?: ReturnType<typeof rgb> }) => {
+    const drawText = (
+      text: string,
+      x: number,
+      yPos: number,
+      opts?: { font?: typeof font; size?: number; color?: ReturnType<typeof rgb> }
+    ) => {
       page.drawText(text, {
         x,
         y: yPos,
@@ -981,7 +1012,8 @@ export const clinicInvoiceService = {
     };
 
     const fmtCurrency = (cents: number) => `$${(cents / 100).toFixed(2)}`;
-    const fmtDate = (d: Date) => new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    const fmtDate = (d: Date) =>
+      new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
     // Header
     drawText('EONPRO', margin, y, { font: fontBold, size: 22, color: rgb(0.31, 0.65, 0.49) });
@@ -989,7 +1021,10 @@ export const clinicInvoiceService = {
     y -= 30;
 
     // Invoice info
-    drawText(`Invoice: ${invoice.invoiceNumber}`, width - margin - 200, y, { font: fontBold, size: 10 });
+    drawText(`Invoice: ${invoice.invoiceNumber}`, width - margin - 200, y, {
+      font: fontBold,
+      size: 10,
+    });
     y -= 16;
     drawText(`Date: ${fmtDate(invoice.createdAt)}`, width - margin - 200, y);
     y -= 16;
@@ -1015,7 +1050,10 @@ export const clinicInvoiceService = {
     y -= 10;
 
     // Period
-    drawText(`Period: ${fmtDate(invoice.periodStart)} — ${fmtDate(invoice.periodEnd)}`, margin, y, { font: fontBold, size: 11 });
+    drawText(`Period: ${fmtDate(invoice.periodStart)} — ${fmtDate(invoice.periodEnd)}`, margin, y, {
+      font: fontBold,
+      size: 11,
+    });
     y -= 30;
 
     // Table header
@@ -1039,7 +1077,10 @@ export const clinicInvoiceService = {
 
     // Line items
     if (invoice.prescriptionFeeTotal > 0) {
-      const rate = invoice.prescriptionCount > 0 ? invoice.prescriptionFeeTotal / invoice.prescriptionCount : 0;
+      const rate =
+        invoice.prescriptionCount > 0
+          ? invoice.prescriptionFeeTotal / invoice.prescriptionCount
+          : 0;
       drawText('Medical Prescription Fees', col1, y);
       drawText(String(invoice.prescriptionCount), col2, y);
       drawText(fmtCurrency(rate), col3, y);
@@ -1048,7 +1089,10 @@ export const clinicInvoiceService = {
     }
 
     if (invoice.transmissionFeeTotal > 0) {
-      const rate = invoice.transmissionCount > 0 ? invoice.transmissionFeeTotal / invoice.transmissionCount : 0;
+      const rate =
+        invoice.transmissionCount > 0
+          ? invoice.transmissionFeeTotal / invoice.transmissionCount
+          : 0;
       drawText('Prescription Transmission Fees', col1, y);
       drawText(String(invoice.transmissionCount), col2, y);
       drawText(fmtCurrency(rate), col3, y);
@@ -1074,15 +1118,25 @@ export const clinicInvoiceService = {
     });
     y -= 18;
     drawText('Total Due', col3 - 20, y, { font: fontBold, size: 12 });
-    drawText(fmtCurrency(invoice.totalAmountCents), col4, y, { font: fontBold, size: 12, color: rgb(0.31, 0.65, 0.49) });
+    drawText(fmtCurrency(invoice.totalAmountCents), col4, y, {
+      font: fontBold,
+      size: 12,
+      color: rgb(0.31, 0.65, 0.49),
+    });
 
-    if ((invoice.paidAmountCents ?? 0) > 0 && (invoice.paidAmountCents ?? 0) < invoice.totalAmountCents) {
+    if (
+      (invoice.paidAmountCents ?? 0) > 0 &&
+      (invoice.paidAmountCents ?? 0) < invoice.totalAmountCents
+    ) {
       y -= 20;
       drawText('Paid', col3 - 20, y);
       drawText(fmtCurrency(invoice.paidAmountCents ?? 0), col4, y);
       y -= 16;
       drawText('Balance Due', col3 - 20, y, { font: fontBold, size: 11 });
-      drawText(fmtCurrency(invoice.totalAmountCents - (invoice.paidAmountCents ?? 0)), col4, y, { font: fontBold, size: 11 });
+      drawText(fmtCurrency(invoice.totalAmountCents - (invoice.paidAmountCents ?? 0)), col4, y, {
+        font: fontBold,
+        size: 11,
+      });
     }
 
     // Footer
@@ -1093,8 +1147,14 @@ export const clinicInvoiceService = {
       thickness: 0.5,
       color: rgb(0.85, 0.85, 0.85),
     });
-    drawText('Questions? Contact billing@eonpro.com', margin, footerY, { size: 8, color: rgb(0.5, 0.5, 0.5) });
-    drawText('EONPRO Healthcare Platform', width - margin - 140, footerY, { size: 8, color: rgb(0.5, 0.5, 0.5) });
+    drawText('Questions? Contact billing@eonpro.com', margin, footerY, {
+      size: 8,
+      color: rgb(0.5, 0.5, 0.5),
+    });
+    drawText('EONPRO Healthcare Platform', width - margin - 140, footerY, {
+      size: 8,
+      color: rgb(0.5, 0.5, 0.5),
+    });
 
     // Notes
     if (invoice.externalNotes) {

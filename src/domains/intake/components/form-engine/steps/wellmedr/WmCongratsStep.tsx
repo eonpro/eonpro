@@ -271,7 +271,7 @@ export default function WmCongratsStep({
               />
             </div>
             <div className="space-y-2">
-              <div className="rounded-xl px-3 py-2 bg-white/60">
+              <div className="rounded-xl bg-white/60 px-3 py-2">
                 <p className="text-[10px] uppercase tracking-wide" style={{ color: '#9ca3af' }}>
                   Weight
                 </p>
@@ -279,7 +279,7 @@ export default function WmCongratsStep({
                   {weight} Lbs
                 </p>
               </div>
-              <div className="rounded-xl px-3 py-2 bg-white/60">
+              <div className="rounded-xl bg-white/60 px-3 py-2">
                 <p className="text-[10px] uppercase tracking-wide" style={{ color: '#9ca3af' }}>
                   BMI
                 </p>
@@ -287,7 +287,7 @@ export default function WmCongratsStep({
                   {bmi} normal
                 </p>
               </div>
-              <div className="rounded-xl px-3 py-2 bg-white/60">
+              <div className="rounded-xl bg-white/60 px-3 py-2">
                 <p className="text-[10px] uppercase tracking-wide" style={{ color: '#9ca3af' }}>
                   Cravings
                 </p>

@@ -40,23 +40,89 @@ export interface WellmedrProductPrice {
 
 export const WELLMEDR_PRODUCT_PRICES: WellmedrProductPrice[] = [
   // TIRZEPATIDE/GLYCINE 10/20MG/ML
-  { productId: 203448972, name: 'TIRZEPATIDE/GLYCINE', strength: '10/20MG/ML', vialSize: '1ML', priceCents: 5200 },
-  { productId: 203448973, name: 'TIRZEPATIDE/GLYCINE', strength: '10/20MG/ML', vialSize: '2ML', priceCents: 6200 },
-  { productId: 203449364, name: 'TIRZEPATIDE/GLYCINE', strength: '10/20MG/ML', vialSize: '3ML', priceCents: 7000 },
-  { productId: 203449500, name: 'TIRZEPATIDE/GLYCINE', strength: '10/20MG/ML', vialSize: '4ML', priceCents: 7500 },
+  {
+    productId: 203448972,
+    name: 'TIRZEPATIDE/GLYCINE',
+    strength: '10/20MG/ML',
+    vialSize: '1ML',
+    priceCents: 5200,
+  },
+  {
+    productId: 203448973,
+    name: 'TIRZEPATIDE/GLYCINE',
+    strength: '10/20MG/ML',
+    vialSize: '2ML',
+    priceCents: 6200,
+  },
+  {
+    productId: 203449364,
+    name: 'TIRZEPATIDE/GLYCINE',
+    strength: '10/20MG/ML',
+    vialSize: '3ML',
+    priceCents: 7000,
+  },
+  {
+    productId: 203449500,
+    name: 'TIRZEPATIDE/GLYCINE',
+    strength: '10/20MG/ML',
+    vialSize: '4ML',
+    priceCents: 7500,
+  },
   // TIRZEPATIDE/GLYCINE 30/20MG/ML
-  { productId: 203418602, name: 'TIRZEPATIDE/GLYCINE', strength: '30/20MG/ML', vialSize: '2ML', priceCents: 9000 },
+  {
+    productId: 203418602,
+    name: 'TIRZEPATIDE/GLYCINE',
+    strength: '30/20MG/ML',
+    vialSize: '2ML',
+    priceCents: 9000,
+  },
   // SEMAGLUTIDE/GLYCINE 2.5/20MG/ML
-  { productId: 203448971, name: 'SEMAGLUTIDE/GLYCINE', strength: '2.5/20MG/ML', vialSize: '1ML', priceCents: 3500 },
-  { productId: 203448947, name: 'SEMAGLUTIDE/GLYCINE', strength: '2.5/20MG/ML', vialSize: '2ML', priceCents: 4000 },
-  { productId: 203449363, name: 'SEMAGLUTIDE/GLYCINE', strength: '2.5/20MG/ML', vialSize: '3ML', priceCents: 4500 },
+  {
+    productId: 203448971,
+    name: 'SEMAGLUTIDE/GLYCINE',
+    strength: '2.5/20MG/ML',
+    vialSize: '1ML',
+    priceCents: 3500,
+  },
+  {
+    productId: 203448947,
+    name: 'SEMAGLUTIDE/GLYCINE',
+    strength: '2.5/20MG/ML',
+    vialSize: '2ML',
+    priceCents: 4000,
+  },
+  {
+    productId: 203449363,
+    name: 'SEMAGLUTIDE/GLYCINE',
+    strength: '2.5/20MG/ML',
+    vialSize: '3ML',
+    priceCents: 4500,
+  },
   // SEMAGLUTIDE/GLYCINE 5/20MG/ML
-  { productId: 202851329, name: 'SEMAGLUTIDE/GLYCINE', strength: '5/20MG/ML', vialSize: '2ML', priceCents: 5000 },
+  {
+    productId: 202851329,
+    name: 'SEMAGLUTIDE/GLYCINE',
+    strength: '5/20MG/ML',
+    vialSize: '2ML',
+    priceCents: 5000,
+  },
   // ADD-ON PRODUCTS
   { productId: 203194055, name: 'NAD+', strength: '100mg/mL', vialSize: '10mL', priceCents: 4000 },
   { productId: 204754029, name: 'NAD+', strength: '100mg/mL', vialSize: '5mL', priceCents: 4000 },
-  { productId: 203666651, name: 'SERMORELIN ACETATE', strength: '2MG/ML', vialSize: '5ML', priceCents: 4500 },
-  { productId: 203449111, name: 'Cyanocobalamin (B12)', strength: '1000mcg/mL', vialSize: '1mL', priceCents: 2000 },
+  {
+    productId: 203666651,
+    name: 'SERMORELIN ACETATE',
+    strength: '2MG/ML',
+    vialSize: '5ML',
+    priceCents: 4500,
+  },
+  {
+    productId: 203449111,
+    name: 'Cyanocobalamin (B12)',
+    strength: '1000mcg/mL',
+    vialSize: '1mL',
+    priceCents: 2000,
+  },
 ];
 
 export const WELLMEDR_PRICE_MAP = new Map(
@@ -119,10 +185,7 @@ export const ADDON_PHARMACY_FEES: Record<AddonKey, WellmedrAddonFee> = {
  * Calculate the total pharmacy fee in cents for the selected addons.
  */
 export function getAddonPharmacyFeeCents(addonKeys: AddonKey[]): number {
-  return addonKeys.reduce(
-    (sum, key) => sum + (ADDON_PHARMACY_FEES[key]?.pharmacyFeeCents ?? 0),
-    0,
-  );
+  return addonKeys.reduce((sum, key) => sum + (ADDON_PHARMACY_FEES[key]?.pharmacyFeeCents ?? 0), 0);
 }
 
 /**
@@ -132,7 +195,7 @@ export function getAddonPharmacyFeeCents(addonKeys: AddonKey[]): number {
 export function getAddonPrescriptionUpchargeCents(addonKeys: AddonKey[]): number {
   return addonKeys.reduce(
     (sum, key) => sum + (ADDON_PHARMACY_FEES[key]?.prescriptionUpchargeCents ?? 0),
-    0,
+    0
   );
 }
 
@@ -156,7 +219,10 @@ const ELITE_BUNDLE_COMPONENT_KEYS: AddonKey[] = ['nad_plus', 'sermorelin', 'b12'
  * Whether to emit a separate add-on pharmacy fee line for this order.
  * When the same products are already billed as medication line items, skip the duplicate fee row.
  */
-export function shouldEmitAddonPharmacyFee(addonKey: AddonKey, rxMedicationKeys: string[]): boolean {
+export function shouldEmitAddonPharmacyFee(
+  addonKey: AddonKey,
+  rxMedicationKeys: string[]
+): boolean {
   const keySet = new Set(rxMedicationKeys);
   if (addonKey === 'elite_bundle') {
     return !ELITE_BUNDLE_COMPONENT_KEYS.every((component) => {

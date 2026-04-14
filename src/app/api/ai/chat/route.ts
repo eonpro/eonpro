@@ -82,7 +82,9 @@ export const POST = withAuth(async (request: NextRequest, user: AuthUser) => {
       error: errorMessage,
       status: (error as any).status,
       code: (error as any).code,
-      ...(process.env.NODE_ENV === 'development' && { stack: (error as any).stack?.split('\n').slice(0, 5).join('\n') }),
+      ...(process.env.NODE_ENV === 'development' && {
+        stack: (error as any).stack?.split('\n').slice(0, 5).join('\n'),
+      }),
     });
 
     if (error instanceof z.ZodError) {
@@ -148,10 +150,7 @@ export const GET = withAuth(async (request: NextRequest, user: AuthUser) => {
     }
 
     if (!clinicId) {
-      return NextResponse.json(
-        { error: 'Clinic context required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Clinic context required' }, { status: 400 });
     }
 
     const { searchParams } = new URL(request.url);
@@ -214,10 +213,7 @@ export const DELETE = withAuth(async (request: NextRequest, user: AuthUser) => {
     }
 
     if (!clinicId) {
-      return NextResponse.json(
-        { error: 'Clinic context required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Clinic context required' }, { status: 400 });
     }
 
     const { searchParams } = new URL(request.url);

@@ -41,26 +41,16 @@ function escapeCSV(value: string | number | null | undefined): string {
   return str;
 }
 
-function generateCSV(
-  details: PrescriptionDetailRow[],
-  summary: ProviderRxSummary[]
-): string {
+function generateCSV(details: PrescriptionDetailRow[], summary: ProviderRxSummary[]): string {
   const BOM = '\uFEFF';
 
   // Summary section
-  const summaryHeader = [
-    'Provider',
-    'Clinic',
-    'Prescriptions',
-    'Unique Patients',
-  ]
+  const summaryHeader = ['Provider', 'Clinic', 'Prescriptions', 'Unique Patients']
     .map(escapeCSV)
     .join(',');
 
   const summaryRows = summary.map((s) =>
-    [s.providerName, s.clinicName, s.prescriptionCount, s.uniquePatients]
-      .map(escapeCSV)
-      .join(',')
+    [s.providerName, s.clinicName, s.prescriptionCount, s.uniquePatients].map(escapeCSV).join(',')
   );
 
   // Detail section
@@ -212,7 +202,15 @@ async function generatePDF(
   drawText('PRESCRIPTION DETAILS', MARGIN, fontBold, 11);
   y -= HEADER_H;
 
-  const detCols = [MARGIN, MARGIN + 75, MARGIN + 120, MARGIN + 260, MARGIN + 380, MARGIN + 500, MARGIN + 680];
+  const detCols = [
+    MARGIN,
+    MARGIN + 75,
+    MARGIN + 120,
+    MARGIN + 260,
+    MARGIN + 380,
+    MARGIN + 500,
+    MARGIN + 680,
+  ];
 
   function drawDetailHeader() {
     page.drawRectangle({
@@ -301,14 +299,13 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
 
     const { format, period, startDate, endDate, clinicId, providerId } = parsed.data;
 
-    const { details, summary, dateRange } =
-      await prescriptionReportService.getAllDetailsForExport({
-        period,
-        startDate,
-        endDate,
-        clinicId,
-        providerId,
-      });
+    const { details, summary, dateRange } = await prescriptionReportService.getAllDetailsForExport({
+      period,
+      startDate,
+      endDate,
+      clinicId,
+      providerId,
+    });
 
     const dateSlug = `${dateRange.startDate.split('T')[0]}_${dateRange.endDate.split('T')[0]}`;
 
@@ -347,9 +344,6 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
       error: error instanceof Error ? error.message : 'Unknown error',
       userId: user.id,
     });
-    return NextResponse.json(
-      { error: 'Failed to export prescription report' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to export prescription report' }, { status: 500 });
   }
 });

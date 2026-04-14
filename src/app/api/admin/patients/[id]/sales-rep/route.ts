@@ -254,62 +254,65 @@ async function handlePost(
     }
 
     // Use transaction to deactivate existing assignment and create new one
-    const assignment = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      // Deactivate any existing active assignment
-      const existingAssignment = await tx.patientSalesRepAssignment.findFirst({
-        where: {
-          patientId,
-          isActive: true,
-        },
-        include: {
-          salesRep: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-            },
+    const assignment = await prisma.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        // Deactivate any existing active assignment
+        const existingAssignment = await tx.patientSalesRepAssignment.findFirst({
+          where: {
+            patientId,
+            isActive: true,
           },
-        },
-      });
-
-      if (existingAssignment) {
-        // Don't reassign if already assigned to the same sales rep
-        if (existingAssignment.salesRepId === salesRepId) {
-          return existingAssignment;
-        }
-
-        await tx.patientSalesRepAssignment.update({
-          where: { id: existingAssignment.id },
-          data: {
-            isActive: false,
-            removedAt: new Date(),
-            removedById: user.id,
-            removalNote: note || 'Reassigned to another sales rep',
+          include: {
+            salesRep: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
           },
         });
-      }
 
-      // Create new assignment
-      return tx.patientSalesRepAssignment.create({
-        data: {
-          patientId,
-          salesRepId,
-          clinicId: patient.clinicId,
-          assignedById: user.id,
-        },
-        include: {
-          salesRep: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
+        if (existingAssignment) {
+          // Don't reassign if already assigned to the same sales rep
+          if (existingAssignment.salesRepId === salesRepId) {
+            return existingAssignment;
+          }
+
+          await tx.patientSalesRepAssignment.update({
+            where: { id: existingAssignment.id },
+            data: {
+              isActive: false,
+              removedAt: new Date(),
+              removedById: user.id,
+              removalNote: note || 'Reassigned to another sales rep',
+            },
+          });
+        }
+
+        // Create new assignment
+        return tx.patientSalesRepAssignment.create({
+          data: {
+            patientId,
+            salesRepId,
+            clinicId: patient.clinicId,
+            assignedById: user.id,
+          },
+          include: {
+            salesRep: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
             },
           },
-        },
-      });
-    }, { timeout: 15000 });
+        });
+      },
+      { timeout: 15000 }
+    );
 
     logger.info('[PATIENT-SALES-REP] Patient assigned to sales rep', {
       patientId,
@@ -328,7 +331,8 @@ async function handlePost(
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const errorStack = error instanceof Error ? error.stack?.split('\n').slice(0, 3).join(' | ') : '';
+    const errorStack =
+      error instanceof Error ? error.stack?.split('\n').slice(0, 3).join(' | ') : '';
     logger.error('[PATIENT-SALES-REP] Error assigning sales rep', {
       error: errorMessage,
       stack: errorStack,
@@ -434,6 +438,10 @@ async function handleDelete(
   }
 }
 
-export const GET = withAuth(handleGet, { roles: ['super_admin', 'admin', 'provider', 'sales_rep'] });
-export const POST = withAuth(handlePost, { roles: ['super_admin', 'admin', 'provider', 'sales_rep'] });
+export const GET = withAuth(handleGet, {
+  roles: ['super_admin', 'admin', 'provider', 'sales_rep'],
+});
+export const POST = withAuth(handlePost, {
+  roles: ['super_admin', 'admin', 'provider', 'sales_rep'],
+});
 export const DELETE = withAuth(handleDelete, { roles: ['super_admin', 'admin', 'provider'] });

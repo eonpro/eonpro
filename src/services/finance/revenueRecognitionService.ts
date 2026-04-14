@@ -192,7 +192,11 @@ export async function getRevenueWaterfall(clinicId?: number, months = 12) {
 
     for (const entry of entries) {
       for (const je of entry.journalEntries) {
-        if (je.periodStart >= mStart && je.periodStart <= mEnd && je.journalType === 'recognize_revenue') {
+        if (
+          je.periodStart >= mStart &&
+          je.periodStart <= mEnd &&
+          je.journalType === 'recognize_revenue'
+        ) {
           recognized += je.amountCents;
         }
       }
@@ -318,11 +322,17 @@ export async function syncSubscriptionEntries(clinicId: number) {
       where: { stripeSubscriptionId: sub.id, clinicId },
     });
 
-    if (existing) { skipped++; continue; }
+    if (existing) {
+      skipped++;
+      continue;
+    }
 
     const item = sub.items?.data?.[0];
     const price = item?.price;
-    if (!price?.unit_amount) { skipped++; continue; }
+    if (!price?.unit_amount) {
+      skipped++;
+      continue;
+    }
 
     const amount = price.unit_amount * (item.quantity || 1);
     const interval = price.recurring?.interval || 'month';

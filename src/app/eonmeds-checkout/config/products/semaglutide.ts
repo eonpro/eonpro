@@ -1,8 +1,8 @@
 /**
  * Semaglutide Product Configuration
- * 
+ *
  * Weekly GLP-1 injection for weight management
- * 
+ *
  * Dose-based pricing:
  * - 2.5mg-5mg (Starter): $229/mo recurring, $299 single, $549 3-month
  * - 5mg-10mg (Higher):   $349/mo recurring, $399 single, $749 3-month
@@ -15,15 +15,17 @@ const semaglutideConfig: ProductConfig = {
   id: 'semaglutide',
   name: 'Semaglutide',
   category: 'glp1',
-  
+
   // Display
   taglineEn: 'Weekly GLP-1 injection for weight management',
   taglineEs: 'Inyección semanal GLP-1 para control de peso',
-  descriptionEn: 'Semaglutide is a proven GLP-1 receptor agonist that helps regulate appetite and blood sugar levels, leading to sustainable weight loss.',
-  descriptionEs: 'Semaglutide es un agonista del receptor GLP-1 probado que ayuda a regular el apetito y los niveles de azúcar en sangre, lo que lleva a una pérdida de peso sostenible.',
+  descriptionEn:
+    'Semaglutide is a proven GLP-1 receptor agonist that helps regulate appetite and blood sugar levels, leading to sustainable weight loss.',
+  descriptionEs:
+    'Semaglutide es un agonista del receptor GLP-1 probado que ayuda a regular el apetito y los niveles de azúcar en sangre, lo que lleva a una pérdida de peso sostenible.',
   efficacy: '15-20% weight loss',
   efficacyEs: '15-20% pérdida de peso',
-  
+
   // Dose-Based Pricing - Each dose tier has its own plans
   dosesWithPlans: [
     {
@@ -31,7 +33,8 @@ const semaglutideConfig: ProductConfig = {
       id: 'sema-2.5-5',
       name: 'Starter Dose',
       strength: '2.5mg-5mg',
-      description: 'Recommended for patients new to GLP-1 medications. Allows your body to adjust gradually.',
+      description:
+        'Recommended for patients new to GLP-1 medications. Allows your body to adjust gradually.',
       isStarterDose: true,
       plans: [
         {
@@ -43,7 +46,9 @@ const semaglutideConfig: ProductConfig = {
           billing: 'monthly',
           badge: 'Most Popular',
           badgeEs: 'Más Popular',
-          stripePriceId: process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_SEMA_LOW_MONTHLY || 'price_sema_low_monthly',
+          stripePriceId:
+            process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_SEMA_LOW_MONTHLY ||
+            'price_sema_low_monthly',
         },
         {
           id: 'sema_2.5-5_single',
@@ -52,7 +57,8 @@ const semaglutideConfig: ProductConfig = {
           nameEs: 'Mes Único',
           price: 299,
           billing: 'once',
-          stripePriceId: process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_SEMA_LOW_SINGLE || 'price_sema_low_single',
+          stripePriceId:
+            process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_SEMA_LOW_SINGLE || 'price_sema_low_single',
         },
         {
           id: 'sema_2.5-5_3month',
@@ -61,10 +67,11 @@ const semaglutideConfig: ProductConfig = {
           nameEs: 'Paquete de 3 Meses',
           price: 549,
           billing: 'total',
-          savings: 138,  // $687 - $549 = $138 saved vs 3x single month
+          savings: 138, // $687 - $549 = $138 saved vs 3x single month
           badge: 'Save $138',
           badgeEs: 'Ahorra $138',
-          stripePriceId: process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_SEMA_LOW_3MONTH || 'price_sema_low_3month',
+          stripePriceId:
+            process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_SEMA_LOW_3MONTH || 'price_sema_low_3month',
         },
       ],
     },
@@ -73,7 +80,8 @@ const semaglutideConfig: ProductConfig = {
       id: 'sema-5-10',
       name: 'Higher Dose',
       strength: '5mg-10mg',
-      description: 'For patients who have completed the starter dose and need to continue their weight loss journey.',
+      description:
+        'For patients who have completed the starter dose and need to continue their weight loss journey.',
       isMaintenanceDose: true,
       plans: [
         {
@@ -85,7 +93,9 @@ const semaglutideConfig: ProductConfig = {
           billing: 'monthly',
           badge: 'Most Popular',
           badgeEs: 'Más Popular',
-          stripePriceId: process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_SEMA_HIGH_MONTHLY || 'price_sema_high_monthly',
+          stripePriceId:
+            process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_SEMA_HIGH_MONTHLY ||
+            'price_sema_high_monthly',
         },
         {
           id: 'sema_5-10_single',
@@ -94,7 +104,9 @@ const semaglutideConfig: ProductConfig = {
           nameEs: 'Mes Único',
           price: 399,
           billing: 'once',
-          stripePriceId: process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_SEMA_HIGH_SINGLE || 'price_sema_high_single',
+          stripePriceId:
+            process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_SEMA_HIGH_SINGLE ||
+            'price_sema_high_single',
         },
         {
           id: 'sema_5-10_3month',
@@ -103,15 +115,17 @@ const semaglutideConfig: ProductConfig = {
           nameEs: 'Paquete de 3 Meses',
           price: 749,
           billing: 'total',
-          savings: 298,  // $1047 - $749 = $298 saved vs 3x monthly
+          savings: 298, // $1047 - $749 = $298 saved vs 3x monthly
           badge: 'Save $298',
           badgeEs: 'Ahorra $298',
-          stripePriceId: process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_SEMA_HIGH_3MONTH || 'price_sema_high_3month',
+          stripePriceId:
+            process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_SEMA_HIGH_3MONTH ||
+            'price_sema_high_3month',
         },
       ],
     },
   ],
-  
+
   // Add-ons
   addons: [
     {
@@ -139,26 +153,26 @@ const semaglutideConfig: ProductConfig = {
       stripePriceIdTest: 'price_test_fat_burner',
     },
   ],
-  
+
   // UI Configuration
-  showDoseSelection: true,         // Show dose picker - prices vary by dose
+  showDoseSelection: true, // Show dose picker - prices vary by dose
   showMedicationComparison: false, // Single medication checkout
-  defaultDoseId: 'sema-2.5-5',     // Default to starter dose
+  defaultDoseId: 'sema-2.5-5', // Default to starter dose
   defaultPlanId: 'sema_2.5-5_monthly', // Default to monthly subscription
-  
+
   // Branding
   branding: {
-    primaryColor: '#10B981',       // Green - matches current checkout
+    primaryColor: '#10B981', // Green - matches current checkout
     secondaryColor: '#059669',
   },
-  
+
   // Integrations
   integrations: {
     intakeqTags: ['#weightloss', 'semaglutide'],
     intakeqFolderType: 'INTAKE INFORMATION',
     ghlTags: ['semaglutide', 'glp1', 'weight-loss'],
   },
-  
+
   // Features
   features: {
     enablePromoCode: true,

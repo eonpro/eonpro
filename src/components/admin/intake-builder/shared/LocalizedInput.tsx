@@ -34,14 +34,14 @@ export default function LocalizedInput({
   return (
     <div className={className}>
       {label && (
-        <div className="flex items-center justify-between mb-1.5">
-          <label className="text-xs font-medium text-gray-600 uppercase tracking-wider">
+        <div className="mb-1.5 flex items-center justify-between">
+          <label className="text-xs font-medium uppercase tracking-wider text-gray-600">
             {label}
           </label>
           <button
             type="button"
             onClick={() => setShowEs(!showEs)}
-            className={`text-[10px] font-medium px-1.5 py-0.5 rounded transition-colors ${
+            className={`rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
               showEs
                 ? 'bg-indigo-100 text-indigo-700'
                 : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
@@ -72,8 +72,8 @@ export default function LocalizedInput({
 
       {showEs && (
         <div className="mt-1.5">
-          <div className="flex items-center gap-1.5 mb-1">
-            <span className="text-[10px] font-medium text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded">
+          <div className="mb-1 flex items-center gap-1.5">
+            <span className="rounded bg-orange-50 px-1.5 py-0.5 text-[10px] font-medium text-orange-600">
               ES
             </span>
           </div>

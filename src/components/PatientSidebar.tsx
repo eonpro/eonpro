@@ -2,7 +2,18 @@
 
 import { useState, useCallback, useEffect, useRef, useTransition, useContext } from 'react';
 import { useRouter } from 'next/navigation';
-import { Trash2, GitMerge, Link2, X, Check, Loader2, Unlink, Truck, Download, MoreVertical } from 'lucide-react';
+import {
+  Trash2,
+  GitMerge,
+  Link2,
+  X,
+  Check,
+  Loader2,
+  Unlink,
+  Truck,
+  Download,
+  MoreVertical,
+} from 'lucide-react';
 import EditPatientModal from './EditPatientModal';
 import DeletePatientModal from './DeletePatientModal';
 import MergePatientModal from './MergePatientModal';
@@ -54,7 +65,13 @@ interface PatientSidebarProps {
   clinicInfo?: {
     name?: string;
     phone?: string;
-    address?: { address1?: string; address2?: string; city?: string; state?: string; zip?: string } | null;
+    address?: {
+      address1?: string;
+      address2?: string;
+      city?: string;
+      state?: string;
+      zip?: string;
+    } | null;
   };
   /** Show Labs tab (bloodwork). Default true. Set from clinic feature BLOODWORK_LABS so OT and all clinics can show it. */
   showLabsTab?: boolean;
@@ -158,14 +175,17 @@ function AffiliateAttributionSection({
 
   // Debounced search
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const handleSearch = useCallback((value: string) => {
-    setSearchQuery(value);
-    setSelectedCode(null);
-    setShowDropdown(true);
-    setError(null);
-    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-    searchTimerRef.current = setTimeout(() => fetchOptions(value), 200);
-  }, [fetchOptions]);
+  const handleSearch = useCallback(
+    (value: string) => {
+      setSearchQuery(value);
+      setSelectedCode(null);
+      setShowDropdown(true);
+      setError(null);
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+      searchTimerRef.current = setTimeout(() => fetchOptions(value), 200);
+    },
+    [fetchOptions]
+  );
 
   const handleSelect = useCallback((option: RefCodeOption) => {
     setSelectedCode(option);
@@ -215,7 +235,9 @@ function AffiliateAttributionSection({
         setSuccess(true);
         setShowPasswordConfirm(null);
         setTimeout(() => {
-          startAttrTransition(() => { router.refresh(); });
+          startAttrTransition(() => {
+            router.refresh();
+          });
         }, 600);
       } else {
         setError(data.message || data.error || 'Attribution failed');
@@ -243,7 +265,9 @@ function AffiliateAttributionSection({
       const data = await res.json();
       if (res.ok && data.success) {
         setShowPasswordConfirm(null);
-        startAttrTransition(() => { router.refresh(); });
+        startAttrTransition(() => {
+          router.refresh();
+        });
       } else {
         setError(data.message || data.error || 'Failed to remove');
       }
@@ -274,7 +298,10 @@ function AffiliateAttributionSection({
     return (
       <div className="mb-3">
         {affId ? (
-          <a href={`/admin/affiliates/${affId}`} className="block transition-opacity hover:opacity-80">
+          <a
+            href={`/admin/affiliates/${affId}`}
+            className="block transition-opacity hover:opacity-80"
+          >
             <AffiliateTag name={name} code={code} />
           </a>
         ) : (
@@ -286,19 +313,30 @@ function AffiliateAttributionSection({
             disabled={removing}
             className="mt-1 flex w-full items-center justify-center gap-1 rounded-lg py-1 text-xs text-gray-400 transition-colors hover:text-red-500"
           >
-            {removing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Unlink className="h-3 w-3" />}
+            {removing ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Unlink className="h-3 w-3" />
+            )}
             Remove attribution
           </button>
         )}
         {showPasswordConfirm === 'remove' && (
           <div className="mt-2 rounded-lg border border-red-200 bg-red-50 p-2.5">
-            <p className="mb-1.5 text-xs font-medium text-red-700">Enter admin password to confirm</p>
+            <p className="mb-1.5 text-xs font-medium text-red-700">
+              Enter admin password to confirm
+            </p>
             <div className="flex gap-1.5">
               <input
                 type="password"
                 value={adminPassword}
-                onChange={(e) => { setAdminPassword(e.target.value); setError(null); }}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleRemove(); }}
+                onChange={(e) => {
+                  setAdminPassword(e.target.value);
+                  setError(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleRemove();
+                }}
                 placeholder="Password"
                 className="min-w-0 flex-1 rounded border border-red-200 bg-white px-2 py-1 text-sm outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400"
                 autoFocus
@@ -312,7 +350,11 @@ function AffiliateAttributionSection({
                 {removing ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Remove'}
               </button>
               <button
-                onClick={() => { setShowPasswordConfirm(null); setAdminPassword(''); setError(null); }}
+                onClick={() => {
+                  setShowPasswordConfirm(null);
+                  setAdminPassword('');
+                  setError(null);
+                }}
                 className="rounded px-1.5 py-1 text-xs text-gray-500 hover:text-gray-700"
               >
                 Cancel
@@ -344,7 +386,9 @@ function AffiliateAttributionSection({
   return (
     <div className="mb-3 rounded-xl border border-violet-200 bg-violet-50 p-3">
       <div className="mb-2 flex items-center justify-between">
-        <p className="text-xs font-semibold uppercase tracking-wider text-violet-500">Link to Affiliate</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-violet-500">
+          Link to Affiliate
+        </p>
         <button onClick={handleClose} className="rounded p-0.5 text-gray-400 hover:text-gray-600">
           <X className="h-3.5 w-3.5" />
         </button>
@@ -358,7 +402,9 @@ function AffiliateAttributionSection({
               type="text"
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
-              onFocus={() => { if (!selectedCode) setShowDropdown(true); }}
+              onFocus={() => {
+                if (!selectedCode) setShowDropdown(true);
+              }}
               placeholder="Search affiliate code or name..."
               className="w-full rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-sm text-violet-900 placeholder-violet-300 outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-400"
               autoFocus
@@ -401,23 +447,34 @@ function AffiliateAttributionSection({
         )}
 
         {/* No results */}
-        {showDropdown && !selectedCode && !loadingOptions && options.length === 0 && searchQuery && (
-          <div className="absolute left-0 right-0 z-50 mt-1 rounded-lg border border-violet-200 bg-white px-3 py-2 text-sm text-gray-400 shadow-lg">
-            No affiliate codes found
-          </div>
-        )}
+        {showDropdown &&
+          !selectedCode &&
+          !loadingOptions &&
+          options.length === 0 &&
+          searchQuery && (
+            <div className="absolute left-0 right-0 z-50 mt-1 rounded-lg border border-violet-200 bg-white px-3 py-2 text-sm text-gray-400 shadow-lg">
+              No affiliate codes found
+            </div>
+          )}
       </div>
 
       {/* Password confirmation for linking */}
       {showPasswordConfirm === 'link' && (
         <div className="mt-2 rounded-lg border border-violet-200 bg-white p-2.5">
-          <p className="mb-1.5 text-xs font-medium text-violet-700">Enter admin password to confirm</p>
+          <p className="mb-1.5 text-xs font-medium text-violet-700">
+            Enter admin password to confirm
+          </p>
           <div className="flex gap-1.5">
             <input
               type="password"
               value={adminPassword}
-              onChange={(e) => { setAdminPassword(e.target.value); setError(null); }}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); }}
+              onChange={(e) => {
+                setAdminPassword(e.target.value);
+                setError(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSubmit();
+              }}
               placeholder="Password"
               className="min-w-0 flex-1 rounded border border-violet-200 bg-white px-2 py-1 text-sm outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-400"
               autoFocus
@@ -431,7 +488,11 @@ function AffiliateAttributionSection({
               {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Confirm'}
             </button>
             <button
-              onClick={() => { setShowPasswordConfirm(null); setAdminPassword(''); setError(null); }}
+              onClick={() => {
+                setShowPasswordConfirm(null);
+                setAdminPassword('');
+                setError(null);
+              }}
               className="rounded px-1.5 py-1 text-xs text-gray-500 hover:text-gray-700"
             >
               Cancel
@@ -441,7 +502,9 @@ function AffiliateAttributionSection({
       )}
 
       {error && <p className="mt-1.5 text-xs text-red-600">{error}</p>}
-      {success && <p className="mt-1.5 text-xs font-medium text-green-600">Attributed! Refreshing...</p>}
+      {success && (
+        <p className="mt-1.5 text-xs font-medium text-green-600">Attributed! Refreshing...</p>
+      )}
     </div>
   );
 }
@@ -451,14 +514,28 @@ function AffiliateTag({ name, code }: { name?: string; code?: string | null }) {
   return (
     <div className="flex items-center gap-2.5 rounded-xl border border-violet-200 bg-violet-50 px-3.5 py-2.5">
       <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-violet-600 text-white">
-        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+        <svg
+          className="h-4 w-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          strokeWidth={2}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+          />
         </svg>
       </div>
       <div className="min-w-0">
-        <p className="text-xs font-semibold uppercase tracking-wider text-violet-500">Affiliate Referral</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-violet-500">
+          Affiliate Referral
+        </p>
         <p className="truncate text-sm font-bold text-violet-900">
-          {name ? `${name}` : ''}{name && code ? ' ' : ''}{code ? <span className="font-semibold text-violet-600">({code})</span> : ''}
+          {name ? `${name}` : ''}
+          {name && code ? ' ' : ''}
+          {code ? <span className="font-semibold text-violet-600">({code})</span> : ''}
         </p>
       </div>
     </div>
@@ -490,7 +567,9 @@ export default function PatientSidebar({
   // Local patient state for immediate UI updates after edits.
   // Syncs from server prop when router.refresh() completes.
   const [patient, setPatient] = useState(patientProp);
-  useEffect(() => { setPatient(patientProp); }, [patientProp]);
+  useEffect(() => {
+    setPatient(patientProp);
+  }, [patientProp]);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showMergeModal, setShowMergeModal] = useState(false);
@@ -548,11 +627,15 @@ export default function PatientSidebar({
     if (!canManageShipping) return;
     apiFetch(`/api/patients/${patient.id}/shipping-labels`)
       .then((res) => (res.ok ? res.json() : null))
-      .then((data) => { if (data?.labels) setPastLabels(data.labels); })
+      .then((data) => {
+        if (data?.labels) setPastLabels(data.labels);
+      })
       .catch(() => {});
   }, [patient.id, canManageShipping]);
 
-  useEffect(() => { fetchLabels(); }, [fetchLabels]);
+  useEffect(() => {
+    fetchLabels();
+  }, [fetchLabels]);
 
   useEffect(() => {
     if (mobileTabBarRef.current) {
@@ -569,10 +652,18 @@ export default function PatientSidebar({
       if (!res.ok) throw new Error(data.error || 'Failed to download');
       const format = data.labelFormat || 'PDF';
       const ext = format === 'ZPLII' ? 'zpl' : format === 'PNG' ? 'png' : 'pdf';
-      const mimeType = format === 'ZPLII' ? 'application/octet-stream' : format === 'PNG' ? 'image/png' : 'application/pdf';
-      const raw = format === 'ZPLII'
-        ? new Blob([atob(data.labelData)], { type: mimeType })
-        : new Blob([Uint8Array.from(atob(data.labelData), (c) => c.charCodeAt(0))], { type: mimeType });
+      const mimeType =
+        format === 'ZPLII'
+          ? 'application/octet-stream'
+          : format === 'PNG'
+            ? 'image/png'
+            : 'application/pdf';
+      const raw =
+        format === 'ZPLII'
+          ? new Blob([atob(data.labelData)], { type: mimeType })
+          : new Blob([Uint8Array.from(atob(data.labelData), (c) => c.charCodeAt(0))], {
+              type: mimeType,
+            });
       const url = URL.createObjectURL(raw);
       const a = document.createElement('a');
       a.href = url;
@@ -708,7 +799,9 @@ export default function PatientSidebar({
     setPatient((prev) => ({ ...prev, ...data }));
 
     // Background server refresh to fully sync RSC data
-    startTransition(() => { router.refresh(); });
+    startTransition(() => {
+      router.refresh();
+    });
   };
 
   const handleDeletePatient = async () => {
@@ -722,7 +815,9 @@ export default function PatientSidebar({
     }
 
     // Redirect to the correct patients list (provider vs admin)
-    const listPath = patientDetailBasePath?.startsWith('/provider') ? '/provider/patients' : '/admin/patients';
+    const listPath = patientDetailBasePath?.startsWith('/provider')
+      ? '/provider/patients'
+      : '/admin/patients';
     router.push(listPath);
   };
 
@@ -741,9 +836,13 @@ export default function PatientSidebar({
         throw new Error(data.error || 'Failed to submit sales request');
       }
       setSalesRequestSuccess('Sales request submitted');
-      startTransition(() => { router.refresh(); });
+      startTransition(() => {
+        router.refresh();
+      });
     } catch (error) {
-      setSalesRequestError(error instanceof Error ? error.message : 'Failed to submit sales request');
+      setSalesRequestError(
+        error instanceof Error ? error.message : 'Failed to submit sales request'
+      );
     } finally {
       setSalesRequestLoading(false);
     }
@@ -764,9 +863,13 @@ export default function PatientSidebar({
         throw new Error(data.error || 'Failed to remove sales request');
       }
       setSalesRequestSuccess('Sales request removed');
-      startTransition(() => { router.refresh(); });
+      startTransition(() => {
+        router.refresh();
+      });
     } catch (error) {
-      setSalesRequestError(error instanceof Error ? error.message : 'Failed to remove sales request');
+      setSalesRequestError(
+        error instanceof Error ? error.message : 'Failed to remove sales request'
+      );
     } finally {
       setSalesRequestLoading(false);
     }
@@ -802,8 +905,12 @@ export default function PatientSidebar({
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <span className="text-xl font-bold" style={{ color: 'var(--brand-primary, #4fa77e)' }}>
-                  {patient.firstName?.[0]}{patient.lastName?.[0]}
+                <span
+                  className="text-xl font-bold"
+                  style={{ color: 'var(--brand-primary, #4fa77e)' }}
+                >
+                  {patient.firstName?.[0]}
+                  {patient.lastName?.[0]}
                 </span>
               )}
             </div>
@@ -813,12 +920,17 @@ export default function PatientSidebar({
                 {patient.firstName} {patient.lastName}
                 {patient.identityVerified && <VerifiedBadge size="md" />}
               </h2>
-              <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-gray-500" suppressHydrationWarning>
+              <div
+                className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-gray-500"
+                suppressHydrationWarning
+              >
                 {age ? <span>{age}y</span> : null}
                 {age && genderLabel !== 'Not set' ? <span>·</span> : null}
                 {genderLabel !== 'Not set' && <span>{genderLabel}</span>}
                 <span className="text-gray-300">|</span>
-                <span className="font-medium text-gray-600">#{formatPatientDisplayId(patient.patientId, patient.id)}</span>
+                <span className="font-medium text-gray-600">
+                  #{formatPatientDisplayId(patient.patientId, patient.id)}
+                </span>
               </div>
             </div>
 
@@ -835,7 +947,9 @@ export default function PatientSidebar({
 
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 px-3.5 pb-3 pt-2 text-[13px] text-gray-500">
             {formatPhone(patient.phone) !== '—' && (
-              <a href={`tel:${patient.phone}`} className="active:text-gray-900">{formatPhone(patient.phone)}</a>
+              <a href={`tel:${patient.phone}`} className="active:text-gray-900">
+                {formatPhone(patient.phone)}
+              </a>
             )}
             {formatPhone(patient.phone) !== '—' && formatEmail(patient.email) !== '-' && (
               <span className="text-gray-300">·</span>
@@ -860,7 +974,12 @@ export default function PatientSidebar({
               )}
               {(affiliateAttribution || affiliateCode) && (
                 <span className="inline-flex items-center rounded-full bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700">
-                  Affiliate{affiliateAttribution?.refCode ? `: ${affiliateAttribution.refCode}` : affiliateCode ? `: ${affiliateCode}` : ''}
+                  Affiliate
+                  {affiliateAttribution?.refCode
+                    ? `: ${affiliateAttribution.refCode}`
+                    : affiliateCode
+                      ? `: ${affiliateCode}`
+                      : ''}
                 </span>
               )}
               {currentSalesRep && (
@@ -879,18 +998,36 @@ export default function PatientSidebar({
             <div className="space-y-0.5 border-t border-gray-100 px-2 py-2">
               {!isPharmacyRep && (
                 <button
-                  onClick={() => { setShowEditModal(true); setShowMobileActions(false); }}
+                  onClick={() => {
+                    setShowEditModal(true);
+                    setShowMobileActions(false);
+                  }}
                   className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-medium text-gray-700 active:bg-gray-50"
                 >
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100">
-                    <svg className="h-4 w-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                    <svg
+                      className="h-4 w-4 text-gray-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                      />
+                    </svg>
                   </div>
                   Edit Patient
                 </button>
               )}
               {canManageShipping && (
                 <button
-                  onClick={() => { setShowFedExModal(true); setShowMobileActions(false); }}
+                  onClick={() => {
+                    setShowFedExModal(true);
+                    setShowMobileActions(false);
+                  }}
                   className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-medium text-[#4D148C] active:bg-purple-50"
                 >
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-50">
@@ -902,7 +1039,10 @@ export default function PatientSidebar({
               {!isPharmacyRep && (
                 <>
                   <button
-                    onClick={() => { setShowMergeModal(true); setShowMobileActions(false); }}
+                    onClick={() => {
+                      setShowMergeModal(true);
+                      setShowMobileActions(false);
+                    }}
                     className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-medium text-gray-700 active:bg-gray-50"
                   >
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100">
@@ -911,7 +1051,10 @@ export default function PatientSidebar({
                     Merge Patient
                   </button>
                   <button
-                    onClick={() => { setShowDeleteModal(true); setShowMobileActions(false); }}
+                    onClick={() => {
+                      setShowDeleteModal(true);
+                      setShowMobileActions(false);
+                    }}
                     className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-medium text-red-600 active:bg-red-50"
                   >
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50">
@@ -942,7 +1085,14 @@ export default function PatientSidebar({
                     key={item.id}
                     href={href}
                     data-active={isActive}
-                    onClick={onTabChange ? (e) => { e.preventDefault(); onTabChange(item.id); } : undefined}
+                    onClick={
+                      onTabChange
+                        ? (e) => {
+                            e.preventDefault();
+                            onTabChange(item.id);
+                          }
+                        : undefined
+                    }
                     className={`flex-shrink-0 whitespace-nowrap rounded-full px-3.5 py-2 text-[13px] font-semibold transition-colors ${
                       isActive
                         ? 'text-white shadow-sm'
@@ -1131,34 +1281,41 @@ export default function PatientSidebar({
           {(showLabsTab === false ? navItems.filter((i) => i.id !== 'lab') : navItems)
             .filter((item) => !isPharmacyRep || ['profile', 'prescriptions'].includes(item.id))
             .map((item) => {
-            const isActive = currentTab === item.id;
-            const href = `${patientDetailBasePath}/${patient.id}?tab=${item.id}`;
-            return (
-              <a
-                key={item.id}
-                href={href}
-                onClick={onTabChange ? (e) => { e.preventDefault(); onTabChange(item.id); } : undefined}
-                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 transition-colors ${
-                  isActive ? 'bg-gray-100' : 'hover:bg-gray-50'
-                }`}
-              >
-                <div
-                  className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold"
-                  style={{
-                    backgroundColor: isActive ? 'var(--brand-primary, #4fa77e)' : '#9ca3af',
-                    color: isActive ? 'var(--brand-primary-text, #ffffff)' : '#ffffff',
-                  }}
+              const isActive = currentTab === item.id;
+              const href = `${patientDetailBasePath}/${patient.id}?tab=${item.id}`;
+              return (
+                <a
+                  key={item.id}
+                  href={href}
+                  onClick={
+                    onTabChange
+                      ? (e) => {
+                          e.preventDefault();
+                          onTabChange(item.id);
+                        }
+                      : undefined
+                  }
+                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 transition-colors ${
+                    isActive ? 'bg-gray-100' : 'hover:bg-gray-50'
+                  }`}
                 >
-                  {item.icon}
-                </div>
-                <span
-                  className={`text-sm ${isActive ? 'font-medium text-gray-900' : 'text-gray-600'}`}
-                >
-                  {item.label}
-                </span>
-              </a>
-            );
-          })}
+                  <div
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold"
+                    style={{
+                      backgroundColor: isActive ? 'var(--brand-primary, #4fa77e)' : '#9ca3af',
+                      color: isActive ? 'var(--brand-primary-text, #ffffff)' : '#ffffff',
+                    }}
+                  >
+                    {item.icon}
+                  </div>
+                  <span
+                    className={`text-sm ${isActive ? 'font-medium text-gray-900' : 'text-gray-600'}`}
+                  >
+                    {item.label}
+                  </span>
+                </a>
+              );
+            })}
         </nav>
 
         {/* Actions */}
@@ -1322,7 +1479,10 @@ export default function PatientSidebar({
             ...o,
             createdAt: typeof o.createdAt === 'string' ? o.createdAt : o.createdAt.toISOString(),
           }))}
-          onClose={() => { setShowFedExModal(false); fetchLabels(); }}
+          onClose={() => {
+            setShowFedExModal(false);
+            fetchLabels();
+          }}
         />
       )}
 

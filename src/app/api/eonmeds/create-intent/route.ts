@@ -30,7 +30,7 @@ function getStripe(): Stripe {
   if (!_stripe) {
     _stripe = new Stripe(
       process.env.EONMEDS_STRIPE_SECRET_KEY || process.env.STRIPE_SECRET_KEY || '',
-      { apiVersion: '2026-03-25.dahlia' },
+      { apiVersion: '2026-03-25.dahlia' }
     );
   }
   return _stripe;
@@ -40,8 +40,15 @@ async function getOrCreateCustomer(
   email: string | undefined,
   name?: string,
   phone?: string,
-  address?: { line1: string; line2?: string; city: string; state: string; postal_code: string; country?: string },
-  metadata?: Record<string, string>,
+  address?: {
+    line1: string;
+    line2?: string;
+    city: string;
+    state: string;
+    postal_code: string;
+    country?: string;
+  },
+  metadata?: Record<string, string>
 ) {
   const isValidEmail = email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
@@ -135,8 +142,11 @@ export async function POST(req: NextRequest) {
       !shipping_address.zipCode?.trim?.()
     ) {
       return NextResponse.json(
-        { error: 'Shipping address required', message: 'Please enter a complete shipping address.' },
-        { status: 400 },
+        {
+          error: 'Shipping address required',
+          message: 'Please enter a complete shipping address.',
+        },
+        { status: 400 }
       );
     }
 
@@ -144,9 +154,13 @@ export async function POST(req: NextRequest) {
       addressLine1: String(shipping_address.addressLine1 || '').trim(),
       addressLine2: String(shipping_address.addressLine2 || '').trim(),
       city: String(shipping_address.city || '').trim(),
-      state: String(shipping_address.state || '').trim().toUpperCase(),
+      state: String(shipping_address.state || '')
+        .trim()
+        .toUpperCase(),
       zipCode: String(shipping_address.zipCode || '').trim(),
-      country: String(shipping_address.country || 'US').trim().toUpperCase(),
+      country: String(shipping_address.country || 'US')
+        .trim()
+        .toUpperCase(),
     };
 
     const billingAddress = {
@@ -163,7 +177,11 @@ export async function POST(req: NextRequest) {
       customer_name,
       customer_phone,
       billingAddress,
-      { medication: order_data?.medication || '', plan: order_data?.plan || '', source: 'eonmeds_checkout' },
+      {
+        medication: order_data?.medication || '',
+        plan: order_data?.plan || '',
+        source: 'eonmeds_checkout',
+      }
     );
 
     const planType = order_data?.plan || '';
@@ -187,10 +205,17 @@ export async function POST(req: NextRequest) {
 
     const normalizedPlanName = (() => {
       const p = (order_data?.plan || '').toLowerCase();
-      if (p.includes('mensual') || p.includes('monthly') || p.includes('recurrente') || p.includes('recurring')) return 'Monthly Recurring';
+      if (
+        p.includes('mensual') ||
+        p.includes('monthly') ||
+        p.includes('recurrente') ||
+        p.includes('recurring')
+      )
+        return 'Monthly Recurring';
       if (p.includes('3') && (p.includes('mes') || p.includes('month'))) return '3-Month Plan';
       if (p.includes('6') && (p.includes('mes') || p.includes('month'))) return '6-Month Plan';
-      if (p.includes('única') || p.includes('one-time') || p.includes('onetime')) return 'One-Time Purchase';
+      if (p.includes('única') || p.includes('one-time') || p.includes('onetime'))
+        return 'One-Time Purchase';
       return order_data?.plan || 'Monthly Recurring';
     })();
 
@@ -199,7 +224,7 @@ export async function POST(req: NextRequest) {
     }${order_data?.expeditedShipping ? ' + Expedited Shipping' : ''}`;
 
     const nameParts = (customer_name || '').trim().split(/\s+/);
-    const normalizedLeadId = (!lead_id || lead_id.startsWith('@')) ? (meta_event_id || '') : lead_id;
+    const normalizedLeadId = !lead_id || lead_id.startsWith('@') ? meta_event_id || '' : lead_id;
 
     const orderMetadata: Record<string, string> = {
       ...metadata,
@@ -278,7 +303,7 @@ export async function POST(req: NextRequest) {
     console.error('[EONMeds] Error creating payment intent:', error.message);
     return NextResponse.json(
       { error: 'Failed to create payment intent', message: error.message },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

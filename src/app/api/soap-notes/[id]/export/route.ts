@@ -52,14 +52,18 @@ export const GET = withAuth<RouteContext>(
       }
 
       if (!soapNote.patient) {
-        return NextResponse.json({ error: 'Patient record not found for this SOAP note' }, { status: 404 });
+        return NextResponse.json(
+          { error: 'Patient record not found for this SOAP note' },
+          { status: 404 }
+        );
       }
 
       if (user.role !== 'super_admin' && soapNote.patient.clinicId !== user.clinicId) {
         return NextResponse.json({ error: 'Access denied' }, { status: 403 });
       }
 
-      const patientFirst = decryptPHI(soapNote.patient.firstName) ?? soapNote.patient.firstName ?? '';
+      const patientFirst =
+        decryptPHI(soapNote.patient.firstName) ?? soapNote.patient.firstName ?? '';
       const patientLast = decryptPHI(soapNote.patient.lastName) ?? soapNote.patient.lastName ?? '';
       const patientDob = decryptPHI(soapNote.patient.dob) ?? soapNote.patient.dob ?? '';
       const patientName = `${patientFirst} ${patientLast}`.trim();
@@ -87,7 +91,9 @@ export const GET = withAuth<RouteContext>(
         `Status:     ${soapNote.status}`,
         ...(approverName ? [`Approved by: ${approverName}`] : []),
         ...(soapNote.approvedAt
-          ? [`Approved on: ${new Date(soapNote.approvedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`]
+          ? [
+              `Approved on: ${new Date(soapNote.approvedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`,
+            ]
           : []),
         '',
         '───────────────────────────────────────────────────',

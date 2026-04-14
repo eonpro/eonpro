@@ -17,7 +17,13 @@
 
 import { basePrisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import type { LoginInput, LoginResult, AuthenticatedUser, ClinicOption, TokenPayload } from '../types';
+import type {
+  LoginInput,
+  LoginResult,
+  AuthenticatedUser,
+  ClinicOption,
+  TokenPayload,
+} from '../types';
 
 export interface AuthService {
   /**

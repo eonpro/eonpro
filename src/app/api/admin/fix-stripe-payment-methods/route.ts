@@ -40,15 +40,15 @@ async function postHandler(req: NextRequest, user: AuthUser) {
     }
 
     if (!patient.stripeCustomerId) {
-      return NextResponse.json(
-        { error: 'Patient has no Stripe customer ID' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Patient has no Stripe customer ID' }, { status: 400 });
     }
 
     if (patient.stripeCustomerId === fromStripeCustomerId) {
       return NextResponse.json(
-        { error: 'fromStripeCustomerId is the same as the patient\'s current Stripe customer ID — nothing to migrate' },
+        {
+          error:
+            "fromStripeCustomerId is the same as the patient's current Stripe customer ID — nothing to migrate",
+        },
         { status: 400 }
       );
     }

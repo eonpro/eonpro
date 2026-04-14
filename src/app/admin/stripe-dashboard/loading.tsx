@@ -46,7 +46,10 @@ export default function StripeDashboardLoading() {
         <div className="mb-4 h-6 w-40 rounded bg-gray-200" />
         <div className="space-y-3">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="flex items-center justify-between rounded-lg bg-gray-50 px-4 py-3">
+            <div
+              key={i}
+              className="flex items-center justify-between rounded-lg bg-gray-50 px-4 py-3"
+            >
               <div className="h-4 w-32 rounded bg-gray-200" />
               <div className="h-4 w-24 rounded bg-gray-200" />
               <div className="h-4 w-20 rounded bg-gray-200" />

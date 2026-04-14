@@ -223,7 +223,8 @@ function StatCard({
   const colorClasses = {
     blue: 'bg-blue-50 text-blue-600 border-blue-100',
     green: 'bg-emerald-50 text-emerald-600 border-emerald-100',
-    purple: 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)] border-[var(--brand-primary-light)]',
+    purple:
+      'bg-[var(--brand-primary-light)] text-[var(--brand-primary)] border-[var(--brand-primary-light)]',
     orange: 'bg-orange-50 text-orange-600 border-orange-100',
     red: 'bg-red-50 text-red-600 border-red-100',
     gray: 'bg-gray-50 text-gray-600 border-gray-100',
@@ -348,8 +349,11 @@ export default function StripeDashboard() {
       return;
     }
     try {
-      const parsedUser = safeParseJsonString<{role?: string; clinicId?: number}>(user);
-      if (!parsedUser) { router.push('/login'); return; }
+      const parsedUser = safeParseJsonString<{ role?: string; clinicId?: number }>(user);
+      if (!parsedUser) {
+        router.push('/login');
+        return;
+      }
       const role = parsedUser.role?.toLowerCase();
       if (role !== 'admin' && role !== 'super_admin') {
         router.push('/login');
@@ -497,7 +501,13 @@ export default function StripeDashboard() {
         setHasMoreCustomers(data.pagination?.hasMore || false);
       }
     } catch (err) {
-      setError(err instanceof Error ? (err instanceof Error ? err.message : String(err)) : 'Failed to load Stripe data');
+      setError(
+        err instanceof Error
+          ? err instanceof Error
+            ? err.message
+            : String(err)
+          : 'Failed to load Stripe data'
+      );
     } finally {
       setLoading(false);
     }
@@ -1180,7 +1190,12 @@ function PayoutTransactionDetail({ payoutId }: { payoutId: string }) {
     })();
   }, [payoutId]);
 
-  if (loading) return <div className="flex items-center gap-2 px-6 py-4 text-sm text-gray-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading transactions...</div>;
+  if (loading)
+    return (
+      <div className="flex items-center gap-2 px-6 py-4 text-sm text-gray-500">
+        <Loader2 className="h-4 w-4 animate-spin" /> Loading transactions...
+      </div>
+    );
   if (error) return <div className="px-6 py-4 text-sm text-red-600">{error}</div>;
   if (!data) return null;
 
@@ -1191,11 +1206,17 @@ function PayoutTransactionDetail({ payoutId }: { payoutId: string }) {
       <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-lg bg-white p-3 shadow-sm">
           <p className="text-xs text-gray-500">Charges</p>
-          <p className="text-sm font-semibold text-emerald-600">{s.totalChargesFormatted} <span className="font-normal text-gray-400">({s.chargeCount})</span></p>
+          <p className="text-sm font-semibold text-emerald-600">
+            {s.totalChargesFormatted}{' '}
+            <span className="font-normal text-gray-400">({s.chargeCount})</span>
+          </p>
         </div>
         <div className="rounded-lg bg-white p-3 shadow-sm">
           <p className="text-xs text-gray-500">Refunds</p>
-          <p className="text-sm font-semibold text-orange-600">{s.totalRefundsFormatted} <span className="font-normal text-gray-400">({s.refundCount})</span></p>
+          <p className="text-sm font-semibold text-orange-600">
+            {s.totalRefundsFormatted}{' '}
+            <span className="font-normal text-gray-400">({s.refundCount})</span>
+          </p>
         </div>
         <div className="rounded-lg bg-white p-3 shadow-sm">
           <p className="text-xs text-gray-500">Fees</p>
@@ -1213,9 +1234,9 @@ function PayoutTransactionDetail({ payoutId }: { payoutId: string }) {
               <tr className="border-b text-left text-xs text-gray-500">
                 <th className="px-3 py-2 font-medium">Type</th>
                 <th className="px-3 py-2 font-medium">Description</th>
-                <th className="px-3 py-2 font-medium text-right">Amount</th>
-                <th className="px-3 py-2 font-medium text-right">Fee</th>
-                <th className="px-3 py-2 font-medium text-right">Net</th>
+                <th className="px-3 py-2 text-right font-medium">Amount</th>
+                <th className="px-3 py-2 text-right font-medium">Fee</th>
+                <th className="px-3 py-2 text-right font-medium">Net</th>
                 <th className="px-3 py-2 font-medium">Date</th>
               </tr>
             </thead>
@@ -1223,13 +1244,21 @@ function PayoutTransactionDetail({ payoutId }: { payoutId: string }) {
               {transactions.map((tx: any) => (
                 <tr key={tx.id} className="border-b last:border-0 hover:bg-gray-50/50">
                   <td className="px-3 py-2">
-                    <span className={`inline-block rounded px-1.5 py-0.5 text-xs font-medium ${
-                      tx.type === 'charge' || tx.type === 'payment' ? 'bg-emerald-100 text-emerald-700' :
-                      tx.type === 'refund' ? 'bg-orange-100 text-orange-700' :
-                      'bg-gray-100 text-gray-700'
-                    }`}>{tx.type}</span>
+                    <span
+                      className={`inline-block rounded px-1.5 py-0.5 text-xs font-medium ${
+                        tx.type === 'charge' || tx.type === 'payment'
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : tx.type === 'refund'
+                            ? 'bg-orange-100 text-orange-700'
+                            : 'bg-gray-100 text-gray-700'
+                      }`}
+                    >
+                      {tx.type}
+                    </span>
                   </td>
-                  <td className="max-w-[200px] truncate px-3 py-2 text-gray-600">{tx.description || tx.customerEmail || '-'}</td>
+                  <td className="max-w-[200px] truncate px-3 py-2 text-gray-600">
+                    {tx.description || tx.customerEmail || '-'}
+                  </td>
                   <td className="px-3 py-2 text-right font-medium">{tx.amountFormatted}</td>
                   <td className="px-3 py-2 text-right text-gray-500">{tx.feeFormatted}</td>
                   <td className="px-3 py-2 text-right font-medium">{tx.netFormatted}</td>
@@ -1240,7 +1269,9 @@ function PayoutTransactionDetail({ payoutId }: { payoutId: string }) {
           </table>
         </div>
       )}
-      <p className="mt-2 text-xs text-gray-400">{transactions.length} transaction{transactions.length !== 1 ? 's' : ''} in this payout</p>
+      <p className="mt-2 text-xs text-gray-400">
+        {transactions.length} transaction{transactions.length !== 1 ? 's' : ''} in this payout
+      </p>
     </div>
   );
 }
@@ -1299,7 +1330,9 @@ function PayoutsTab({
       {/* Payouts Table */}
       <div className="rounded-xl border bg-white p-6">
         <h3 className="mb-4 font-semibold text-gray-900">Payouts ({payouts.length})</h3>
-        <p className="mb-3 text-xs text-gray-500">Click a payout to see its transaction breakdown</p>
+        <p className="mb-3 text-xs text-gray-500">
+          Click a payout to see its transaction breakdown
+        </p>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -1316,17 +1349,23 @@ function PayoutsTab({
                 <React.Fragment key={payout.id}>
                   <tr
                     className={`cursor-pointer border-b hover:bg-gray-50 ${expandedPayout === payout.id ? 'bg-gray-50' : ''}`}
-                    onClick={() => setExpandedPayout(expandedPayout === payout.id ? null : payout.id)}
+                    onClick={() =>
+                      setExpandedPayout(expandedPayout === payout.id ? null : payout.id)
+                    }
                   >
                     <td className="py-3 pl-1">
-                      <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${expandedPayout === payout.id ? 'rotate-180' : ''}`} />
+                      <ChevronDown
+                        className={`h-4 w-4 text-gray-400 transition-transform ${expandedPayout === payout.id ? 'rotate-180' : ''}`}
+                      />
                     </td>
                     <td className="py-3 font-mono text-sm text-gray-500">{payout.id.slice(-8)}</td>
                     <td className="py-3 font-semibold">{payout.amountFormatted}</td>
                     <td className="py-3">
                       <StatusBadge status={payout.status} />
                     </td>
-                    <td className="py-3 text-gray-500">{formatDate(payout.arrivalDateFormatted)}</td>
+                    <td className="py-3 text-gray-500">
+                      {formatDate(payout.arrivalDateFormatted)}
+                    </td>
                   </tr>
                   {expandedPayout === payout.id && (
                     <tr>
@@ -1577,7 +1616,7 @@ function ConnectTab({
       window.open(data.onboardingUrl, '_blank');
       onRefresh();
     } catch (err: unknown) {
-      setError((err instanceof Error ? err.message : String(err)));
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
@@ -1592,7 +1631,7 @@ function ConnectTab({
         window.open(data.onboardingUrl, '_blank');
       }
     } catch (err: unknown) {
-      setError((err instanceof Error ? err.message : String(err)));
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
@@ -1609,7 +1648,7 @@ function ConnectTab({
         setError(data.error);
       }
     } catch (err: unknown) {
-      setError((err instanceof Error ? err.message : String(err)));
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
@@ -1621,7 +1660,7 @@ function ConnectTab({
       await apiFetch(`/api/stripe/connect?clinicId=${clinicId}&action=sync`);
       onRefresh();
     } catch (err: unknown) {
-      setError((err instanceof Error ? err.message : String(err)));
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }

@@ -17,10 +17,7 @@ export const definition: ChatCompletionTool = {
   },
 };
 
-export async function execute(
-  params: { patientId: number },
-  clinicId: number,
-): Promise<unknown> {
+export async function execute(params: { patientId: number }, clinicId: number): Promise<unknown> {
   const patient = await prisma.patient.findFirst({
     where: { id: params.patientId, clinicId },
     select: {
@@ -63,9 +60,15 @@ export async function execute(
       if (parts.length === 3) {
         const d = new Date(parseInt(parts[2]), parseInt(parts[0]) - 1, parseInt(parts[1]));
         age = Math.floor((Date.now() - d.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
-        formattedDob = d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        formattedDob = d.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        });
       }
-    } catch { /* keep raw dob */ }
+    } catch {
+      /* keep raw dob */
+    }
   }
 
   const intakeVitals = extractIntakeVitals(patient.documents?.[0]?.data);
@@ -80,22 +83,39 @@ export async function execute(
       gender: patient.gender,
       phone: patient.phone,
       email: patient.email,
-      address: [patient.address1, patient.address2, `${patient.city}, ${patient.state} ${patient.zip}`]
+      address: [
+        patient.address1,
+        patient.address2,
+        `${patient.city}, ${patient.state} ${patient.zip}`,
+      ]
         .filter(Boolean)
         .join(', '),
     },
     vitals: {
       latestWeight: patient.weightLogs[0]
-        ? { weight: patient.weightLogs[0].weight, unit: patient.weightLogs[0].unit, date: patient.weightLogs[0].recordedAt }
+        ? {
+            weight: patient.weightLogs[0].weight,
+            unit: patient.weightLogs[0].unit,
+            date: patient.weightLogs[0].recordedAt,
+          }
         : null,
-      weightHistory: patient.weightLogs.map((w) => ({ weight: w.weight, unit: w.unit, date: w.recordedAt })),
+      weightHistory: patient.weightLogs.map((w) => ({
+        weight: w.weight,
+        unit: w.unit,
+        date: w.recordedAt,
+      })),
       fromIntake: intakeVitals,
     },
   };
 }
 
 function extractIntakeVitals(data: unknown): Record<string, string | null> {
-  const vitals: Record<string, string | null> = { height: null, weight: null, bmi: null, bloodPressure: null };
+  const vitals: Record<string, string | null> = {
+    height: null,
+    weight: null,
+    bmi: null,
+    bloodPressure: null,
+  };
   if (!data) return vitals;
 
   try {
@@ -124,7 +144,9 @@ function extractIntakeVitals(data: unknown): Record<string, string | null> {
         }
       }
     }
-  } catch { /* non-critical */ }
+  } catch {
+    /* non-critical */
+  }
 
   return vitals;
 }

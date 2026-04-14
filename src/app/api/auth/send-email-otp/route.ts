@@ -22,7 +22,10 @@ import {
 import { isEmailConfigured } from '@/lib/email';
 
 const sendEmailOtpSchema = z.object({
-  email: z.string().email('Invalid email address').transform((v) => v.toLowerCase().trim()),
+  email: z
+    .string()
+    .email('Invalid email address')
+    .transform((v) => v.toLowerCase().trim()),
   clinicId: z.number().optional(),
 });
 
@@ -40,10 +43,7 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
     const validated = sendEmailOtpSchema.safeParse(body);
 
     if (!validated.success) {
-      return NextResponse.json(
-        { error: 'Invalid email address' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid email address' }, { status: 400 });
     }
 
     const { email, clinicId } = validated.data;
@@ -52,7 +52,10 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
     if (!isEmailConfigured()) {
       logger.error('Email service not configured - cannot send login OTP');
       return NextResponse.json(
-        { error: 'Email service is temporarily unavailable. Please use password login or try again later.' },
+        {
+          error:
+            'Email service is temporarily unavailable. Please use password login or try again later.',
+        },
         { status: 503 }
       );
     }

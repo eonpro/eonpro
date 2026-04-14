@@ -57,7 +57,9 @@ export const GET = withAuthParams(
       }
       patientId = parseInt(id, 10);
     } catch (err) {
-      logger.warn('Bloodwork list params resolution failed', { error: err instanceof Error ? err.message : String(err) });
+      logger.warn('Bloodwork list params resolution failed', {
+        error: err instanceof Error ? err.message : String(err),
+      });
       return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
     }
     if (isNaN(patientId)) {
@@ -68,7 +70,7 @@ export const GET = withAuthParams(
       where: { id: patientId },
       select: { id: true, clinicId: true },
     });
-    const clinicId = user.role === 'super_admin' ? undefined : user.clinicId ?? undefined;
+    const clinicId = user.role === 'super_admin' ? undefined : (user.clinicId ?? undefined);
     const notFound = ensureTenantResource(patient, clinicId);
     if (notFound) return notFound;
 
@@ -99,8 +101,9 @@ export const GET = withAuthParams(
           documentId: r.documentId,
           labName: r.labName,
           specimenId: r.specimenId,
-          collectedAt: collectedAt instanceof Date ? collectedAt.toISOString() : collectedAt ?? null,
-          reportedAt: reportedAt instanceof Date ? reportedAt.toISOString() : reportedAt ?? null,
+          collectedAt:
+            collectedAt instanceof Date ? collectedAt.toISOString() : (collectedAt ?? null),
+          reportedAt: reportedAt instanceof Date ? reportedAt.toISOString() : (reportedAt ?? null),
           fasting: r.fasting,
           createdAt: createdAt instanceof Date ? createdAt.toISOString() : String(createdAt),
           resultCount: r._count.results,
@@ -118,16 +121,21 @@ export const GET = withAuthParams(
         });
       }
 
-      return NextResponse.json({ reports: list }, {
-        headers: { 'Cache-Control': 'private, max-age=60, stale-while-revalidate=120' },
-      });
+      return NextResponse.json(
+        { reports: list },
+        {
+          headers: { 'Cache-Control': 'private, max-age=60, stale-while-revalidate=120' },
+        }
+      );
     } catch (err) {
       logger.error('Bloodwork list failed', {
         route: 'GET /api/patients/[id]/bloodwork',
         userId: user.id,
         patientId,
         error: err instanceof Error ? err.message : String(err),
-        ...(process.env.NODE_ENV === 'development' && { stack: err instanceof Error ? err.stack : undefined }),
+        ...(process.env.NODE_ENV === 'development' && {
+          stack: err instanceof Error ? err.stack : undefined,
+        }),
       });
 
       if (err instanceof AppError) {
@@ -137,7 +145,10 @@ export const GET = withAuthParams(
         });
       }
 
-      if (err instanceof Prisma.PrismaClientKnownRequestError && ['P2021', 'P2022', 'P2010'].includes(err.code)) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        ['P2021', 'P2022', 'P2010'].includes(err.code)
+      ) {
         return NextResponse.json({ error: BLOODWORK_UNAVAILABLE_MESSAGE }, { status: 503 });
       }
       if (isSchemaOrTableError(err) || isPrismaModelMissingError(err)) {

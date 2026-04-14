@@ -22,7 +22,10 @@ async function handler(req: NextRequest, user: AuthUser) {
     const body = await req.json();
     const parsed = schema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Invalid input', details: parsed.error.flatten() }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid input', details: parsed.error.flatten() },
+        { status: 400 }
+      );
     }
 
     const { patientId, stripePaymentMethodId, setAsDefault } = parsed.data;
@@ -196,7 +199,10 @@ async function handler(req: NextRequest, user: AuthUser) {
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    logger.error('[SaveStripe] Error:', { message: msg, stack: error instanceof Error ? error.stack : undefined });
+    logger.error('[SaveStripe] Error:', {
+      message: msg,
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     return NextResponse.json({ error: `Failed to save payment method: ${msg}` }, { status: 500 });
   }
 }

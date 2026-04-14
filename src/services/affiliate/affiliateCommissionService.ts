@@ -18,7 +18,11 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { getRequestId } from '@/lib/observability/request-context';
 import type { CommissionEventStatus, CommissionPlanType } from '@prisma/client';
-import { performFraudCheck, processFraudCheckResult, type FraudCheckRequest } from './fraudDetectionService';
+import {
+  performFraudCheck,
+  processFraudCheckResult,
+  type FraudCheckRequest,
+} from './fraudDetectionService';
 
 // ============================================================================
 // Types
@@ -739,19 +743,20 @@ export async function processPaymentForCommission(
           affiliateId,
           clinicId,
           riskScore: fraudResult.riskScore,
-          alerts: fraudResult.alerts.map(a => a.type),
+          alerts: fraudResult.alerts.map((a) => a.type),
         });
         return {
           success: true,
           skipped: true,
-          skipReason: `Fraud detected: ${fraudResult.alerts.map(a => a.type).join(', ')}`,
+          skipReason: `Fraud detected: ${fraudResult.alerts.map((a) => a.type).join(', ')}`,
         };
       }
 
-      fraudRiskLevel = fraudResult.riskScore >= 70 ? 'HIGH' : fraudResult.riskScore >= 40 ? 'MEDIUM' : 'LOW';
+      fraudRiskLevel =
+        fraudResult.riskScore >= 70 ? 'HIGH' : fraudResult.riskScore >= 40 ? 'MEDIUM' : 'LOW';
 
       // Process fraud result asynchronously (create alerts if needed) — fire and forget
-      processFraudCheckResult(fraudRequest, fraudResult).catch(err => {
+      processFraudCheckResult(fraudRequest, fraudResult).catch((err) => {
         logger.error('[AffiliateCommission] Failed to process fraud result', {
           error: err instanceof Error ? err.message : 'Unknown error',
           affiliateId,
@@ -778,63 +783,71 @@ export async function processPaymentForCommission(
     // the constraint violation (P2002) ensures only one succeeds.
     let commissionEvent;
     try {
-      commissionEvent = await prisma.$transaction(async (tx) => {
-        const event = await tx.affiliateCommissionEvent.create({
-          data: {
-            clinicId,
-            affiliateId,
-            stripeEventId,
-            stripeObjectId,
-            stripeEventType,
-            eventAmountCents: amountCents,
-            commissionAmountCents: breakdown.totalCommissionCents,
-            baseCommissionCents: breakdown.baseCommissionCents,
-            tierBonusCents: breakdown.tierBonusCents,
-            promotionBonusCents: breakdown.promotionBonusCents,
-            productAdjustmentCents: breakdown.productAdjustmentCents,
-            commissionPlanId: commissionPlan.id,
-            isRecurring: isRecurring || false,
-            recurringMonth: recurringMonth || null,
-          attributionModel: 'STORED', // From patient attribution
-          status: fraudRiskLevel === 'HIGH' ? 'PENDING' : 'PENDING', // HIGH risk stays PENDING for manual review
-            occurredAt,
-            holdUntil,
-            metadata: {
-              refCode,
-              planName: commissionPlan.name,
-              planType: commissionPlan.planType,
-              tierName: breakdown.tierName,
-              promotionName: breakdown.promotionName,
-              appliedProductRule: breakdown.appliedProductRule,
-            recurringMultiplier: breakdown.recurringMultiplier,
-            fraudCheck: { riskLevel: fraudRiskLevel },
-            // HIPAA: Do NOT store patient name, email, or any identifiers
-          },
-          },
-        });
-
-        // Increment promotion usage counts atomically within the same transaction
-        if (breakdown.appliedPromotionIds.length > 0) {
-          await tx.affiliatePromotion.updateMany({
-            where: { id: { in: breakdown.appliedPromotionIds } },
-            data: { usesCount: { increment: 1 } },
+      commissionEvent = await prisma.$transaction(
+        async (tx) => {
+          const event = await tx.affiliateCommissionEvent.create({
+            data: {
+              clinicId,
+              affiliateId,
+              stripeEventId,
+              stripeObjectId,
+              stripeEventType,
+              eventAmountCents: amountCents,
+              commissionAmountCents: breakdown.totalCommissionCents,
+              baseCommissionCents: breakdown.baseCommissionCents,
+              tierBonusCents: breakdown.tierBonusCents,
+              promotionBonusCents: breakdown.promotionBonusCents,
+              productAdjustmentCents: breakdown.productAdjustmentCents,
+              commissionPlanId: commissionPlan.id,
+              isRecurring: isRecurring || false,
+              recurringMonth: recurringMonth || null,
+              attributionModel: 'STORED', // From patient attribution
+              status: fraudRiskLevel === 'HIGH' ? 'PENDING' : 'PENDING', // HIGH risk stays PENDING for manual review
+              occurredAt,
+              holdUntil,
+              metadata: {
+                refCode,
+                planName: commissionPlan.name,
+                planType: commissionPlan.planType,
+                tierName: breakdown.tierName,
+                promotionName: breakdown.promotionName,
+                appliedProductRule: breakdown.appliedProductRule,
+                recurringMultiplier: breakdown.recurringMultiplier,
+                fraudCheck: { riskLevel: fraudRiskLevel },
+                // HIPAA: Do NOT store patient name, email, or any identifiers
+              },
+            },
           });
-        }
 
-        // Update affiliate's lifetime stats within the same transaction
-        await tx.affiliate.update({
-          where: { id: affiliateId },
-          data: {
-            lifetimeConversions: { increment: 1 },
-            lifetimeRevenueCents: { increment: amountCents },
-          },
-        });
+          // Increment promotion usage counts atomically within the same transaction
+          if (breakdown.appliedPromotionIds.length > 0) {
+            await tx.affiliatePromotion.updateMany({
+              where: { id: { in: breakdown.appliedPromotionIds } },
+              data: { usesCount: { increment: 1 } },
+            });
+          }
 
-        return event;
-      }, { timeout: 15000 });
+          // Update affiliate's lifetime stats within the same transaction
+          await tx.affiliate.update({
+            where: { id: affiliateId },
+            data: {
+              lifetimeConversions: { increment: 1 },
+              lifetimeRevenueCents: { increment: amountCents },
+            },
+          });
+
+          return event;
+        },
+        { timeout: 15000 }
+      );
     } catch (txError: unknown) {
       // Catch P2002 unique constraint violation = duplicate Stripe event (idempotent)
-      if (txError && typeof txError === 'object' && 'code' in txError && (txError as { code: string }).code === 'P2002') {
+      if (
+        txError &&
+        typeof txError === 'object' &&
+        'code' in txError &&
+        (txError as { code: string }).code === 'P2002'
+      ) {
         const existing = await prisma.affiliateCommissionEvent.findUnique({
           where: { clinicId_stripeEventId: { clinicId, stripeEventId } },
         });

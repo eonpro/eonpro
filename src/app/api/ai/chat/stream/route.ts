@@ -32,7 +32,7 @@ export const POST = withAuth(async (request: NextRequest, user: AuthUser) => {
     if (current && current > RATE_LIMIT_MAX_REQUESTS) {
       return new Response(
         JSON.stringify({ error: 'Too many requests. Please wait a moment and try again.' }),
-        { status: 429, headers: { 'Content-Type': 'application/json' } },
+        { status: 429, headers: { 'Content-Type': 'application/json' } }
       );
     }
   } catch {
@@ -48,7 +48,7 @@ export const POST = withAuth(async (request: NextRequest, user: AuthUser) => {
   if (!clinicId) {
     return new Response(
       JSON.stringify({ error: 'Unable to determine clinic. Please refresh the page.' }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } },
+      { status: 400, headers: { 'Content-Type': 'application/json' } }
     );
   }
 
@@ -57,10 +57,10 @@ export const POST = withAuth(async (request: NextRequest, user: AuthUser) => {
     const raw = await request.json();
     body = bodySchema.parse(raw);
   } catch (err) {
-    return new Response(
-      JSON.stringify({ error: 'Invalid request data' }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } },
-    );
+    return new Response(JSON.stringify({ error: 'Invalid request data' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
   logger.info('[BeccaV2] Streaming request', {
@@ -93,7 +93,7 @@ export const POST = withAuth(async (request: NextRequest, user: AuthUser) => {
             sessionId: body.sessionId,
             patientId: body.patientId,
           },
-          writer,
+          writer
         );
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Internal error';

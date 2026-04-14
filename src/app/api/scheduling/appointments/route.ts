@@ -123,9 +123,8 @@ export const GET = withAuth(async (req: NextRequest, user) => {
       );
     }
 
-    const resolvedClinicId = (clinicId && user.role === 'super_admin')
-      ? parseInt(clinicId)
-      : (user.clinicId || undefined);
+    const resolvedClinicId =
+      clinicId && user.role === 'super_admin' ? parseInt(clinicId) : user.clinicId || undefined;
 
     const appointments = await getAppointments({
       clinicId: resolvedClinicId,
@@ -156,7 +155,9 @@ export const GET = withAuth(async (req: NextRequest, user) => {
  * POST /api/scheduling/appointments
  * Create a new appointment
  */
-const schedulingRoles: AuthOptions = { roles: ['super_admin', 'admin', 'provider', 'staff', 'sales_rep'] };
+const schedulingRoles: AuthOptions = {
+  roles: ['super_admin', 'admin', 'provider', 'staff', 'sales_rep'],
+};
 
 export const POST = withAuth(async (req: NextRequest, user) => {
   try {
@@ -170,9 +171,8 @@ export const POST = withAuth(async (req: NextRequest, user) => {
       );
     }
 
-    const apptClinicId = user.role === 'super_admin'
-      ? (parsed.data.clinicId || user.clinicId)
-      : user.clinicId;
+    const apptClinicId =
+      user.role === 'super_admin' ? parsed.data.clinicId || user.clinicId : user.clinicId;
 
     // Resolve providerId: explicit value → JWT token → database lookup
     let resolvedProviderId = parsed.data.providerId ?? user.providerId;

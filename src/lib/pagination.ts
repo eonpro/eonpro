@@ -50,7 +50,9 @@ export const AGGREGATION_TAKE_JOB = 5000;
  */
 export function requireServiceAuthForJob(authVerified: boolean): number {
   if (!authVerified) {
-    throw new Error('AGGREGATION_TAKE_JOB requires service auth (cron secret, integration secret, or x-vercel-cron)');
+    throw new Error(
+      'AGGREGATION_TAKE_JOB requires service auth (cron secret, integration secret, or x-vercel-cron)'
+    );
   }
   return AGGREGATION_TAKE_JOB;
 }
@@ -144,7 +146,8 @@ export function buildPrismaPagination(params: PaginationParams): {
     cursor?: { id: number };
   } = { take: normalizedTake };
   if (params.cursor != null && String(params.cursor).trim()) {
-    const id = typeof params.cursor === 'number' ? params.cursor : parseInt(String(params.cursor), 10);
+    const id =
+      typeof params.cursor === 'number' ? params.cursor : parseInt(String(params.cursor), 10);
     if (!Number.isNaN(id)) {
       result.skip = 1;
       result.cursor = { id };

@@ -1,6 +1,6 @@
 /**
  * Cryptographic Utilities
- * 
+ *
  * Uses Web Crypto API for:
  * - HMAC-SHA256 signature verification (URL parameters)
  * - AES-256-GCM encryption/decryption (cookie data)
@@ -47,7 +47,7 @@ function hexToBytes(hex: string): Uint8Array {
  */
 function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes)
-    .map(b => b.toString(16).padStart(2, '0'))
+    .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
 }
 
@@ -82,7 +82,7 @@ async function getHmacKey(): Promise<CryptoKey> {
   if (!HMAC_SECRET) {
     throw new Error('HMAC secret not configured');
   }
-  
+
   return crypto.subtle.importKey(
     'raw',
     stringToBytes(HMAC_SECRET).buffer as ArrayBuffer,
@@ -108,14 +108,11 @@ export async function generateHmacSignature(message: string): Promise<string> {
 /**
  * Verify HMAC-SHA256 signature
  */
-export async function verifyHmacSignature(
-  message: string,
-  signature: string
-): Promise<boolean> {
+export async function verifyHmacSignature(message: string, signature: string): Promise<boolean> {
   try {
     const key = await getHmacKey();
     const signatureBytes = hexToBytes(signature);
-    
+
     return crypto.subtle.verify(
       'HMAC',
       key,
@@ -141,15 +138,15 @@ export async function verifySignedParams(
   const ts = parseInt(timestamp, 10);
   const now = Date.now();
   const maxAge = 30 * 60 * 1000; // 30 minutes
-  
+
   if (isNaN(ts) || now - ts > maxAge) {
     return { valid: false, expired: true };
   }
-  
+
   // Verify signature
   const message = `${data}:${timestamp}`;
   const valid = await verifyHmacSignature(message, signature);
-  
+
   return { valid, expired: false };
 }
 
@@ -164,13 +161,13 @@ async function getEncryptionKey(): Promise<CryptoKey> {
   if (!ENCRYPTION_KEY) {
     throw new Error('Encryption key not configured');
   }
-  
+
   // Key should be 32 bytes (64 hex chars) for AES-256
   const keyBytes = hexToBytes(ENCRYPTION_KEY);
   if (keyBytes.length !== 32) {
     throw new Error('Encryption key must be 32 bytes (64 hex characters)');
   }
-  
+
   return crypto.subtle.importKey(
     'raw',
     keyBytes.buffer as ArrayBuffer,
@@ -186,22 +183,22 @@ async function getEncryptionKey(): Promise<CryptoKey> {
  */
 export async function encrypt(plaintext: string): Promise<string> {
   const key = await getEncryptionKey();
-  
+
   // Generate random 12-byte IV
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  
+
   // Encrypt
   const ciphertext = await crypto.subtle.encrypt(
     { name: 'AES-GCM', iv: iv.buffer as ArrayBuffer },
     key,
     stringToBytes(plaintext).buffer as ArrayBuffer
   );
-  
+
   // Combine IV + ciphertext
   const combined = new Uint8Array(iv.length + ciphertext.byteLength);
   combined.set(iv, 0);
   combined.set(new Uint8Array(ciphertext), iv.length);
-  
+
   // Return as base64
   return btoa(String.fromCharCode(...combined));
 }
@@ -211,23 +208,25 @@ export async function encrypt(plaintext: string): Promise<string> {
  */
 export async function decrypt(encryptedBase64: string): Promise<string> {
   const key = await getEncryptionKey();
-  
+
   // Decode base64
   const combined = new Uint8Array(
-    atob(encryptedBase64).split('').map(c => c.charCodeAt(0))
+    atob(encryptedBase64)
+      .split('')
+      .map((c) => c.charCodeAt(0))
   );
-  
+
   // Extract IV (first 12 bytes) and ciphertext
   const iv = combined.slice(0, 12);
   const ciphertext = combined.slice(12);
-  
+
   // Decrypt
   const plaintext = await crypto.subtle.decrypt(
     { name: 'AES-GCM', iv: iv.buffer as ArrayBuffer },
     key,
     ciphertext.buffer as ArrayBuffer
   );
-  
+
   return bytesToString(new Uint8Array(plaintext));
 }
 

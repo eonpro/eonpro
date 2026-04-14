@@ -119,10 +119,12 @@ function MedicationCombobox({
         }}
         className="flex w-full items-center justify-between gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-left text-sm transition-colors hover:border-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
       >
-        <span className={value ? 'text-gray-900 truncate' : 'text-gray-400'}>
+        <span className={value ? 'truncate text-gray-900' : 'text-gray-400'}>
           {value ? selectedLabel : 'Select medication…'}
         </span>
-        <ChevronDown className={`h-4 w-4 flex-shrink-0 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown
+          className={`h-4 w-4 flex-shrink-0 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`}
+        />
       </button>
 
       {open && (
@@ -201,14 +203,14 @@ function OrderSetFormModal({
   const removeItem = (key: string) => {
     setItems((prev) => {
       const next = prev.filter((it) => it._key !== key);
-      return next.length === 0 ? [emptyFormItem(0)] : next.map((it, i) => ({ ...it, sortOrder: i }));
+      return next.length === 0
+        ? [emptyFormItem(0)]
+        : next.map((it, i) => ({ ...it, sortOrder: i }));
     });
   };
 
   const updateItem = (key: string, field: keyof OrderSetItem, value: string | number) => {
-    setItems((prev) =>
-      prev.map((it) => (it._key === key ? { ...it, [field]: value } : it))
-    );
+    setItems((prev) => prev.map((it) => (it._key === key ? { ...it, [field]: value } : it)));
   };
 
   const moveItem = (index: number, direction: 'up' | 'down') => {
@@ -335,9 +337,7 @@ function OrderSetFormModal({
                             <GripVertical className="h-3.5 w-3.5" />
                           </button>
                         </div>
-                        <span className="text-xs font-medium text-gray-500">
-                          #{idx + 1}
-                        </span>
+                        <span className="text-xs font-medium text-gray-500">#{idx + 1}</span>
                       </div>
                       <button
                         type="button"
@@ -357,15 +357,19 @@ function OrderSetFormModal({
                           const config = MEDS[key];
                           if (config) {
                             if (config.defaultSig) updateItem(item._key, 'sig', config.defaultSig);
-                            if (config.defaultQuantity) updateItem(item._key, 'quantity', config.defaultQuantity);
-                            if (config.defaultRefills) updateItem(item._key, 'refills', config.defaultRefills);
+                            if (config.defaultQuantity)
+                              updateItem(item._key, 'quantity', config.defaultQuantity);
+                            if (config.defaultRefills)
+                              updateItem(item._key, 'refills', config.defaultRefills);
                           }
                         }}
                       />
 
                       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                         <div>
-                          <label className="mb-1 block text-xs text-gray-500">Sig / Directions</label>
+                          <label className="mb-1 block text-xs text-gray-500">
+                            Sig / Directions
+                          </label>
                           <input
                             value={item.sig}
                             onChange={(e) => updateItem(item._key, 'sig', e.target.value)}
@@ -396,7 +400,13 @@ function OrderSetFormModal({
                           <input
                             type="number"
                             value={item.daysSupply}
-                            onChange={(e) => updateItem(item._key, 'daysSupply', parseInt(e.target.value, 10) || 30)}
+                            onChange={(e) =>
+                              updateItem(
+                                item._key,
+                                'daysSupply',
+                                parseInt(e.target.value, 10) || 30
+                              )
+                            }
                             min={1}
                             max={365}
                             className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
@@ -407,7 +417,9 @@ function OrderSetFormModal({
                       {/* Sig Templates quick-pick */}
                       {item.medicationKey && MEDS[item.medicationKey]?.sigTemplates && (
                         <div>
-                          <label className="mb-1 block text-xs text-gray-500">Quick Sig Templates</label>
+                          <label className="mb-1 block text-xs text-gray-500">
+                            Quick Sig Templates
+                          </label>
                           <div className="flex flex-wrap gap-1.5">
                             {MEDS[item.medicationKey].sigTemplates!.map((tmpl) => (
                               <button
@@ -417,7 +429,8 @@ function OrderSetFormModal({
                                   updateItem(item._key, 'sig', tmpl.sig);
                                   updateItem(item._key, 'quantity', tmpl.quantity);
                                   updateItem(item._key, 'refills', tmpl.refills);
-                                  if (tmpl.daysSupply) updateItem(item._key, 'daysSupply', tmpl.daysSupply);
+                                  if (tmpl.daysSupply)
+                                    updateItem(item._key, 'daysSupply', tmpl.daysSupply);
                                 }}
                                 className="rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs text-gray-600 transition-colors hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
                               >
@@ -577,9 +590,7 @@ export default function OrderSetsPage() {
       };
 
       const isEdit = editingSet !== null;
-      const url = isEdit
-        ? `/api/clinic/order-sets/${editingSet.id}`
-        : '/api/clinic/order-sets';
+      const url = isEdit ? `/api/clinic/order-sets/${editingSet.id}` : '/api/clinic/order-sets';
 
       const res = await fetch(url, {
         method: isEdit ? 'PUT' : 'POST',
@@ -660,13 +671,15 @@ export default function OrderSetsPage() {
       {toast && (
         <div
           className={`fixed right-6 top-6 z-[70] flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium shadow-lg transition-all ${
-            toast.type === 'success'
-              ? 'bg-green-600 text-white'
-              : 'bg-red-600 text-white'
+            toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
           }`}
         >
           {toast.message}
-          <button type="button" onClick={() => setToast(null)} className="ml-1 opacity-70 hover:opacity-100">
+          <button
+            type="button"
+            onClick={() => setToast(null)}
+            className="ml-1 opacity-70 hover:opacity-100"
+          >
             <X className="h-4 w-4" />
           </button>
         </div>

@@ -46,7 +46,9 @@ async function testNotificationHandler(req: NextRequest, user: AuthUser): Promis
       },
     });
   } catch (error) {
-    logger.error('[Test Notification] Error', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('[Test Notification] Error', {
+      error: error instanceof Error ? error.message : String(error),
+    });
 
     return NextResponse.json(
       {

@@ -25,10 +25,11 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
     const patientId = user.patientId;
 
     const patient = await withRetry(
-      () => loadPatientIntakeData(patientId, {
-        includeDocumentData: true,
-        submissionOrder: 'desc',
-      }),
+      () =>
+        loadPatientIntakeData(patientId, {
+          includeDocumentData: true,
+          submissionOrder: 'desc',
+        }),
       { maxRetries: 2, initialDelayMs: 150 }
     );
 
@@ -41,7 +42,10 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
       data: parseDocumentData(doc.data),
     }));
 
-    const vitals = extractVitalsFromIntake(documentsWithParsedData, patient.intakeSubmissions as any[]);
+    const vitals = extractVitalsFromIntake(
+      documentsWithParsedData,
+      patient.intakeSubmissions as any[]
+    );
 
     logger.info('Patient portal vitals fetched', { patientId });
 

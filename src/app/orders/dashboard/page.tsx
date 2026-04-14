@@ -48,7 +48,6 @@ export default function OrdersDashboardPage() {
         const data = await res.json();
         setOrders(data.orders ?? []);
       } catch (err: unknown) {
-        
         logger.error(String(err));
       } finally {
         setLoading(false);

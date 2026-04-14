@@ -75,9 +75,7 @@ export default function HealthScorePage() {
       }
       if (res.ok) {
         const result = await safeParseJson(res);
-        setData(
-          result !== null && typeof result === 'object' ? (result as HealthScoreData) : null
-        );
+        setData(result !== null && typeof result === 'object' ? (result as HealthScoreData) : null);
       }
     } catch (error) {
       logger.error('Failed to fetch health score', {
@@ -90,7 +88,9 @@ export default function HealthScorePage() {
 
   const displayData = data;
   const scoreDiff =
-    displayData?.previousScore != null ? displayData.overallScore - displayData.previousScore : null;
+    displayData?.previousScore != null
+      ? displayData.overallScore - displayData.previousScore
+      : null;
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return '#22c55e';
@@ -124,9 +124,9 @@ export default function HealthScorePage() {
           </div>
         </div>
         {/* Metrics grid */}
-        <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="rounded-xl bg-white p-4 shadow-sm space-y-3">
+            <div key={i} className="space-y-3 rounded-xl bg-white p-4 shadow-sm">
               <div className="flex items-center gap-2">
                 <div className="h-8 w-8 rounded-lg bg-gray-200" />
                 <div className="h-3 w-20 rounded bg-gray-100" />
@@ -137,7 +137,7 @@ export default function HealthScorePage() {
           ))}
         </div>
         {/* Insights */}
-        <div className="mb-6 rounded-xl bg-gray-100 p-4 space-y-2">
+        <div className="mb-6 space-y-2 rounded-xl bg-gray-100 p-4">
           <div className="h-5 w-28 rounded bg-gray-200" />
           <div className="h-3 w-full rounded bg-gray-200" />
           <div className="h-3 w-4/5 rounded bg-gray-200" />
@@ -284,7 +284,7 @@ export default function HealthScorePage() {
       </div>
 
       {/* Metrics Grid */}
-      <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
         {displayData?.metrics?.map((metric) => {
           const MetricIcon = metric.icon;
           const progress =

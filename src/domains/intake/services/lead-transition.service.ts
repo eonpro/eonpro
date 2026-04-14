@@ -27,75 +27,80 @@ interface TransitionResult {
  */
 export async function transitionLeadToActive(
   patientId: number,
-  clinicId: number,
+  clinicId: number
 ): Promise<TransitionResult> {
-  const result = await prisma.$transaction(async (tx) => {
-    const patient = await tx.patient.findUnique({
-      where: { id: patientId },
-      select: { id: true, clinicId: true, profileStatus: true },
-    });
+  const result = await prisma.$transaction(
+    async (tx) => {
+      const patient = await tx.patient.findUnique({
+        where: { id: patientId },
+        select: { id: true, clinicId: true, profileStatus: true },
+      });
 
-    if (!patient) {
-      throw new NotFoundError(`Patient ${patientId} not found`);
-    }
+      if (!patient) {
+        throw new NotFoundError(`Patient ${patientId} not found`);
+      }
 
-    if (patient.clinicId !== clinicId) {
-      throw new ForbiddenError('Clinic ID mismatch — cannot transition patient across clinics');
-    }
+      if (patient.clinicId !== clinicId) {
+        throw new ForbiddenError('Clinic ID mismatch — cannot transition patient across clinics');
+      }
 
-    const previousStatus = patient.profileStatus;
+      const previousStatus = patient.profileStatus;
 
-    if (previousStatus === 'ACTIVE') {
+      if (previousStatus === 'ACTIVE') {
+        return {
+          success: true,
+          previousStatus,
+          newStatus: 'ACTIVE',
+          patientId,
+        };
+      }
+
+      if (previousStatus !== 'LEAD' && previousStatus !== 'PENDING_COMPLETION') {
+        logger.warn('Unexpected profile status during lead transition', {
+          patientId,
+          currentStatus: previousStatus,
+        });
+      }
+
+      await tx.patient.update({
+        where: { id: patientId },
+        data: { profileStatus: 'ACTIVE' },
+      });
+
+      logger.info('Patient transitioned from LEAD to ACTIVE', {
+        patientId,
+        previousStatus,
+        clinicId,
+      });
+
       return {
         success: true,
         previousStatus,
         newStatus: 'ACTIVE',
         patientId,
       };
-    }
-
-    if (previousStatus !== 'LEAD' && previousStatus !== 'PENDING_COMPLETION') {
-      logger.warn('Unexpected profile status during lead transition', {
-        patientId,
-        currentStatus: previousStatus,
-      });
-    }
-
-    await tx.patient.update({
-      where: { id: patientId },
-      data: { profileStatus: 'ACTIVE' },
-    });
-
-    logger.info('Patient transitioned from LEAD to ACTIVE', {
-      patientId,
-      previousStatus,
-      clinicId,
-    });
-
-    return {
-      success: true,
-      previousStatus,
-      newStatus: 'ACTIVE',
-      patientId,
-    };
-  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    },
+    { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+  );
 
   if (result.success && result.previousStatus !== 'ACTIVE') {
-    domainEvents.publish({
-      type: DOMAIN_EVENTS.INTAKE_COMPLETED,
-      payload: { patientId, clinicId, previousStatus: result.previousStatus },
-      metadata: {
-        userId: String(patientId),
-        clinicId: String(clinicId),
-        timestamp: new Date(),
-        correlationId: `lead-transition-${patientId}-${Date.now()}`,
-      },
-    }).catch((err: unknown) => {
-      logger.warn('Failed to publish INTAKE_COMPLETED event', {
-        patientId,
-        error: err instanceof Error ? err.message : 'Unknown',
+    domainEvents
+      .publish({
+        type: DOMAIN_EVENTS.INTAKE_COMPLETED,
+        payload: { patientId, clinicId, previousStatus: result.previousStatus },
+        metadata: {
+          userId: String(patientId),
+          clinicId: String(clinicId),
+          timestamp: new Date(),
+          correlationId: `lead-transition-${patientId}-${Date.now()}`,
+        },
+      })
+      .catch((err: unknown) => {
+        logger.warn('Failed to publish INTAKE_COMPLETED event', {
+          patientId,
+          error: err instanceof Error ? err.message : 'Unknown',
+        });
       });
-    });
   }
 
   return result;
@@ -106,10 +111,7 @@ export async function transitionLeadToActive(
  * Returns true if the patient has LEAD or PENDING_COMPLETION status
  * and has not completed any intake forms.
  */
-export async function shouldShowLeadPortal(
-  patientId: number,
-  clinicId?: number,
-): Promise<boolean> {
+export async function shouldShowLeadPortal(patientId: number, clinicId?: number): Promise<boolean> {
   const where: { id: number; clinicId?: number } = { id: patientId };
   if (clinicId) where.clinicId = clinicId;
 
@@ -128,8 +130,7 @@ export async function shouldShowLeadPortal(
   if (!patient) return false;
 
   const isLeadStatus =
-    patient.profileStatus === 'LEAD' ||
-    patient.profileStatus === 'PENDING_COMPLETION';
+    patient.profileStatus === 'LEAD' || patient.profileStatus === 'PENDING_COMPLETION';
 
   return isLeadStatus && patient._count.intakeSubmissions === 0;
 }

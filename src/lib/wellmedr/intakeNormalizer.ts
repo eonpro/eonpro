@@ -375,7 +375,8 @@ function extractPhoneFromObject(obj: Record<string, unknown>): string {
 export function coerceToPhoneString(value: unknown): string {
   if (value == null) return '';
   if (typeof value === 'string') return value.trim();
-  if (typeof value === 'number') return String(value).replace(/\D/g, '').length >= 10 ? String(value) : '';
+  if (typeof value === 'number')
+    return String(value).replace(/\D/g, '').length >= 10 ? String(value) : '';
   if (Array.isArray(value) && value.length > 0) {
     const first = value[0];
     if (typeof first === 'string') return first.trim();
@@ -610,13 +611,7 @@ function buildWellmedrPatient(payload: WellmedrPayload): NormalizedPatient {
   }
 
   // Gender/Sex (check Heyflow naming)
-  const gender =
-    p['sex'] ||
-    p['Sex'] ||
-    p['gender'] ||
-    p['Gender'] ||
-    p['GENDER'] ||
-    p['SEX'];
+  const gender = p['sex'] || p['Sex'] || p['gender'] || p['Gender'] || p['GENDER'] || p['SEX'];
   if (gender) {
     patient.gender = normalizeGenderInput(String(gender));
   }
@@ -782,9 +777,7 @@ function buildWellmedrPatient(payload: WellmedrPayload): NormalizedPatient {
     const heyflowHouse = p['id-38a5bae0-house'] || p['id-38a5bae0-House'];
     const heyflowCity = p['id-38a5bae0-city'] || p['id-38a5bae0-City'];
     const heyflowState =
-      p['id-38a5bae0-state_code'] ||
-      p['id-38a5bae0-state'] ||
-      p['id-38a5bae0-State'];
+      p['id-38a5bae0-state_code'] || p['id-38a5bae0-state'] || p['id-38a5bae0-State'];
     const heyflowZip =
       p['id-38a5bae0-zip'] ||
       p['id-38a5bae0-zip_code'] ||
@@ -865,9 +858,7 @@ function buildWellmedrPatient(payload: WellmedrPayload): NormalizedPatient {
 
     // ZIP
     if (p['zip'] || p['zipCode'] || p['zip_code']) {
-      patient.zip = normalizeZip(
-        String(p['zip'] || p['zipCode'] || p['zip_code'])
-      );
+      patient.zip = normalizeZip(String(p['zip'] || p['zipCode'] || p['zip_code']));
     }
   }
 
@@ -893,21 +884,21 @@ function buildWellmedrPatient(payload: WellmedrPayload): NormalizedPatient {
   const combinedForCorrection =
     typeof rawCombined === 'string' && rawCombined.length > 0 ? rawCombined : null;
   const cityLooksLikeApt = patient.city ? isApartmentString(patient.city) : false;
-  const zipLooksLikeState = patient.zip ? isStateName(patient.zip) && !isZipCode(patient.zip) : false;
+  const zipLooksLikeState = patient.zip
+    ? isStateName(patient.zip) && !isZipCode(patient.zip)
+    : false;
   const stateLooksLikeZip = patient.state ? isZipCode(patient.state) : false;
   const stateLooksLikeCity = patient.state
-    ? (!isStateName(patient.state) && !isZipCode(patient.state) && patient.state.length > 2)
+    ? !isStateName(patient.state) && !isZipCode(patient.state) && patient.state.length > 2
     : false;
-  const zipNotValidCode = patient.zip ? (!isZipCode(patient.zip) && patient.zip.length > 0) : false;
+  const zipNotValidCode = patient.zip ? !isZipCode(patient.zip) && patient.zip.length > 0 : false;
   const addressLooksCorrupted =
-    cityLooksLikeApt || zipLooksLikeState || stateLooksLikeZip ||
+    cityLooksLikeApt ||
+    zipLooksLikeState ||
+    stateLooksLikeZip ||
     (stateLooksLikeCity && zipNotValidCode);
 
-  if (
-    combinedForCorrection &&
-    combinedForCorrection.includes(',') &&
-    addressLooksCorrupted
-  ) {
+  if (combinedForCorrection && combinedForCorrection.includes(',') && addressLooksCorrupted) {
     const parsed = smartParseAddress(combinedForCorrection);
     if (parsed.address1 || parsed.city || parsed.state || parsed.zip) {
       patient.address1 = parsed.address1 || patient.address1 || '';
@@ -915,16 +906,19 @@ function buildWellmedrPatient(payload: WellmedrPayload): NormalizedPatient {
       patient.city = parsed.city || '';
       patient.state = parsed.state || '';
       patient.zip = parsed.zip || '';
-      logger.info('[Wellmedr Normalizer] Address corrected from combined string (corrupted fields)', {
-        hadCorruption: true,
-        cityLooksLikeApt,
-        zipLooksLikeState,
-        stateLooksLikeCity,
-        zipNotValidCode,
-        city: patient.city,
-        state: patient.state,
-        zip: patient.zip,
-      });
+      logger.info(
+        '[Wellmedr Normalizer] Address corrected from combined string (corrupted fields)',
+        {
+          hadCorruption: true,
+          cityLooksLikeApt,
+          zipLooksLikeState,
+          stateLooksLikeCity,
+          zipNotValidCode,
+          city: patient.city,
+          state: patient.state,
+          zip: patient.zip,
+        }
+      );
     }
   }
 

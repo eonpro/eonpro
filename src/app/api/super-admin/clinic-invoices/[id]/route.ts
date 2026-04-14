@@ -138,7 +138,11 @@ export const PATCH = withSuperAdminAuth(
           case 'createCreditNote': {
             const cn = await clinicInvoiceService.createCreditNote(
               invoiceId,
-              { amountCents: action.amountCents, reason: action.reason, lineItems: action.lineItems },
+              {
+                amountCents: action.amountCents,
+                reason: action.reason,
+                lineItems: action.lineItems,
+              },
               user.id
             );
             return { creditNote: cn };

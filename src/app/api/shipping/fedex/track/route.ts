@@ -118,20 +118,29 @@ async function handleTrack(req: NextRequest, user: AuthUser) {
     if (isBatch) {
       const parsed = trackBatchSchema.safeParse(body);
       if (!parsed.success) {
-        return NextResponse.json({ error: 'Validation failed', details: parsed.error.flatten() }, { status: 400 });
+        return NextResponse.json(
+          { error: 'Validation failed', details: parsed.error.flatten() },
+          { status: 400 }
+        );
       }
 
       const { trackingNumbers } = parsed.data;
 
       // Resolve credentials: find the clinic from the first matching shipping update
       const sampleUpdate = await basePrisma.patientShippingUpdate.findFirst({
-        where: { trackingNumber: { in: trackingNumbers }, carrier: { in: ['FedEx', 'FEDEX', 'fedex'] } },
+        where: {
+          trackingNumber: { in: trackingNumbers },
+          carrier: { in: ['FedEx', 'FEDEX', 'fedex'] },
+        },
         select: { clinicId: true },
       });
 
       const clinicId = sampleUpdate?.clinicId ?? user.clinicId;
       if (!clinicId) {
-        return NextResponse.json({ error: 'Unable to resolve clinic for credentials' }, { status: 422 });
+        return NextResponse.json(
+          { error: 'Unable to resolve clinic for credentials' },
+          { status: 422 }
+        );
       }
 
       if (user.role !== 'super_admin' && clinicId !== user.clinicId) {
@@ -190,7 +199,10 @@ async function handleTrack(req: NextRequest, user: AuthUser) {
 
     const clinicId = shippingUpdate?.clinicId ?? user.clinicId;
     if (!clinicId) {
-      return NextResponse.json({ error: 'Unable to resolve clinic for credentials' }, { status: 422 });
+      return NextResponse.json(
+        { error: 'Unable to resolve clinic for credentials' },
+        { status: 422 }
+      );
     }
 
     if (user.role !== 'super_admin' && clinicId !== user.clinicId) {
@@ -262,7 +274,10 @@ async function handleTrackLookup(req: NextRequest, user: AuthUser) {
 
     const clinicId = shippingUpdate?.clinicId ?? user.clinicId;
     if (!clinicId) {
-      return NextResponse.json({ error: 'Unable to resolve clinic for credentials' }, { status: 422 });
+      return NextResponse.json(
+        { error: 'Unable to resolve clinic for credentials' },
+        { status: 422 }
+      );
     }
 
     if (user.role !== 'super_admin' && clinicId !== user.clinicId) {

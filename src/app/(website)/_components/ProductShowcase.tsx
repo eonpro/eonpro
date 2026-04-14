@@ -2,13 +2,7 @@
 
 import type { JSX } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import {
-  Smartphone,
-  Stethoscope,
-  LayoutDashboard,
-  Package,
-  ArrowRight,
-} from 'lucide-react';
+import { Smartphone, Stethoscope, LayoutDashboard, Package, ArrowRight } from 'lucide-react';
 
 const PRODUCTS = [
   {
@@ -98,7 +92,9 @@ function PatientPortalMockup() {
       </div>
       <div className="p-4">
         <div className="mb-3 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#4fa77e]/10 text-sm font-bold text-[#4fa77e]">JD</div>
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#4fa77e]/10 text-sm font-bold text-[#4fa77e]">
+            JD
+          </div>
           <div>
             <p className="text-sm font-semibold text-gray-900">Welcome back, Jane</p>
             <p className="text-xs text-gray-400">Weight Loss Program &middot; Week 12</p>
@@ -108,7 +104,16 @@ function PatientPortalMockup() {
           <p className="mb-2 text-xs font-semibold text-gray-500">WEIGHT TREND</p>
           <div className="flex items-end gap-1">
             {[68, 60, 55, 48, 42, 38, 35, 30].map((h, i) => (
-              <div key={i} className="flex-1 rounded-t" style={{ height: `${h}px`, background: i === 7 ? '#4fa77e' : '#e5e7eb', transition: 'height 0.5s', transitionDelay: `${i * 80}ms` }} />
+              <div
+                key={i}
+                className="flex-1 rounded-t"
+                style={{
+                  height: `${h}px`,
+                  background: i === 7 ? '#4fa77e' : '#e5e7eb',
+                  transition: 'height 0.5s',
+                  transitionDelay: `${i * 80}ms`,
+                }}
+              />
             ))}
           </div>
           <div className="mt-2 flex items-center justify-between">
@@ -117,10 +122,16 @@ function PatientPortalMockup() {
           </div>
         </div>
         <div className="grid grid-cols-3 gap-2">
-          {[{ l: 'Meds', v: '2 active', c: '#4fa77e' }, { l: 'Next Visit', v: 'Mar 22', c: '#3b82f6' }, { l: 'Streak', v: '14 days', c: '#f59e0b' }].map((s) => (
+          {[
+            { l: 'Meds', v: '2 active', c: '#4fa77e' },
+            { l: 'Next Visit', v: 'Mar 22', c: '#3b82f6' },
+            { l: 'Streak', v: '14 days', c: '#f59e0b' },
+          ].map((s) => (
             <div key={s.l} className="rounded-lg bg-gray-50 p-2 text-center">
               <p className="text-[10px] text-gray-400">{s.l}</p>
-              <p className="text-xs font-bold" style={{ color: s.c }}>{s.v}</p>
+              <p className="text-xs font-bold" style={{ color: s.c }}>
+                {s.v}
+              </p>
             </div>
           ))}
         </div>
@@ -134,20 +145,36 @@ function ProviderMockup() {
     <div className="w-full max-w-[380px] animate-fade-in-up overflow-hidden rounded-2xl bg-white shadow-2xl">
       <div className="flex items-center justify-between bg-[#1e293b] px-5 py-3">
         <span className="text-sm font-semibold text-white">SOAP Note — AI Scribe</span>
-        <div className="rounded-md bg-blue-500/20 px-2 py-0.5 text-[10px] font-bold text-blue-400">AI ASSISTED</div>
+        <div className="rounded-md bg-blue-500/20 px-2 py-0.5 text-[10px] font-bold text-blue-400">
+          AI ASSISTED
+        </div>
       </div>
       <div className="p-4">
         <div className="mb-3 rounded-lg border border-blue-100 bg-blue-50/50 p-3">
-          <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-blue-500">Subjective</p>
-          <p className="text-xs leading-relaxed text-gray-700">Patient reports consistent weight loss of 4.2 lbs over the past 2 weeks. Tolerating semaglutide 0.5mg well. No nausea or GI side effects.</p>
+          <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-blue-500">
+            Subjective
+          </p>
+          <p className="text-xs leading-relaxed text-gray-700">
+            Patient reports consistent weight loss of 4.2 lbs over the past 2 weeks. Tolerating
+            semaglutide 0.5mg well. No nausea or GI side effects.
+          </p>
         </div>
         <div className="mb-3 rounded-lg border border-emerald-100 bg-emerald-50/50 p-3">
-          <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-emerald-600">Assessment</p>
-          <p className="text-xs leading-relaxed text-gray-700">BMI 31.2 (down from 33.8). Responding well to current regimen. Ready for dose escalation.</p>
+          <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-emerald-600">
+            Assessment
+          </p>
+          <p className="text-xs leading-relaxed text-gray-700">
+            BMI 31.2 (down from 33.8). Responding well to current regimen. Ready for dose
+            escalation.
+          </p>
         </div>
         <div className="rounded-lg border border-violet-100 bg-violet-50/50 p-3">
-          <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-violet-500">Plan</p>
-          <p className="text-xs leading-relaxed text-gray-700">Increase semaglutide to 1.0mg weekly. Continue current diet plan. Follow up in 4 weeks.</p>
+          <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-violet-500">
+            Plan
+          </p>
+          <p className="text-xs leading-relaxed text-gray-700">
+            Increase semaglutide to 1.0mg weekly. Continue current diet plan. Follow up in 4 weeks.
+          </p>
         </div>
       </div>
     </div>
@@ -172,7 +199,9 @@ function AdminMockup() {
             <div key={s.l} className="rounded-xl bg-gray-50 p-3">
               <p className="text-[10px] text-gray-400">{s.l}</p>
               <p className="text-lg font-bold text-gray-900">{s.v}</p>
-              <span className="text-[10px] font-semibold" style={{ color: s.c }}>{s.d}</span>
+              <span className="text-[10px] font-semibold" style={{ color: s.c }}>
+                {s.d}
+              </span>
             </div>
           ))}
         </div>
@@ -183,9 +212,14 @@ function AdminMockup() {
             { n: 'James K.', t: '15m ago', s: 'Testosterone' },
             { n: 'Maria L.', t: '1h ago', s: 'Peptides' },
           ].map((p) => (
-            <div key={p.n} className="flex items-center justify-between border-t border-gray-100 py-2 first:border-0 first:pt-0">
+            <div
+              key={p.n}
+              className="flex items-center justify-between border-t border-gray-100 py-2 first:border-0 first:pt-0"
+            >
               <div className="flex items-center gap-2">
-                <div className="h-6 w-6 rounded-full bg-[#4fa77e]/10 text-center text-[10px] font-bold leading-6 text-[#4fa77e]">{p.n[0]}</div>
+                <div className="h-6 w-6 rounded-full bg-[#4fa77e]/10 text-center text-[10px] font-bold leading-6 text-[#4fa77e]">
+                  {p.n[0]}
+                </div>
                 <div>
                   <p className="text-xs font-medium text-gray-900">{p.n}</p>
                   <p className="text-[10px] text-gray-400">{p.s}</p>
@@ -205,30 +239,50 @@ function PharmacyMockup() {
     <div className="w-full max-w-[380px] animate-fade-in-up overflow-hidden rounded-2xl bg-white shadow-2xl">
       <div className="flex items-center justify-between bg-[#1e293b] px-5 py-3">
         <span className="text-sm font-semibold text-white">Rx Queue</span>
-        <div className="rounded-md bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-400">12 PENDING</div>
+        <div className="rounded-md bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-400">
+          12 PENDING
+        </div>
       </div>
       <div className="p-4">
         {[
           { n: 'Sarah M.', rx: 'Semaglutide 0.5mg', st: 'Verified', sc: '#4fa77e', sb: '#4fa77e' },
-          { n: 'James K.', rx: 'Testosterone Cypionate 200mg', st: 'Filling', sc: '#3b82f6', sb: '#3b82f6' },
+          {
+            n: 'James K.',
+            rx: 'Testosterone Cypionate 200mg',
+            st: 'Filling',
+            sc: '#3b82f6',
+            sb: '#3b82f6',
+          },
           { n: 'Maria L.', rx: 'Tirzepatide 2.5mg', st: 'Shipped', sc: '#8b5cf6', sb: '#8b5cf6' },
           { n: 'David R.', rx: 'Semaglutide 1.0mg', st: 'Pending', sc: '#f59e0b', sb: '#f59e0b' },
         ].map((rx, i) => (
-          <div key={rx.n} className="flex items-center justify-between border-t border-gray-100 py-3 first:border-0 first:pt-0">
+          <div
+            key={rx.n}
+            className="flex items-center justify-between border-t border-gray-100 py-3 first:border-0 first:pt-0"
+          >
             <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 text-xs font-bold text-gray-500">Rx</div>
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 text-xs font-bold text-gray-500">
+                Rx
+              </div>
               <div>
                 <p className="text-xs font-medium text-gray-900">{rx.n}</p>
                 <p className="text-[10px] text-gray-400">{rx.rx}</p>
               </div>
             </div>
-            <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ color: rx.sc, backgroundColor: `${rx.sb}15` }}>{rx.st}</span>
+            <span
+              className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+              style={{ color: rx.sc, backgroundColor: `${rx.sb}15` }}
+            >
+              {rx.st}
+            </span>
           </div>
         ))}
         <div className="mt-2 rounded-xl bg-amber-50 p-3">
           <div className="flex items-center gap-2">
             <div className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />
-            <p className="text-[10px] font-medium text-amber-700">FedEx tracking: 3 shipments in transit</p>
+            <p className="text-[10px] font-medium text-amber-700">
+              FedEx tracking: 3 shipments in transit
+            </p>
           </div>
         </div>
       </div>
@@ -270,20 +324,16 @@ function ProductCard({
       >
         <div className="flex flex-1 flex-col justify-center p-8 sm:p-10 lg:p-12">
           <div className="mb-4 inline-flex items-center gap-2">
-            <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${product.gradient} text-white transition-transform duration-300 group-hover:scale-110`}>
+            <div
+              className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${product.gradient} text-white transition-transform duration-300 group-hover:scale-110`}
+            >
               <Icon className="h-5 w-5" />
             </div>
-            <span className="text-xs font-medium text-[#1f2933]/40">
-              {product.badge}
-            </span>
+            <span className="text-xs font-medium text-[#1f2933]/40">{product.badge}</span>
           </div>
 
-          <h3 className="text-2xl font-bold text-[#1f2933] sm:text-3xl">
-            {product.title}
-          </h3>
-          <p className="mt-4 text-base leading-relaxed text-[#1f2933]/55">
-            {product.description}
-          </p>
+          <h3 className="text-2xl font-bold text-[#1f2933] sm:text-3xl">{product.title}</h3>
+          <p className="mt-4 text-base leading-relaxed text-[#1f2933]/55">{product.description}</p>
 
           <ul className="mt-6 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
             {product.features.map((feature, fi) => (
@@ -312,13 +362,14 @@ function ProductCard({
         </div>
 
         {/* Real UI mockup */}
-        <div className={`relative flex flex-1 items-center justify-center overflow-hidden bg-gradient-to-br ${product.gradient} p-8 sm:p-10`}>
+        <div
+          className={`relative flex flex-1 items-center justify-center overflow-hidden bg-gradient-to-br ${product.gradient} p-8 sm:p-10`}
+        >
           <div className="pointer-events-none absolute inset-0 opacity-[0.07]">
             <div
               className="h-full w-full"
               style={{
-                backgroundImage:
-                  'radial-gradient(circle at 2px 2px, white 1px, transparent 0)',
+                backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)',
                 backgroundSize: '24px 24px',
               }}
             />
@@ -340,8 +391,10 @@ export default function ProductShowcase() {
     const el = ref.current;
     if (!el) return;
     const obs = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) setVisible(true); },
-      { threshold: 0.05 },
+      ([entry]) => {
+        if (entry.isIntersecting) setVisible(true);
+      },
+      { threshold: 0.05 }
     );
     obs.observe(el);
     return () => obs.disconnect();

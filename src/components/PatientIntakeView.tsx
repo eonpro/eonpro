@@ -250,11 +250,7 @@ const DEFAULT_INTAKE_SECTIONS = [
       {
         id: 'hasMentalHealth',
         label: 'Mental Health Diagnosis',
-        aliases: [
-          'hasmentalhealth',
-          'has_mental_health',
-          'mentalhealthdiagnosis',
-        ],
+        aliases: ['hasmentalhealth', 'has_mental_health', 'mentalhealthdiagnosis'],
         inputType: 'select',
         options: ['No', 'Yes'],
       },
@@ -296,7 +292,13 @@ const DEFAULT_INTAKE_SECTIONS = [
       {
         id: 'alcoholUse',
         label: 'Alcohol Intake',
-        aliases: ['alcoholuse', 'alcoholintake', 'alcohol', 'alcohol_consumption', 'alcoholconsumption'],
+        aliases: [
+          'alcoholuse',
+          'alcoholintake',
+          'alcohol',
+          'alcohol_consumption',
+          'alcoholconsumption',
+        ],
         inputType: 'select',
         options: ['None', 'Occasional', 'Moderate', 'Heavy'],
       },
@@ -346,11 +348,17 @@ const DEFAULT_INTAKE_SECTIONS = [
         id: 'glp1History',
         label: 'GLP-1 Medication History',
         aliases: [
-          'glp1history', 'glp1medicationhistory', 'glp1_history', 'glp1_history_recent',
-          'glp1last30', 'glp1-last-30', 'usedglp1inlast30days',
+          'glp1history',
+          'glp1medicationhistory',
+          'glp1_history',
+          'glp1_history_recent',
+          'glp1last30',
+          'glp1-last-30',
+          'usedglp1inlast30days',
           'doyoucurrentlytakeorhaveyouevertakenaglp1medicationforweightloss',
           'haveyoutakenmedicationforweightlosswithinthe past4weeks',
-          'glp1experience', 'previousglp1',
+          'glp1experience',
+          'previousglp1',
         ],
         inputType: 'select',
         options: ['Never Used', 'Currently Using', 'Previously Used', 'Considering', 'Yes', 'No'],
@@ -359,11 +367,17 @@ const DEFAULT_INTAKE_SECTIONS = [
         id: 'glp1Type',
         label: 'Current GLP-1 Medication',
         aliases: [
-          'glp1type', 'currentglp1medication', 'currentglp1', 'glp1_type',
-          'typeofglp1', 'glp1medicationtype',
-          'glp1last30medicationtype', 'glp1-last-30-medication-type',
+          'glp1type',
+          'currentglp1medication',
+          'currentglp1',
+          'glp1_type',
+          'typeofglp1',
+          'glp1medicationtype',
+          'glp1last30medicationtype',
+          'glp1-last-30-medication-type',
           'recentglp1medicationtype',
-          'whichglp1medicationhaveyouused', 'whichweightlossmedicationhaveyoutaken',
+          'whichglp1medicationhaveyouused',
+          'whichweightlossmedicationhaveyoutaken',
         ],
         inputType: 'select',
         options: [
@@ -379,8 +393,11 @@ const DEFAULT_INTAKE_SECTIONS = [
         id: 'medicationPreference',
         label: 'Medication Preference',
         aliases: [
-          'medicationpreference', 'medication_preference',
-          'preferredmeds', 'preferredmedication', 'preferred-meds',
+          'medicationpreference',
+          'medication_preference',
+          'preferredmeds',
+          'preferredmedication',
+          'preferred-meds',
           'doyouhaveaspecificweightlossmedicationinmind',
         ],
         inputType: 'select',
@@ -390,7 +407,9 @@ const DEFAULT_INTAKE_SECTIONS = [
         id: 'injectionPreference',
         label: 'Injection vs Tablet Preference',
         aliases: [
-          'injectionpreference', 'injectionstablets', 'injections-tablets',
+          'injectionpreference',
+          'injectionstablets',
+          'injections-tablets',
           'injectionvstabletpreference',
         ],
         inputType: 'select',
@@ -400,8 +419,11 @@ const DEFAULT_INTAKE_SECTIONS = [
         id: 'semaglutideDosage',
         label: 'Semaglutide Dose',
         aliases: [
-          'semaglutidedosage', 'semaglutidedose', 'semaglutide_dosage',
-          'glp1last30medicationdosemg', 'glp1-last-30-medication-dose-mg',
+          'semaglutidedosage',
+          'semaglutidedose',
+          'semaglutide_dosage',
+          'glp1last30medicationdosemg',
+          'glp1-last-30-medication-dose-mg',
           'recentglp1dosemg',
           'whatisyourcurrentormostrecentsemaglutiDe',
         ],
@@ -412,7 +434,8 @@ const DEFAULT_INTAKE_SECTIONS = [
         id: 'semaglutideSideEffects',
         label: 'Semaglutide Side Effects',
         aliases: [
-          'semaglutidesideeffects', 'semaglutide_side_effects',
+          'semaglutidesideeffects',
+          'semaglutide_side_effects',
           'haveyouexperiencedanysideeffectswhileonsemaglutiDe',
         ],
         inputType: 'textarea',
@@ -422,17 +445,25 @@ const DEFAULT_INTAKE_SECTIONS = [
         id: 'semaglutideSuccess',
         label: 'Semaglutide Success',
         aliases: [
-          'semaglutidesuccess', 'semaglutide_success',
+          'semaglutidesuccess',
+          'semaglutide_success',
           'howwouldyoudescribeyoursuccesswithsemaglutide',
         ],
         inputType: 'select',
-        options: ['Very Successful', 'Somewhat Successful', 'Not Successful', 'Hard to Stay Consistent'],
+        options: [
+          'Very Successful',
+          'Somewhat Successful',
+          'Not Successful',
+          'Hard to Stay Consistent',
+        ],
       },
       {
         id: 'tirzepatideDosage',
         label: 'Tirzepatide Dose',
         aliases: [
-          'tirzepatidedosage', 'tirzepatidedose', 'tirzepatide_dosage',
+          'tirzepatidedosage',
+          'tirzepatidedose',
+          'tirzepatide_dosage',
           'whatisyourcurrentormostrecenttirzepatidedose',
         ],
         inputType: 'text',
@@ -442,7 +473,8 @@ const DEFAULT_INTAKE_SECTIONS = [
         id: 'tirzepatideSideEffects',
         label: 'Tirzepatide Side Effects',
         aliases: [
-          'tirzepatidesideeffects', 'tirzepatide_side_effects',
+          'tirzepatidesideeffects',
+          'tirzepatide_side_effects',
           'haveyouexperiencedanysideeffectswhileontirzepatide',
         ],
         inputType: 'textarea',
@@ -452,17 +484,25 @@ const DEFAULT_INTAKE_SECTIONS = [
         id: 'tirzepatideSuccess',
         label: 'Tirzepatide Success',
         aliases: [
-          'tirzepatidesuccess', 'tirzepatide_success',
+          'tirzepatidesuccess',
+          'tirzepatide_success',
           'howwouldyoudescribeyoursuccesswithtirzepatide',
         ],
         inputType: 'select',
-        options: ['Very Successful', 'Somewhat Successful', 'Not Successful', 'Hard to Stay Consistent'],
+        options: [
+          'Very Successful',
+          'Somewhat Successful',
+          'Not Successful',
+          'Hard to Stay Consistent',
+        ],
       },
       {
         id: 'glp1OtherDose',
         label: 'Other GLP-1 Dosing',
         aliases: [
-          'glp1otherdose', 'glp1last30medicationdoseother', 'glp1-last-30-medication-dose-other',
+          'glp1otherdose',
+          'glp1last30medicationdoseother',
+          'glp1-last-30-medication-dose-other',
           'otherglp1dosing',
         ],
         inputType: 'text',
@@ -472,8 +512,11 @@ const DEFAULT_INTAKE_SECTIONS = [
         id: 'glp1OtherMedication',
         label: 'Other GLP-1 Medication Name',
         aliases: [
-          'glp1othermedication', 'glp1last30othermedicationname', 'glp1-last-30-other-medication-name',
-          'otherglp1medication', 'glp1_type_other',
+          'glp1othermedication',
+          'glp1last30othermedicationname',
+          'glp1-last-30-other-medication-name',
+          'otherglp1medication',
+          'glp1_type_other',
         ],
         inputType: 'text',
         placeholder: 'e.g., medication name',
@@ -482,8 +525,10 @@ const DEFAULT_INTAKE_SECTIONS = [
         id: 'dosageSatisfaction',
         label: 'Dosage Satisfaction',
         aliases: [
-          'dosagesatisfaction', 'dosage_satisfaction',
-          'happywithglp1dose', 'glp1satisfaction',
+          'dosagesatisfaction',
+          'dosage_satisfaction',
+          'happywithglp1dose',
+          'glp1satisfaction',
           'areyousatisfiedwithyourcurrentglp1dose',
         ],
         inputType: 'select',
@@ -493,8 +538,10 @@ const DEFAULT_INTAKE_SECTIONS = [
         id: 'previousGlp1Details',
         label: 'Previous GLP-1 (Self-Reported at Checkout)',
         aliases: [
-          'previousglp1details', 'previous_glp1_details',
-          'previous glp-1 details', 'previousglp1',
+          'previousglp1details',
+          'previous_glp1_details',
+          'previous glp-1 details',
+          'previousglp1',
         ],
         inputType: 'text',
         placeholder: 'e.g., tirzepatide 12.5 mg per week',
@@ -502,10 +549,7 @@ const DEFAULT_INTAKE_SECTIONS = [
       {
         id: 'previousSideEffects',
         label: 'Previous Side Effects',
-        aliases: [
-          'previoussideeffects', 'sideeffects', 'sideeffecthistory',
-          'side-effect-history',
-        ],
+        aliases: ['previoussideeffects', 'sideeffects', 'sideeffecthistory', 'side-effect-history'],
         inputType: 'textarea',
         placeholder: 'Any side effects experienced...',
       },
@@ -513,7 +557,9 @@ const DEFAULT_INTAKE_SECTIONS = [
         id: 'budgetVsPotency',
         label: 'Budget vs Potency Preference',
         aliases: [
-          'budgetvspotency', 'affordabilitypotency', 'affordability-potency',
+          'budgetvspotency',
+          'affordabilitypotency',
+          'affordability-potency',
           'budgetvspotencypreference',
         ],
         inputType: 'select',
@@ -964,7 +1010,9 @@ export default function PatientIntakeView({
   }, [documentsProp, doFetch]);
 
   const documents = documentsProp ?? fetchedDocs ?? [];
-  const intakeFormSubmissions = documentsProp ? submissionsProp : (fetchedSubmissions ?? submissionsProp);
+  const intakeFormSubmissions = documentsProp
+    ? submissionsProp
+    : (fetchedSubmissions ?? submissionsProp);
 
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     new Set(DEFAULT_INTAKE_SECTIONS.map((s) => s.title))
@@ -1118,7 +1166,11 @@ export default function PatientIntakeView({
     if (intakeData.checkoutCompleted !== undefined) {
       const val = intakeData.checkoutCompleted;
       const display =
-        val === true || val === 'true' || val === 'Yes' ? 'Yes' : val === false || val === 'false' ? 'No' : String(val);
+        val === true || val === 'true' || val === 'Yes'
+          ? 'Yes'
+          : val === false || val === 'false'
+            ? 'No'
+            : String(val);
       answerMap.set(normalizeKey('checkoutCompleted'), display);
       answerMap.set(normalizeKey('Checkout Completed'), display);
     }
@@ -1215,7 +1267,11 @@ export default function PatientIntakeView({
         <div className="rounded-2xl border border-gray-200 bg-white p-6">
           <div className="space-y-3">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-4 rounded bg-gray-100" style={{ width: `${60 + (i % 3) * 15}%` }} />
+              <div
+                key={i}
+                className="h-4 rounded bg-gray-100"
+                style={{ width: `${60 + (i % 3) * 15}%` }}
+              />
             ))}
           </div>
         </div>
@@ -1226,7 +1282,9 @@ export default function PatientIntakeView({
   if (fetchError) {
     return (
       <div className="rounded-2xl border border-red-200 bg-red-50 p-6">
-        <p className="mb-3 text-sm text-red-700">Unable to load intake data. This may be a temporary issue.</p>
+        <p className="mb-3 text-sm text-red-700">
+          Unable to load intake data. This may be a temporary issue.
+        </p>
         <button
           onClick={doFetch}
           className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
@@ -1282,12 +1340,14 @@ export default function PatientIntakeView({
       const composed = answerMap.get(normalizeKey('height'));
       if (composed && composed !== '—' && composed.includes("'")) return composed;
 
-      const ft = answerMap.get(normalizeKey('heightFeet'))
-        || answerMap.get(normalizeKey('height_feet'))
-        || answerMap.get(normalizeKey('Height (feet)'));
-      const inches = answerMap.get(normalizeKey('heightInches'))
-        || answerMap.get(normalizeKey('height_inches'))
-        || answerMap.get(normalizeKey('Height (inches)'));
+      const ft =
+        answerMap.get(normalizeKey('heightFeet')) ||
+        answerMap.get(normalizeKey('height_feet')) ||
+        answerMap.get(normalizeKey('Height (feet)'));
+      const inches =
+        answerMap.get(normalizeKey('heightInches')) ||
+        answerMap.get(normalizeKey('height_inches')) ||
+        answerMap.get(normalizeKey('Height (inches)'));
       if (ft && ft !== '—') {
         const feetNum = ft.replace(/[^0-9]/g, '');
         const inchNum = inches ? inches.replace(/[^0-9]/g, '') : '0';
@@ -1401,9 +1461,13 @@ export default function PatientIntakeView({
       const weightField = allFields.find((f) => f.id === 'weight');
       const heightField = allFields.find((f) => f.id === 'height');
       const weightStr =
-        fieldId === 'weight' ? value : (prev.weight ?? (weightField ? getRawValue(findAnswer(weightField)) : ''));
+        fieldId === 'weight'
+          ? value
+          : (prev.weight ?? (weightField ? getRawValue(findAnswer(weightField)) : ''));
       const heightStr =
-        fieldId === 'height' ? value : (prev.height ?? (heightField ? getRawValue(findAnswer(heightField)) : ''));
+        fieldId === 'height'
+          ? value
+          : (prev.height ?? (heightField ? getRawValue(findAnswer(heightField)) : ''));
 
       const weightLbs = parseWeightToLbs(weightStr);
       const heightInches = parseHeightToInches(heightStr);
@@ -1531,14 +1595,16 @@ export default function PatientIntakeView({
   // Render field input based on type
   // Field IDs that should use the smart medication autocomplete
   const MEDICATION_FIELD_IDS = new Set([
-    'currentMedications', 'medications', 'medicationsSupplements', 'listOfMedications',
-    'currentmedications', 'current-meds',
+    'currentMedications',
+    'medications',
+    'medicationsSupplements',
+    'listOfMedications',
+    'currentmedications',
+    'current-meds',
   ]);
 
   // Field IDs that should use the smart allergy autocomplete
-  const ALLERGY_FIELD_IDS = new Set([
-    'allergies', 'allergy', 'whichAllergies', 'allergy-details',
-  ]);
+  const ALLERGY_FIELD_IDS = new Set(['allergies', 'allergy', 'whichAllergies', 'allergy-details']);
 
   const renderFieldInput = (field: any, value: string) => {
     const inputType = field.inputType || 'text';
@@ -1563,7 +1629,17 @@ export default function PatientIntakeView({
     // Smart medication autocomplete (RxNorm + OpenFDA typeahead)
     if (MEDICATION_FIELD_IDS.has(field.id)) {
       return (
-        <Suspense fallback={<textarea value={value} onChange={(e) => handleFieldChange(field.id, e.target.value)} placeholder={field.placeholder} rows={2} className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-[#4fa77e]" />}>
+        <Suspense
+          fallback={
+            <textarea
+              value={value}
+              onChange={(e) => handleFieldChange(field.id, e.target.value)}
+              placeholder={field.placeholder}
+              rows={2}
+              className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-[#4fa77e]"
+            />
+          }
+        >
           <MedicationAutocomplete
             value={value}
             onChange={(v: string) => handleFieldChange(field.id, v)}
@@ -1576,7 +1652,17 @@ export default function PatientIntakeView({
     // Smart allergy autocomplete (common allergens + drug allergies)
     if (ALLERGY_FIELD_IDS.has(field.id)) {
       return (
-        <Suspense fallback={<textarea value={value} onChange={(e) => handleFieldChange(field.id, e.target.value)} placeholder={field.placeholder} rows={2} className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-[#4fa77e]" />}>
+        <Suspense
+          fallback={
+            <textarea
+              value={value}
+              onChange={(e) => handleFieldChange(field.id, e.target.value)}
+              placeholder={field.placeholder}
+              rows={2}
+              className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-[#4fa77e]"
+            />
+          }
+        >
           <AllergyAutocomplete
             value={value}
             onChange={(v: string) => handleFieldChange(field.id, v)}
@@ -1696,8 +1782,14 @@ export default function PatientIntakeView({
       {(() => {
         const medsRaw = answerMap.get('currentmedications') ?? answerMap.get('medications') ?? '';
         const allergyRaw = answerMap.get('allergies') ?? answerMap.get('allergy') ?? '';
-        const medsList = medsRaw.split(',').map((m: string) => m.trim()).filter((m: string) => m && m !== '—' && m !== 'None');
-        const allergyList = allergyRaw.split(',').map((a: string) => a.trim()).filter((a: string) => a && a !== '—' && a !== 'None');
+        const medsList = medsRaw
+          .split(',')
+          .map((m: string) => m.trim())
+          .filter((m: string) => m && m !== '—' && m !== 'None');
+        const allergyList = allergyRaw
+          .split(',')
+          .map((a: string) => a.trim())
+          .filter((a: string) => a && a !== '—' && a !== 'None');
         if (medsList.length === 0) return null;
         return (
           <Suspense fallback={null}>
@@ -1817,27 +1909,42 @@ export default function PatientIntakeView({
                         if (isPreviousGlp1 && !isSectionEditable) {
                           return (
                             <div key={field.id} className="px-4 py-3">
-                              <div className={`rounded-xl border-2 px-5 py-4 ${hasValue ? 'border-blue-300 bg-gradient-to-r from-blue-50 to-indigo-50' : 'border-dashed border-gray-300 bg-gray-50'}`}>
+                              <div
+                                className={`rounded-xl border-2 px-5 py-4 ${hasValue ? 'border-blue-300 bg-gradient-to-r from-blue-50 to-indigo-50' : 'border-dashed border-gray-300 bg-gray-50'}`}
+                              >
                                 <div className="flex items-start gap-3">
-                                  <div className={`mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${hasValue ? 'bg-blue-600' : 'bg-gray-300'}`}>
+                                  <div
+                                    className={`mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${hasValue ? 'bg-blue-600' : 'bg-gray-300'}`}
+                                  >
                                     <Pill className="h-4 w-4 text-white" />
                                   </div>
                                   <div className="min-w-0 flex-1">
                                     <div className="flex items-center gap-2">
-                                      <span className={`text-[11px] font-bold uppercase tracking-wider ${hasValue ? 'text-blue-700' : 'text-gray-500'}`}>
+                                      <span
+                                        className={`text-[11px] font-bold uppercase tracking-wider ${hasValue ? 'text-blue-700' : 'text-gray-500'}`}
+                                      >
                                         Checkout Self-Report
                                       </span>
-                                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${hasValue ? 'bg-blue-100 text-blue-700' : 'bg-gray-200 text-gray-500'}`}>
+                                      <span
+                                        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${hasValue ? 'bg-blue-100 text-blue-700' : 'bg-gray-200 text-gray-500'}`}
+                                      >
                                         Airtable
                                       </span>
                                     </div>
                                     {hasValue ? (
-                                      <p className="mt-1 text-xl font-bold text-gray-900">{displayValue}</p>
+                                      <p className="mt-1 text-xl font-bold text-gray-900">
+                                        {displayValue}
+                                      </p>
                                     ) : (
-                                      <p className="mt-1 text-sm font-medium text-gray-400 italic">No self-report submitted at checkout</p>
+                                      <p className="mt-1 text-sm font-medium italic text-gray-400">
+                                        No self-report submitted at checkout
+                                      </p>
                                     )}
-                                    <p className={`mt-0.5 text-xs ${hasValue ? 'text-blue-600' : 'text-gray-400'}`}>
-                                      Patient-reported GLP-1 history at time of purchase — use for dosage verification
+                                    <p
+                                      className={`mt-0.5 text-xs ${hasValue ? 'text-blue-600' : 'text-gray-400'}`}
+                                    >
+                                      Patient-reported GLP-1 history at time of purchase — use for
+                                      dosage verification
                                     </p>
                                   </div>
                                 </div>

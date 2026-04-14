@@ -36,7 +36,9 @@ export async function POST(req: NextRequest) {
   return runEscalation(req);
 }
 
-async function escalateForClinic(clinicId: number): Promise<{ escalated: number; stalePendingAdmin: number; staleApproved: number }> {
+async function escalateForClinic(
+  clinicId: number
+): Promise<{ escalated: number; stalePendingAdmin: number; staleApproved: number }> {
   const now = new Date();
   let escalated = 0;
 
@@ -131,7 +133,11 @@ async function escalateForClinic(clinicId: number): Promise<{ escalated: number;
     });
   }
 
-  return { escalated, stalePendingAdmin: stalePendingAdmin.length, staleApproved: staleApproved.length };
+  return {
+    escalated,
+    stalePendingAdmin: stalePendingAdmin.length,
+    staleApproved: staleApproved.length,
+  };
 }
 
 async function runEscalation(req: NextRequest) {

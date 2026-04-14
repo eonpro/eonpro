@@ -19,10 +19,7 @@ const GRACE_MS = 500;
  * Only deduplicates GET requests to the same URL. Non-GET requests
  * pass through directly.
  */
-export function dedupFetch(
-  url: string,
-  options?: RequestInit,
-): Promise<Response> {
+export function dedupFetch(url: string, options?: RequestInit): Promise<Response> {
   const method = (options?.method ?? 'GET').toUpperCase();
   if (method !== 'GET') {
     return fetch(url, options);
@@ -33,18 +30,20 @@ export function dedupFetch(
     return existing.promise.then((r) => r.clone());
   }
 
-  const promise = fetch(url, options).then((response) => {
-    setTimeout(() => {
-      const entry = inflight.get(url);
-      if (entry && entry.promise === promise) {
-        inflight.delete(url);
-      }
-    }, GRACE_MS);
-    return response;
-  }).catch((err) => {
-    inflight.delete(url);
-    throw err;
-  });
+  const promise = fetch(url, options)
+    .then((response) => {
+      setTimeout(() => {
+        const entry = inflight.get(url);
+        if (entry && entry.promise === promise) {
+          inflight.delete(url);
+        }
+      }, GRACE_MS);
+      return response;
+    })
+    .catch((err) => {
+      inflight.delete(url);
+      throw err;
+    });
 
   inflight.set(url, { promise, timestamp: Date.now() });
   return promise.then((r) => r.clone());

@@ -143,7 +143,9 @@ export default function ProviderMessagesPage() {
         setChatMessages((prev) => [...prev, data.message]);
       } else {
         // Fallback: refetch the full thread
-        const threadRes = await apiFetch(`/api/messages/conversations/${selectedMessage.patientId}`);
+        const threadRes = await apiFetch(
+          `/api/messages/conversations/${selectedMessage.patientId}`
+        );
         if (threadRes.ok) {
           const threadData = await threadRes.json();
           setChatMessages(threadData.messages || []);
@@ -154,7 +156,14 @@ export default function ProviderMessagesPage() {
       setMessages((prev) =>
         prev.map((m) =>
           m.patientId === selectedMessage.patientId
-            ? { ...m, lastMessage: content, timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) }
+            ? {
+                ...m,
+                lastMessage: content,
+                timestamp: new Date().toLocaleTimeString('en-US', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }),
+              }
             : m
         )
       );
@@ -187,7 +196,9 @@ export default function ProviderMessagesPage() {
               <button
                 onClick={() => setFilter('all')}
                 className={`rounded px-3 py-1 text-sm ${
-                  filter === 'all' ? 'bg-[var(--brand-primary)] text-white' : 'bg-gray-100 text-gray-700'
+                  filter === 'all'
+                    ? 'bg-[var(--brand-primary)] text-white'
+                    : 'bg-gray-100 text-gray-700'
                 }`}
               >
                 All
@@ -195,7 +206,9 @@ export default function ProviderMessagesPage() {
               <button
                 onClick={() => setFilter('unread')}
                 className={`rounded px-3 py-1 text-sm ${
-                  filter === 'unread' ? 'bg-[var(--brand-primary)] text-white' : 'bg-gray-100 text-gray-700'
+                  filter === 'unread'
+                    ? 'bg-[var(--brand-primary)] text-white'
+                    : 'bg-gray-100 text-gray-700'
                 }`}
               >
                 Unread ({unreadCount})
@@ -203,7 +216,9 @@ export default function ProviderMessagesPage() {
               <button
                 onClick={() => setFilter('urgent')}
                 className={`rounded px-3 py-1 text-sm ${
-                  filter === 'urgent' ? 'bg-[var(--brand-primary)] text-white' : 'bg-gray-100 text-gray-700'
+                  filter === 'urgent'
+                    ? 'bg-[var(--brand-primary)] text-white'
+                    : 'bg-gray-100 text-gray-700'
                 }`}
               >
                 Urgent
@@ -252,7 +267,9 @@ export default function ProviderMessagesPage() {
                 <div
                   key={message.id}
                   onClick={() => setSelectedMessage(message)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') setSelectedMessage(message); }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') setSelectedMessage(message);
+                  }}
                   tabIndex={0}
                   role="button"
                   className={`cursor-pointer border-b p-4 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[var(--brand-primary)] ${
@@ -263,7 +280,9 @@ export default function ProviderMessagesPage() {
                     <span className="font-medium">{message.patientName}</span>
                     <span className="text-xs text-gray-500">{message.timestamp}</span>
                   </div>
-                  <div className="truncate text-sm text-gray-600">{decodeHtmlEntities(message.lastMessage)}</div>
+                  <div className="truncate text-sm text-gray-600">
+                    {decodeHtmlEntities(message.lastMessage)}
+                  </div>
                   <div className="mt-2 flex items-center gap-2">
                     {message.unread && <span className="h-2 w-2 rounded-full bg-blue-600"></span>}
                     {message.priority === 'urgent' && (
@@ -326,10 +345,14 @@ export default function ProviderMessagesPage() {
                             : 'bg-gray-100 text-gray-900'
                         }`}
                       >
-                        <p className="whitespace-pre-wrap break-words">{decodeHtmlEntities(msg.content)}</p>
+                        <p className="whitespace-pre-wrap break-words">
+                          {decodeHtmlEntities(msg.content)}
+                        </p>
                         <p
                           className={`mt-1 text-xs ${
-                            msg.sender === 'provider' ? 'text-[var(--brand-primary)]' : 'text-gray-500'
+                            msg.sender === 'provider'
+                              ? 'text-[var(--brand-primary)]'
+                              : 'text-gray-500'
                           }`}
                         >
                           {msg.timestamp}

@@ -173,7 +173,7 @@ export default function MedicalImagesPage() {
       const data = await safeParseJson(response);
       const allPhotos =
         data !== null && typeof data === 'object' && 'photos' in data
-          ? (data as { photos?: Photo[] }).photos ?? []
+          ? ((data as { photos?: Photo[] }).photos ?? [])
           : [];
       if (data && typeof data === 'object' && 'warning' in data) {
         setPhotoWarning((data as { warning?: string }).warning || null);

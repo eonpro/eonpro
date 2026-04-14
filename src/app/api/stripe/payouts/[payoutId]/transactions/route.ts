@@ -73,12 +73,13 @@ async function handler(
           sourceId: typeof tx.source === 'string' ? tx.source : source?.id || '',
           sourceType: typeof tx.source === 'string' ? tx.type : source?.object || tx.type,
           customerEmail: source?.billing_details?.email || source?.receipt_email || null,
-          feeDetails: tx.fee_details?.map((fd) => ({
-            type: fd.type,
-            amount: fd.amount,
-            amountFormatted: formatCurrency(fd.amount),
-            description: fd.description,
-          })) || [],
+          feeDetails:
+            tx.fee_details?.map((fd) => ({
+              type: fd.type,
+              amount: fd.amount,
+              amountFormatted: formatCurrency(fd.amount),
+              description: fd.description,
+            })) || [],
         });
       }
 
@@ -91,7 +92,9 @@ async function handler(
 
     const charges = allTransactions.filter((t) => t.type === 'charge' || t.type === 'payment');
     const refunds = allTransactions.filter((t) => t.type === 'refund');
-    const fees = allTransactions.filter((t) => t.type === 'stripe_fee' || t.type === 'application_fee');
+    const fees = allTransactions.filter(
+      (t) => t.type === 'stripe_fee' || t.type === 'application_fee'
+    );
     const other = allTransactions.filter(
       (t) => !['charge', 'payment', 'refund', 'stripe_fee', 'application_fee'].includes(t.type)
     );
@@ -114,7 +117,9 @@ async function handler(
         amount: payout.amount,
         amountFormatted: formatCurrency(payout.amount),
         status: payout.status,
-        arrivalDate: payout.arrival_date ? new Date(payout.arrival_date * 1000).toISOString() : null,
+        arrivalDate: payout.arrival_date
+          ? new Date(payout.arrival_date * 1000).toISOString()
+          : null,
         created: new Date(payout.created * 1000).toISOString(),
         method: payout.type,
         description: payout.description,
@@ -146,12 +151,10 @@ async function handler(
   }
 }
 
-export const GET = withAuth(
-  (req: NextRequest, user: AuthUser) => {
-    const url = new URL(req.url);
-    const segments = url.pathname.split('/');
-    const payoutIdIdx = segments.indexOf('payouts') + 1;
-    const payoutId = segments[payoutIdIdx] || '';
-    return handler(req, user, { params: Promise.resolve({ payoutId }) });
-  }
-);
+export const GET = withAuth((req: NextRequest, user: AuthUser) => {
+  const url = new URL(req.url);
+  const segments = url.pathname.split('/');
+  const payoutIdIdx = segments.indexOf('payouts') + 1;
+  const payoutId = segments[payoutIdIdx] || '';
+  return handler(req, user, { params: Promise.resolve({ payoutId }) });
+});

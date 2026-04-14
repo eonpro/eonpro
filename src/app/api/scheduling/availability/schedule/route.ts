@@ -30,9 +30,7 @@ export const GET = withAuth(async (req: NextRequest, user) => {
       return NextResponse.json({ error: 'providerId must be a number' }, { status: 400 });
     }
 
-    const resolvedClinicId = user.role === 'super_admin'
-      ? undefined
-      : (user.clinicId ?? undefined);
+    const resolvedClinicId = user.role === 'super_admin' ? undefined : (user.clinicId ?? undefined);
 
     const [availability, timeOff] = await Promise.all([
       prisma.providerAvailability.findMany({

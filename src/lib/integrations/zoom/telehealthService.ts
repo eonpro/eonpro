@@ -7,11 +7,7 @@
 
 import { prisma, withoutClinicFilter } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import {
-  createZoomMeeting,
-  cancelZoomMeeting,
-  ZoomMeetingResponse,
-} from './meetingService';
+import { createZoomMeeting, cancelZoomMeeting, ZoomMeetingResponse } from './meetingService';
 import { isZoomConfigured, ZOOM_WEBHOOK_EVENTS } from './config';
 import { AppointmentModeType } from '@prisma/client';
 import { onAppointmentChange } from '@/lib/calendar-sync/calendar-sync.service';
@@ -527,13 +523,11 @@ export async function handleParticipantJoined(payload: WebhookPayload): Promise<
     try {
       const decryptedPatientEmail = decryptPHI(session.patient.email);
       if (decryptedPatientEmail) {
-        isPatientJoin =
-          participant.email.toLowerCase() === decryptedPatientEmail.toLowerCase();
+        isPatientJoin = participant.email.toLowerCase() === decryptedPatientEmail.toLowerCase();
       }
     } catch {
       // Decryption failure — fall back to direct comparison for unencrypted legacy data
-      isPatientJoin =
-        participant.email.toLowerCase() === session.patient.email.toLowerCase();
+      isPatientJoin = participant.email.toLowerCase() === session.patient.email.toLowerCase();
     }
   }
 

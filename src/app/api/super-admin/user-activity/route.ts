@@ -178,7 +178,7 @@ export const GET = withAuth(
         // Use Redis activity data to supplement DB session info when available
         const lastActivity = redisActivity?.lastActivity
           ? new Date(redisActivity.lastActivity)
-          : currentSession?.lastActivity ?? null;
+          : (currentSession?.lastActivity ?? null);
 
         const sessionInfo = currentSession
           ? {
@@ -256,7 +256,9 @@ export const GET = withAuth(
       // When searching, sort by relevance so the best match appears first
       const sortedUsers = search
         ? sortBySearchRelevance(enrichedUsers, search, (u) => [
-            u.firstName ?? '', u.lastName ?? '', u.email ?? '',
+            u.firstName ?? '',
+            u.lastName ?? '',
+            u.email ?? '',
           ])
         : enrichedUsers;
 
@@ -273,7 +275,9 @@ export const GET = withAuth(
         },
       });
     } catch (error: unknown) {
-      logger.error('[API] Error fetching user activity:', { error: error instanceof Error ? error.message : String(error) });
+      logger.error('[API] Error fetching user activity:', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return NextResponse.json({ error: 'Failed to fetch user activity' }, { status: 500 });
     }
   },
@@ -325,7 +329,9 @@ export const POST = withAuth(
 
       return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     } catch (error: unknown) {
-      logger.error('[API] Error performing user activity action:', { error: error instanceof Error ? error.message : String(error) });
+      logger.error('[API] Error performing user activity action:', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return NextResponse.json({ error: 'Failed to perform action' }, { status: 500 });
     }
   },

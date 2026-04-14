@@ -154,7 +154,9 @@ async function withRetry<T>(
       lastError = error as Error | null;
 
       // Only retry on rate limits (429) or server errors (5xx)
-      const isRetryable = (error as any).status === 429 || ((error as any).status >= 500 && (error as any).status < 600);
+      const isRetryable =
+        (error as any).status === 429 ||
+        ((error as any).status >= 500 && (error as any).status < 600);
 
       if (!isRetryable || attempt === maxRetries) {
         throw error;
@@ -268,15 +270,26 @@ export async function generateSOAPNote(input: SOAPGenerationInput): Promise<SOAP
   });
 
   const isPeptideTherapy = input.treatmentType === 'peptides';
-  const isRenewal = input.isRenewal && input.previousPrescriptions && input.previousPrescriptions.length > 0;
+  const isRenewal =
+    input.isRenewal && input.previousPrescriptions && input.previousPrescriptions.length > 0;
   const prevRx = isRenewal ? input.previousPrescriptions![0] : null;
 
-  const selectedAddons = Array.isArray(input.intakeData?.selectedAddons) ? input.intakeData.selectedAddons : [];
+  const selectedAddons = Array.isArray(input.intakeData?.selectedAddons)
+    ? input.intakeData.selectedAddons
+    : [];
   const hasEliteBundle = selectedAddons.includes('elite_bundle');
 
   // Peptide therapy (sermorelin, BPC-157, etc.) uses a completely different prompt
   if (isPeptideTherapy) {
-    return generatePeptideSOAPNote(anonymizedInput, input, PLACEHOLDER_NAME, PLACEHOLDER_AGE, realAge, client, env);
+    return generatePeptideSOAPNote(
+      anonymizedInput,
+      input,
+      PLACEHOLDER_NAME,
+      PLACEHOLDER_AGE,
+      realAge,
+      client,
+      env
+    );
   }
 
   // Determine if patient is at maximum dose (no further titration possible)
@@ -284,23 +297,29 @@ export async function generateSOAPNote(input: SOAPGenerationInput): Promise<SOAP
   const prevMedLower = (prevRx?.medName || '').toLowerCase();
   const isTirzepatide = prevMedLower.includes('tirzepatide');
   const isSemaglutide = prevMedLower.includes('semaglutide');
-  const isAtMaxDose = isRenewal && prevDose !== null && (
-    (isTirzepatide && prevDose >= 15) ||
-    (isSemaglutide && prevDose >= 2.4)
-  );
+  const isAtMaxDose =
+    isRenewal &&
+    prevDose !== null &&
+    ((isTirzepatide && prevDose >= 15) || (isSemaglutide && prevDose >= 2.4));
   const doseAction = isAtMaxDose ? 'maintenance' : 'titration';
 
   const baseSystemPrompt = `You are a licensed prescribing provider (MD/DO/NP/PA) creating a comprehensive SOAP note for a telehealth weight management ${isRenewal ? 'follow-up / renewal visit' : 'evaluation'}.
 
 You must generate a professional, clinical-grade SOAP note for GLP-1 receptor agonist therapy ${isRenewal ? (isAtMaxDose ? 'maintenance at maximum therapeutic dose' : 'continuation and dose titration') : 'evaluation'} (semaglutide/tirzepatide).
-${isRenewal && isAtMaxDose ? `
+${
+  isRenewal && isAtMaxDose
+    ? `
 IMPORTANT — MAXIMUM DOSE REACHED:
 The patient is currently at the MAXIMUM weekly dose for their medication:
 ${isTirzepatide ? '• Tirzepatide maximum weekly dose: 15mg' : ''}${isSemaglutide ? '• Semaglutide maximum weekly dose: 2.4mg' : ''}
 • Current dose: ${prevDose}mg
 DO NOT recommend titrating up. The plan should MAINTAIN the current dose.
 Rationale should focus on continued efficacy at maximum dose and ongoing monitoring.
-` : ''}${hasEliteBundle ? `
+`
+    : ''
+}${
+    hasEliteBundle
+      ? `
 ADJUNCTIVE THERAPY — ELITE BUNDLE (NAD+, Sermorelin, B12):
 The patient has been prescribed the Elite Bundle add-on alongside their GLP-1 therapy. The Assessment and Plan sections MUST include clinical justification for stacking these adjunctive therapies with GLP-1 treatment:
 
@@ -313,11 +332,13 @@ The patient has been prescribed the Elite Bundle add-on alongside their GLP-1 th
 Include in the Assessment: "The combination of GLP-1 receptor agonist therapy with adjunctive NAD+, Sermorelin, and B12 provides a comprehensive metabolic optimization approach — addressing weight reduction (GLP-1), cellular energy and fat oxidation (NAD+), lean mass preservation and hormonal support (Sermorelin), and nutritional repletion (B12)."
 
 Include in the Plan: Prescribe the Elite Bundle (NAD+, Sermorelin, Cyanocobalamin B12) as adjunctive therapy to the GLP-1 regimen.
-` : ''}
+`
+      : ''
+  }
 CRITICAL: Return your response in JSON format with ALL fields as plain text STRINGS. Each field should be detailed and formatted professionally:
 
 {
-  "subjective": "${isRenewal ? 'Narrative of follow-up visit: tolerability of current dose, side effects, weight progress, adherence' + (isAtMaxDose ? ', and continued benefit at maximum dose' : ', and readiness for dose titration') : 'Detailed narrative of patient\'s weight history, goals, GLP-1 experience, symptoms, medications, and treatment interest'}",
+  "subjective": "${isRenewal ? 'Narrative of follow-up visit: tolerability of current dose, side effects, weight progress, adherence' + (isAtMaxDose ? ', and continued benefit at maximum dose' : ', and readiness for dose titration') : "Detailed narrative of patient's weight history, goals, GLP-1 experience, symptoms, medications, and treatment interest"}",
   "objective": "Anthropometrics (height, weight, BMI with classification, ideal weight, excess weight), vital signs, activity level, complete medical/surgical history, current medications, allergies, GLP-1 history${isRenewal ? ', current prescription details, treatment duration' : ''}",
   "assessment": "Primary diagnosis with ICD-10 code, ${isRenewal ? (isAtMaxDose ? 'treatment response at maximum dose, tolerability evaluation, rationale for maintenance therapy' : 'treatment response assessment, tolerability evaluation, dose titration rationale') : 'clinical assessment of candidacy, contraindication screening, medical necessity rationale for compounded therapy with B12 or Glycine additive explanation'}",
   "plan": "${isRenewal ? (isAtMaxDose ? 'Maintain current maximum dose, monitoring schedule, continued therapy plan' : 'Dose titration plan (from current dose to next dose), specific new prescription details, monitoring schedule') : 'Medication plan (specific compound, dosing, titration), monitoring & follow-up schedule, patient education provided, disposition'}",
@@ -338,10 +359,13 @@ ICD-10 Codes to use:
 
 DO NOT return nested objects. Each field must be a comprehensive plain text string.`;
 
-  const renewalPrescriptionContext = isRenewal ? `
+  const renewalPrescriptionContext = isRenewal
+    ? `
 ═══════════════════════════════════════════════════════════════════════════════
 PREVIOUS PRESCRIPTION HISTORY (from actual prescriptions sent):
-${input.previousPrescriptions!.map((rx, i) => `
+${input
+  .previousPrescriptions!.map(
+    (rx, i) => `
 Prescription ${i + 1}:
 • Medication: ${rx.medName}
 • Strength: ${rx.strength}
@@ -349,12 +373,16 @@ Prescription ${i + 1}:
 • Sig (Directions): ${rx.sig}
 • Prescribed: ${rx.prescribedAt}
 ${rx.providerName ? `• Provider: ${rx.providerName}` : ''}
-`).join('')}
-═══════════════════════════════════════════════════════════════════════════════` : '';
+`
+  )
+  .join('')}
+═══════════════════════════════════════════════════════════════════════════════`
+    : '';
 
   const systemPrompt = baseSystemPrompt;
 
-  const userPrompt = isRenewal ? `Create a professional TELEHEALTH WEIGHT MANAGEMENT FOLLOW-UP / RENEWAL SOAP note for this returning patient.
+  const userPrompt = isRenewal
+    ? `Create a professional TELEHEALTH WEIGHT MANAGEMENT FOLLOW-UP / RENEWAL SOAP note for this returning patient.
 
 This is a RENEWAL visit — the patient has been on GLP-1 therapy and is returning for continued treatment ${isAtMaxDose ? 'at MAXIMUM therapeutic dose (maintain current dose, do NOT titrate up)' : 'with dose titration'}.
 
@@ -432,17 +460,25 @@ Treatment Response:
 • Patient has been on ${prevRx?.medName || 'GLP-1 therapy'} at ${prevRx?.dose !== null ? prevRx?.dose + 'mg' : prevRx?.strength || 'current dose'}
 • Tolerating current dose well with no significant adverse effects
 • Continued clinical indication for pharmacologic weight management
-${isAtMaxDose ? `• Patient is at MAXIMUM therapeutic dose (${prevDose}mg weekly) — no further titration indicated
-• Recommend maintaining current dose for continued weight management benefit` : '• Patient meets criteria for dose titration per standard protocol'}
+${
+  isAtMaxDose
+    ? `• Patient is at MAXIMUM therapeutic dose (${prevDose}mg weekly) — no further titration indicated
+• Recommend maintaining current dose for continued weight management benefit`
+    : '• Patient meets criteria for dose titration per standard protocol'
+}
 
-${isAtMaxDose ? `Maintenance Therapy Rationale:
+${
+  isAtMaxDose
+    ? `Maintenance Therapy Rationale:
 • Patient has reached maximum recommended weekly dose for ${isTirzepatide ? 'tirzepatide (15mg)' : isSemaglutide ? 'semaglutide (2.4mg)' : 'current medication'}
 • Current dose is well-tolerated with demonstrated clinical benefit
 • Continued therapy at this dose is appropriate for sustained weight management
-• No further dose escalation is indicated per prescribing guidelines` : `Dose Titration Rationale:
+• No further dose escalation is indicated per prescribing guidelines`
+    : `Dose Titration Rationale:
 • Current dose has been tolerated — appropriate to advance to next dose level per titration protocol
 • Gradual dose escalation improves efficacy while maintaining tolerability
-• Continued compounded formulation allows precise dosing flexibility`}
+• Continued compounded formulation allows precise dosing flexibility`
+}
 
 No new contraindications identified. Patient remains an appropriate candidate for continued GLP-1 therapy.
 
@@ -450,13 +486,17 @@ No new contraindications identified. Patient remains an appropriate candidate fo
 
 P – PLAN:
 
-${isAtMaxDose ? `Maintenance Therapy:
+${
+  isAtMaxDose
+    ? `Maintenance Therapy:
 • Continue current dose: ${prevRx?.dose !== null ? prevRx?.dose + 'mg' : prevRx?.strength || '[current dose]'} ${prevRx?.medName || ''} — MAXIMUM dose reached
 • DO NOT titrate up — patient is at maximum recommended weekly dose
-• Continue compounded formulation with Vitamin B12 or Glycine per pharmacy standards` : `Dose Titration:
+• Continue compounded formulation with Vitamin B12 or Glycine per pharmacy standards`
+    : `Dose Titration:
 • Previous dose: ${prevRx?.dose !== null ? prevRx?.dose + 'mg' : prevRx?.strength || '[current dose]'} ${prevRx?.medName || ''}
 • Titrate UP to next dose per protocol
-• Continue compounded formulation with Vitamin B12 or Glycine per pharmacy standards`}
+• Continue compounded formulation with Vitamin B12 or Glycine per pharmacy standards`
+}
 
 Monitoring & Follow-Up:
 • Monitor weight, BMI, appetite, and tolerance ${isAtMaxDose ? 'at current maximum dose' : 'at increased dose'}
@@ -465,13 +505,17 @@ Monitoring & Follow-Up:
 • Follow-up evaluation in 4 weeks or sooner if adverse symptoms occur
 
 Patient Education:
-${isAtMaxDose ? `• Reviewed continued expectations at maximum therapeutic dose
+${
+  isAtMaxDose
+    ? `• Reviewed continued expectations at maximum therapeutic dose
 • Discussed long-term maintenance approach and importance of adherence
 • Counseled on signs/symptoms requiring medical attention
-• Reinforced that medication is adjunct to diet and activity` : `• Reviewed expected effects at higher dose
+• Reinforced that medication is adjunct to diet and activity`
+    : `• Reviewed expected effects at higher dose
 • Discussed gradual titration approach and timeline
 • Counseled on signs/symptoms requiring medical attention
-• Reinforced that medication is adjunct to diet and activity`}
+• Reinforced that medication is adjunct to diet and activity`
+}
 
 Disposition:
 • Patient remains an appropriate candidate for continued medically supervised weight loss
@@ -481,8 +525,7 @@ Disposition:
 ═══════════════════════════════════════════════════════════════════════════════
 
 Return as valid JSON with keys: subjective, objective, assessment, plan, medicalNecessity`
-
-  : `Create a professional TELEHEALTH WEIGHT MANAGEMENT SOAP note for this patient evaluation.
+    : `Create a professional TELEHEALTH WEIGHT MANAGEMENT SOAP note for this patient evaluation.
 
 IMPORTANT: Use these EXACT placeholders in your response - they will be replaced with real data:
 - For patient name, use exactly: ${PLACEHOLDER_NAME}
@@ -785,7 +828,13 @@ Return as valid JSON with keys: subjective, objective, assessment, plan, medical
  * Separate from GLP-1 weight management to produce clinically accurate notes.
  */
 async function generatePeptideSOAPNote(
-  anonymizedInput: { intakeData: Record<string, unknown>; patientName: string; patientAge: string; dateOfBirth: string; chiefComplaint?: string },
+  anonymizedInput: {
+    intakeData: Record<string, unknown>;
+    patientName: string;
+    patientAge: string;
+    dateOfBirth: string;
+    chiefComplaint?: string;
+  },
   originalInput: SOAPGenerationInput,
   PLACEHOLDER_NAME: string,
   PLACEHOLDER_AGE: string,
@@ -1041,7 +1090,9 @@ Return as valid JSON with keys: subjective, objective, assessment, plan, medical
       throw new Error('Invalid OpenAI API key. Please contact support.');
     }
     if (err.status === 500 || err.status === 502 || err.status === 503) {
-      throw new Error('OpenAI service is temporarily unavailable. Please try again in a few minutes.');
+      throw new Error(
+        'OpenAI service is temporarily unavailable. Please try again in a few minutes.'
+      );
     }
     if (err.code === 'insufficient_quota') {
       throw new Error('OpenAI quota exceeded. Please contact support to upgrade the plan.');
@@ -1425,7 +1476,11 @@ Please provide a clear, accurate answer based on the available information. If a
     if ((error as any).status === 401) {
       throw new Error('OpenAI API key is invalid or not configured.');
     }
-    if ((error as any).status === 500 || (error as any).status === 502 || (error as any).status === 503) {
+    if (
+      (error as any).status === 500 ||
+      (error as any).status === 502 ||
+      (error as any).status === 503
+    ) {
       throw new Error('OpenAI service is temporarily unavailable. Please try again later.');
     }
     if ((error as any).code === 'insufficient_quota') {
@@ -1517,7 +1572,11 @@ export async function generateClinicalSummary(prompt: string): Promise<string> {
   const response = await client.chat.completions.create({
     model,
     messages: [
-      { role: 'system', content: 'You are a clinical pharmacist assistant. Provide brief, accurate drug interaction and allergy safety summaries for healthcare providers. Be concise (2-3 sentences). Do not include disclaimers.' },
+      {
+        role: 'system',
+        content:
+          'You are a clinical pharmacist assistant. Provide brief, accurate drug interaction and allergy safety summaries for healthcare providers. Be concise (2-3 sentences). Do not include disclaimers.',
+      },
       { role: 'user', content: prompt },
     ],
     temperature: 0.3,

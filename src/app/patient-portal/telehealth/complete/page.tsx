@@ -46,9 +46,7 @@ function PostCallContent() {
               title: apt.title || apt.reason || 'Video Consultation',
               providerName:
                 apt.providerName ??
-                (apt.provider
-                  ? `${apt.provider.firstName} ${apt.provider.lastName}`
-                  : undefined),
+                (apt.provider ? `${apt.provider.firstName} ${apt.provider.lastName}` : undefined),
               startTime: apt.startTime,
               duration: apt.duration || 15,
             });
@@ -145,8 +143,8 @@ function PostCallContent() {
                 <div>
                   <p className="text-sm font-medium text-purple-900">Prescriptions</p>
                   <p className="text-xs text-purple-700">
-                    If any medications were discussed, your prescription will be processed and you'll
-                    be notified when it ships.
+                    If any medications were discussed, your prescription will be processed and
+                    you'll be notified when it ships.
                   </p>
                 </div>
               </div>
@@ -172,7 +170,7 @@ function PostCallContent() {
               Return to Dashboard
             </a>
             <a
-              href="/patient-portal/support/new"
+              href="/patient-portal/support"
               className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 px-6 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
             >
               <HeadphonesIcon className="h-4 w-4" />

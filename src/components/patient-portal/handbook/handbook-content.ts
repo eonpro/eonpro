@@ -13,8 +13,7 @@ export interface HandbookSection {
 }
 
 export const handbookTitle = 'GLP-1 Patient Handbook';
-export const handbookSubtitle =
-  'A Complete Medical & Lifestyle Guide to Your Weight Loss Journey';
+export const handbookSubtitle = 'A Complete Medical & Lifestyle Guide to Your Weight Loss Journey';
 
 export const handbookSections: HandbookSection[] = [
   {
@@ -136,8 +135,7 @@ Your provider will personalize your schedule based on how you respond.`,
         body: `- **Never double dose** — if you miss a dose, follow the missed-dose protocol
 - **Never increase without provider guidance** — more medication does not mean faster results
 - **Consistency is more important than speed** — steady progress leads to lasting results`,
-        callout:
-          'More medication does not mean faster results. Trust the protocol.',
+        callout: 'More medication does not mean faster results. Trust the protocol.',
       },
     ],
   },
@@ -199,8 +197,7 @@ The injection is simple and most patients become comfortable with it within the 
         body: `Your digestive system is slowing down. This is intentional — it's how the medication reduces appetite and helps you eat less naturally.
 
 Most side effects are a sign the medication is working, not that something is wrong.`,
-        callout:
-          'Side effects are a sign the medication is active, not that something is wrong.',
+        callout: 'Side effects are a sign the medication is active, not that something is wrong.',
       },
       {
         heading: 'Nausea',
@@ -434,7 +431,7 @@ Many patients don't realize they're under-hydrated because they simply don't fee
     subtitle: 'A smart, sustainable approach — not extreme workouts',
     subsections: [
       {
-        heading: 'You Don\'t Need Extreme Workouts',
+        heading: "You Don't Need Extreme Workouts",
         body: `The best exercise plan during GLP-1 treatment is sustainable and moderate. You don't need to spend hours in the gym.
 
 **Focus on:**
@@ -575,7 +572,7 @@ Reach out to your team whenever you have questions, concerns, or need encouragem
         body: `Limit alcohol consumption while on GLP-1 medication. Alcohol increases the risk of nausea, can worsen dehydration, adds empty calories, and can slow your weight loss progress. If you do drink, do so in moderation and stay well hydrated.`,
       },
       {
-        heading: 'What if I\'m not losing weight?',
+        heading: "What if I'm not losing weight?",
         body: `If your weight loss has stalled, work through this checklist:
 
 - **Review your diet** — are you eating enough protein? Are processed foods creeping back in?

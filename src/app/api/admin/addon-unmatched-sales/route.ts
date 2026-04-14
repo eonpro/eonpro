@@ -24,7 +24,10 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     });
 
     if (!clinic?.stripeAccountId) {
-      return NextResponse.json({ error: 'WellMedR clinic Stripe Connect account not configured' }, { status: 503 });
+      return NextResponse.json(
+        { error: 'WellMedR clinic Stripe Connect account not configured' },
+        { status: 503 }
+      );
     }
 
     // Tenant guard: non-super admins can only view their own clinic data.
@@ -33,8 +36,14 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     }
 
     const { searchParams } = new URL(req.url);
-    const lookbackInput = Number.parseInt(searchParams.get('lookbackDays') || `${DEFAULT_LOOKBACK_DAYS}`, 10);
-    const sampleInput = Number.parseInt(searchParams.get('sampleLimit') || `${DEFAULT_SAMPLE_LIMIT}`, 10);
+    const lookbackInput = Number.parseInt(
+      searchParams.get('lookbackDays') || `${DEFAULT_LOOKBACK_DAYS}`,
+      10
+    );
+    const sampleInput = Number.parseInt(
+      searchParams.get('sampleLimit') || `${DEFAULT_SAMPLE_LIMIT}`,
+      10
+    );
     const lookbackDays = Number.isFinite(lookbackInput)
       ? Math.min(Math.max(lookbackInput, 1), MAX_LOOKBACK_DAYS)
       : DEFAULT_LOOKBACK_DAYS;
@@ -77,4 +86,3 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 }
 
 export const GET = withAdminAuth(handleGet);
-

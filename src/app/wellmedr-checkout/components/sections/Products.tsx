@@ -9,7 +9,7 @@ export default function Products() {
   const { products, selectedProduct, handleProductSelect } = useCheckout();
 
   return (
-    <section className="w-full flex flex-col sm:flex-row gap-4" id="products">
+    <section className="flex w-full flex-col gap-4 sm:flex-row" id="products">
       {Object.entries(products).map(([name, product]) => {
         return (
           <Fragment key={`product-${name}`}>

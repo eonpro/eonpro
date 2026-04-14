@@ -113,12 +113,7 @@ export interface ProductConfig {
   };
 }
 
-export type ProductId =
-  | 'semaglutide'
-  | 'tirzepatide'
-  | 'testosterone'
-  | 'hairloss'
-  | 'skincare';
+export type ProductId = 'semaglutide' | 'tirzepatide' | 'testosterone' | 'hairloss' | 'skincare';
 
 export type ProductRegistry = {
   [K in ProductId]?: () => Promise<{ default: ProductConfig }>;

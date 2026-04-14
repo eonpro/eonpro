@@ -35,10 +35,7 @@ function clearSubscriptionId() {
     const existingId = sessionStorage.getItem(SUBSCRIPTION_STORAGE_KEY);
     sessionStorage.removeItem(SUBSCRIPTION_STORAGE_KEY);
     if (existingId) {
-      console.log(
-        '[Subscription Storage] Cleared subscription ID from form provider:',
-        existingId,
-      );
+      console.log('[Subscription Storage] Cleared subscription ID from form provider:', existingId);
     }
   } catch (e) {
     console.error('Failed to clear subscription ID:', e);
@@ -74,10 +71,7 @@ interface CheckoutFormProviderProps {
   patientData?: PatientData;
 }
 
-export default function CheckoutFormProvider({
-  children,
-  patientData,
-}: CheckoutFormProviderProps) {
+export default function CheckoutFormProvider({ children, patientData }: CheckoutFormProviderProps) {
   const stateAbbr = patientData?.state
     ? (stateNameToAbbreviation(patientData.state) as StateAbbreviation)
     : '';
@@ -140,7 +134,7 @@ export default function CheckoutFormProvider({
 
       try {
         const response = await fetch(
-          `/api/get-order?subscriptionId=${encodeURIComponent(subscriptionId)}`,
+          `/api/get-order?subscriptionId=${encodeURIComponent(subscriptionId)}`
         );
         const data = await response.json();
 
@@ -154,10 +148,7 @@ export default function CheckoutFormProvider({
           } = data.order;
 
           // If subscription is already active/successful, clear storage and redirect to thank-you
-          if (
-            subscriptionStatus === 'active' &&
-            paymentStatus === 'succeeded'
-          ) {
+          if (subscriptionStatus === 'active' && paymentStatus === 'succeeded') {
             clearSubscriptionId();
             // Get uid from URL params
             const urlParams = new URLSearchParams(window.location.search);
@@ -171,23 +162,18 @@ export default function CheckoutFormProvider({
           // Update form with order data if available
           if (shippingAddress) {
             methods.setValue('shippingAddress', {
-              firstName:
-                shippingAddress.firstName || patientData?.firstName || '',
+              firstName: shippingAddress.firstName || patientData?.firstName || '',
               lastName: shippingAddress.lastName || patientData?.lastName || '',
               address: shippingAddress.address || '',
               apt: shippingAddress.apt || '',
               city: shippingAddress.city || '',
               state: shippingAddress.state || stateAbbr,
               zipCode: shippingAddress.zipCode || '',
-              billingAddressSameAsShipment:
-                shippingAddress.billingAddressSameAsShipment ?? true,
+              billingAddressSameAsShipment: shippingAddress.billingAddressSameAsShipment ?? true,
             });
           }
 
-          if (
-            billingAddress &&
-            !shippingAddress?.billingAddressSameAsShipment
-          ) {
+          if (billingAddress && !shippingAddress?.billingAddressSameAsShipment) {
             methods.setValue('billingAddress', {
               firstName: billingAddress.firstName || '',
               lastName: billingAddress.lastName || '',

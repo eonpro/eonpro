@@ -77,8 +77,7 @@ export async function checkRecentPrescriptions(
         primaryMedName: o.primaryMedName,
         primaryMedStrength: o.primaryMedStrength,
         providerId: o.providerId,
-        providerName:
-          o.provider ? `${o.provider.firstName} ${o.provider.lastName}` : undefined,
+        providerName: o.provider ? `${o.provider.firstName} ${o.provider.lastName}` : undefined,
       })),
       windowDays,
     };
@@ -150,8 +149,7 @@ export async function batchCheckRecentPrescriptions(
           primaryMedName: o.primaryMedName,
           primaryMedStrength: o.primaryMedStrength,
           providerId: o.providerId,
-          providerName:
-            o.provider ? `${o.provider.firstName} ${o.provider.lastName}` : undefined,
+          providerName: o.provider ? `${o.provider.firstName} ${o.provider.lastName}` : undefined,
         })),
         windowDays,
       });

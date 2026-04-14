@@ -43,7 +43,10 @@ const genderSchema = z.string().transform((val, ctx) => {
   if (['f', 'female', 'woman'].includes(normalized)) {
     return 'f';
   }
-  ctx.addIssue({ code: z.ZodIssueCode.custom, message: `Invalid gender: ${val}. Only Male or Female is accepted.` });
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    message: `Invalid gender: ${val}. Only Male or Female is accepted.`,
+  });
   return z.NEVER;
 });
 
@@ -73,10 +76,13 @@ export const rxSchema = z.object({
   sig: z.string().min(1, 'Prescription instructions (SIG) are required'),
   quantity: z.union([z.string(), z.number()]).transform((v) => String(v ?? '')),
   refills: z.union([z.string(), z.number()]).transform((v) => String(v ?? '')),
-  daysSupply: z.union([z.string(), z.number()]).optional().transform((v) => {
-    if (v === undefined || v === null || v === '') return undefined;
-    return String(v);
-  }),
+  daysSupply: z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((v) => {
+      if (v === undefined || v === null || v === '') return undefined;
+      return String(v);
+    }),
 });
 
 // Accept null/undefined providerId - API resolves from user.providerId when missing
@@ -89,7 +95,9 @@ export const prescriptionSchema = z.object({
   patient: patientSchema,
   patientId: z.number().nullable().optional(), // Existing patient ID - if provided, skips name-based lookup
   rxs: z.array(rxSchema).min(1, 'At least one medication is required'),
-  shippingMethod: z.union([z.number(), z.string()]).transform((v) => (typeof v === 'string' ? parseInt(v, 10) : v)),
+  shippingMethod: z
+    .union([z.number(), z.string()])
+    .transform((v) => (typeof v === 'string' ? parseInt(v, 10) : v)),
   signatureDataUrl: z.string().nullable().optional(),
   providerId: providerIdSchema,
   clinicId: z.number().nullable().optional(), // User's active clinic for multi-tenant support

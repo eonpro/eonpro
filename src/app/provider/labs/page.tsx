@@ -156,7 +156,9 @@ export default function ProviderLabsPage() {
                     key={lab.id}
                     onClick={() => setSelectedLab(lab)}
                     className={`cursor-pointer rounded-lg border p-4 transition-shadow hover:shadow-md ${
-                      selectedLab?.id === lab.id ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)]' : ''
+                      selectedLab?.id === lab.id
+                        ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)]'
+                        : ''
                     }`}
                   >
                     <div className="flex items-start justify-between">

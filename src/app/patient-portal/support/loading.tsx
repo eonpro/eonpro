@@ -12,10 +12,7 @@ export default function SupportLoading() {
 
         <div className="space-y-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div
-              key={i}
-              className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm"
-            >
+            <div key={i} className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
               <div className="flex items-start justify-between">
                 <div className="flex-1 space-y-3">
                   <div className="flex items-center gap-3">

@@ -146,7 +146,11 @@ function extractMedicationDetails(desc: string): {
     return {
       medicationName: medMatch[1].toUpperCase(),
       strength: medMatch[2].toUpperCase(),
-      form: desc.includes('Injectable') ? 'Injectable' : desc.includes('SOLUTION') ? 'Solution' : null,
+      form: desc.includes('Injectable')
+        ? 'Injectable'
+        : desc.includes('SOLUTION')
+          ? 'Solution'
+          : null,
       vialSize,
     };
   }
@@ -378,10 +382,16 @@ function parseLineItems(text: string): { items: ParsedInvoiceLineItem[]; totalCe
       // Continuation lines: lines that don't start with a date, subtotal, or total
       while (j < lines.length) {
         const nextLine = lines[j].trim();
-        if (!nextLine) { j++; continue; }
+        if (!nextLine) {
+          j++;
+          continue;
+        }
         if (DATE_RE.test(nextLine) || SUBTOTAL_RE.test(nextLine) || TOTAL_RE.test(nextLine)) break;
         // Page-break remnants
-        if (nextLine.startsWith('http') || /^-- \d+ of \d+ --/.test(nextLine)) { j++; continue; }
+        if (nextLine.startsWith('http') || /^-- \d+ of \d+ --/.test(nextLine)) {
+          j++;
+          continue;
+        }
         descBlock += '\n' + nextLine;
         j++;
       }
@@ -422,7 +432,9 @@ function parseLineItems(text: string): { items: ParsedInvoiceLineItem[]; totalCe
       let patientName: string | null = null;
       const afterRxNum = line.slice(rxMatch[0].length).trim();
       // Patient name is text before "RX " or before the first line break with "RX "
-      const patNameMatch = afterRxNum.match(/^([A-Z][a-z]+(?:[-'][A-Z][a-z]+)?,\s*\n?\s*[A-Za-z]+(?:\s+[A-Za-z]+)*)/);
+      const patNameMatch = afterRxNum.match(
+        /^([A-Z][a-z]+(?:[-'][A-Z][a-z]+)?,\s*\n?\s*[A-Za-z]+(?:\s+[A-Za-z]+)*)/
+      );
       if (patNameMatch) {
         patientName = patNameMatch[1].replace(/\n\s*/g, ' ').trim();
       }
@@ -439,7 +451,9 @@ function parseLineItems(text: string): { items: ParsedInvoiceLineItem[]; totalCe
       // Classify
       const lineType = classifyLineType(descBlock);
       const medDetails =
-        lineType === 'MEDICATION' ? extractMedicationDetails(descBlock) : { medicationName: null, strength: null, form: null, vialSize: null };
+        lineType === 'MEDICATION'
+          ? extractMedicationDetails(descBlock)
+          : { medicationName: null, strength: null, form: null, vialSize: null };
 
       lineNumber++;
       items.push({
@@ -451,7 +465,11 @@ function parseLineItems(text: string): { items: ParsedInvoiceLineItem[]; totalCe
         fillId,
         patientName,
         doctorName,
-        description: descBlock.replace(THREE_AMOUNTS_RE, '').replace(TWO_AMOUNTS_RE, '').trim().slice(0, 1000),
+        description: descBlock
+          .replace(THREE_AMOUNTS_RE, '')
+          .replace(TWO_AMOUNTS_RE, '')
+          .trim()
+          .slice(0, 1000),
         medicationName: medDetails.medicationName,
         strength: medDetails.strength,
         form: medDetails.form,
@@ -478,9 +496,15 @@ function parseLineItems(text: string): { items: ParsedInvoiceLineItem[]; totalCe
       let j = i + 1;
       while (j < lines.length) {
         const nextLine = lines[j].trim();
-        if (!nextLine) { j++; continue; }
+        if (!nextLine) {
+          j++;
+          continue;
+        }
         if (DATE_RE.test(nextLine) || SUBTOTAL_RE.test(nextLine) || TOTAL_RE.test(nextLine)) break;
-        if (nextLine.startsWith('http') || /^-- \d+ of \d+ --/.test(nextLine)) { j++; continue; }
+        if (nextLine.startsWith('http') || /^-- \d+ of \d+ --/.test(nextLine)) {
+          j++;
+          continue;
+        }
         descBlock += '\n' + nextLine;
         j++;
       }
@@ -512,9 +536,7 @@ function parseLineItems(text: string): { items: ParsedInvoiceLineItem[]; totalCe
       let shippingMethod: string | null = null;
 
       if (shippingMatch) {
-        shippingMethod = shippingMatch[2]
-          .replace(/\s+\d+\s*\$.*$/, '')
-          .trim();
+        shippingMethod = shippingMatch[2].replace(/\s+\d+\s*\$.*$/, '').trim();
         lineType = 'SHIPPING_CARRIER';
       } else if (isWellmedrShipping) {
         lineType = 'SHIPPING_FEE';
@@ -531,7 +553,11 @@ function parseLineItems(text: string): { items: ParsedInvoiceLineItem[]; totalCe
         fillId: null,
         patientName: null,
         doctorName: null,
-        description: descBlock.replace(TWO_AMOUNTS_RE, '').replace(AMOUNT_TAIL_RE, '').trim().slice(0, 500),
+        description: descBlock
+          .replace(TWO_AMOUNTS_RE, '')
+          .replace(AMOUNT_TAIL_RE, '')
+          .trim()
+          .slice(0, 500),
         medicationName: null,
         strength: null,
         form: null,
@@ -619,7 +645,10 @@ function parseCsvRowRobust(line: string): string[] {
   const secondLast = standardResult[standardResult.length - 2]?.trim() ?? '';
   if (
     standardResult.length >= 4 &&
-    (lastCol.match(/^\$?[\d,.]+$/) || lastCol === '' || lastCol === '0' || lastCol.match(/^Amount/i))
+    (lastCol.match(/^\$?[\d,.]+$/) ||
+      lastCol === '' ||
+      lastCol === '0' ||
+      lastCol.match(/^Amount/i))
   ) {
     return standardResult;
   }
@@ -646,11 +675,19 @@ function parseCsvRowRobust(line: string): string[] {
       const remaining = orderMatch[2].replace(/^"|"$/g, '');
 
       // Split remaining into Patient and Description at the first "RX " or "Order #" or "WELLMEDR"
-      const descSplit = remaining.match(/^(.*?),\s*((?:RX |Order #|WELLMEDR|SYRINGES).*)$/s) ??
-                        remaining.match(/^(.*?),\s*(".*")$/s);
+      const descSplit =
+        remaining.match(/^(.*?),\s*((?:RX |Order #|WELLMEDR|SYRINGES).*)$/s) ??
+        remaining.match(/^(.*?),\s*(".*")$/s);
 
       if (descSplit) {
-        return [orderId, descSplit[1].replace(/^"|"$/g, '').trim(), descSplit[2].replace(/^"|"$/g, '').trim(), qtyStr, priceStr, amountStr];
+        return [
+          orderId,
+          descSplit[1].replace(/^"|"$/g, '').trim(),
+          descSplit[2].replace(/^"|"$/g, '').trim(),
+          qtyStr,
+          priceStr,
+          amountStr,
+        ];
       }
 
       return [orderId, '', remaining.replace(/^"|"$/g, '').trim(), qtyStr, priceStr, amountStr];
@@ -740,8 +777,13 @@ export function parseWellmedrInvoiceCsv(csvText: string): ParsedInvoice {
 
   // Detect and skip header row
   let startIdx = 0;
-  let colOrder = -1, colPatient = -1, colDesc = -1, colDoctor = -1;
-  let colQty = -1, colPrice = -1, colAmount = -1;
+  let colOrder = -1,
+    colPatient = -1,
+    colDesc = -1,
+    colDoctor = -1;
+  let colQty = -1,
+    colPrice = -1,
+    colAmount = -1;
 
   for (let i = 0; i < Math.min(5, rawLines.length); i++) {
     const row = parseCsvRowStandard(rawLines[i]);
@@ -789,7 +831,7 @@ export function parseWellmedrInvoiceCsv(csvText: string): ParsedInvoice {
 
     // Subtotal row: "Subtotal" in order or patient column, or just a dollar amount in order column
     if (orderVal.toLowerCase() === 'subtotal' || patientVal.toLowerCase() === 'subtotal') {
-      const subtotalStr = patientVal.match(/\$/) ? patientVal : (descVal || amountVal || orderVal);
+      const subtotalStr = patientVal.match(/\$/) ? patientVal : descVal || amountVal || orderVal;
       const subtotalCents = parseCsvDollar(subtotalStr);
       for (let j = items.length - 1; j >= 0; j--) {
         if (items[j].orderSubtotalCents === null) {
@@ -818,7 +860,8 @@ export function parseWellmedrInvoiceCsv(csvText: string): ParsedInvoice {
 
     // Determine line type
     const isShippingCarrier = ORDER_SHIPPING_RE.test(patientVal) || ORDER_SHIPPING_RE.test(descVal);
-    const isShippingFee = WELLMEDR_SHIPPING_RE.test(patientVal) || WELLMEDR_SHIPPING_RE.test(descVal);
+    const isShippingFee =
+      WELLMEDR_SHIPPING_RE.test(patientVal) || WELLMEDR_SHIPPING_RE.test(descVal);
     const isSupply = SUPPLY_RE.test(descVal) || SUPPLY_RE.test(patientVal);
 
     let lineType: InvoiceLineType;
@@ -834,7 +877,10 @@ export function parseWellmedrInvoiceCsv(csvText: string): ParsedInvoice {
     const fillId = fillMatch ? fillMatch[1] : null;
 
     // Medication details
-    const medDetails = lineType === 'MEDICATION' ? extractMedicationDetails(descVal) : { medicationName: null, strength: null, form: null, vialSize: null };
+    const medDetails =
+      lineType === 'MEDICATION'
+        ? extractMedicationDetails(descVal)
+        : { medicationName: null, strength: null, form: null, vialSize: null };
 
     // Shipping method
     let shippingMethod: string | null = null;
@@ -860,8 +906,10 @@ export function parseWellmedrInvoiceCsv(csvText: string): ParsedInvoice {
     }
 
     // Patient name (only for rx/supply lines)
-    const patientName = (lineType === 'MEDICATION' || lineType === 'SUPPLY') ? patientVal || null : null;
-    const doctorName = (lineType === 'MEDICATION' || lineType === 'SUPPLY') ? doctorVal || null : null;
+    const patientName =
+      lineType === 'MEDICATION' || lineType === 'SUPPLY' ? patientVal || null : null;
+    const doctorName =
+      lineType === 'MEDICATION' || lineType === 'SUPPLY' ? doctorVal || null : null;
 
     lineNumber++;
     items.push({

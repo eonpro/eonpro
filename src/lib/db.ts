@@ -99,7 +99,9 @@ function createPrismaClient() {
       try {
         const { runGuardrails } = require('@/lib/database/circuit-breaker/guardrails');
         runGuardrails(params.model, params.action, params.args);
-      } catch { /* module not available */ }
+      } catch {
+        /* module not available */
+      }
     }
 
     const start = Date.now();
@@ -119,12 +121,20 @@ function createPrismaClient() {
         connectionPool.recordQuery(duration, true);
         try {
           const { emitQueryMetric } = require('@/lib/observability/metrics');
-          emitQueryMetric({ operation: params.action || 'unknown', table: params.model || 'unknown', durationMs: duration });
-        } catch { /* module not available */ }
+          emitQueryMetric({
+            operation: params.action || 'unknown',
+            table: params.model || 'unknown',
+            durationMs: duration,
+          });
+        } catch {
+          /* module not available */
+        }
         try {
           const { recordQuery } = require('@/lib/database/query-budget');
           recordQuery(params.model, params.action, duration);
-        } catch { /* module not available */ }
+        } catch {
+          /* module not available */
+        }
       }
 
       if (
@@ -139,12 +149,16 @@ function createPrismaClient() {
             const hasPHI = keys.some((k) => _PHI.includes(k));
             const hasSearchIndex = 'searchIndex' in data && data.searchIndex;
             if ((hasPHI || params.action === 'create') && !hasSearchIndex && result?.id) {
-              import(/* webpackIgnore: true */ '@/lib/utils/search-index-heal').then(({ healPatientSearchIndex }) => {
-                healPatientSearchIndex(client, result.id).catch(() => {});
-              }).catch(() => {});
+              import(/* webpackIgnore: true */ '@/lib/utils/search-index-heal')
+                .then(({ healPatientSearchIndex }) => {
+                  healPatientSearchIndex(client, result.id).catch(() => {});
+                })
+                .catch(() => {});
             }
           }
-        } catch { /* safety net must never break the write path */ }
+        } catch {
+          /* safety net must never break the write path */
+        }
       }
 
       return result;
@@ -155,7 +169,9 @@ function createPrismaClient() {
         try {
           const { circuitBreaker } = require('@/lib/database/circuit-breaker');
           circuitBreaker.recordFailure(error).catch(() => {});
-        } catch { /* module not available */ }
+        } catch {
+          /* module not available */
+        }
       }
       throw error;
     }
@@ -212,7 +228,11 @@ export const prisma = new Proxy(clinicFilterWrapper, {
     if (prop in target) return (target as any)[prop];
     const client = (target as any).client as PrismaClient;
     const delegate = (client as any)[prop];
-    if (delegate && typeof prop === 'string' && (CLINIC_ISOLATED_MODELS as readonly string[]).includes(prop.toLowerCase())) {
+    if (
+      delegate &&
+      typeof prop === 'string' &&
+      (CLINIC_ISOLATED_MODELS as readonly string[]).includes(prop.toLowerCase())
+    ) {
       return target.getModelDelegate(prop);
     }
     return delegate;

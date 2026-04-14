@@ -226,17 +226,22 @@ function getEnvCredentials(): FedExCredentials | null {
 export function resolveTrackCredentials(): FedExCredentials | null {
   const trackClientId = process.env.FEDEX_TRACK_CLIENT_ID;
   const trackClientSecret = process.env.FEDEX_TRACK_CLIENT_SECRET;
-  const trackAccountNumber = process.env.FEDEX_TRACK_ACCOUNT_NUMBER || process.env.FEDEX_ACCOUNT_NUMBER;
+  const trackAccountNumber =
+    process.env.FEDEX_TRACK_ACCOUNT_NUMBER || process.env.FEDEX_ACCOUNT_NUMBER;
 
   if (trackClientId && trackClientSecret && trackAccountNumber) {
-    return { clientId: trackClientId, clientSecret: trackClientSecret, accountNumber: trackAccountNumber };
+    return {
+      clientId: trackClientId,
+      clientSecret: trackClientSecret,
+      accountNumber: trackAccountNumber,
+    };
   }
 
   return getEnvCredentials();
 }
 
 function maybeDecrypt(value: string): string {
-  return isEncrypted(value) ? (decryptPHI(value) || '') : value;
+  return isEncrypted(value) ? decryptPHI(value) || '' : value;
 }
 
 export function resolveCredentials(clinic?: {
@@ -245,7 +250,12 @@ export function resolveCredentials(clinic?: {
   fedexAccountNumber?: string | null;
   fedexEnabled?: boolean;
 }): FedExCredentials {
-  if (clinic?.fedexEnabled && clinic.fedexClientId && clinic.fedexClientSecret && clinic.fedexAccountNumber) {
+  if (
+    clinic?.fedexEnabled &&
+    clinic.fedexClientId &&
+    clinic.fedexClientSecret &&
+    clinic.fedexAccountNumber
+  ) {
     return {
       clientId: maybeDecrypt(clinic.fedexClientId),
       clientSecret: maybeDecrypt(clinic.fedexClientSecret),
@@ -256,7 +266,9 @@ export function resolveCredentials(clinic?: {
   const envCreds = getEnvCredentials();
   if (envCreds) return envCreds;
 
-  throw new Error('FedEx credentials not configured. Set them in clinic settings or environment variables.');
+  throw new Error(
+    'FedEx credentials not configured. Set them in clinic settings or environment variables.'
+  );
 }
 
 export function resolveCredentialsWithAttribution(
@@ -279,9 +291,9 @@ export function resolveCredentialsWithAttribution(
   );
   const clinicConfigComplete = Boolean(
     clinic?.fedexEnabled &&
-      clinic?.fedexClientId &&
-      clinic?.fedexClientSecret &&
-      clinic?.fedexAccountNumber
+    clinic?.fedexClientId &&
+    clinic?.fedexClientSecret &&
+    clinic?.fedexAccountNumber
   );
 
   if (clinicConfigComplete) {
@@ -312,7 +324,9 @@ export function resolveCredentialsWithAttribution(
 
   const envCreds = getEnvCredentials();
   if (!envCreds) {
-    throw new Error('FedEx credentials not configured. Set them in clinic settings or environment variables.');
+    throw new Error(
+      'FedEx credentials not configured. Set them in clinic settings or environment variables.'
+    );
   }
 
   if (clinic?.id && (clinic?.fedexEnabled || clinicHasAnyConfig)) {
@@ -320,7 +334,9 @@ export function resolveCredentialsWithAttribution(
       clinicId: clinic.id,
       environment,
       accountFingerprint: toAccountFingerprint(envCreds.accountNumber),
-      reason: clinic.fedexEnabled ? 'clinic_enabled_but_incomplete' : 'clinic_partial_configuration',
+      reason: clinic.fedexEnabled
+        ? 'clinic_enabled_but_incomplete'
+        : 'clinic_partial_configuration',
     });
   }
 
@@ -351,10 +367,7 @@ function getTodayInTimezone(tz: string = 'America/New_York'): string {
   }).format(new Date());
 }
 
-function buildShipmentPayload(
-  credentials: FedExCredentials,
-  input: CreateShipmentInput
-) {
+function buildShipmentPayload(credentials: FedExCredentials, input: CreateShipmentInput) {
   const shipDate = input.shipDate || getTodayInTimezone();
 
   return {
@@ -452,12 +465,7 @@ export async function createShipment(
 ): Promise<CreateShipmentResult> {
   const payload = buildShipmentPayload(credentials, input);
 
-  const result = await fedexRequest<any>(
-    credentials,
-    'POST',
-    '/ship/v1/shipments',
-    payload
-  );
+  const result = await fedexRequest<any>(credentials, 'POST', '/ship/v1/shipments', payload);
 
   const shipment = result.output?.transactionShipments?.[0];
   if (!shipment) {
@@ -465,12 +473,10 @@ export async function createShipment(
   }
 
   const piece = shipment.pieceResponses?.[0];
-  const trackingNumber =
-    piece?.trackingNumber || shipment.masterTrackingNumber;
+  const trackingNumber = piece?.trackingNumber || shipment.masterTrackingNumber;
 
   const labelData =
-    piece?.packageDocuments?.[0]?.encodedLabel ||
-    shipment.shipmentDocuments?.[0]?.encodedLabel;
+    piece?.packageDocuments?.[0]?.encodedLabel || shipment.shipmentDocuments?.[0]?.encodedLabel;
 
   if (!trackingNumber || !labelData) {
     logger.error('FedEx response missing tracking/label', {
@@ -502,12 +508,7 @@ export async function cancelShipment(
     trackingNumber,
   };
 
-  await fedexRequest<any>(
-    credentials,
-    'PUT',
-    '/ship/v1/shipments/cancel',
-    payload
-  );
+  await fedexRequest<any>(credentials, 'PUT', '/ship/v1/shipments/cancel', payload);
 
   return { success: true };
 }
@@ -534,10 +535,7 @@ export type RateQuoteResult = {
   transitDays: string | null;
 };
 
-function buildRatePayload(
-  credentials: FedExCredentials,
-  input: RateQuoteInput
-) {
+function buildRatePayload(credentials: FedExCredentials, input: RateQuoteInput) {
   const shipDate = getTodayInTimezone();
 
   return {
@@ -600,12 +598,7 @@ export async function getRateQuote(
 ): Promise<RateQuoteResult> {
   const payload = buildRatePayload(credentials, input);
 
-  const result = await fedexRequest<any>(
-    credentials,
-    'POST',
-    '/rate/v1/rates/quotes',
-    payload
-  );
+  const result = await fedexRequest<any>(credentials, 'POST', '/rate/v1/rates/quotes', payload);
 
   const rateDetail = result.output?.rateReplyDetails?.[0];
   if (!rateDetail) {
@@ -616,18 +609,14 @@ export async function getRateQuote(
   const totalCharge = rated?.totalNetCharge ?? rated?.totalNetFedExCharge ?? 0;
   const currency = rated?.currency ?? 'USD';
 
-  const surcharges = (rated?.shipmentRateDetail?.surCharges || []).map(
-    (s: any) => ({
-      type: s.type || s.surchargeType || 'UNKNOWN',
-      description: s.description || s.type || '',
-      amount: s.amount ?? 0,
-    })
-  );
+  const surcharges = (rated?.shipmentRateDetail?.surCharges || []).map((s: any) => ({
+    type: s.type || s.surchargeType || 'UNKNOWN',
+    description: s.description || s.type || '',
+    amount: s.amount ?? 0,
+  }));
 
   const transitDays =
-    rateDetail.commit?.transitDays?.description ||
-    rateDetail.commit?.dateDetail?.dayFormat ||
-    null;
+    rateDetail.commit?.transitDays?.description || rateDetail.commit?.dateDetail?.dayFormat || null;
 
   return {
     serviceType: rateDetail.serviceType || input.serviceType,
@@ -778,13 +767,13 @@ function extractDateByType(
   type: string
 ): Date | null {
   if (!dateAndTimes) return null;
-  const entry = dateAndTimes.find(
-    (d) => d.type?.toUpperCase() === type.toUpperCase()
-  );
+  const entry = dateAndTimes.find((d) => d.type?.toUpperCase() === type.toUpperCase());
   return parseFedExDateTime(entry?.dateTime);
 }
 
-function buildLocationString(loc: { city?: string; stateOrProvinceCode?: string; state?: string } | undefined): string {
+function buildLocationString(
+  loc: { city?: string; stateOrProvinceCode?: string; state?: string } | undefined
+): string {
   if (!loc) return '';
   const city = loc.city || '';
   const state = loc.stateOrProvinceCode || loc.state || '';
@@ -812,16 +801,18 @@ function parseTrackResult(trackingNumber: string, trackResult: any): TrackingRes
   const statusCode: string = latest.code || '';
   const status = mapFedExStatus(statusCode);
   const statusDescription = latest.statusByLocale || latest.description || statusCode;
-  const statusDetail = latest.ancillaryDetail?.reason || latest.ancillaryDetail?.reasonDetail || null;
+  const statusDetail =
+    latest.ancillaryDetail?.reason || latest.ancillaryDetail?.reasonDetail || null;
 
   const scanLocation = latest.scanLocation || {};
-  const location = (scanLocation.city || scanLocation.stateOrProvinceCode)
-    ? {
-        city: scanLocation.city,
-        state: scanLocation.stateOrProvinceCode,
-        countryCode: scanLocation.countryCode,
-      }
-    : null;
+  const location =
+    scanLocation.city || scanLocation.stateOrProvinceCode
+      ? {
+          city: scanLocation.city,
+          state: scanLocation.stateOrProvinceCode,
+          countryCode: scanLocation.countryCode,
+        }
+      : null;
 
   const dateAndTimes: Array<{ type?: string; dateTime?: string }> = trackResult.dateAndTimes || [];
   const estimatedDelivery =
@@ -856,9 +847,22 @@ function parseTrackResult(trackingNumber: string, trackResult: any): TrackingRes
       deliveryLocation: dd.actualDeliveryAddress
         ? buildLocationString(dd.actualDeliveryAddress)
         : null,
-      deliveryLocationType: dd.locationType || attempt?.deliveryOptionEligibilityDetails?.[0]?.option || null,
-      signatureUrl: findUrl('signatureUrl', 'proofOfDeliveryURL', 'signatureImageUrl', 'signatureProofOfDeliveryURL'),
-      photoUrl: findUrl('photoUrl', 'pictureProofOfDeliveryURL', 'pictureProofURL', 'deliveryPhotoUrl', 'imageUrl', 'proofOfDeliveryImageURL'),
+      deliveryLocationType:
+        dd.locationType || attempt?.deliveryOptionEligibilityDetails?.[0]?.option || null,
+      signatureUrl: findUrl(
+        'signatureUrl',
+        'proofOfDeliveryURL',
+        'signatureImageUrl',
+        'signatureProofOfDeliveryURL'
+      ),
+      photoUrl: findUrl(
+        'photoUrl',
+        'pictureProofOfDeliveryURL',
+        'pictureProofURL',
+        'deliveryPhotoUrl',
+        'imageUrl',
+        'proofOfDeliveryImageURL'
+      ),
       availableImages,
       rawDeliveryDetails: dd,
     };
@@ -870,7 +874,10 @@ function parseTrackResult(trackingNumber: string, trackResult: any): TrackingRes
       deliveryLocationType: null,
       signatureUrl: null,
       photoUrl: null,
-      availableImages: rawAvailableImages.map((img: any) => ({ type: img.type || '', size: img.size || undefined })),
+      availableImages: rawAvailableImages.map((img: any) => ({
+        type: img.type || '',
+        size: img.size || undefined,
+      })),
       rawDeliveryDetails: null,
     };
   }
@@ -890,7 +897,9 @@ function parseTrackResult(trackingNumber: string, trackResult: any): TrackingRes
     statusDescription,
     locationStr ? `- ${locationStr}` : '',
     signedBy ? `Signed by: ${signedBy}` : '',
-  ].filter(Boolean).join(' ');
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return {
     trackingNumber,
@@ -950,9 +959,7 @@ export async function trackShipment(
   const effectiveCreds = getEffectiveTrackCredentials(credentials);
 
   const payload = {
-    trackingInfo: [
-      { trackingNumberInfo: { trackingNumber } },
-    ],
+    trackingInfo: [{ trackingNumberInfo: { trackingNumber } }],
     includeDetailedScans: true,
   };
 
@@ -1181,7 +1188,14 @@ class FedExShippingAdapter implements ShippingAdapter {
       packagingType: params.packagingType,
       shipper: params.shipper,
       recipient: params.recipient,
-      packages: [{ weightLbs: params.weightLbs, length: params.length, width: params.width, height: params.height }],
+      packages: [
+        {
+          weightLbs: params.weightLbs,
+          length: params.length,
+          width: params.width,
+          height: params.height,
+        },
+      ],
     });
   }
 

@@ -66,8 +66,7 @@ export default function ClinicSwitcher({ className = '' }: ClinicSwitcherProps) 
       }
 
       const response = await apiFetch('/api/user/clinics', {
-        headers: {
-        },
+        headers: {},
       });
 
       if (response.ok) {
@@ -150,7 +149,11 @@ export default function ClinicSwitcher({ className = '' }: ClinicSwitcherProps) 
               src={activeClinic.iconUrl || activeClinic.faviconUrl || activeClinic.logoUrl}
               alt=""
               className="h-5 w-5 rounded object-contain"
-              onError={(e) => { e.currentTarget.style.display = 'none'; const fb = e.currentTarget.nextElementSibling as HTMLElement | null; if (fb) fb.style.display = ''; }}
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                const fb = e.currentTarget.nextElementSibling as HTMLElement | null;
+                if (fb) fb.style.display = '';
+              }}
             />
             <Building2 className="h-4 w-4 text-gray-500" style={{ display: 'none' }} />
           </>
@@ -181,7 +184,11 @@ export default function ClinicSwitcher({ className = '' }: ClinicSwitcherProps) 
               src={activeClinic.iconUrl || activeClinic.faviconUrl || activeClinic.logoUrl}
               alt=""
               className="h-5 w-5 rounded object-contain"
-              onError={(e) => { e.currentTarget.style.display = 'none'; const fb = e.currentTarget.nextElementSibling as HTMLElement | null; if (fb) fb.style.display = ''; }}
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                const fb = e.currentTarget.nextElementSibling as HTMLElement | null;
+                if (fb) fb.style.display = '';
+              }}
             />
             <Building2 className="h-4 w-4 text-gray-500" style={{ display: 'none' }} />
           </>
@@ -220,7 +227,11 @@ export default function ClinicSwitcher({ className = '' }: ClinicSwitcherProps) 
                       src={clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl}
                       alt=""
                       className="h-8 w-8 rounded-lg object-contain"
-                      onError={(e) => { e.currentTarget.style.display = 'none'; const fb = e.currentTarget.nextElementSibling as HTMLElement | null; if (fb) fb.style.display = ''; }}
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        const fb = e.currentTarget.nextElementSibling as HTMLElement | null;
+                        if (fb) fb.style.display = '';
+                      }}
                     />
                     <div
                       className="flex h-8 w-8 items-center justify-center rounded-lg"

@@ -175,7 +175,9 @@ async function getDisputesHandler(request: NextRequest, user: AuthUser) {
     logger.error('[STRIPE DISPUTES] Error:', error);
 
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : String(error) || 'Failed to fetch disputes' },
+      {
+        error: error instanceof Error ? error.message : String(error) || 'Failed to fetch disputes',
+      },
       { status: 500 }
     );
   }
@@ -240,7 +242,10 @@ async function submitDisputeEvidenceHandler(request: NextRequest, user: AuthUser
     logger.error('[STRIPE DISPUTES] Error submitting evidence:', error);
 
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : String(error) || 'Failed to submit evidence' },
+      {
+        error:
+          error instanceof Error ? error.message : String(error) || 'Failed to submit evidence',
+      },
       { status: 500 }
     );
   }

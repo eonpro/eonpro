@@ -21,7 +21,7 @@ const securityHeaders: Record<string, string> = {
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'self'",
-    "upgrade-insecure-requests",
+    'upgrade-insecure-requests',
   ].join('; '),
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'SAMEORIGIN',
@@ -96,17 +96,12 @@ function isAffiliateDashboardRoute(pathname: string): boolean {
   // Exact match: /affiliate root is the dashboard home
   if (pathname === '/affiliate') return true;
   // Known dashboard sub-paths (exact or prefix match for nested routes like /account/edit)
-  return AFFILIATE_DASHBOARD_PATHS.some(
-    (p) => pathname === p || pathname.startsWith(p + '/')
-  );
+  return AFFILIATE_DASHBOARD_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'));
 }
 
 function isAffiliatePortalRoute(pathname: string): boolean {
   const portalBase = getPatientPortalBasePath();
-  return (
-    pathname === `${portalBase}/affiliate` ||
-    pathname.startsWith(`${portalBase}/affiliate/`)
-  );
+  return pathname === `${portalBase}/affiliate` || pathname.startsWith(`${portalBase}/affiliate/`);
 }
 
 function isPatientPortalRoute(pathname: string): boolean {
@@ -150,13 +145,20 @@ export async function proxy(request: NextRequest) {
     const hasSalesRepToken = request.cookies.get('sales_rep-token')?.value;
     const hasAffiliateSession = request.cookies.get('affiliate_session')?.value;
 
-    const hasPrimarySession = hasAuthToken || hasAdminToken || hasSuperAdminToken || hasProviderToken || hasStaffToken || hasPharmacyRepToken || hasSalesRepToken;
+    const hasPrimarySession =
+      hasAuthToken ||
+      hasAdminToken ||
+      hasSuperAdminToken ||
+      hasProviderToken ||
+      hasStaffToken ||
+      hasPharmacyRepToken ||
+      hasSalesRepToken;
 
     if (!hasPrimarySession && hasAffiliateSession) {
       // Stale affiliate session detected: admin session expired, affiliate cookie remains
       console.warn(
         '[Proxy] Stale affiliate session on root page — redirecting to /login. ' +
-        'Admin/provider session expired but 30-day affiliate_session cookie remained.'
+          'Admin/provider session expired but 30-day affiliate_session cookie remained.'
       );
 
       const loginUrl = new URL('/login', request.url);
@@ -179,8 +181,7 @@ export async function proxy(request: NextRequest) {
   // Protect /affiliate dashboard routes (not public pages like login, apply, landing pages)
   if (isAffiliateDashboardRoute(pathname)) {
     const token =
-      request.cookies.get('affiliate_session')?.value ||
-      request.cookies.get('auth-token')?.value;
+      request.cookies.get('affiliate_session')?.value || request.cookies.get('auth-token')?.value;
     if (!token || !isValidJwtFormat(token)) {
       const loginUrl = new URL('/affiliate/login', request.url);
       loginUrl.searchParams.set('redirect', pathname);
@@ -192,8 +193,7 @@ export async function proxy(request: NextRequest) {
   // Legacy /portal/affiliate routes (redirected in next.config.js, but protect as fallback)
   if (isAffiliatePortalRoute(pathname)) {
     const token =
-      request.cookies.get('affiliate_session')?.value ||
-      request.cookies.get('auth-token')?.value;
+      request.cookies.get('affiliate_session')?.value || request.cookies.get('auth-token')?.value;
     if (!token || !isValidJwtFormat(token)) {
       const loginUrl = new URL('/affiliate/login', request.url);
       loginUrl.searchParams.set('redirect', '/affiliate');
@@ -217,7 +217,11 @@ export async function proxy(request: NextRequest) {
   // All app/clinic domains redirect "/" to "/login". The public marketing site
   // at www.eonpro.io is the only exception — it should show the landing page.
   if (pathname === '/') {
-    const host = (request.headers.get('x-forwarded-host')?.split(',')[0]?.trim() || request.headers.get('host') || '').split(':')[0];
+    const host = (
+      request.headers.get('x-forwarded-host')?.split(',')[0]?.trim() ||
+      request.headers.get('host') ||
+      ''
+    ).split(':')[0];
     const isPublicWebsite = host === 'www.eonpro.io' || host === 'eonpro.io';
     if (!isPublicWebsite) {
       return NextResponse.redirect(new URL('/login', request.url));
@@ -260,8 +264,14 @@ export async function proxy(request: NextRequest) {
       (process.env.NODE_ENV === 'development' && origin.startsWith('http://localhost'));
     if (isAllowed) {
       response.headers.set('Access-Control-Allow-Origin', origin);
-      response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-      response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-api-key, x-webhook-secret');
+      response.headers.set(
+        'Access-Control-Allow-Methods',
+        'GET, POST, PUT, DELETE, PATCH, OPTIONS'
+      );
+      response.headers.set(
+        'Access-Control-Allow-Headers',
+        'Content-Type, Authorization, x-api-key, x-webhook-secret'
+      );
       response.headers.set('Access-Control-Max-Age', '86400');
       response.headers.set('Access-Control-Allow-Credentials', 'true');
     }

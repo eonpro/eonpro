@@ -405,15 +405,18 @@ export async function generateDailyInvoices(
     const meta = (order.patient?.sourceMetadata ?? null) as Record<string, unknown> | null;
     if (meta?.selectedAddons) {
       try {
-        const parsed = typeof meta.selectedAddons === 'string'
-          ? JSON.parse(meta.selectedAddons as string)
-          : meta.selectedAddons;
+        const parsed =
+          typeof meta.selectedAddons === 'string'
+            ? JSON.parse(meta.selectedAddons as string)
+            : meta.selectedAddons;
         if (Array.isArray(parsed)) {
           orderAddonKeys = parsed.filter(
-            (k: unknown): k is AddonKey => typeof k === 'string' && k in ADDON_PHARMACY_FEES,
+            (k: unknown): k is AddonKey => typeof k === 'string' && k in ADDON_PHARMACY_FEES
           );
         }
-      } catch { /* ignore parse errors */ }
+      } catch {
+        /* ignore parse errors */
+      }
     }
 
     if (orderAddonKeys.length === 0) {
@@ -444,9 +447,7 @@ export async function generateDailyInvoices(
     // --- Prescription Services ---
     // Cancelled orders show on the invoice at $0 and don't affect the 90-day cycle.
     if (isCancelled) {
-      const medicationsList = order.rxs
-        .map((rx) => `${rx.medName} ${rx.strength}`)
-        .join(', ');
+      const medicationsList = order.rxs.map((rx) => `${rx.medName} ${rx.strength}`).join(', ');
 
       rxServiceLineItems.push({
         orderId: order.id,
@@ -577,7 +578,9 @@ export function generatePharmacyCSV(invoice: PharmacyInvoice): string {
 
   lines.push('WELLMEDR PHARMACY PRODUCTS INVOICE');
   lines.push(`Clinic,${escapeCSV(invoice.clinicName)}`);
-  lines.push(`Period,${new Date(invoice.periodStart).toLocaleDateString('en-US')} - ${new Date(invoice.periodEnd).toLocaleDateString('en-US')}`);
+  lines.push(
+    `Period,${new Date(invoice.periodStart).toLocaleDateString('en-US')} - ${new Date(invoice.periodEnd).toLocaleDateString('en-US')}`
+  );
   lines.push(`Generated,${new Date(invoice.invoiceDate).toLocaleString('en-US')}`);
   lines.push(`Total Orders,${invoice.orderCount}`);
   lines.push(`Total Vials,${invoice.vialCount}`);
@@ -585,7 +588,19 @@ export function generatePharmacyCSV(invoice: PharmacyInvoice): string {
 
   lines.push('=== MEDICATION LINE ITEMS ===');
   lines.push(
-    ['Date', 'Order ID', 'LF Order ID', 'Patient', 'Provider', 'Medication', 'Strength', 'Vial Size', 'Qty', 'Unit Price', 'Line Total']
+    [
+      'Date',
+      'Order ID',
+      'LF Order ID',
+      'Patient',
+      'Provider',
+      'Medication',
+      'Strength',
+      'Vial Size',
+      'Qty',
+      'Unit Price',
+      'Line Total',
+    ]
       .map(escapeCSV)
       .join(',')
   );
@@ -616,7 +631,9 @@ export function generatePharmacyCSV(invoice: PharmacyInvoice): string {
   if (invoice.shippingLineItems.length > 0) {
     lines.push('');
     lines.push('=== SHIPPING SURCHARGES ===');
-    lines.push(['Date', 'Order ID', 'LF Order ID', 'Patient', 'Description', 'Fee'].map(escapeCSV).join(','));
+    lines.push(
+      ['Date', 'Order ID', 'LF Order ID', 'Patient', 'Description', 'Fee'].map(escapeCSV).join(',')
+    );
 
     for (const sl of invoice.shippingLineItems) {
       lines.push(
@@ -671,10 +688,14 @@ export function generatePrescriptionServicesCSV(invoice: PrescriptionServicesInv
 
   lines.push('WELLMEDR PRESCRIPTION MEDICAL SERVICES INVOICE');
   lines.push(`Clinic,${escapeCSV(invoice.clinicName)}`);
-  lines.push(`Period,${new Date(invoice.periodStart).toLocaleDateString('en-US')} - ${new Date(invoice.periodEnd).toLocaleDateString('en-US')}`);
+  lines.push(
+    `Period,${new Date(invoice.periodStart).toLocaleDateString('en-US')} - ${new Date(invoice.periodEnd).toLocaleDateString('en-US')}`
+  );
   lines.push(`Generated,${new Date(invoice.invoiceDate).toLocaleString('en-US')}`);
   lines.push(`New Rx Fee,$${centsToDisplay(invoice.newFeeCents)}`);
-  lines.push(`Refill Fee (within ${PRESCRIPTION_SERVICE_CYCLE_DAYS} days),$${centsToDisplay(invoice.refillFeeCents)}`);
+  lines.push(
+    `Refill Fee (within ${PRESCRIPTION_SERVICE_CYCLE_DAYS} days),$${centsToDisplay(invoice.refillFeeCents)}`
+  );
   lines.push(`New Prescriptions,${invoice.newPrescriptionCount}`);
   lines.push(`Refill Prescriptions,${invoice.refillPrescriptionCount}`);
   if (invoice.cancelledPrescriptionCount > 0) {
@@ -728,16 +749,22 @@ async function loadAsset(relPath: string): Promise<Uint8Array | null> {
   // Try local filesystem first (works in dev + standalone builds)
   try {
     return new Uint8Array(await fs.readFile(path.join(process.cwd(), 'public', relPath)));
-  } catch { /* fall through */ }
+  } catch {
+    /* fall through */
+  }
 
   // On Vercel serverless, public/ files aren't on disk — fetch via HTTP
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL;
   if (baseUrl) {
     try {
-      const url = baseUrl.startsWith('http') ? `${baseUrl}/${relPath}` : `https://${baseUrl}/${relPath}`;
+      const url = baseUrl.startsWith('http')
+        ? `${baseUrl}/${relPath}`
+        : `https://${baseUrl}/${relPath}`;
       const res = await fetch(url);
       if (res.ok) return new Uint8Array(await res.arrayBuffer());
-    } catch { /* fall through */ }
+    } catch {
+      /* fall through */
+    }
   }
 
   return null;
@@ -760,17 +787,32 @@ const A = { r: 0.72, g: 0.49, b: 0.07 }; // amber
 
 function fmtDateTimeET(iso: string): string {
   return new Date(iso).toLocaleString('en-US', {
-    month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: CLINIC_TZ,
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: CLINIC_TZ,
   });
 }
 
 function fmtPeriod(start: string, end: string): string {
-  const s = new Date(start).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-  const e = new Date(end).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const s = new Date(start).toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+  const e = new Date(end).toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
   return s === e ? s : `${s}  -  ${e}`;
 }
 
-function $(cents: number): string { return `$${centsToDisplay(cents)}`; }
+function $(cents: number): string {
+  return `$${centsToDisplay(cents)}`;
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PHARMACY PRODUCTS PDF — grouped by order, shipping inline, per-order totals
@@ -783,7 +825,9 @@ export async function generatePharmacyPDF(invoice: PharmacyInvoice): Promise<Uin
   let sofia: Awaited<ReturnType<typeof doc.embedFont>>;
   try {
     const sofiaBytes = await loadSofiaFont();
-    sofia = sofiaBytes ? await doc.embedFont(sofiaBytes) : await doc.embedFont(StandardFonts.Helvetica);
+    sofia = sofiaBytes
+      ? await doc.embedFont(sofiaBytes)
+      : await doc.embedFont(StandardFonts.Helvetica);
   } catch {
     sofia = await doc.embedFont(StandardFonts.Helvetica);
   }
@@ -793,9 +837,14 @@ export async function generatePharmacyPDF(invoice: PharmacyInvoice): Promise<Uin
   try {
     const logoBytes = await loadLogo();
     logo = logoBytes ? await doc.embedPng(logoBytes) : null;
-  } catch { /* skip logo */ }
+  } catch {
+    /* skip logo */
+  }
 
-  const PW = 792; const PH = 612; const M = 42; const TW = PW - 2 * M;
+  const PW = 792;
+  const PH = 612;
+  const M = 42;
+  const TW = PW - 2 * M;
   const R = 13;
 
   let pg = doc.addPage([PW, PH]);
@@ -814,20 +863,41 @@ export async function generatePharmacyPDF(invoice: PharmacyInvoice): Promise<Uin
   function t(s: string, x: number, f = sofia, sz = 8, c = dark) {
     pg.drawText(sanitizeForPdf(s), { x, y, size: sz, font: f, color: c });
   }
-  function tr(s: string, max: number) { return s.length > max ? s.slice(0, max - 1) + '..' : s; }
+  function tr(s: string, max: number) {
+    return s.length > max ? s.slice(0, max - 1) + '..' : s;
+  }
   function line(x1: number, x2: number, th = 0.5, c = rgb(0.88, 0.88, 0.88)) {
     pg.drawLine({ start: { x: x1, y }, end: { x: x2, y }, thickness: th, color: c });
   }
   function rect(x: number, w: number, h: number, c = greenBg) {
     pg.drawRectangle({ x, y: y - 3, width: w, height: h, color: c });
   }
-  function newPg() { footer(); pg = doc.addPage([PW, PH]); y = PH - M; pageNum++; }
-  function need(h: number) { if (y - h < M + 22) newPg(); }
+  function newPg() {
+    footer();
+    pg = doc.addPage([PW, PH]);
+    y = PH - M;
+    pageNum++;
+  }
+  function need(h: number) {
+    if (y - h < M + 22) newPg();
+  }
   function footer() {
-    pg.drawLine({ start: { x: M, y: 28 }, end: { x: PW - M, y: 28 }, thickness: 0.4, color: rgb(0.88, 0.88, 0.88) });
-    pg.drawText(sanitizeForPdf(`EONPro  |  WellMedR Pharmacy Invoice  |  Confidential  |  Page ${pageNum}`), {
-      x: M, y: 16, size: 6.5, font: sofia, color: light,
+    pg.drawLine({
+      start: { x: M, y: 28 },
+      end: { x: PW - M, y: 28 },
+      thickness: 0.4,
+      color: rgb(0.88, 0.88, 0.88),
     });
+    pg.drawText(
+      sanitizeForPdf(`EONPro  |  WellMedR Pharmacy Invoice  |  Confidential  |  Page ${pageNum}`),
+      {
+        x: M,
+        y: 16,
+        size: 6.5,
+        font: sofia,
+        color: light,
+      }
+    );
   }
 
   // ── HEADER ──
@@ -850,7 +920,7 @@ export async function generatePharmacyPDF(invoice: PharmacyInvoice): Promise<Uin
     M,
     sofia,
     8,
-    mid,
+    mid
   );
   t(`Generated ${new Date().toLocaleString('en-US')}`, PW - M - 260, sofia, 7.5, light);
   y -= 20;
@@ -867,13 +937,27 @@ export async function generatePharmacyPDF(invoice: PharmacyInvoice): Promise<Uin
     total: number;
   }
   const medMap = new Map<number, PharmacyLineItem[]>();
-  for (const li of invoice.lineItems) { const a = medMap.get(li.orderId) ?? []; a.push(li); medMap.set(li.orderId, a); }
+  for (const li of invoice.lineItems) {
+    const a = medMap.get(li.orderId) ?? [];
+    a.push(li);
+    medMap.set(li.orderId, a);
+  }
   const shipMap = new Map<number, ShippingLineItem[]>();
-  for (const sl of invoice.shippingLineItems) { const a = shipMap.get(sl.orderId) ?? []; a.push(sl); shipMap.set(sl.orderId, a); }
+  for (const sl of invoice.shippingLineItems) {
+    const a = shipMap.get(sl.orderId) ?? [];
+    a.push(sl);
+    shipMap.set(sl.orderId, a);
+  }
   const addonMap = new Map<number, AddonLineItem[]>();
-  for (const al of invoice.addonLineItems) { const a = addonMap.get(al.orderId) ?? []; a.push(al); addonMap.set(al.orderId, a); }
+  for (const al of invoice.addonLineItems) {
+    const a = addonMap.get(al.orderId) ?? [];
+    a.push(al);
+    addonMap.set(al.orderId, a);
+  }
   const orderIds: number[] = [];
-  const pushId = (id: number) => { if (!orderIds.includes(id)) orderIds.push(id); };
+  const pushId = (id: number) => {
+    if (!orderIds.includes(id)) orderIds.push(id);
+  };
   for (const li of invoice.lineItems) pushId(li.orderId);
   for (const sl of invoice.shippingLineItems) pushId(sl.orderId);
   for (const al of invoice.addonLineItems) pushId(al.orderId);
@@ -885,7 +969,16 @@ export async function generatePharmacyPDF(invoice: PharmacyInvoice): Promise<Uin
     const medCents = items.reduce((s, i) => s + i.lineTotalCents, 0);
     const shipCents = ship.reduce((s, i) => s + i.feeCents, 0);
     const addonCents = addons.reduce((s, a) => s + a.feeCents, 0);
-    groups.push({ id, items, ship, addons, medCents, shipCents, addonCents, total: medCents + shipCents + addonCents });
+    groups.push({
+      id,
+      items,
+      ship,
+      addons,
+      medCents,
+      shipCents,
+      addonCents,
+      total: medCents + shipCents + addonCents,
+    });
   }
 
   // ── PRODUCT BREAKDOWN CARD ──
@@ -909,7 +1002,15 @@ export async function generatePharmacyPDF(invoice: PharmacyInvoice): Promise<Uin
       const cardH = 18 + Math.ceil(entries.length / 3) * 16 + 8;
       need(cardH);
 
-      pg.drawRectangle({ x: M, y: y - cardH + 14, width: TW, height: cardH, color: rgb(0.95, 0.98, 0.96), borderColor: green, borderWidth: 0.6 });
+      pg.drawRectangle({
+        x: M,
+        y: y - cardH + 14,
+        width: TW,
+        height: cardH,
+        color: rgb(0.95, 0.98, 0.96),
+        borderColor: green,
+        borderWidth: 0.6,
+      });
       t('PRODUCT BREAKDOWN', M + 10, helvB, 8.5, green);
       const totalItems = entries.reduce((s, e) => s + e.count, 0);
       const summaryX = M + 180;
@@ -936,8 +1037,10 @@ export async function generatePharmacyPDF(invoice: PharmacyInvoice): Promise<Uin
   t('INVOICE TOTAL', M + 12, helvB, 11, white);
   const breakdownParts: string[] = [];
   breakdownParts.push(`Medications: ${$(invoice.subtotalMedicationsCents)}`);
-  if (invoice.subtotalShippingCents > 0) breakdownParts.push(`Shipping: ${$(invoice.subtotalShippingCents)}`);
-  if (invoice.subtotalAddonsCents > 0) breakdownParts.push(`Add-ons: ${$(invoice.subtotalAddonsCents)}`);
+  if (invoice.subtotalShippingCents > 0)
+    breakdownParts.push(`Shipping: ${$(invoice.subtotalShippingCents)}`);
+  if (invoice.subtotalAddonsCents > 0)
+    breakdownParts.push(`Add-ons: ${$(invoice.subtotalAddonsCents)}`);
   t(breakdownParts.join('  +  '), M + 160, sofia, 7.5, rgb(0.85, 1, 0.9));
   t($(invoice.totalCents), TW + M - 80, helvB, 13, white);
   y -= 32;
@@ -1004,7 +1107,12 @@ export async function generatePharmacyPDF(invoice: PharmacyInvoice): Promise<Uin
 
     // Order total row
     y -= 1;
-    pg.drawLine({ start: { x: cx.price - 10, y: y + R - 1 }, end: { x: PW - M, y: y + R - 1 }, thickness: 0.6, color: green });
+    pg.drawLine({
+      start: { x: cx.price - 10, y: y + R - 1 },
+      end: { x: PW - M, y: y + R - 1 },
+      thickness: 0.6,
+      color: green,
+    });
     t('Order Total', cx.price - 10, helvB, 7.5, green);
     t($(g.total), cx.amt, helvB, 8, green);
     y -= R + 6;
@@ -1027,14 +1135,18 @@ export async function generatePharmacyPDF(invoice: PharmacyInvoice): Promise<Uin
 // PRESCRIPTION SERVICES PDF
 // ═══════════════════════════════════════════════════════════════════════════
 
-export async function generatePrescriptionServicesPDF(invoice: PrescriptionServicesInvoice): Promise<Uint8Array> {
+export async function generatePrescriptionServicesPDF(
+  invoice: PrescriptionServicesInvoice
+): Promise<Uint8Array> {
   const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
   const doc = await PDFDocument.create();
 
   let sofia: Awaited<ReturnType<typeof doc.embedFont>>;
   try {
     const sofiaBytes = await loadSofiaFont();
-    sofia = sofiaBytes ? await doc.embedFont(sofiaBytes) : await doc.embedFont(StandardFonts.Helvetica);
+    sofia = sofiaBytes
+      ? await doc.embedFont(sofiaBytes)
+      : await doc.embedFont(StandardFonts.Helvetica);
   } catch {
     sofia = await doc.embedFont(StandardFonts.Helvetica);
   }
@@ -1044,9 +1156,14 @@ export async function generatePrescriptionServicesPDF(invoice: PrescriptionServi
   try {
     const logoBytes = await loadLogo();
     logo = logoBytes ? await doc.embedPng(logoBytes) : null;
-  } catch { /* skip logo */ }
+  } catch {
+    /* skip logo */
+  }
 
-  const PW = 792; const PH = 612; const M = 42; const TW = PW - 2 * M;
+  const PW = 792;
+  const PH = 612;
+  const M = 42;
+  const TW = PW - 2 * M;
   const R = 14;
 
   let pg = doc.addPage([PW, PH]);
@@ -1063,14 +1180,37 @@ export async function generatePrescriptionServicesPDF(invoice: PrescriptionServi
   function t(s: string, x: number, f = sofia, sz = 8, c = dark) {
     pg.drawText(sanitizeForPdf(s), { x, y, size: sz, font: f, color: c });
   }
-  function tr(s: string, max: number) { return s.length > max ? s.slice(0, max - 1) + '..' : s; }
-  function newPg() { footer(); pg = doc.addPage([PW, PH]); y = PH - M; pageNum++; }
-  function need(h: number) { if (y - h < M + 22) newPg(); }
+  function tr(s: string, max: number) {
+    return s.length > max ? s.slice(0, max - 1) + '..' : s;
+  }
+  function newPg() {
+    footer();
+    pg = doc.addPage([PW, PH]);
+    y = PH - M;
+    pageNum++;
+  }
+  function need(h: number) {
+    if (y - h < M + 22) newPg();
+  }
   function footer() {
-    pg.drawLine({ start: { x: M, y: 28 }, end: { x: PW - M, y: 28 }, thickness: 0.4, color: rgb(0.88, 0.88, 0.88) });
-    pg.drawText(sanitizeForPdf(`EONPro  |  WellMedR Rx Services Invoice  |  Confidential  |  Page ${pageNum}`), {
-      x: M, y: 16, size: 6.5, font: sofia, color: light,
+    pg.drawLine({
+      start: { x: M, y: 28 },
+      end: { x: PW - M, y: 28 },
+      thickness: 0.4,
+      color: rgb(0.88, 0.88, 0.88),
     });
+    pg.drawText(
+      sanitizeForPdf(
+        `EONPro  |  WellMedR Rx Services Invoice  |  Confidential  |  Page ${pageNum}`
+      ),
+      {
+        x: M,
+        y: 16,
+        size: 6.5,
+        font: sofia,
+        color: light,
+      }
+    );
   }
 
   // ── HEADER ──
@@ -1103,7 +1243,10 @@ export async function generatePrescriptionServicesPDF(invoice: PrescriptionServi
       if (li.chargeType === 'cancelled') continue;
       const medsStr = li.medications;
       const mainPart = medsStr.split('|')[0]?.trim() ?? medsStr;
-      const meds = mainPart.split(',').map((m) => m.trim()).filter(Boolean);
+      const meds = mainPart
+        .split(',')
+        .map((m) => m.trim())
+        .filter(Boolean);
       for (const med of meds) {
         const family = (med.split('/')[0]?.split(' ')[0] ?? med).trim() || 'Other';
         rxBuckets.set(family, (rxBuckets.get(family) ?? 0) + 1);
@@ -1117,7 +1260,15 @@ export async function generatePrescriptionServicesPDF(invoice: PrescriptionServi
       const cardH = 18 + Math.ceil(entries.length / 3) * 16 + 8;
       need(cardH);
 
-      pg.drawRectangle({ x: M, y: y - cardH + 14, width: TW, height: cardH, color: rgb(0.99, 0.97, 0.93), borderColor: amber, borderWidth: 0.6 });
+      pg.drawRectangle({
+        x: M,
+        y: y - cardH + 14,
+        width: TW,
+        height: cardH,
+        color: rgb(0.99, 0.97, 0.93),
+        borderColor: amber,
+        borderWidth: 0.6,
+      });
       t('PRODUCT BREAKDOWN', M + 10, helvB, 8.5, amber);
       const totalRx = invoice.totalPrescriptions;
       const summaryX = M + 180;
@@ -1154,7 +1305,16 @@ export async function generatePrescriptionServicesPDF(invoice: PrescriptionServi
   y -= 32;
 
   // Column header
-  const rc = { paid: M + 6, sent: M + 85, order: M + 155, patient: M + 195, lf: M + 310, meds: M + 400, type: M + 530, fee: TW + M - 60 };
+  const rc = {
+    paid: M + 6,
+    sent: M + 85,
+    order: M + 155,
+    patient: M + 195,
+    lf: M + 310,
+    meds: M + 400,
+    type: M + 530,
+    fee: TW + M - 60,
+  };
   pg.drawRectangle({ x: M, y: y - 3, width: TW, height: 18, color: amber });
   t('Paid (ET)', rc.paid, helvB, 6.5, white);
   t('Sent (ET)', rc.sent, helvB, 6.5, white);
@@ -1191,7 +1351,12 @@ export async function generatePrescriptionServicesPDF(invoice: PrescriptionServi
       pg.drawRectangle({ x: M, y: y - 3, width: TW, height: R, color: amberBg });
     }
     if (i > 0) {
-      pg.drawLine({ start: { x: M, y: y + R - 1 }, end: { x: PW - M, y: y + R - 1 }, thickness: 0.25, color: rgb(0.88, 0.88, 0.88) });
+      pg.drawLine({
+        start: { x: M, y: y + R - 1 },
+        end: { x: PW - M, y: y + R - 1 },
+        thickness: 0.25,
+        color: rgb(0.88, 0.88, 0.88),
+      });
     }
 
     t(li.paidAt ? fmtDateTimeET(li.paidAt) : '-', rc.paid, sofia, 6.5, rgb(0.15, 0.55, 0.35));
@@ -1200,8 +1365,14 @@ export async function generatePrescriptionServicesPDF(invoice: PrescriptionServi
     t(tr(li.patientName, 20), rc.patient, helvB, 7.5);
     t(li.lifefileOrderId ?? '-', rc.lf, sofia, 7, mid);
     t(tr(li.medications, 20), rc.meds, sofia, 7);
-    const typeLabel = li.chargeType === 'cancelled' ? 'Cancelled' : li.chargeType === 'new' ? 'New' : 'Refill';
-    const typeColor = li.chargeType === 'cancelled' ? mid : li.chargeType === 'new' ? newBadgeColor : refillBadgeColor;
+    const typeLabel =
+      li.chargeType === 'cancelled' ? 'Cancelled' : li.chargeType === 'new' ? 'New' : 'Refill';
+    const typeColor =
+      li.chargeType === 'cancelled'
+        ? mid
+        : li.chargeType === 'new'
+          ? newBadgeColor
+          : refillBadgeColor;
     t(typeLabel, rc.type, helvB, 6.5, typeColor);
     t($(li.feeCents), rc.fee, helvB, 7.5, li.chargeType === 'cancelled' ? mid : amber);
     y -= R;

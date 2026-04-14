@@ -31,45 +31,45 @@ export default function TermsOfServicePage() {
           <div className="prose prose-gray max-w-none">
             <h2>1. Acceptance of Terms</h2>
             <p>
-              By accessing or using our telehealth platform and services, you agree to be bound
-              by these Terms of Service. If you do not agree, please do not use our services.
+              By accessing or using our telehealth platform and services, you agree to be bound by
+              these Terms of Service. If you do not agree, please do not use our services.
             </p>
 
             <h2>2. Description of Services</h2>
             <p>
               We provide a telehealth platform that connects patients with licensed healthcare
-              providers for consultations, prescriptions, and ongoing care management. Our
-              services include but are not limited to online consultations, prescription
-              management, medication delivery coordination, and patient health monitoring.
+              providers for consultations, prescriptions, and ongoing care management. Our services
+              include but are not limited to online consultations, prescription management,
+              medication delivery coordination, and patient health monitoring.
             </p>
 
             <h2>3. Eligibility</h2>
             <p>
-              You must be at least 18 years of age and a resident of a state where our services
-              are available. You must provide accurate, complete information when creating an
-              account and during any medical consultations.
+              You must be at least 18 years of age and a resident of a state where our services are
+              available. You must provide accurate, complete information when creating an account
+              and during any medical consultations.
             </p>
 
             <h2>4. Medical Disclaimer</h2>
             <p>
-              Our platform facilitates healthcare services but is not a substitute for
-              in-person medical care when such care is needed. In case of a medical emergency,
-              call 911 or go to the nearest emergency room. Healthcare providers on our platform
-              exercise independent medical judgment.
+              Our platform facilitates healthcare services but is not a substitute for in-person
+              medical care when such care is needed. In case of a medical emergency, call 911 or go
+              to the nearest emergency room. Healthcare providers on our platform exercise
+              independent medical judgment.
             </p>
 
             <h2>5. Account Responsibilities</h2>
             <p>
               You are responsible for maintaining the confidentiality of your account credentials.
-              You agree to notify us immediately of any unauthorized access. You must not share
-              your account or use another person&apos;s account.
+              You agree to notify us immediately of any unauthorized access. You must not share your
+              account or use another person&apos;s account.
             </p>
 
             <h2>6. Payment Terms</h2>
             <p>
               Fees for services are displayed before purchase. Payments are processed securely
-              through our payment provider. Refund policies are provided at the time of
-              purchase and vary by service type.
+              through our payment provider. Refund policies are provided at the time of purchase and
+              vary by service type.
             </p>
 
             <h2>7. Intellectual Property</h2>
@@ -81,8 +81,8 @@ export default function TermsOfServicePage() {
             <h2>8. Limitation of Liability</h2>
             <p>
               To the maximum extent permitted by law, we shall not be liable for any indirect,
-              incidental, special, consequential, or punitive damages arising from your use of
-              our services.
+              incidental, special, consequential, or punitive damages arising from your use of our
+              services.
             </p>
 
             <h2>9. Termination</h2>
@@ -93,8 +93,8 @@ export default function TermsOfServicePage() {
 
             <h2>10. Changes to Terms</h2>
             <p>
-              We may update these terms from time to time. Continued use after changes
-              constitutes acceptance of the modified terms.
+              We may update these terms from time to time. Continued use after changes constitutes
+              acceptance of the modified terms.
             </p>
 
             <h2>11. Contact</h2>

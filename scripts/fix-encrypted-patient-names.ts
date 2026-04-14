@@ -166,6 +166,7 @@ async function fixPatientNames() {
   console.log('\n✅ Done!');
 }
 
+// eslint-disable-next-line security-node/detect-unhandled-async-errors
 async function main() {
   const args = process.argv.slice(2);
   

@@ -67,16 +67,22 @@ async function handleRefresh(_req: NextRequest, user: AuthUser) {
     });
 
     const bareOrders = ordersWithTracking.filter(
-      (o) => o.trackingNumber && !coveredTrackingNumbers.has(o.trackingNumber) && isFedExTrackingNumber(o.trackingNumber)
+      (o) =>
+        o.trackingNumber &&
+        !coveredTrackingNumbers.has(o.trackingNumber) &&
+        isFedExTrackingNumber(o.trackingNumber)
     );
 
-    const allTrackingNumbers = [...new Set([
-      ...coveredTrackingNumbers,
-      ...bareOrders.map((o) => o.trackingNumber!),
-    ])];
+    const allTrackingNumbers = [
+      ...new Set([...coveredTrackingNumbers, ...bareOrders.map((o) => o.trackingNumber!)]),
+    ];
 
     if (allTrackingNumbers.length === 0) {
-      return NextResponse.json({ success: true, refreshed: 0, message: 'No active FedEx shipments to refresh' });
+      return NextResponse.json({
+        success: true,
+        refreshed: 0,
+        message: 'No active FedEx shipments to refresh',
+      });
     }
 
     const allowEnvFallback = process.env.FEDEX_ALLOW_ENV_FALLBACK_FOR_CLINIC_SHIPPING === 'true';
@@ -95,7 +101,10 @@ async function handleRefresh(_req: NextRequest, user: AuthUser) {
     try {
       resolution = resolveCredentialsWithAttribution(clinic ?? undefined, { allowEnvFallback });
     } catch {
-      return NextResponse.json({ error: 'FedEx tracking is not available at this time' }, { status: 503 });
+      return NextResponse.json(
+        { error: 'FedEx tracking is not available at this time' },
+        { status: 503 }
+      );
     }
 
     const results = await trackShipmentBatch(resolution.credentials, allTrackingNumbers);

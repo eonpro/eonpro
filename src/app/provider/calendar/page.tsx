@@ -8,7 +8,17 @@ import ProviderCalendar from '@/components/ProviderCalendar';
 import CalendarSync from '@/components/CalendarSync';
 import AppointmentModal from '@/components/AppointmentModal';
 import ProviderAvailabilityManager from '@/components/ProviderAvailabilityManager';
-import { Calendar, Clock, Video, Users, Bell, Settings, Plus, Loader2, CalendarCog } from 'lucide-react';
+import {
+  Calendar,
+  Clock,
+  Video,
+  Users,
+  Bell,
+  Settings,
+  Plus,
+  Loader2,
+  CalendarCog,
+} from 'lucide-react';
 
 interface Appointment {
   id: number;
@@ -247,7 +257,9 @@ function ProviderCalendarContent() {
               <button
                 onClick={() => setActiveView('calendar')}
                 className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
-                  activeView === 'calendar' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                  activeView === 'calendar'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
                 <Calendar className="mr-1 inline h-3.5 w-3.5" />
@@ -256,7 +268,9 @@ function ProviderCalendarContent() {
               <button
                 onClick={() => setActiveView('availability')}
                 className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
-                  activeView === 'availability' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                  activeView === 'availability'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
                 <CalendarCog className="mr-1 inline h-3.5 w-3.5" />
@@ -420,21 +434,27 @@ function ProviderCalendarContent() {
               {/* Quick Actions */}
               <div className="mt-6 space-y-2 border-t pt-4">
                 <button
-                  onClick={() => { window.location.href = '/provider/patients'; }}
+                  onClick={() => {
+                    window.location.href = '/provider/patients';
+                  }}
                   className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-50"
                 >
                   <Users className="h-4 w-4 text-gray-500" />
                   <span>Manage Patients</span>
                 </button>
                 <button
-                  onClick={() => { window.location.href = '/provider/settings'; }}
+                  onClick={() => {
+                    window.location.href = '/provider/settings';
+                  }}
                   className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-50"
                 >
                   <Bell className="h-4 w-4 text-gray-500" />
                   <span>Notification Settings</span>
                 </button>
                 <button
-                  onClick={() => { window.location.href = '/provider/telehealth'; }}
+                  onClick={() => {
+                    window.location.href = '/provider/telehealth';
+                  }}
                   className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-50"
                 >
                   <Video className="h-4 w-4 text-gray-500" />

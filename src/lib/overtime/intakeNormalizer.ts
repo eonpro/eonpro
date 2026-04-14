@@ -1463,10 +1463,7 @@ function buildOvertimePatient(payload: OvertimePayload): NormalizedPatient {
   // better data (e.g., Address only has street, but City/ZIP are separate).
   // ========================================
   const gapCity =
-    payload['City'] ||
-    payload['city'] ||
-    payload['Address [City]'] ||
-    payload['Address [city]'];
+    payload['City'] || payload['city'] || payload['Address [City]'] || payload['Address [city]'];
   if (!patient.city && gapCity) {
     patient.city = String(gapCity).trim();
   }
@@ -1505,9 +1502,7 @@ function buildOvertimePatient(payload: OvertimePayload): NormalizedPatient {
     payload['address1'] ||
     payload['street_address'] ||
     payload['street'];
-  const gapHouse =
-    payload['Address [house]'] ||
-    payload['Address [House]'];
+  const gapHouse = payload['Address [house]'] || payload['Address [House]'];
   if (!patient.address1 && (gapStreet || gapHouse)) {
     patient.address1 = [gapHouse, gapStreet].filter(Boolean).join(' ').trim();
   }
@@ -1691,9 +1686,9 @@ export function extractPromoCode(payload: Record<string, unknown>): string | nul
   const urlFields: string[] = [];
   for (const base of urlFieldBases) {
     urlFields.push(base);
-    urlFields.push(`${base} `);     // trailing space
-    urlFields.push(` ${base}`);     // leading space
-    urlFields.push(`${base}  `);    // double trailing space
+    urlFields.push(`${base} `); // trailing space
+    urlFields.push(` ${base}`); // leading space
+    urlFields.push(`${base}  `); // double trailing space
   }
 
   for (const field of urlFields) {

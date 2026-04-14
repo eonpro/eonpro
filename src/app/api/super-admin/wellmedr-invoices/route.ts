@@ -34,7 +34,7 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
     if (!parsed.success) {
       return NextResponse.json(
         { error: 'Invalid query parameters', details: parsed.error.flatten() },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -49,7 +49,12 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
       resourceType: 'WellmedrInvoice',
       action: 'wellmedr_invoice_generate',
       outcome: 'SUCCESS',
-      metadata: { date, endDate, pharmacyTotal: invoices.pharmacy.totalCents, rxServicesTotal: invoices.prescriptionServices.totalCents },
+      metadata: {
+        date,
+        endDate,
+        pharmacyTotal: invoices.pharmacy.totalCents,
+        rxServicesTotal: invoices.prescriptionServices.totalCents,
+      },
     });
 
     return NextResponse.json(invoices);
@@ -58,9 +63,6 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
       error: error instanceof Error ? error.message : 'Unknown error',
       userId: user.id,
     });
-    return NextResponse.json(
-      { error: 'Failed to generate WellMedR invoices' },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: 'Failed to generate WellMedR invoices' }, { status: 500 });
   }
 });

@@ -135,7 +135,12 @@ export function calculateShipmentDates(
 
     const shipmentDate = new Date(targetYear, targetMonthNormalized, clampedDay);
     // Preserve the time-of-day from the original date
-    shipmentDate.setHours(startDate.getHours(), startDate.getMinutes(), startDate.getSeconds(), startDate.getMilliseconds());
+    shipmentDate.setHours(
+      startDate.getHours(),
+      startDate.getMinutes(),
+      startDate.getSeconds(),
+      startDate.getMilliseconds()
+    );
     dates.push(shipmentDate);
   }
 
@@ -236,51 +241,54 @@ export async function createShipmentScheduleForSubscription(
   const shipmentDates = calculateShipmentDates(startDate, totalShipments, effectiveBudDays);
 
   // Create all shipments in a transaction
-  const shipments = await prisma.$transaction(async (tx) => {
-    const createdShipments: RefillQueue[] = [];
-    let parentRefillId: number | null = null;
+  const shipments = await prisma.$transaction(
+    async (tx) => {
+      const createdShipments: RefillQueue[] = [];
+      let parentRefillId: number | null = null;
 
-    for (let i = 0; i < totalShipments; i++) {
-      const shipmentNumber = i + 1;
-      const isFirstShipment = i === 0;
+      for (let i = 0; i < totalShipments; i++) {
+        const shipmentNumber = i + 1;
+        const isFirstShipment = i === 0;
 
-      const refill: any = await tx.refillQueue.create({
+        const refill: any = await tx.refillQueue.create({
+          data: {
+            clinicId: subscription.clinicId!,
+            patientId: subscription.patientId,
+            subscriptionId: subscription.id,
+            vialCount: subscription.vialCount || 1,
+            refillIntervalDays: effectiveBudDays,
+            nextRefillDate: shipmentDates[i],
+            status: isFirstShipment ? 'PENDING_PAYMENT' : 'SCHEDULED',
+            planName: subscription.planName,
+            shipmentNumber,
+            totalShipments,
+            parentRefillId: parentRefillId,
+            budDays: effectiveBudDays,
+          },
+        });
+
+        // First shipment becomes the parent for subsequent ones
+        if (isFirstShipment) {
+          parentRefillId = refill.id;
+        }
+
+        createdShipments.push(refill);
+      }
+
+      // Update subscription with reference to first refill
+      await tx.subscription.update({
+        where: { id: subscription.id },
         data: {
-          clinicId: subscription.clinicId!,
-          patientId: subscription.patientId,
-          subscriptionId: subscription.id,
+          lastRefillQueueId: createdShipments[0].id,
           vialCount: subscription.vialCount || 1,
           refillIntervalDays: effectiveBudDays,
-          nextRefillDate: shipmentDates[i],
-          status: isFirstShipment ? 'PENDING_PAYMENT' : 'SCHEDULED',
-          planName: subscription.planName,
-          shipmentNumber,
-          totalShipments,
-          parentRefillId: parentRefillId,
-          budDays: effectiveBudDays,
         },
       });
 
-      // First shipment becomes the parent for subsequent ones
-      if (isFirstShipment) {
-        parentRefillId = refill.id;
-      }
-
-      createdShipments.push(refill);
-    }
-
-    // Update subscription with reference to first refill
-    await tx.subscription.update({
-      where: { id: subscription.id },
-      data: {
-        lastRefillQueueId: createdShipments[0].id,
-        vialCount: subscription.vialCount || 1,
-        refillIntervalDays: effectiveBudDays,
-      },
-    });
-
-    return createdShipments;
-  }, { timeout: 15000 });
+      return createdShipments;
+    },
+    { timeout: 15000 }
+  );
 
   logger.info('[ShipmentSchedule] Created multi-shipment schedule', {
     subscriptionId,
@@ -322,43 +330,46 @@ export async function createShipmentSchedule(
   const shipmentDates = calculateShipmentDates(startDate, totalShipments, budDays);
 
   // Create all shipments in a transaction
-  const shipments = await prisma.$transaction(async (tx) => {
-    const createdShipments: RefillQueue[] = [];
-    let parentRefillId: number | null = null;
+  const shipments = await prisma.$transaction(
+    async (tx) => {
+      const createdShipments: RefillQueue[] = [];
+      let parentRefillId: number | null = null;
 
-    for (let i = 0; i < totalShipments; i++) {
-      const shipmentNumber = i + 1;
-      const isFirstShipment = i === 0;
+      for (let i = 0; i < totalShipments; i++) {
+        const shipmentNumber = i + 1;
+        const isFirstShipment = i === 0;
 
-      const refill: any = await tx.refillQueue.create({
-        data: {
-          clinicId,
-          patientId,
-          subscriptionId,
-          vialCount,
-          refillIntervalDays: budDays,
-          nextRefillDate: shipmentDates[i],
-          status: isFirstShipment ? 'PENDING_PAYMENT' : 'SCHEDULED',
-          medicationName,
-          medicationStrength,
-          medicationForm,
-          planName,
-          shipmentNumber,
-          totalShipments,
-          parentRefillId,
-          budDays,
-        },
-      });
+        const refill: any = await tx.refillQueue.create({
+          data: {
+            clinicId,
+            patientId,
+            subscriptionId,
+            vialCount,
+            refillIntervalDays: budDays,
+            nextRefillDate: shipmentDates[i],
+            status: isFirstShipment ? 'PENDING_PAYMENT' : 'SCHEDULED',
+            medicationName,
+            medicationStrength,
+            medicationForm,
+            planName,
+            shipmentNumber,
+            totalShipments,
+            parentRefillId,
+            budDays,
+          },
+        });
 
-      if (isFirstShipment) {
-        parentRefillId = refill.id;
+        if (isFirstShipment) {
+          parentRefillId = refill.id;
+        }
+
+        createdShipments.push(refill);
       }
 
-      createdShipments.push(refill);
-    }
-
-    return createdShipments;
-  }, { timeout: 15000 });
+      return createdShipments;
+    },
+    { timeout: 15000 }
+  );
 
   logger.info('[ShipmentSchedule] Created shipment schedule', {
     clinicId,
@@ -505,54 +516,60 @@ export async function scheduleFutureRefillsFromInvoice(
   // Dates: index 0 = original (manual), 1 = 90d, 2 = 180d, 3 = 270d
   const shipmentDates = calculateShipmentDates(prescriptionDate, totalShipments, budDays);
 
-  const refills = await prisma.$transaction(async (tx) => {
-    const created: RefillQueue[] = [];
-    let parentRefillId: number | null = null;
+  const refills = await prisma.$transaction(
+    async (tx) => {
+      const created: RefillQueue[] = [];
+      let parentRefillId: number | null = null;
 
-    for (let i = 1; i < totalShipments; i++) {
-      const shipmentNumber = i; // 1, 2, 3 (first queued = 1, second = 2, third = 3)
-      const isFirstQueued = i === 1;
+      for (let i = 1; i < totalShipments; i++) {
+        const shipmentNumber = i; // 1, 2, 3 (first queued = 1, second = 2, third = 3)
+        const isFirstQueued = i === 1;
 
-      const refill: any = await tx.refillQueue.create({
-        data: {
-          clinicId,
-          patientId,
-          invoiceId,
-          vialCount: 3,
-          refillIntervalDays: budDays,
-          nextRefillDate: shipmentDates[i],
-          status: 'PENDING_ADMIN',
-          medicationName,
-          medicationStrength,
-          medicationForm,
-          planName,
-          shipmentNumber,
-          totalShipments: futureRefillCount,
-          parentRefillId,
-          budDays,
-          paymentVerified: true,
-          paymentVerifiedAt: new Date(),
-          paymentMethod: 'invoice-prepaid' as any,
-        },
-      });
+        const refill: any = await tx.refillQueue.create({
+          data: {
+            clinicId,
+            patientId,
+            invoiceId,
+            vialCount: 3,
+            refillIntervalDays: budDays,
+            nextRefillDate: shipmentDates[i],
+            status: 'PENDING_ADMIN',
+            medicationName,
+            medicationStrength,
+            medicationForm,
+            planName,
+            shipmentNumber,
+            totalShipments: futureRefillCount,
+            parentRefillId,
+            budDays,
+            paymentVerified: true,
+            paymentVerifiedAt: new Date(),
+            paymentMethod: 'invoice-prepaid' as any,
+          },
+        });
 
-      if (isFirstQueued) {
-        parentRefillId = refill.id;
+        if (isFirstQueued) {
+          parentRefillId = refill.id;
+        }
+        created.push(refill);
       }
-      created.push(refill);
+
+      return created;
+    },
+    { timeout: 15000 }
+  );
+
+  logger.info(
+    '[ShipmentSchedule] Scheduled future refills from invoice (original handled manually)',
+    {
+      clinicId,
+      patientId,
+      invoiceId,
+      packageMonths,
+      futureRefillCount: refills.length,
+      dates: refills.map((r) => ({ shipment: (r as any).shipmentNumber, date: r.nextRefillDate })),
     }
-
-    return created;
-  }, { timeout: 15000 });
-
-  logger.info('[ShipmentSchedule] Scheduled future refills from invoice (original handled manually)', {
-    clinicId,
-    patientId,
-    invoiceId,
-    packageMonths,
-    futureRefillCount: refills.length,
-    dates: refills.map((r) => ({ shipment: (r as any).shipmentNumber, date: r.nextRefillDate })),
-  });
+  );
 
   return refills;
 }

@@ -291,14 +291,16 @@ const completeOnboardingSchema = z.object({
   firstName: z.string().max(100).optional(),
   lastName: z.string().max(100).optional(),
   phone: z.string().max(20).optional(),
-  address: z.object({
-    line1: z.string().max(255).optional(),
-    line2: z.string().max(255).optional(),
-    city: z.string().max(100).optional(),
-    state: z.string().max(100).optional(),
-    zipCode: z.string().max(20).optional(),
-    country: z.string().max(2).optional(),
-  }).optional(),
+  address: z
+    .object({
+      line1: z.string().max(255).optional(),
+      line2: z.string().max(255).optional(),
+      city: z.string().max(100).optional(),
+      state: z.string().max(100).optional(),
+      zipCode: z.string().max(20).optional(),
+      country: z.string().max(2).optional(),
+    })
+    .optional(),
 });
 
 const onboardingRateLimiter = createRateLimiter({
@@ -399,7 +401,9 @@ async function handlePost(request: NextRequest) {
     if (address) {
       updatedMetadata.address = {
         ...((existingMetadata.address as Record<string, string>) || {}),
-        ...Object.fromEntries(Object.entries(address).filter(([, v]) => v !== undefined && v !== '')),
+        ...Object.fromEntries(
+          Object.entries(address).filter(([, v]) => v !== undefined && v !== '')
+        ),
       };
     }
 

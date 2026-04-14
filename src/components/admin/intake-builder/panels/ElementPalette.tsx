@@ -74,13 +74,7 @@ interface DraggableElementCardProps {
 
 function DraggableElementCard({ element, selectedStepId }: DraggableElementCardProps) {
   const canDrag = !!selectedStepId;
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    isDragging,
-  } = useDraggable({
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: element.id,
     data: {
       type: 'palette-element',
@@ -100,14 +94,11 @@ function DraggableElementCard({ element, selectedStepId }: DraggableElementCardP
       style={{
         transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
       }}
-      className={`
-        flex cursor-grab flex-col gap-1 rounded-lg border px-2.5 py-2
-        transition-all duration-150 active:cursor-grabbing
-        ${isDragging ? 'z-50 opacity-60 shadow-lg' : ''}
-        ${canDrag
+      className={`flex cursor-grab flex-col gap-1 rounded-lg border px-2.5 py-2 transition-all duration-150 active:cursor-grabbing ${isDragging ? 'z-50 opacity-60 shadow-lg' : ''} ${
+        canDrag
           ? 'border-gray-200 bg-white hover:border-indigo-200 hover:bg-indigo-50/50 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-indigo-900/50 dark:hover:bg-indigo-950/30'
-          : 'cursor-not-allowed border-gray-100 bg-gray-50 opacity-60 dark:border-gray-800 dark:bg-gray-900/50 dark:opacity-70'}
-      `}
+          : 'cursor-not-allowed border-gray-100 bg-gray-50 opacity-60 dark:border-gray-800 dark:bg-gray-900/50 dark:opacity-70'
+      } `}
       title={!canDrag ? 'Select a step first' : element.description}
     >
       <div className="flex items-center gap-2">
@@ -136,12 +127,7 @@ interface CategorySectionProps {
   selectedStepId: string | null;
 }
 
-function CategorySection({
-  id,
-  label,
-  elements,
-  selectedStepId,
-}: CategorySectionProps) {
+function CategorySection({ id, label, elements, selectedStepId }: CategorySectionProps) {
   const [isExpanded, setIsExpanded] = useState(true);
 
   return (
@@ -181,10 +167,7 @@ function CategorySection({
 // provided by the parent layout so that elements can be dragged onto the canvas.
 //
 
-export default function ElementPalette({
-  onAddField,
-  selectedStepId,
-}: ElementPaletteProps) {
+export default function ElementPalette({ onAddField, selectedStepId }: ElementPaletteProps) {
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-gray-200 px-3 py-2 dark:border-gray-700">

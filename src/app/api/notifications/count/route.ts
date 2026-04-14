@@ -55,10 +55,14 @@ async function getUnreadCountHandler(req: NextRequest, user: AuthUser): Promise<
     const count = await notificationService.getUnreadCount(user.id, clinicId);
 
     if (cache.isReady()) {
-      await cache.set(cacheKey, { count }, {
-        namespace: TENANT_NOTIFICATIONS_NAMESPACE,
-        ttl: COUNT_CACHE_TTL_SECONDS,
-      });
+      await cache.set(
+        cacheKey,
+        { count },
+        {
+          namespace: TENANT_NOTIFICATIONS_NAMESPACE,
+          ttl: COUNT_CACHE_TTL_SECONDS,
+        }
+      );
     }
 
     const res = NextResponse.json({ count });
@@ -70,7 +74,9 @@ async function getUnreadCountHandler(req: NextRequest, user: AuthUser): Promise<
     if (isPoolExhausted) {
       logger.warn('[Notifications Count] Connection pool busy (P2024), returning cached 0');
     } else {
-      logger.error('[Notifications Count] Error', { error: error instanceof Error ? error.message : String(error) });
+      logger.error('[Notifications Count] Error', {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
     // Return 0 on any error - notifications are non-critical; avoid retries on pool exhaustion
     const res = NextResponse.json({ count: 0 });

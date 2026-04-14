@@ -138,7 +138,7 @@ export default function NewOrderPage() {
         router.push('/admin/orders');
       }, 2000);
     } catch (err: unknown) {
-      setError((err instanceof Error ? err.message : String(err)));
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setSubmitting(false);
     }

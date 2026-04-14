@@ -3,10 +3,7 @@ import { ProductNameType, MedicationType, AddonId } from '@/app/wellmedr-checkou
 // Fallback Stripe Price IDs (test mode)
 // These are used if dynamic Stripe fetching fails
 // Production IDs are fetched dynamically via stripe-server.ts
-const STRIPE_PRICE_IDS: Record<
-  ProductNameType,
-  Record<MedicationType, Record<string, string>>
-> = {
+const STRIPE_PRICE_IDS: Record<ProductNameType, Record<MedicationType, Record<string, string>>> = {
   semaglutide: {
     injections: {
       monthly: 'price_1T1ACMDfH4PWyxxd9epL77td',
@@ -52,7 +49,7 @@ const ADDON_STRIPE_PRICE_IDS: Record<AddonId, string> = {
 export const getStripePriceId = (
   productName: ProductNameType,
   medicationType: MedicationType,
-  planType: 'monthly' | 'quarterly' | 'sixMonth' | 'annual',
+  planType: 'monthly' | 'quarterly' | 'sixMonth' | 'annual'
 ): string => {
   const product = STRIPE_PRICE_IDS[productName];
   if (!product) {
@@ -62,9 +59,7 @@ export const getStripePriceId = (
 
   const type = product[medicationType];
   if (!type) {
-    console.warn(
-      `Medication type not found for stripe price id: ${medicationType}`,
-    );
+    console.warn(`Medication type not found for stripe price id: ${medicationType}`);
     return '';
   }
 

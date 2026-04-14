@@ -27,7 +27,13 @@ async function getRefillAndVerify(
   });
   if (!refill || refill.patientId !== patientId) return null;
   const patient = { id: refill.patientId, clinicId: refill.clinicId };
-  if (ensureTenantResource(patient, user.role === 'super_admin' ? undefined : user.clinicId ?? undefined)) return null;
+  if (
+    ensureTenantResource(
+      patient,
+      user.role === 'super_admin' ? undefined : (user.clinicId ?? undefined)
+    )
+  )
+    return null;
   return refill;
 }
 
@@ -75,7 +81,8 @@ const DELETE = withAuthParams(
       const refill = await getRefillAndVerify(patientId, refillId, user);
       if (!refill) return tenantNotFoundResponse();
 
-      const reason = (await request.json().catch(() => ({}))).reason || 'Deleted from patient billing';
+      const reason =
+        (await request.json().catch(() => ({}))).reason || 'Deleted from patient billing';
       const updated = await cancelRefill(refillId, reason);
 
       return NextResponse.json({ refill: updated });

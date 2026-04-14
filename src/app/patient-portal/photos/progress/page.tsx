@@ -26,7 +26,11 @@ const PhotoComparison = dynamic(
       <div className="animate-pulse space-y-4">
         <div className="flex items-center justify-between">
           <div className="h-6 w-44 rounded bg-gray-200" />
-          <div className="flex gap-1"><div className="h-8 w-8 rounded bg-gray-100" /><div className="h-8 w-8 rounded bg-gray-100" /><div className="h-8 w-8 rounded bg-gray-100" /></div>
+          <div className="flex gap-1">
+            <div className="h-8 w-8 rounded bg-gray-100" />
+            <div className="h-8 w-8 rounded bg-gray-100" />
+            <div className="h-8 w-8 rounded bg-gray-100" />
+          </div>
         </div>
         <div className="aspect-[3/4] w-full rounded-xl bg-gray-200 sm:aspect-square" />
         <div className="grid grid-cols-2 gap-4">
@@ -35,7 +39,7 @@ const PhotoComparison = dynamic(
         </div>
       </div>
     ),
-  },
+  }
 );
 import {
   Camera,
@@ -54,7 +58,7 @@ import {
   CheckCircle,
 } from 'lucide-react';
 import { PatientPhotoType } from '@/types/prisma-enums';
-import { format, parseISO, differenceInDays } from 'date-fns';
+import { parseISO, differenceInDays } from 'date-fns';
 import Link from 'next/link';
 
 // =============================================================================
@@ -543,7 +547,9 @@ export default function ProgressPhotosPage() {
                 Current Weight (optional)
               </label>
               <div className="relative">
-                <Scale className={`absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${currentWeight ? 'opacity-0' : 'opacity-100'}`} />
+                <Scale
+                  className={`absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${currentWeight ? 'opacity-0' : 'opacity-100'}`}
+                />
                 <input
                   type="number"
                   step="0.1"

@@ -157,7 +157,9 @@ export default function ClinicSelectPage() {
                 )}
                 <div
                   className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-lg font-bold text-white"
-                  style={{ display: clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl ? 'none' : '' }}
+                  style={{
+                    display: clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl ? 'none' : '',
+                  }}
                 >
                   {clinic.name.charAt(0).toUpperCase()}
                 </div>

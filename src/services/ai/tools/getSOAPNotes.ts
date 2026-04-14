@@ -20,7 +20,7 @@ export const definition: ChatCompletionTool = {
 
 export async function execute(
   params: { patientId: number; limit?: number },
-  clinicId: number,
+  clinicId: number
 ): Promise<unknown> {
   const verified = await prisma.patient.findFirst({
     where: { id: params.patientId, clinicId },

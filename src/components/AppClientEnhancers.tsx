@@ -6,14 +6,12 @@ import { usePathname } from 'next/navigation';
 
 const AffiliateTracker = dynamic(() => import('@/components/AffiliateTracker'), { ssr: false });
 const ConditionalHeader = dynamic(() => import('@/components/ConditionalHeader'), { ssr: false });
-const SessionExpirationHandler = dynamic(
-  () => import('@/components/SessionExpirationHandler'),
-  { ssr: false },
-);
-const GlobalFetchInterceptor = dynamic(
-  () => import('@/components/GlobalFetchInterceptor'),
-  { ssr: false },
-);
+const SessionExpirationHandler = dynamic(() => import('@/components/SessionExpirationHandler'), {
+  ssr: false,
+});
+const GlobalFetchInterceptor = dynamic(() => import('@/components/GlobalFetchInterceptor'), {
+  ssr: false,
+});
 const PUBLIC_ROUTE_PREFIXES = [
   '/affiliate',
   '/login',
@@ -35,8 +33,7 @@ function startsWithAny(pathname: string, prefixes: readonly string[]): boolean {
 export default function AppClientEnhancers() {
   const pathname = usePathname() ?? '';
 
-  const isPortalRoute =
-    pathname.startsWith('/portal') || pathname.startsWith('/patient-portal');
+  const isPortalRoute = pathname.startsWith('/portal') || pathname.startsWith('/patient-portal');
   const isPublicRoute =
     pathname === '/' || pathname === '/dashboard' || startsWithAny(pathname, PUBLIC_ROUTE_PREFIXES);
 

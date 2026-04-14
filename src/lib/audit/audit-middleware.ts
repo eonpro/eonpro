@@ -67,12 +67,17 @@ const ROUTE_RESOURCE_MAP: Array<{ prefix: string; resourceType: string; isPhi: b
  */
 function methodToAction(method: string): string {
   switch (method.toUpperCase()) {
-    case 'GET': return 'view';
-    case 'POST': return 'create';
+    case 'GET':
+      return 'view';
+    case 'POST':
+      return 'create';
     case 'PUT':
-    case 'PATCH': return 'edit';
-    case 'DELETE': return 'delete';
-    default: return 'access';
+    case 'PATCH':
+      return 'edit';
+    case 'DELETE':
+      return 'delete';
+    default:
+      return 'access';
   }
 }
 
@@ -117,7 +122,11 @@ type AuthHandler = (req: NextRequest, user: AuthUser, ...rest: unknown[]) => Pro
  * the error is re-thrown after the audit log is written.
  */
 export function withAutoAudit<T extends AuthHandler>(handler: T): T {
-  const wrapped = async (req: NextRequest, user: AuthUser, ...rest: unknown[]): Promise<Response> => {
+  const wrapped = async (
+    req: NextRequest,
+    user: AuthUser,
+    ...rest: unknown[]
+  ): Promise<Response> => {
     const pathname = new URL(req.url).pathname;
     const routeInfo = resolveRoute(pathname);
 

@@ -112,7 +112,9 @@ export async function POST(req: NextRequest) {
       })),
     });
   } catch (error) {
-    logger.error('[OvertimeSync] Sync failed', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('[OvertimeSync] Sync failed', {
+      error: error instanceof Error ? error.message : String(error),
+    });
 
     return NextResponse.json(
       {
@@ -168,7 +170,9 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (error) {
-    logger.error('[OvertimeSync] Status check failed', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('[OvertimeSync] Status check failed', {
+      error: error instanceof Error ? error.message : String(error),
+    });
 
     return NextResponse.json(
       {

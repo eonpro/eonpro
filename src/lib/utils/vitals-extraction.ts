@@ -176,7 +176,8 @@ export function extractVitalsFromIntake(
 
   // Blood pressure
   const bp = findValue('blood pressure', 'bloodpressure');
-  result.bloodPressure = bp && bp.toLowerCase() !== 'unknown' && bp.toLowerCase() !== 'unknown / not sure' ? bp : null;
+  result.bloodPressure =
+    bp && bp.toLowerCase() !== 'unknown' && bp.toLowerCase() !== 'unknown / not sure' ? bp : null;
 
   // Ideal weight — strip "lbs" suffix
   const rawIdeal = findValue('ideal weight', 'goal weight', 'target weight');
@@ -254,7 +255,11 @@ export function parseDocumentData(data: unknown): DocumentData | null {
       let parsed = JSON.parse(trimmed);
       // Handle double-serialized JSON (string inside a JSON string)
       if (typeof parsed === 'string') {
-        try { parsed = JSON.parse(parsed); } catch { /* use first parse result */ }
+        try {
+          parsed = JSON.parse(parsed);
+        } catch {
+          /* use first parse result */
+        }
       }
       return typeof parsed === 'object' ? parsed : null;
     } catch {

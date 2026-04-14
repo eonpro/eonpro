@@ -56,9 +56,30 @@ interface HealthData {
 }
 
 const STATUS_CONFIG = {
-  healthy: { label: 'Healthy', color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', icon: CheckCircle2, dot: 'bg-emerald-500' },
-  degraded: { label: 'Degraded', color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200', icon: AlertTriangle, dot: 'bg-amber-500' },
-  unhealthy: { label: 'Unhealthy', color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200', icon: XCircle, dot: 'bg-red-500' },
+  healthy: {
+    label: 'Healthy',
+    color: 'text-emerald-600',
+    bg: 'bg-emerald-50',
+    border: 'border-emerald-200',
+    icon: CheckCircle2,
+    dot: 'bg-emerald-500',
+  },
+  degraded: {
+    label: 'Degraded',
+    color: 'text-amber-600',
+    bg: 'bg-amber-50',
+    border: 'border-amber-200',
+    icon: AlertTriangle,
+    dot: 'bg-amber-500',
+  },
+  unhealthy: {
+    label: 'Unhealthy',
+    color: 'text-red-600',
+    bg: 'bg-red-50',
+    border: 'border-red-200',
+    icon: XCircle,
+    dot: 'bg-red-500',
+  },
 };
 
 function formatUptime(ms: number): string {
@@ -69,7 +90,11 @@ function formatUptime(ms: number): string {
 }
 
 function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  return new Date(iso).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
 }
 
 export default function PortalHealthDashboard() {
@@ -130,9 +155,7 @@ export default function PortalHealthDashboard() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Patient Portal Health</h1>
-            <p className="text-sm text-gray-500">
-              Real-time monitoring of patient-facing services
-            </p>
+            <p className="text-sm text-gray-500">Real-time monitoring of patient-facing services</p>
           </div>
           <div className="flex items-center gap-3">
             <label className="flex items-center gap-2 text-sm text-gray-600">
@@ -155,16 +178,16 @@ export default function PortalHealthDashboard() {
         </div>
 
         {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
-            {error}
-          </div>
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">{error}</div>
         )}
 
         {/* Status Banner */}
         <div className={`rounded-2xl border ${config.border} ${config.bg} p-6`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className={`flex h-12 w-12 items-center justify-center rounded-full ${config.bg}`}>
+              <div
+                className={`flex h-12 w-12 items-center justify-center rounded-full ${config.bg}`}
+              >
                 <StatusIcon className={`h-6 w-6 ${config.color}`} />
               </div>
               <div>
@@ -225,9 +248,20 @@ export default function PortalHealthDashboard() {
             </h3>
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
               <MetricCard label="Total Requests" value={data.metrics.totalRequests.toString()} />
-              <MetricCard label="Total Errors" value={data.metrics.totalErrors.toString()} alert={data.metrics.totalErrors > 0} />
-              <MetricCard label="Error Rate" value={`${(data.metrics.errorRate * 100).toFixed(1)}%`} alert={data.metrics.errorRate > 0.05} />
-              <MetricCard label="Endpoints Tracked" value={data.metrics.endpoints.length.toString()} />
+              <MetricCard
+                label="Total Errors"
+                value={data.metrics.totalErrors.toString()}
+                alert={data.metrics.totalErrors > 0}
+              />
+              <MetricCard
+                label="Error Rate"
+                value={`${(data.metrics.errorRate * 100).toFixed(1)}%`}
+                alert={data.metrics.errorRate > 0.05}
+              />
+              <MetricCard
+                label="Endpoints Tracked"
+                value={data.metrics.endpoints.length.toString()}
+              />
             </div>
 
             {data.metrics.endpoints.length > 0 && (
@@ -248,14 +282,20 @@ export default function PortalHealthDashboard() {
                       <tr key={ep.endpoint} className="border-b border-gray-50">
                         <td className="px-4 py-2 font-mono text-gray-900">{ep.endpoint}</td>
                         <td className="px-4 py-2 text-right text-gray-700">{ep.requestCount}</td>
-                        <td className={`px-4 py-2 text-right ${ep.errorCount > 0 ? 'text-red-600 font-semibold' : 'text-gray-700'}`}>
+                        <td
+                          className={`px-4 py-2 text-right ${ep.errorCount > 0 ? 'font-semibold text-red-600' : 'text-gray-700'}`}
+                        >
                           {ep.errorCount}
                         </td>
                         <td className="px-4 py-2 text-right font-mono text-gray-600">{ep.p50}ms</td>
-                        <td className={`px-4 py-2 text-right font-mono ${ep.p95 > 1000 ? 'text-amber-600' : 'text-gray-600'}`}>
+                        <td
+                          className={`px-4 py-2 text-right font-mono ${ep.p95 > 1000 ? 'text-amber-600' : 'text-gray-600'}`}
+                        >
                           {ep.p95}ms
                         </td>
-                        <td className={`px-4 py-2 text-right font-mono ${ep.p99 > 2000 ? 'text-red-600' : 'text-gray-600'}`}>
+                        <td
+                          className={`px-4 py-2 text-right font-mono ${ep.p99 > 2000 ? 'text-red-600' : 'text-gray-600'}`}
+                        >
                           {ep.p99}ms
                         </td>
                       </tr>
@@ -276,7 +316,8 @@ export default function PortalHealthDashboard() {
             </h3>
             <div className="space-y-2">
               {data.incidents.map((inc, i) => {
-                const toConfig = STATUS_CONFIG[inc.to as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.unhealthy;
+                const toConfig =
+                  STATUS_CONFIG[inc.to as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.unhealthy;
                 const isRecovery = inc.to === 'healthy';
                 return (
                   <div
@@ -311,9 +352,13 @@ export default function PortalHealthDashboard() {
 
 function MetricCard({ label, value, alert }: { label: string; value: string; alert?: boolean }) {
   return (
-    <div className={`rounded-xl border p-4 ${alert ? 'border-red-200 bg-red-50' : 'border-gray-200 bg-white'}`}>
+    <div
+      className={`rounded-xl border p-4 ${alert ? 'border-red-200 bg-red-50' : 'border-gray-200 bg-white'}`}
+    >
       <p className="text-xs text-gray-500">{label}</p>
-      <p className={`mt-1 text-2xl font-bold ${alert ? 'text-red-600' : 'text-gray-900'}`}>{value}</p>
+      <p className={`mt-1 text-2xl font-bold ${alert ? 'text-red-600' : 'text-gray-900'}`}>
+        {value}
+      </p>
     </div>
   );
 }

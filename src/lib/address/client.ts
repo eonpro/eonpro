@@ -15,8 +15,4 @@ export {
   extractZipFromString,
   extractCityState,
 } from './parser';
-export {
-  normalizeState,
-  normalizeZip,
-  normalizeCity,
-} from './normalizer';
+export { normalizeState, normalizeZip, normalizeCity } from './normalizer';

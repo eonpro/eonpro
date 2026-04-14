@@ -189,10 +189,7 @@ export default function PatientNotesView({ patientId }: PatientNotesViewProps) {
       ) : (
         <ul className="space-y-4">
           {notes.map((note) => (
-            <li
-              key={note.id}
-              className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
-            >
+            <li key={note.id} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
               <p className="mb-4 whitespace-pre-wrap text-gray-900">{note.content}</p>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-500">
                 <span suppressHydrationWarning>

@@ -7,8 +7,7 @@ export default function PlansHeader() {
     <div className="text-center">
       <h3 className="">Choose what's best for you</h3>
       <p>
-        Your approval is reserved for{' '}
-        <span className="text-primary">{timer}</span>
+        Your approval is reserved for <span className="text-primary">{timer}</span>
       </p>
     </div>
   );

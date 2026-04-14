@@ -65,9 +65,12 @@ async function getDoseSpotPatientId(patientId: number, clinicId: number): Promis
   });
 
   if (!patient) throw new NotFoundError('Patient', patientId);
-  if (patient.clinicId !== clinicId) throw new ForbiddenError('Cross-clinic patient access is not allowed');
+  if (patient.clinicId !== clinicId)
+    throw new ForbiddenError('Cross-clinic patient access is not allowed');
   if (!patient.doseSpotPatientId) {
-    throw new BadRequestError('This patient has not been synced to DoseSpot yet. Open the prescriber to sync automatically.');
+    throw new BadRequestError(
+      'This patient has not been synced to DoseSpot yet. Open the prescriber to sync automatically.'
+    );
   }
 
   return String(patient.doseSpotPatientId);
@@ -90,7 +93,9 @@ export function createDoseSpotPrescriptionService(): DoseSpotPrescriptionService
         outcome: 'SUCCESS',
         metadata: { externalSystem: 'DoseSpot', dataType: 'allergies' },
       }).catch((err) => {
-        logger.error('[DOSESPOT] Audit log failed (non-blocking)', { error: err instanceof Error ? err.message : String(err) });
+        logger.error('[DOSESPOT] Audit log failed (non-blocking)', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       });
 
       return result;
@@ -111,7 +116,9 @@ export function createDoseSpotPrescriptionService(): DoseSpotPrescriptionService
         outcome: 'SUCCESS',
         metadata: { externalSystem: 'DoseSpot', dataType: 'prescriptions' },
       }).catch((err) => {
-        logger.error('[DOSESPOT] Audit log failed (non-blocking)', { error: err instanceof Error ? err.message : String(err) });
+        logger.error('[DOSESPOT] Audit log failed (non-blocking)', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       });
 
       return result;
@@ -132,7 +139,9 @@ export function createDoseSpotPrescriptionService(): DoseSpotPrescriptionService
         outcome: 'SUCCESS',
         metadata: { externalSystem: 'DoseSpot', dataType: 'selfReportedMedications' },
       }).catch((err) => {
-        logger.error('[DOSESPOT] Audit log failed (non-blocking)', { error: err instanceof Error ? err.message : String(err) });
+        logger.error('[DOSESPOT] Audit log failed (non-blocking)', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       });
 
       return result;

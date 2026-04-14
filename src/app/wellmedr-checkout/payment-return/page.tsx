@@ -32,9 +32,11 @@ function PaymentReturnContent() {
       }
 
       try {
-        const publishableKey = process.env.NEXT_PUBLIC_STRIPE_CONNECT_PUBLISHABLE_KEY
-          || process.env.NEXT_PUBLIC_WELLMEDR_STRIPE_PUBLISHABLE_KEY
-          || process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
+        const publishableKey =
+          process.env.NEXT_PUBLIC_STRIPE_CONNECT_PUBLISHABLE_KEY ||
+          process.env.NEXT_PUBLIC_WELLMEDR_STRIPE_PUBLISHABLE_KEY ||
+          process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ||
+          '';
         const connectedAccountId = process.env.NEXT_PUBLIC_WELLMEDR_STRIPE_ACCOUNT_ID;
         const stripe = await loadStripe(publishableKey, {
           ...(connectedAccountId ? { stripeAccount: connectedAccountId } : {}),
@@ -80,7 +82,7 @@ function PaymentReturnContent() {
   if (status === 'loading' || status === 'success') {
     return (
       <div className="flex flex-col items-center gap-4">
-        <div className="w-12 h-12 border-4 border-[#7b95a9] border-t-transparent rounded-full animate-spin" />
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-[#7b95a9] border-t-transparent" />
         <p className="text-lg text-gray-600">Verifying your payment...</p>
       </div>
     );
@@ -88,12 +90,17 @@ function PaymentReturnContent() {
 
   return (
     <div className="flex flex-col items-center gap-4">
-      <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
-        <svg className="w-8 h-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
+        <svg className="h-8 w-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M6 18L18 6M6 6l12 12"
+          />
         </svg>
       </div>
-      <p className="text-lg text-gray-800 font-medium">{errorMessage || 'Payment not completed'}</p>
+      <p className="text-lg font-medium text-gray-800">{errorMessage || 'Payment not completed'}</p>
       <p className="opacity-50">Redirecting back to checkout...</p>
     </div>
   );
@@ -103,11 +110,11 @@ export default function WellmedrPaymentReturnPage() {
   return (
     <div className="wellmedr-checkout min-h-screen">
       <Header />
-      <main className="flex flex-col items-center justify-center min-h-[60vh] px-6">
+      <main className="flex min-h-[60vh] flex-col items-center justify-center px-6">
         <Suspense
           fallback={
             <div className="flex flex-col items-center gap-4">
-              <div className="w-12 h-12 border-4 border-[#7b95a9] border-t-transparent rounded-full animate-spin" />
+              <div className="h-12 w-12 animate-spin rounded-full border-4 border-[#7b95a9] border-t-transparent" />
               <p className="text-lg text-gray-600">Verifying your payment...</p>
             </div>
           }

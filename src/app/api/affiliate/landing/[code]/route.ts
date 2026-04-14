@@ -27,18 +27,12 @@ interface RouteContext {
   params: Promise<{ code: string }>;
 }
 
-async function handleGet(
-  request: NextRequest,
-  context: RouteContext
-): Promise<Response> {
+async function handleGet(request: NextRequest, context: RouteContext): Promise<Response> {
   try {
     const { code } = await context.params;
 
     if (!code || code.length < 2 || code.length > 50) {
-      return NextResponse.json(
-        { error: 'Invalid ref code', valid: false },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid ref code', valid: false }, { status: 400 });
     }
 
     // Resolve clinic from domain
@@ -151,23 +145,18 @@ async function handleGet(
     logger.error('[AffiliateLanding] Error fetching landing data', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return NextResponse.json(
-      { error: 'Failed to load page data', valid: false },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to load page data', valid: false }, { status: 500 });
   }
 }
 
-export const GET = landingRateLimiter(
-  (req: NextRequest) => {
-    // Extract context from the request URL for route params
-    const url = new URL(req.url);
-    const pathParts = url.pathname.split('/');
-    const codeIndex = pathParts.indexOf('landing') + 1;
-    const code = pathParts[codeIndex] || '';
-    return handleGet(req, { params: Promise.resolve({ code }) });
-  }
-);
+export const GET = landingRateLimiter((req: NextRequest) => {
+  // Extract context from the request URL for route params
+  const url = new URL(req.url);
+  const pathParts = url.pathname.split('/');
+  const codeIndex = pathParts.indexOf('landing') + 1;
+  const code = pathParts[codeIndex] || '';
+  return handleGet(req, { params: Promise.resolve({ code }) });
+});
 
 /**
  * Resolve clinic from domain string (reused pattern)

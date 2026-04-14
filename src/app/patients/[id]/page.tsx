@@ -75,7 +75,11 @@ export default async function PatientDetailPage({
       return (
         <div className="p-10">
           <p className="text-red-600">Invalid patient ID.</p>
-          <Link href={PATIENTS_LIST_PATH} className="mt-4 block underline" style={{ color: 'var(--brand-primary, #4fa77e)' }}>
+          <Link
+            href={PATIENTS_LIST_PATH}
+            className="mt-4 block underline"
+            style={{ color: 'var(--brand-primary, #4fa77e)' }}
+          >
             ← Back to patients
           </Link>
         </div>
@@ -85,13 +89,17 @@ export default async function PatientDetailPage({
     const isSuperAdmin = user.role === 'super_admin';
     // getUserFromCookies() already resolved subdomain → clinicId and verified
     // clinic access, so user.clinicId is authoritative — no need to re-resolve.
-    const clinicId = isSuperAdmin ? undefined : user.clinicId ?? undefined;
+    const clinicId = isSuperAdmin ? undefined : (user.clinicId ?? undefined);
 
     if (!isSuperAdmin && clinicId == null) {
       return (
         <div className="p-10">
           <p className="text-red-600">You must be assigned to a clinic to view patients.</p>
-          <Link href={PATIENTS_LIST_PATH} className="mt-4 block underline" style={{ color: 'var(--brand-primary, #4fa77e)' }}>
+          <Link
+            href={PATIENTS_LIST_PATH}
+            className="mt-4 block underline"
+            style={{ color: 'var(--brand-primary, #4fa77e)' }}
+          >
             ← Back to patients
           </Link>
         </div>
@@ -123,7 +131,14 @@ export default async function PatientDetailPage({
             include: {
               user: { select: { id: true, avatarUrl: true } },
               clinic: {
-                select: { id: true, subdomain: true, name: true, features: true, address: true, phone: true },
+                select: {
+                  id: true,
+                  subdomain: true,
+                  name: true,
+                  features: true,
+                  address: true,
+                  phone: true,
+                },
               },
               attributionAffiliate: {
                 select: { id: true, displayName: true, status: true },
@@ -159,14 +174,21 @@ export default async function PatientDetailPage({
       });
     } catch (dbError) {
       logger.error('Database error fetching patient core:', {
-        patientId: id, clinicId, userId: user.id, durationMs: Date.now() - t0,
+        patientId: id,
+        clinicId,
+        userId: user.id,
+        durationMs: Date.now() - t0,
         totalDurationMs: Date.now() - routeStartMs,
         error: dbError instanceof Error ? dbError.message : String(dbError),
       });
       return (
         <div className="p-10">
           <p className="text-red-600">Error loading patient data. Please try again.</p>
-          <Link href={PATIENTS_LIST_PATH} className="mt-4 block underline" style={{ color: 'var(--brand-primary, #4fa77e)' }}>
+          <Link
+            href={PATIENTS_LIST_PATH}
+            className="mt-4 block underline"
+            style={{ color: 'var(--brand-primary, #4fa77e)' }}
+          >
             ← Back to patients
           </Link>
         </div>
@@ -179,24 +201,46 @@ export default async function PatientDetailPage({
     }
 
     if (!patient) {
-      const host = headersList.get('x-forwarded-host')?.split(',')[0]?.trim() ?? headersList.get('host') ?? '';
+      const host =
+        headersList.get('x-forwarded-host')?.split(',')[0]?.trim() ?? headersList.get('host') ?? '';
       logger.warn('[PATIENT-DETAIL] Patient not found / access denied', {
-        patientId: id, userId: user.id, userRole: user.role,
-        jwtClinicId: user.clinicId ?? null, effectiveClinicId: clinicId ?? null, host,
+        patientId: id,
+        userId: user.id,
+        userRole: user.role,
+        jwtClinicId: user.clinicId ?? null,
+        effectiveClinicId: clinicId ?? null,
+        host,
       });
       auditLog(headersList, {
-        userId: user.id, userEmail: user.email, userRole: user.role, clinicId: user.clinicId,
-        eventType: AuditEventType.PHI_VIEW, resourceType: 'Patient', resourceId: id, patientId: id,
-        action: 'VIEW_PATIENT_DENIED', outcome: 'FAILURE',
+        userId: user.id,
+        userEmail: user.email,
+        userRole: user.role,
+        clinicId: user.clinicId,
+        eventType: AuditEventType.PHI_VIEW,
+        resourceType: 'Patient',
+        resourceId: id,
+        patientId: id,
+        action: 'VIEW_PATIENT_DENIED',
+        outcome: 'FAILURE',
         reason: `Patient not found or access denied (effectiveClinicId=${clinicId}, jwtClinicId=${user.clinicId})`,
       }).catch(() => {});
 
       return (
         <div className="p-10">
-          <p className="text-red-600">Patient not found or you don&apos;t have access to this patient.</p>
-          <p className="mt-2 text-sm text-gray-600">If you are a clinic admin, this patient may belong to a different clinic.</p>
-          <p className="mt-1 text-xs text-gray-400">Clinic context: {clinicId ?? 'none'} | Role: {user.role}</p>
-          <Link href={PATIENTS_LIST_PATH} className="mt-4 block underline" style={{ color: 'var(--brand-primary, #4fa77e)' }}>
+          <p className="text-red-600">
+            Patient not found or you don&apos;t have access to this patient.
+          </p>
+          <p className="mt-2 text-sm text-gray-600">
+            If you are a clinic admin, this patient may belong to a different clinic.
+          </p>
+          <p className="mt-1 text-xs text-gray-400">
+            Clinic context: {clinicId ?? 'none'} | Role: {user.role}
+          </p>
+          <Link
+            href={PATIENTS_LIST_PATH}
+            className="mt-4 block underline"
+            style={{ color: 'var(--brand-primary, #4fa77e)' }}
+          >
             ← Back to patients
           </Link>
         </div>
@@ -205,9 +249,16 @@ export default async function PatientDetailPage({
 
     // HIPAA Audit (non-blocking)
     auditLog(headersList, {
-      userId: user.id, userEmail: user.email, userRole: user.role, clinicId: user.clinicId,
-      eventType: AuditEventType.PHI_VIEW, resourceType: 'Patient', resourceId: id, patientId: id,
-      action: 'VIEW_PATIENT_RECORD', outcome: 'SUCCESS',
+      userId: user.id,
+      userEmail: user.email,
+      userRole: user.role,
+      clinicId: user.clinicId,
+      eventType: AuditEventType.PHI_VIEW,
+      resourceType: 'Patient',
+      resourceId: id,
+      patientId: id,
+      action: 'VIEW_PATIENT_RECORD',
+      outcome: 'SUCCESS',
     }).catch(() => {});
 
     // Fetch active sales rep assignment (uncached — changes frequently)
@@ -238,7 +289,10 @@ export default async function PatientDetailPage({
 
     // Strip heavy nested includes for RSC serialization safety
     const {
-      orders: _o, documents: _d, intakeSubmissions: _i, auditEntries: _a,
+      orders: _o,
+      documents: _d,
+      intakeSubmissions: _i,
+      auditEntries: _a,
       ...patientCore
     } = patientDecrypted;
 
@@ -263,14 +317,31 @@ export default async function PatientDetailPage({
     const avatarDurationMs = Date.now() - avatarStartMs;
 
     // Feature flags
-    const showLabsTab = getClinicFeatureBoolean(patientDecrypted.clinic?.features, 'BLOODWORK_LABS', true);
-    const doseSpotEnabled = getClinicFeatureBoolean(patientDecrypted.clinic?.features, 'DOSESPOT', false);
+    const showLabsTab = getClinicFeatureBoolean(
+      patientDecrypted.clinic?.features,
+      'BLOODWORK_LABS',
+      true
+    );
+    const doseSpotEnabled = getClinicFeatureBoolean(
+      patientDecrypted.clinic?.features,
+      'DOSESPOT',
+      false
+    );
 
     // Tab validation
     const validTabs = [
-      'profile', 'notes', 'intake', 'prescriptions', 'soap-notes', 'appointments', 'progress',
+      'profile',
+      'notes',
+      'intake',
+      'prescriptions',
+      'soap-notes',
+      'appointments',
+      'progress',
       ...(showLabsTab ? ['lab'] : []),
-      'photos', 'billing', 'chat', 'documents',
+      'photos',
+      'billing',
+      'chat',
+      'documents',
     ];
     const effectiveTabs = user.role === 'pharmacy_rep' ? ['profile', 'prescriptions'] : validTabs;
     const currentTab = effectiveTabs.includes(requestedTab) ? requestedTab : 'profile';
@@ -283,7 +354,10 @@ export default async function PatientDetailPage({
     const rawInvite = (patientDecrypted as any).portalInvites?.[0];
     const portalInvite = rawInvite
       ? {
-          sentAt: typeof rawInvite.createdAt === 'string' ? rawInvite.createdAt : rawInvite.createdAt?.toISOString?.() ?? new Date().toISOString(),
+          sentAt:
+            typeof rawInvite.createdAt === 'string'
+              ? rawInvite.createdAt
+              : (rawInvite.createdAt?.toISOString?.() ?? new Date().toISOString()),
           trigger: rawInvite.trigger as string,
           used: !!rawInvite.usedAt,
           expired: new Date(rawInvite.expiresAt) < new Date(),
@@ -305,77 +379,86 @@ export default async function PatientDetailPage({
     // ─── Render: Thin shell — sidebar + client tab router ──────────────
     return (
       <PatientDetailShell initialTab={currentTab} patientId={id} basePath={PATIENTS_LIST_PATH}>
-      <div className="min-h-screen bg-[#efece7] p-3 md:p-6">
-        <div className="flex flex-col gap-3 md:flex-row md:gap-6">
-          <PatientSidebar
-            patient={patientCore}
-            avatarUrl={patientAvatarUrl}
-            currentTab={currentTab}
-            affiliateCode={null}
-            affiliateAttribution={
-              patientDecrypted.attributionAffiliateId
-                ? {
-                    affiliateId: patientDecrypted.attributionAffiliateId,
-                    refCode: patientDecrypted.attributionRefCode || undefined,
-                    affiliateName: patientDecrypted.attributionAffiliate?.displayName || undefined,
-                  }
-                : undefined
-            }
-            currentSalesRep={activeSalesRep}
-            userRole={user.role}
-            currentUserId={user.id}
-            clinicInfo={
-              patientDecrypted.clinic
-                ? {
-                    name: patientDecrypted.clinic.name,
-                    phone: (patientDecrypted.clinic as any).phone ?? undefined,
-                    address: (patientDecrypted.clinic as any).address ?? null,
-                  }
-                : undefined
-            }
-            showLabsTab={showLabsTab}
-            patientDetailBasePath={PATIENTS_LIST_PATH}
-            activeMembership={
-              (patientDecrypted.subscriptions as { id: number; planName: string }[])?.[0]
-                ? { planName: (patientDecrypted.subscriptions as { id: number; planName: string }[])[0].planName }
-                : null
-            }
-            orders={[]}
-          />
+        <div className="min-h-screen bg-[#efece7] p-3 md:p-6">
+          <div className="flex flex-col gap-3 md:flex-row md:gap-6">
+            <PatientSidebar
+              patient={patientCore}
+              avatarUrl={patientAvatarUrl}
+              currentTab={currentTab}
+              affiliateCode={null}
+              affiliateAttribution={
+                patientDecrypted.attributionAffiliateId
+                  ? {
+                      affiliateId: patientDecrypted.attributionAffiliateId,
+                      refCode: patientDecrypted.attributionRefCode || undefined,
+                      affiliateName:
+                        patientDecrypted.attributionAffiliate?.displayName || undefined,
+                    }
+                  : undefined
+              }
+              currentSalesRep={activeSalesRep}
+              userRole={user.role}
+              currentUserId={user.id}
+              clinicInfo={
+                patientDecrypted.clinic
+                  ? {
+                      name: patientDecrypted.clinic.name,
+                      phone: (patientDecrypted.clinic as any).phone ?? undefined,
+                      address: (patientDecrypted.clinic as any).address ?? null,
+                    }
+                  : undefined
+              }
+              showLabsTab={showLabsTab}
+              patientDetailBasePath={PATIENTS_LIST_PATH}
+              activeMembership={
+                (patientDecrypted.subscriptions as { id: number; planName: string }[])?.[0]
+                  ? {
+                      planName: (
+                        patientDecrypted.subscriptions as { id: number; planName: string }[]
+                      )[0].planName,
+                    }
+                  : null
+              }
+              orders={[]}
+            />
 
-          <div className="min-w-0 flex-1">
-            <div className="mb-4 w-full">
-              <PatientQuickSearch
-                currentPatientId={patientDecrypted.id}
-                placeholder="Search for another patient..."
-                className="w-full"
-                patientDetailBasePath={PATIENTS_LIST_PATH}
+            <div className="min-w-0 flex-1">
+              <div className="mb-4 w-full">
+                <PatientQuickSearch
+                  currentPatientId={patientDecrypted.id}
+                  placeholder="Search for another patient..."
+                  className="w-full"
+                  patientDetailBasePath={PATIENTS_LIST_PATH}
+                />
+              </div>
+
+              <PatientProfileClient
+                patientId={id}
+                patientCore={patientCore}
+                currentTab={currentTab}
+                userRole={user.role}
+                patientsListPath={PATIENTS_LIST_PATH}
+                showLabsTab={showLabsTab}
+                doseSpotEnabled={doseSpotEnabled}
+                clinicSubdomain={clinicSubdomain}
+                providerId={user.providerId}
+                hasPortalAccess={!!patientDecrypted.user}
+                hasEmail={!!(patientDecrypted.email && String(patientDecrypted.email).trim())}
+                hasPhone={!!(patientDecrypted.phone && String(patientDecrypted.phone).trim())}
+                portalInvite={portalInvite}
+                patientTags={patientTags}
+                patientCreatedAt={
+                  typeof patientDecrypted.createdAt === 'string'
+                    ? patientDecrypted.createdAt
+                    : (patientDecrypted.createdAt?.toISOString?.() ?? new Date().toISOString())
+                }
+                submittedFlag={resolvedSearchParams?.submitted === '1'}
+                isAdminView={resolvedSearchParams?.admin === 'true'}
+                fallbackSubdomain={fallbackSubdomain}
               />
             </div>
-
-            <PatientProfileClient
-              patientId={id}
-              patientCore={patientCore}
-              currentTab={currentTab}
-              userRole={user.role}
-              patientsListPath={PATIENTS_LIST_PATH}
-              showLabsTab={showLabsTab}
-              doseSpotEnabled={doseSpotEnabled}
-              clinicSubdomain={clinicSubdomain}
-              providerId={user.providerId}
-              hasPortalAccess={!!patientDecrypted.user}
-              hasEmail={!!(patientDecrypted.email && String(patientDecrypted.email).trim())}
-              hasPhone={!!(patientDecrypted.phone && String(patientDecrypted.phone).trim())}
-              portalInvite={portalInvite}
-              patientTags={patientTags}
-              patientCreatedAt={typeof patientDecrypted.createdAt === 'string' ? patientDecrypted.createdAt : patientDecrypted.createdAt?.toISOString?.() ?? new Date().toISOString()}
-              submittedFlag={resolvedSearchParams?.submitted === '1'}
-              isAdminView={resolvedSearchParams?.admin === 'true'}
-              fallbackSubdomain={fallbackSubdomain}
-            />
           </div>
         </div>
-      </div>
       </PatientDetailShell>
     );
   } catch (error) {
@@ -388,8 +471,14 @@ export default async function PatientDetailPage({
     return (
       <div className="p-10">
         <p className="text-red-600">An error occurred while loading this page.</p>
-        <p className="mt-2 text-sm text-gray-500">Please try refreshing the page or contact support if the problem persists.</p>
-        <Link href={patientsListPath ?? '/patients'} className="mt-4 block underline" style={{ color: 'var(--brand-primary, #4fa77e)' }}>
+        <p className="mt-2 text-sm text-gray-500">
+          Please try refreshing the page or contact support if the problem persists.
+        </p>
+        <Link
+          href={patientsListPath ?? '/patients'}
+          className="mt-4 block underline"
+          style={{ color: 'var(--brand-primary, #4fa77e)' }}
+        >
           ← Back to patients
         </Link>
       </div>

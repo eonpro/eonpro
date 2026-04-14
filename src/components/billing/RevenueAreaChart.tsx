@@ -13,7 +13,11 @@ import {
 import type { MonthlyRevenue } from '@/services/billing/billingAnalyticsService';
 
 const formatCurrency = (cents: number) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(cents / 100);
+  new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  }).format(cents / 100);
 
 interface Props {
   data: MonthlyRevenue[];
@@ -47,9 +51,16 @@ export default function RevenueAreaChart({ data }: Props) {
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
         <XAxis dataKey="label" tick={{ fontSize: 12 }} stroke="#9ca3af" />
-        <YAxis tickFormatter={(v: number) => formatCurrency(v)} tick={{ fontSize: 12 }} stroke="#9ca3af" width={80} />
+        <YAxis
+          tickFormatter={(v: number) => formatCurrency(v)}
+          tick={{ fontSize: 12 }}
+          stroke="#9ca3af"
+          width={80}
+        />
         <Tooltip
-          formatter={((value: number | undefined, name: string) => [formatCurrency(value ?? 0), name]) as any}
+          formatter={
+            ((value: number | undefined, name: string) => [formatCurrency(value ?? 0), name]) as any
+          }
           contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb' }}
         />
         <Legend />

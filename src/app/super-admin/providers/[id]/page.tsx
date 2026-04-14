@@ -34,27 +34,121 @@ import {
 import { apiFetch } from '@/lib/api/fetch';
 
 const US_STATES = [
-  'AL','AK','AZ','AR','CA','CO','CT','DE','DC','FL',
-  'GA','HI','ID','IL','IN','IA','KS','KY','LA','ME',
-  'MD','MA','MI','MN','MS','MO','MT','NE','NV','NH',
-  'NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI',
-  'SC','SD','TN','TX','UT','VT','VA','WA','WV','WI',
-  'WY','AS','GU','MP','PR','VI',
+  'AL',
+  'AK',
+  'AZ',
+  'AR',
+  'CA',
+  'CO',
+  'CT',
+  'DE',
+  'DC',
+  'FL',
+  'GA',
+  'HI',
+  'ID',
+  'IL',
+  'IN',
+  'IA',
+  'KS',
+  'KY',
+  'LA',
+  'ME',
+  'MD',
+  'MA',
+  'MI',
+  'MN',
+  'MS',
+  'MO',
+  'MT',
+  'NE',
+  'NV',
+  'NH',
+  'NJ',
+  'NM',
+  'NY',
+  'NC',
+  'ND',
+  'OH',
+  'OK',
+  'OR',
+  'PA',
+  'RI',
+  'SC',
+  'SD',
+  'TN',
+  'TX',
+  'UT',
+  'VT',
+  'VA',
+  'WA',
+  'WV',
+  'WI',
+  'WY',
+  'AS',
+  'GU',
+  'MP',
+  'PR',
+  'VI',
 ] as const;
 
 const STATE_NAMES: Record<string, string> = {
-  AL:'Alabama',AK:'Alaska',AZ:'Arizona',AR:'Arkansas',CA:'California',
-  CO:'Colorado',CT:'Connecticut',DE:'Delaware',DC:'District of Columbia',FL:'Florida',
-  GA:'Georgia',HI:'Hawaii',ID:'Idaho',IL:'Illinois',IN:'Indiana',
-  IA:'Iowa',KS:'Kansas',KY:'Kentucky',LA:'Louisiana',ME:'Maine',
-  MD:'Maryland',MA:'Massachusetts',MI:'Michigan',MN:'Minnesota',MS:'Mississippi',
-  MO:'Missouri',MT:'Montana',NE:'Nebraska',NV:'Nevada',NH:'New Hampshire',
-  NJ:'New Jersey',NM:'New Mexico',NY:'New York',NC:'North Carolina',ND:'North Dakota',
-  OH:'Ohio',OK:'Oklahoma',OR:'Oregon',PA:'Pennsylvania',RI:'Rhode Island',
-  SC:'South Carolina',SD:'South Dakota',TN:'Tennessee',TX:'Texas',UT:'Utah',
-  VT:'Vermont',VA:'Virginia',WA:'Washington',WV:'West Virginia',WI:'Wisconsin',
-  WY:'Wyoming',AS:'American Samoa',GU:'Guam',MP:'Northern Mariana Islands',
-  PR:'Puerto Rico',VI:'US Virgin Islands',
+  AL: 'Alabama',
+  AK: 'Alaska',
+  AZ: 'Arizona',
+  AR: 'Arkansas',
+  CA: 'California',
+  CO: 'Colorado',
+  CT: 'Connecticut',
+  DE: 'Delaware',
+  DC: 'District of Columbia',
+  FL: 'Florida',
+  GA: 'Georgia',
+  HI: 'Hawaii',
+  ID: 'Idaho',
+  IL: 'Illinois',
+  IN: 'Indiana',
+  IA: 'Iowa',
+  KS: 'Kansas',
+  KY: 'Kentucky',
+  LA: 'Louisiana',
+  ME: 'Maine',
+  MD: 'Maryland',
+  MA: 'Massachusetts',
+  MI: 'Michigan',
+  MN: 'Minnesota',
+  MS: 'Mississippi',
+  MO: 'Missouri',
+  MT: 'Montana',
+  NE: 'Nebraska',
+  NV: 'Nevada',
+  NH: 'New Hampshire',
+  NJ: 'New Jersey',
+  NM: 'New Mexico',
+  NY: 'New York',
+  NC: 'North Carolina',
+  ND: 'North Dakota',
+  OH: 'Ohio',
+  OK: 'Oklahoma',
+  OR: 'Oregon',
+  PA: 'Pennsylvania',
+  RI: 'Rhode Island',
+  SC: 'South Carolina',
+  SD: 'South Dakota',
+  TN: 'Tennessee',
+  TX: 'Texas',
+  UT: 'Utah',
+  VT: 'Vermont',
+  VA: 'Virginia',
+  WA: 'Washington',
+  WV: 'West Virginia',
+  WI: 'Wisconsin',
+  WY: 'Wyoming',
+  AS: 'American Samoa',
+  GU: 'Guam',
+  MP: 'Northern Mariana Islands',
+  PR: 'Puerto Rico',
+  VI: 'US Virgin Islands',
 };
 
 interface ClinicAssignment {
@@ -269,12 +363,7 @@ export default function SuperAdminProviderDetailPage() {
   const editFromUrlApplied = useRef(false);
   // Open in edit mode when ?edit=1 is in the URL (once when provider has loaded)
   useEffect(() => {
-    if (
-      searchParams.get('edit') === '1' &&
-      provider &&
-      !loading &&
-      !editFromUrlApplied.current
-    ) {
+    if (searchParams.get('edit') === '1' && provider && !loading && !editFromUrlApplied.current) {
       editFromUrlApplied.current = true;
       setEditMode(true);
     }
@@ -345,7 +434,8 @@ export default function SuperAdminProviderDetailPage() {
         }
       }
     } catch (err) {
-      process.env.NODE_ENV === 'development' && console.error('Failed to fetch clinic assignments:', err);
+      process.env.NODE_ENV === 'development' &&
+        console.error('Failed to fetch clinic assignments:', err);
     }
   };
 
@@ -1241,19 +1331,15 @@ export default function SuperAdminProviderDetailPage() {
                   <label className="block text-xs font-medium text-gray-500">State</label>
                   <select
                     value={licenseForm.state}
-                    onChange={(e) =>
-                      setLicenseForm((f) => ({ ...f, state: e.target.value }))
-                    }
+                    onChange={(e) => setLicenseForm((f) => ({ ...f, state: e.target.value }))}
                     className="mt-0.5 w-44 rounded border border-gray-300 px-2 py-1.5 text-sm"
                   >
                     <option value="">Select state...</option>
-                    {US_STATES
-                      .filter((s) => !licenses.some((l) => l.state === s))
-                      .map((s) => (
-                        <option key={s} value={s}>
-                          {s} — {STATE_NAMES[s]}
-                        </option>
-                      ))}
+                    {US_STATES.filter((s) => !licenses.some((l) => l.state === s)).map((s) => (
+                      <option key={s} value={s}>
+                        {s} — {STATE_NAMES[s]}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -1278,7 +1364,9 @@ export default function SuperAdminProviderDetailPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500">Issued (optional)</label>
+                  <label className="block text-xs font-medium text-gray-500">
+                    Issued (optional)
+                  </label>
                   <input
                     type="date"
                     value={licenseForm.issuedAt}
@@ -1305,7 +1393,9 @@ export default function SuperAdminProviderDetailPage() {
               </form>
             )}
             {licenses.length === 0 ? (
-              <p className="text-sm text-gray-500">No state licenses added yet. Click &quot;Add license&quot; to add one.</p>
+              <p className="text-sm text-gray-500">
+                No state licenses added yet. Click &quot;Add license&quot; to add one.
+              </p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
@@ -1332,9 +1422,7 @@ export default function SuperAdminProviderDetailPage() {
                           )}
                         </td>
                         <td className="py-2 text-gray-500">
-                          {l.issuedAt
-                            ? new Date(l.issuedAt).toLocaleDateString()
-                            : '—'}
+                          {l.issuedAt ? new Date(l.issuedAt).toLocaleDateString() : '—'}
                         </td>
                         <td className="py-2">
                           <button
@@ -2013,7 +2101,9 @@ export default function SuperAdminProviderDetailPage() {
                 <label className="mb-1 block text-sm font-medium text-gray-700">Password *</label>
                 <div className="flex gap-2">
                   <div className="relative flex-1">
-                    <Key className={`absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${createUserForm.password ? 'opacity-0' : 'opacity-100'}`} />
+                    <Key
+                      className={`absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${createUserForm.password ? 'opacity-0' : 'opacity-100'}`}
+                    />
                     <input
                       type={showPassword ? 'text' : 'password'}
                       value={createUserForm.password}

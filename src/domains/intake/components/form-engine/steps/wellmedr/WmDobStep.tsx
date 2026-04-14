@@ -11,7 +11,20 @@ interface WmDobStepProps {
   progressPercent: number;
 }
 
-const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const monthNames = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
 
 interface DropdownProps {
   label: string;
@@ -36,8 +49,11 @@ function Dropdown({ label, placeholder, value, displayValue, options, onSelect }
   }, [open]);
 
   return (
-    <div className="flex-1 flex flex-col gap-2" ref={ref}>
-      <label className="text-base sm:text-[1.125rem] font-medium" style={{ color: '#101010', letterSpacing: '-0.01em' }}>
+    <div className="flex flex-1 flex-col gap-2" ref={ref}>
+      <label
+        className="text-base font-medium sm:text-[1.125rem]"
+        style={{ color: '#101010', letterSpacing: '-0.01em' }}
+      >
         {label} <span style={{ color: '#c3b29e' }}>*</span>
       </label>
       <div className="relative">
@@ -48,19 +64,38 @@ function Dropdown({ label, placeholder, value, displayValue, options, onSelect }
           style={{ color: value ? '#101010' : 'rgba(16,16,16,0.3)' }}
         >
           {value ? displayValue : placeholder}
-          <svg className="w-5 h-5 shrink-0" style={{ color: '#9ca3af', transition: 'transform 0.2s', transform: open ? 'rotate(180deg)' : 'none' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg
+            className="h-5 w-5 shrink-0"
+            style={{
+              color: '#9ca3af',
+              transition: 'transform 0.2s',
+              transform: open ? 'rotate(180deg)' : 'none',
+            }}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
           </svg>
         </button>
         {open && (
-          <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-white rounded-2xl shadow-lg border overflow-hidden" style={{ borderColor: 'rgba(53,28,12,0.12)', maxHeight: 240 }}>
-            <div className="overflow-y-auto" style={{ maxHeight: 240, WebkitOverflowScrolling: 'touch' }}>
+          <div
+            className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-2xl border bg-white shadow-lg"
+            style={{ borderColor: 'rgba(53,28,12,0.12)', maxHeight: 240 }}
+          >
+            <div
+              className="overflow-y-auto"
+              style={{ maxHeight: 240, WebkitOverflowScrolling: 'touch' }}
+            >
               {options.map((opt) => (
                 <button
                   key={opt.value}
                   type="button"
-                  onClick={() => { onSelect(opt.value); setOpen(false); }}
-                  className="w-full text-left px-5 py-3 text-base transition-colors"
+                  onClick={() => {
+                    onSelect(opt.value);
+                    setOpen(false);
+                  }}
+                  className="w-full px-5 py-3 text-left text-base transition-colors"
                   style={{
                     backgroundColor: value === opt.value ? '#f5f0e8' : 'transparent',
                     fontWeight: value === opt.value ? 600 : 400,
@@ -78,12 +113,19 @@ function Dropdown({ label, placeholder, value, displayValue, options, onSelect }
   );
 }
 
-export default function WmDobStep({ basePath, nextStep, prevStep, progressPercent }: WmDobStepProps) {
+export default function WmDobStep({
+  basePath,
+  nextStep,
+  prevStep,
+  progressPercent,
+}: WmDobStepProps) {
   const router = useRouter();
   const responses = useIntakeStore((s) => s.responses);
   const { setResponse, markStepCompleted, setCurrentStep } = useIntakeActions();
   const [mounted, setMounted] = useState(false);
-  useEffect(() => { requestAnimationFrame(() => setMounted(true)); }, []);
+  useEffect(() => {
+    requestAnimationFrame(() => setMounted(true));
+  }, []);
 
   const existing = String(responses.dob || '');
   const parts = existing.includes('/') ? existing.split('/') : [];
@@ -101,7 +143,17 @@ export default function WmDobStep({ basePath, nextStep, prevStep, progressPercen
     markStepCompleted('dob');
     setCurrentStep(nextStep);
     router.push(`${basePath}/${nextStep}`);
-  }, [month, day, year, setResponse, markStepCompleted, setCurrentStep, nextStep, router, basePath]);
+  }, [
+    month,
+    day,
+    year,
+    setResponse,
+    markStepCompleted,
+    setCurrentStep,
+    nextStep,
+    router,
+    basePath,
+  ]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -112,15 +164,21 @@ export default function WmDobStep({ basePath, nextStep, prevStep, progressPercen
   }, [handleContinue]);
 
   const handleBack = () => {
-    if (prevStep) { setCurrentStep(prevStep); router.push(`${basePath}/${prevStep}`); }
+    if (prevStep) {
+      setCurrentStep(prevStep);
+      router.push(`${basePath}/${prevStep}`);
+    }
   };
 
-  const dayOptions = Array.from({ length: 31 }, (_, i) => ({ value: String(i + 1), label: String(i + 1) }));
+  const dayOptions = Array.from({ length: 31 }, (_, i) => ({
+    value: String(i + 1),
+    label: String(i + 1),
+  }));
   const monthOptions = monthNames.map((m, i) => ({ value: String(i + 1), label: m }));
   const yearOptions = years.map((y) => ({ value: String(y), label: String(y) }));
 
   return (
-    <div className="min-h-[100dvh] flex flex-col" style={{ backgroundColor: '#F7F7F9' }}>
+    <div className="flex min-h-[100dvh] flex-col" style={{ backgroundColor: '#F7F7F9' }}>
       <style>{`
         .wm-dropdown-btn {
           width: 100%;
@@ -145,17 +203,40 @@ export default function WmDobStep({ basePath, nextStep, prevStep, progressPercen
       `}</style>
 
       {/* Progress bar */}
-      <div className="w-full h-[3px]" style={{ backgroundColor: '#e5e0d8' }}>
-        <div className="h-full" style={{ width: `${progressPercent}%`, backgroundColor: '#c3b29e', transition: 'width 0.8s cubic-bezier(0.4,0,0.2,1)' }} />
+      <div className="h-[3px] w-full" style={{ backgroundColor: '#e5e0d8' }}>
+        <div
+          className="h-full"
+          style={{
+            width: `${progressPercent}%`,
+            backgroundColor: '#c3b29e',
+            transition: 'width 0.8s cubic-bezier(0.4,0,0.2,1)',
+          }}
+        />
       </div>
 
       {/* Back + Logo row */}
-      <div className="w-full max-w-[48rem] mx-auto px-6 pt-4 grid grid-cols-3 items-center">
+      <div className="mx-auto grid w-full max-w-[48rem] grid-cols-3 items-center px-6 pt-4">
         <div>
           {prevStep && (
-            <button type="button" onClick={handleBack} className="p-2.5 rounded-lg hover:bg-black/5 active:scale-95 transition-all" aria-label="Go back">
-              <svg className="w-5 h-5" style={{ color: '#101010' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+            <button
+              type="button"
+              onClick={handleBack}
+              className="rounded-lg p-2.5 transition-all hover:bg-black/5 active:scale-95"
+              aria-label="Go back"
+            >
+              <svg
+                className="h-5 w-5"
+                style={{ color: '#101010' }}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M15 19l-7-7 7-7"
+                />
               </svg>
             </button>
           )}
@@ -168,37 +249,76 @@ export default function WmDobStep({ basePath, nextStep, prevStep, progressPercen
       </div>
 
       {/* Content */}
-      <div className="flex-1 flex flex-col justify-center max-w-[716px] mx-auto px-6 sm:px-8 pb-6 w-full"
-        style={{ opacity: mounted ? 1 : 0, transform: mounted ? 'translateY(0)' : 'translateY(6px)', transition: 'all 0.3s ease-out' }}>
-
-        <p className="text-base sm:text-[1.25rem] text-center mb-1" style={{ color: '#101010', opacity: 0.5, letterSpacing: '-0.01em' }}>
-          Medication can be tailored to <em style={{ fontStyle: 'italic', color: '#7b95a9', opacity: 1 }}>your unique needs,</em>
+      <div
+        className="mx-auto flex w-full max-w-[716px] flex-1 flex-col justify-center px-6 pb-6 sm:px-8"
+        style={{
+          opacity: mounted ? 1 : 0,
+          transform: mounted ? 'translateY(0)' : 'translateY(6px)',
+          transition: 'all 0.3s ease-out',
+        }}
+      >
+        <p
+          className="mb-1 text-center text-base sm:text-[1.25rem]"
+          style={{ color: '#101010', opacity: 0.5, letterSpacing: '-0.01em' }}
+        >
+          Medication can be tailored to{' '}
+          <em style={{ fontStyle: 'italic', color: '#7b95a9', opacity: 1 }}>your unique needs,</em>
         </p>
-        <p className="text-[1.25rem] sm:text-[2rem] font-medium text-center mb-6 sm:mb-8" style={{ color: '#101010', letterSpacing: '-0.02em', lineHeight: '30px' }}>
+        <p
+          className="mb-6 text-center text-[1.25rem] font-medium sm:mb-8 sm:text-[2rem]"
+          style={{ color: '#101010', letterSpacing: '-0.02em', lineHeight: '30px' }}
+        >
           so let&rsquo;s get to know you a little better.
         </p>
 
-        <h1 className="text-[1.25rem] sm:text-[2rem] font-medium text-center mb-2" style={{ color: '#101010', letterSpacing: '-0.02em', lineHeight: '30px' }}>
+        <h1
+          className="mb-2 text-center text-[1.25rem] font-medium sm:text-[2rem]"
+          style={{ color: '#101010', letterSpacing: '-0.02em', lineHeight: '30px' }}
+        >
           What is your date of birth?
         </h1>
-        <p className="text-base sm:text-[1.25rem] text-center mb-8 sm:mb-10" style={{ color: '#101010', opacity: 0.5, letterSpacing: '-0.01em' }}>
+        <p
+          className="mb-8 text-center text-base sm:mb-10 sm:text-[1.25rem]"
+          style={{ color: '#101010', opacity: 0.5, letterSpacing: '-0.01em' }}
+        >
           This helps us understand your body complexity and hormones so we can assess you better.
         </p>
 
-        <div className="w-full max-w-[716px] mx-auto">
-          <div className="flex flex-col sm:flex-row gap-4 mb-4">
-            <Dropdown label="Day" placeholder="Day" value={day} displayValue={day} options={dayOptions} onSelect={setDay} />
-            <Dropdown label="Month" placeholder="Month" value={month} displayValue={month ? monthNames[Number(month) - 1] : ''} options={monthOptions} onSelect={setMonth} />
+        <div className="mx-auto w-full max-w-[716px]">
+          <div className="mb-4 flex flex-col gap-4 sm:flex-row">
+            <Dropdown
+              label="Day"
+              placeholder="Day"
+              value={day}
+              displayValue={day}
+              options={dayOptions}
+              onSelect={setDay}
+            />
+            <Dropdown
+              label="Month"
+              placeholder="Month"
+              value={month}
+              displayValue={month ? monthNames[Number(month) - 1] : ''}
+              options={monthOptions}
+              onSelect={setMonth}
+            />
           </div>
-          <Dropdown label="Year" placeholder="Year" value={year} displayValue={year} options={yearOptions} onSelect={setYear} />
+          <Dropdown
+            label="Year"
+            placeholder="Year"
+            value={year}
+            displayValue={year}
+            options={yearOptions}
+            onSelect={setYear}
+          />
         </div>
 
         {/* Button */}
-        <div className="w-full mt-8 sm:mt-[3.25rem] sm:max-w-[31rem] sm:mx-auto">
+        <div className="mt-8 w-full sm:mx-auto sm:mt-[3.25rem] sm:max-w-[31rem]">
           <button
             type="button"
             onClick={handleContinue}
-            className="wm-next-btn w-full flex items-center justify-center gap-4 text-white text-base sm:text-[1.125rem] font-normal rounded-full active:scale-[0.98]"
+            className="wm-next-btn flex w-full items-center justify-center gap-4 rounded-full text-base font-normal text-white active:scale-[0.98] sm:text-[1.125rem]"
             style={{ height: 56, backgroundColor: '#0C2631', cursor: 'pointer' }}
           >
             Next <span aria-hidden="true">&#10132;</span>

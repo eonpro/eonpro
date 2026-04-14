@@ -36,9 +36,12 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<Response> {
     const offset = Number.isNaN(rawOffset) ? 0 : Math.max(rawOffset, 0);
 
     const clinicIdParsed = clinicFilter ? parseInt(clinicFilter, 10) : undefined;
-    const clinicId = user.role === 'super_admin'
-      ? (clinicIdParsed && !Number.isNaN(clinicIdParsed) ? clinicIdParsed : undefined)
-      : user.clinicId;
+    const clinicId =
+      user.role === 'super_admin'
+        ? clinicIdParsed && !Number.isNaN(clinicIdParsed)
+          ? clinicIdParsed
+          : undefined
+        : user.clinicId;
 
     const where: Record<string, any> = {};
     if (clinicId) where.clinicId = clinicId;
@@ -124,7 +127,9 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<Response> {
       return NextResponse.json({
         events: events.map((e: any) => ({
           ...e,
-          salesRepName: `${e.salesRep?.firstName || ''} ${e.salesRep?.lastName || ''}`.trim() || e.salesRep?.email,
+          salesRepName:
+            `${e.salesRep?.firstName || ''} ${e.salesRep?.lastName || ''}`.trim() ||
+            e.salesRep?.email,
         })),
         total,
         summary: {
@@ -138,7 +143,9 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<Response> {
         },
         overrideEvents: overrideEvents.map((e: any) => ({
           ...e,
-          overrideRepName: `${e.overrideRep?.firstName || ''} ${e.overrideRep?.lastName || ''}`.trim() || e.overrideRep?.email,
+          overrideRepName:
+            `${e.overrideRep?.firstName || ''} ${e.overrideRep?.lastName || ''}`.trim() ||
+            e.overrideRep?.email,
           overridePercentDisplay: `${(e.overridePercentBps / 100).toFixed(2)}%`,
         })),
         overrideSummary: {
@@ -185,7 +192,10 @@ async function handlePost(req: NextRequest, user: AuthUser): Promise<Response> {
     });
 
     if (!rep) {
-      return NextResponse.json({ error: 'Employee not found or not eligible for commissions' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Employee not found or not eligible for commissions' },
+        { status: 404 }
+      );
     }
 
     const targetClinicId = clinicId || rep.clinicId;
@@ -210,9 +220,10 @@ async function handlePost(req: NextRequest, user: AuthUser): Promise<Response> {
         },
       });
 
-    const event = user.role === 'super_admin'
-      ? await withoutClinicFilter(createFn)
-      : await runWithClinicContext(targetClinicId, createFn);
+    const event =
+      user.role === 'super_admin'
+        ? await withoutClinicFilter(createFn)
+        : await runWithClinicContext(targetClinicId, createFn);
 
     logger.info('[SalesRepCommission] Manual commission created', {
       commissionEventId: event.id,

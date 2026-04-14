@@ -3,10 +3,5 @@
 import SubscriptionRenewalsView from '@/components/SubscriptionRenewalsView';
 
 export default function AdminSubscriptionRenewalsPage() {
-  return (
-    <SubscriptionRenewalsView
-      userRole="admin"
-      patientLinkPrefix="/patients"
-    />
-  );
+  return <SubscriptionRenewalsView userRole="admin" patientLinkPrefix="/patients" />;
 }

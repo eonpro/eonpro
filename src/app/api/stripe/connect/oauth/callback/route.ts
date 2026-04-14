@@ -110,7 +110,8 @@ export async function GET(request: NextRequest) {
   } catch (error: unknown) {
     logger.error('[STRIPE OAUTH CALLBACK] Error:', error);
 
-    const message = error instanceof Error ? error.message : String(error) || 'Failed to connect account';
+    const message =
+      error instanceof Error ? error.message : String(error) || 'Failed to connect account';
     return NextResponse.redirect(
       `${settingsUrl}?stripe=error&message=${encodeURIComponent(message)}`
     );

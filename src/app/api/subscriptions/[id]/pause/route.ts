@@ -53,7 +53,6 @@ async function postHandler(request: NextRequest, user: AuthUser, context?: Route
 
     return NextResponse.json(updatedSubscription);
   } catch (error: unknown) {
-
     logger.error('Error pausing subscription:', error);
     return NextResponse.json({ error: 'Failed to pause subscription' }, { status: 500 });
   }

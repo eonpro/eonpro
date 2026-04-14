@@ -48,7 +48,7 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'Invalid query parameters', details: parsed.error.flatten() },
-      { status: 400 },
+      { status: 400 }
     );
   }
 

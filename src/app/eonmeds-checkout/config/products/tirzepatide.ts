@@ -1,6 +1,6 @@
 /**
  * Tirzepatide Product Configuration
- * 
+ *
  * Dual-action GLP-1/GIP injection for superior weight loss results
  */
 
@@ -11,29 +11,33 @@ const tirzepatideConfig: ProductConfig = {
   id: 'tirzepatide',
   name: 'Tirzepatide',
   category: 'glp1',
-  
+
   // Display
   taglineEn: 'Dual-action GLP-1/GIP injection for superior results',
   taglineEs: 'Inyección GLP-1/GIP de doble acción para resultados superiores',
-  descriptionEn: 'Tirzepatide is the most effective FDA-approved weight loss medication, targeting both GLP-1 and GIP receptors for enhanced results.',
-  descriptionEs: 'Tirzepatide es el medicamento para bajar de peso aprobado por la FDA más efectivo, dirigido a los receptores GLP-1 y GIP para resultados mejorados.',
+  descriptionEn:
+    'Tirzepatide is the most effective FDA-approved weight loss medication, targeting both GLP-1 and GIP receptors for enhanced results.',
+  descriptionEs:
+    'Tirzepatide es el medicamento para bajar de peso aprobado por la FDA más efectivo, dirigido a los receptores GLP-1 y GIP para resultados mejorados.',
   efficacy: '20-25% weight loss',
   efficacyEs: '20-25% pérdida de peso',
-  
+
   // Dose Options - Tirzepatide has a more granular dose escalation
   doses: [
     {
       id: 'tirz-2.5',
       name: 'Starting Dose',
       strength: '2.5mg',
-      description: 'Initial dose for the first 4 weeks. Allows your body to adjust to the medication.',
+      description:
+        'Initial dose for the first 4 weeks. Allows your body to adjust to the medication.',
       isStarterDose: true,
     },
     {
       id: 'tirz-5',
       name: 'Escalation Dose 1',
       strength: '5mg',
-      description: 'First escalation dose, typically weeks 5-8. Most patients see initial weight loss here.',
+      description:
+        'First escalation dose, typically weeks 5-8. Most patients see initial weight loss here.',
     },
     {
       id: 'tirz-7.5',
@@ -65,7 +69,7 @@ const tirzepatideConfig: ProductConfig = {
       requiresPriorExperience: true,
     },
   ],
-  
+
   // Pricing Plans
   plans: [
     {
@@ -75,7 +79,8 @@ const tirzepatideConfig: ProductConfig = {
       nameEs: 'Mensual Recurrente',
       price: 329,
       billing: 'monthly',
-      stripePriceId: process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_TIRZ_MONTHLY || 'price_tirzepatide_monthly',
+      stripePriceId:
+        process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_TIRZ_MONTHLY || 'price_tirzepatide_monthly',
       stripePriceIdTest: 'price_test_tirzepatide_monthly',
     },
     {
@@ -88,7 +93,8 @@ const tirzepatideConfig: ProductConfig = {
       savings: 96,
       badge: 'Save $96',
       badgeEs: 'Ahorra $96',
-      stripePriceId: process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_TIRZ_3MONTH || 'price_tirzepatide_3month',
+      stripePriceId:
+        process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_TIRZ_3MONTH || 'price_tirzepatide_3month',
       stripePriceIdTest: 'price_test_tirzepatide_3month',
     },
     {
@@ -101,7 +107,8 @@ const tirzepatideConfig: ProductConfig = {
       savings: 300,
       badge: 'Best Value',
       badgeEs: 'Mejor Valor',
-      stripePriceId: process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_TIRZ_6MONTH || 'price_tirzepatide_6month',
+      stripePriceId:
+        process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_TIRZ_6MONTH || 'price_tirzepatide_6month',
       stripePriceIdTest: 'price_test_tirzepatide_6month',
     },
     {
@@ -111,11 +118,12 @@ const tirzepatideConfig: ProductConfig = {
       nameEs: 'Compra Única',
       price: 399,
       billing: 'once',
-      stripePriceId: process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_TIRZ_ONETIME || 'price_tirzepatide_onetime',
+      stripePriceId:
+        process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PRICE_TIRZ_ONETIME || 'price_tirzepatide_onetime',
       stripePriceIdTest: 'price_test_tirzepatide_onetime',
     },
   ],
-  
+
   // Add-ons (same as Semaglutide for GLP-1 products)
   addons: [
     {
@@ -143,25 +151,25 @@ const tirzepatideConfig: ProductConfig = {
       stripePriceIdTest: 'price_test_fat_burner',
     },
   ],
-  
+
   // UI Configuration
-  showDoseSelection: false,        // Provider determines dose based on patient history
+  showDoseSelection: false, // Provider determines dose based on patient history
   showMedicationComparison: false, // Single medication checkout
   defaultPlanId: 'tirz_monthly',
-  
+
   // Branding
   branding: {
-    primaryColor: '#8B5CF6',       // Purple - differentiates from Semaglutide
+    primaryColor: '#8B5CF6', // Purple - differentiates from Semaglutide
     secondaryColor: '#7C3AED',
   },
-  
+
   // Integrations
   integrations: {
     intakeqTags: ['#weightloss', 'tirzepatide'],
     intakeqFolderType: 'INTAKE INFORMATION',
     ghlTags: ['tirzepatide', 'glp1', 'weight-loss', 'dual-action'],
   },
-  
+
   // Features
   features: {
     enablePromoCode: true,

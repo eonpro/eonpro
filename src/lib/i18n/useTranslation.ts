@@ -40,7 +40,6 @@ async function loadTranslation(language: string, namespace: string = 'common') {
       return data;
     }
   } catch (error: unknown) {
-    
     logger.error(`Failed to load translation: ${key}`, error);
   }
 

@@ -54,7 +54,10 @@ export default function CreateClinicPage() {
     if (user) {
       try {
         const userData = safeParseJsonString<Record<string, unknown>>(user);
-        if (!userData) { router.push('/login'); return; }
+        if (!userData) {
+          router.push('/login');
+          return;
+        }
         const role = String(userData?.role ?? '').toLowerCase();
         if (role !== 'super_admin') {
           setError('Access denied. Super Admin privileges required.');
@@ -904,7 +907,8 @@ function ClinicAddressSection({
 
         return true;
       } catch (error) {
-        process.env.NODE_ENV === 'development' && console.error('Error initializing Google Maps Autocomplete:', error);
+        process.env.NODE_ENV === 'development' &&
+          console.error('Error initializing Google Maps Autocomplete:', error);
         return false;
       }
     };

@@ -27,7 +27,9 @@ export async function GET() {
 
     return NextResponse.json({ clinics });
   } catch (error) {
-    logger.error('Failed to fetch clinics', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('Failed to fetch clinics', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json({ error: 'Failed to fetch clinics', clinics: [] }, { status: 500 });
   }
 }

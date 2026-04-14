@@ -38,13 +38,7 @@ export default function IconButton({
       onClick={onClick}
       title={title}
       disabled={disabled}
-      className={`
-        inline-flex items-center justify-center transition-colors
-        ${variantClasses[variant]}
-        ${sizeClasses[size]}
-        ${disabled ? 'opacity-30 cursor-not-allowed pointer-events-none' : ''}
-        ${className}
-      `}
+      className={`inline-flex items-center justify-center transition-colors ${variantClasses[variant]} ${sizeClasses[size]} ${disabled ? 'pointer-events-none cursor-not-allowed opacity-30' : ''} ${className} `}
     >
       {children}
     </button>

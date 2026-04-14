@@ -196,44 +196,50 @@ export default function QuickActions({
       </div>
 
       {/* Inline note input for actions that require one */}
-      {activeAction && (() => {
-        const action = actions.find((a) => a.id === activeAction);
-        if (!action) return null;
-        return (
-          <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
-            <label className="block text-sm font-medium text-gray-700">
-              {action.noteLabel}
-            </label>
-            <textarea
-              value={note}
-              onChange={(e) => { setNote(e.target.value); setError(null); }}
-              placeholder={action.notePlaceholder}
-              rows={2}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              autoFocus
-            />
-            {error && <p className="text-sm text-red-600">{error}</p>}
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => { setActiveAction(null); setNote(''); setError(null); }}
-                className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => handleAction(action)}
-                disabled={submitting || !note.trim()}
-                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium disabled:opacity-50 ${action.color} ${action.hoverColor}`}
-              >
-                {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                Confirm
-              </button>
+      {activeAction &&
+        (() => {
+          const action = actions.find((a) => a.id === activeAction);
+          if (!action) return null;
+          return (
+            <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
+              <label className="block text-sm font-medium text-gray-700">{action.noteLabel}</label>
+              <textarea
+                value={note}
+                onChange={(e) => {
+                  setNote(e.target.value);
+                  setError(null);
+                }}
+                placeholder={action.notePlaceholder}
+                rows={2}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                autoFocus
+              />
+              {error && <p className="text-sm text-red-600">{error}</p>}
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveAction(null);
+                    setNote('');
+                    setError(null);
+                  }}
+                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAction(action)}
+                  disabled={submitting || !note.trim()}
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium disabled:opacity-50 ${action.color} ${action.hoverColor}`}
+                >
+                  {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                  Confirm
+                </button>
+              </div>
             </div>
-          </div>
-        );
-      })()}
+          );
+        })()}
     </div>
   );
 }

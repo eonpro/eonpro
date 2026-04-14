@@ -48,23 +48,34 @@ function classifyProduct(
   product?: string,
   description?: string,
   medicationType?: string,
-  addonId?: string,
+  addonId?: string
 ): ProductCategory {
   const p = (product || '').toLowerCase();
   const d = (description || '').toLowerCase();
   const combined = `${p} ${d} ${(medicationType || '').toLowerCase()}`;
 
-  if (addonId === 'elite_bundle' || combined.includes('elite bundle') || combined.includes('elite package'))
+  if (
+    addonId === 'elite_bundle' ||
+    combined.includes('elite bundle') ||
+    combined.includes('elite package')
+  )
     return 'Elite Bundle';
   if (addonId === 'nad_plus' || combined.includes('nad+') || combined.includes('nad '))
     return 'NAD+';
   if (addonId === 'b12' || combined.includes('b12') || combined.includes('cyanocobalamin'))
     return 'B12';
-  if (addonId === 'sermorelin' || combined.includes('sermorelin'))
-    return 'Sermorelin';
-  if (combined.includes('semaglutide') || combined.includes('ozempic') || combined.includes('wegovy'))
+  if (addonId === 'sermorelin' || combined.includes('sermorelin')) return 'Sermorelin';
+  if (
+    combined.includes('semaglutide') ||
+    combined.includes('ozempic') ||
+    combined.includes('wegovy')
+  )
     return 'Semaglutide';
-  if (combined.includes('tirzepatide') || combined.includes('mounjaro') || combined.includes('zepbound'))
+  if (
+    combined.includes('tirzepatide') ||
+    combined.includes('mounjaro') ||
+    combined.includes('zepbound')
+  )
     return 'Tirzepatide';
 
   return 'Other';
@@ -101,7 +112,7 @@ function getSemesterBounds(date: Date): { start: Date; end: Date } {
 function parseDateRange(
   range: string,
   startDateParam?: string | null,
-  endDateParam?: string | null,
+  endDateParam?: string | null
 ): { startDate: Date; endDate: Date } | null {
   const now = new Date();
 
@@ -165,7 +176,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
     const dateRange = parseDateRange(
       range,
       searchParams.get('startDate'),
-      searchParams.get('endDate'),
+      searchParams.get('endDate')
     );
     if (!dateRange) {
       return NextResponse.json({ error: 'Invalid date range' }, { status: 400 });
@@ -211,7 +222,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
             item.product,
             item.description,
             item.medicationType,
-            item.addonId,
+            item.addonId
           );
           const qty = item.quantity || 1;
           const amount = item.amount ?? item.unitPrice ?? 0;
@@ -226,7 +237,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
         const category = classifyProduct(
           metadata.product,
           invoice.description || undefined,
-          metadata.medicationType,
+          metadata.medicationType
         );
         const amount = invoice.amountPaid || invoice.amount || 0;
 
@@ -237,15 +248,13 @@ async function getHandler(request: NextRequest, user: AuthUser) {
       }
     }
 
-    const products = PRODUCT_CATEGORIES
-      .filter((cat) => breakdown[cat].count > 0)
+    const products = PRODUCT_CATEGORIES.filter((cat) => breakdown[cat].count > 0)
       .map((cat) => ({
         product: cat,
         count: breakdown[cat].count,
         revenue: breakdown[cat].revenue,
-        percentageOfRevenue: totalRevenue > 0
-          ? Math.round((breakdown[cat].revenue / totalRevenue) * 1000) / 10
-          : 0,
+        percentageOfRevenue:
+          totalRevenue > 0 ? Math.round((breakdown[cat].revenue / totalRevenue) * 1000) / 10 : 0,
       }))
       .sort((a, b) => b.revenue - a.revenue);
 
@@ -261,10 +270,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
     });
   } catch (error) {
     logger.error('[PRODUCT_BREAKDOWN]', error);
-    return NextResponse.json(
-      { error: 'Failed to compute product breakdown' },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: 'Failed to compute product breakdown' }, { status: 500 });
   }
 }
 

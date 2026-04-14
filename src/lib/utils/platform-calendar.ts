@@ -45,7 +45,7 @@ export function calendarTodayServer(clinicIANA?: string | null): string {
 /** Bucket an instant into a calendar day string using the given zone (default: platform fallback). */
 export function instantToCalendarDate(
   d: Date,
-  iana: string | null | undefined = PLATFORM_FALLBACK_TIMEZONE,
+  iana: string | null | undefined = PLATFORM_FALLBACK_TIMEZONE
 ): string {
   return toCalendarDateStringInTz(d, normalizeIANATimeZone(iana) ?? PLATFORM_FALLBACK_TIMEZONE);
 }
@@ -54,7 +54,7 @@ const TZ_COOKIE = 'eonpro_tz';
 
 /** Read `eonpro_tz` from a Next.js `cookies()` store or similar. */
 export function calendarTimeZoneFromCookie(
-  getCookie: (name: string) => string | undefined | null,
+  getCookie: (name: string) => string | undefined | null
 ): string | null {
   const raw = getCookie(TZ_COOKIE);
   return normalizeIANATimeZone(raw ? decodeURIComponent(raw) : null);

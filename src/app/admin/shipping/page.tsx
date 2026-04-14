@@ -165,9 +165,10 @@ export default function AdminShippingPage() {
   }, []);
 
   useEffect(() => {
-    return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    };
   }, []);
-
 
   useEffect(() => {
     setPage(1);
@@ -193,13 +194,21 @@ export default function AdminShippingPage() {
       setTotal(data.total ?? 0);
       setHasMore(data.hasMore ?? false);
     } catch (err) {
-      setError(err instanceof Error ? (err instanceof Error ? err.message : String(err)) : 'Failed to load shipping data');
+      setError(
+        err instanceof Error
+          ? err instanceof Error
+            ? err.message
+            : String(err)
+          : 'Failed to load shipping data'
+      );
     } finally {
       setLoading(false);
     }
   }, [page, pageSize, debouncedSearch, statusFilter, carrierFilter, sourceFilter]);
 
-  useEffect(() => { fetchRecords(); }, [fetchRecords]);
+  useEffect(() => {
+    fetchRecords();
+  }, [fetchRecords]);
 
   const handleDownloadLabel = async (rec: ShippingRecord) => {
     if (!rec.labelId) return;
@@ -210,10 +219,18 @@ export default function AdminShippingPage() {
       if (!res.ok) throw new Error(data.error || 'Download failed');
       const format = data.labelFormat || 'PDF';
       const ext = format === 'ZPLII' ? 'zpl' : format === 'PNG' ? 'png' : 'pdf';
-      const mimeType = format === 'ZPLII' ? 'application/octet-stream' : format === 'PNG' ? 'image/png' : 'application/pdf';
-      const raw = format === 'ZPLII'
-        ? new Blob([atob(data.labelData)], { type: mimeType })
-        : new Blob([Uint8Array.from(atob(data.labelData), (c) => c.charCodeAt(0))], { type: mimeType });
+      const mimeType =
+        format === 'ZPLII'
+          ? 'application/octet-stream'
+          : format === 'PNG'
+            ? 'image/png'
+            : 'application/pdf';
+      const raw =
+        format === 'ZPLII'
+          ? new Blob([atob(data.labelData)], { type: mimeType })
+          : new Blob([Uint8Array.from(atob(data.labelData), (c) => c.charCodeAt(0))], {
+              type: mimeType,
+            });
       const url = URL.createObjectURL(raw);
       const a = document.createElement('a');
       a.href = url;
@@ -231,10 +248,16 @@ export default function AdminShippingPage() {
   };
 
   const handleVoidLabel = async (rec: ShippingRecord) => {
-    if (!rec.labelId || !confirm(`Void FedEx label for tracking ${rec.trackingNumber}? This cannot be undone.`)) return;
+    if (
+      !rec.labelId ||
+      !confirm(`Void FedEx label for tracking ${rec.trackingNumber}? This cannot be undone.`)
+    )
+      return;
     setActionLoading(rec.id);
     try {
-      const res = await apiFetch(`/api/shipping/fedex/label?id=${rec.labelId}`, { method: 'DELETE' });
+      const res = await apiFetch(`/api/shipping/fedex/label?id=${rec.labelId}`, {
+        method: 'DELETE',
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Void failed');
       setSuccessMsg(`Label ${rec.trackingNumber} voided`);
@@ -250,15 +273,14 @@ export default function AdminShippingPage() {
 
   const startIdx = (page - 1) * pageSize + 1;
   const endIdx = Math.min(page * pageSize, total);
-  const selectCls = 'rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]';
+  const selectCls =
+    'rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]';
 
   return (
     <div className="mx-auto w-full max-w-[1600px] p-6">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">
-          Shipping & Labels
-        </h1>
+        <h1 className="text-2xl font-bold text-gray-900">Shipping & Labels</h1>
         <p className="mt-1 text-gray-600">
           All tracking numbers and shipping labels across patients
         </p>
@@ -288,14 +310,38 @@ export default function AdminShippingPage() {
             className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
           />
         </div>
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={selectCls}>
-          {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className={selectCls}
+        >
+          {STATUS_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
         </select>
-        <select value={carrierFilter} onChange={(e) => setCarrierFilter(e.target.value)} className={selectCls}>
-          {CARRIER_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        <select
+          value={carrierFilter}
+          onChange={(e) => setCarrierFilter(e.target.value)}
+          className={selectCls}
+        >
+          {CARRIER_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
         </select>
-        <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)} className={selectCls}>
-          {SOURCE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        <select
+          value={sourceFilter}
+          onChange={(e) => setSourceFilter(e.target.value)}
+          className={selectCls}
+        >
+          {SOURCE_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
         </select>
       </div>
 
@@ -384,7 +430,9 @@ export default function AdminShippingPage() {
 
                   {/* Status */}
                   <td className="px-4 py-3">
-                    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${getStatusColor(rec.status)}`}>
+                    <span
+                      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${getStatusColor(rec.status)}`}
+                    >
                       {getStatusIcon(rec.status)}
                       {rec.status.replace(/_/g, ' ')}
                     </span>
@@ -397,7 +445,9 @@ export default function AdminShippingPage() {
 
                   {/* Shipped date */}
                   <td className="px-4 py-3">
-                    <span className="text-sm text-gray-600">{formatDate(rec.shippedAt || rec.createdAt)}</span>
+                    <span className="text-sm text-gray-600">
+                      {formatDate(rec.shippedAt || rec.createdAt)}
+                    </span>
                   </td>
 
                   {/* Actions */}
@@ -428,12 +478,16 @@ export default function AdminShippingPage() {
                         </button>
                       )}
                       {rec.labelStatus === 'VOIDED' && (
-                        <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs text-red-600">Voided</span>
+                        <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs text-red-600">
+                          Voided
+                        </span>
                       )}
                       {rec.patientId && (
                         <a
                           href={`/admin/patients/${rec.patientId}?tab=prescriptions`}
-                          onMouseEnter={() => prefetchRoute(`/admin/patients/${rec.patientId}?tab=prescriptions`)}
+                          onMouseEnter={() =>
+                            prefetchRoute(`/admin/patients/${rec.patientId}?tab=prescriptions`)
+                          }
                           title="View patient"
                           className="rounded p-1.5 text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
                         >
@@ -462,7 +516,9 @@ export default function AdminShippingPage() {
               className="rounded border border-gray-300 bg-white px-2 py-1 text-sm"
             >
               {[10, 20, 50, 100].map((size) => (
-                <option key={size} value={size}>{size} per page</option>
+                <option key={size} value={size}>
+                  {size} per page
+                </option>
               ))}
             </select>
           </div>
@@ -475,9 +531,7 @@ export default function AdminShippingPage() {
               <ChevronLeft className="h-4 w-4" />
               Previous
             </button>
-            <span className="text-sm text-gray-500">
-              Page {page}
-            </span>
+            <span className="text-sm text-gray-500">Page {page}</span>
             <button
               onClick={() => setPage((p) => p + 1)}
               disabled={!hasMore}

@@ -40,7 +40,8 @@ const PAGE_SIZE = 50;
 function formatContactPhone(phone: string | null | undefined): React.ReactNode {
   if (!phone) return <span className="text-gray-400">No phone</span>;
   const digits = phone.replace(/\D/g, '');
-  if (digits === '0000000000' || digits === '0') return <span className="text-gray-400">No phone</span>;
+  if (digits === '0000000000' || digits === '0')
+    return <span className="text-gray-400">No phone</span>;
   return phone;
 }
 
@@ -58,7 +59,12 @@ export default function ProviderPatientsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
-  const [meta, setMeta] = useState<PaginationMeta>({ count: 0, total: 0, totalInSystem: 0, hasMore: false });
+  const [meta, setMeta] = useState<PaginationMeta>({
+    count: 0,
+    total: 0,
+    totalInSystem: 0,
+    hasMore: false,
+  });
   const [offset, setOffset] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
   const isInitialLoadRef = useRef(true);
@@ -302,7 +308,9 @@ export default function ProviderPatientsPage() {
     let year: number, month: number, day: number;
     if (dob.includes('/')) {
       const [m, d, y] = dob.split('/').map(Number);
-      month = m; day = d; year = y;
+      month = m;
+      day = d;
+      year = y;
     } else {
       const parts = dob.split('-').map(Number);
       if (parts.length !== 3) return '-';
@@ -311,7 +319,7 @@ export default function ProviderPatientsPage() {
     if (!year || !month || !day || isNaN(year)) return '-';
     const today = new Date();
     let age = today.getFullYear() - year;
-    const monthDiff = (today.getMonth() + 1) - month;
+    const monthDiff = today.getMonth() + 1 - month;
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < day)) {
       age--;
     }
@@ -453,7 +461,9 @@ export default function ProviderPatientsPage() {
             ) : (
               <>
                 Loaded{' '}
-                {meta.hasMore && <span className="text-xs text-gray-400">(of {meta.totalInSystem})</span>}
+                {meta.hasMore && (
+                  <span className="text-xs text-gray-400">(of {meta.totalInSystem})</span>
+                )}
               </>
             )}
           </div>
@@ -486,11 +496,9 @@ export default function ProviderPatientsPage() {
             <div className="py-16 text-center">
               <Users className="mx-auto mb-4 h-14 w-14 text-gray-300" />
               <p className="text-lg font-medium text-gray-700">
-                {searchQuery
-                  ? `No patients match "${searchQuery}"`
-                  : 'No patients yet'}
+                {searchQuery ? `No patients match "${searchQuery}"` : 'No patients yet'}
               </p>
-              <p className="mt-2 max-w-sm mx-auto text-sm text-gray-500">
+              <p className="mx-auto mt-2 max-w-sm text-sm text-gray-500">
                 {searchQuery
                   ? 'Try searching by email, phone number, or patient ID. You can also clear the search to see all patients.'
                   : 'Add your first patient to get started.'}
@@ -540,7 +548,10 @@ export default function ProviderPatientsPage() {
                       onClick={() => {
                         window.location.href = `/provider/patients/${patient.id}`;
                       }}
-                      onKeyDown={(e) => { if (e.key === 'Enter') window.location.href = `/provider/patients/${patient.id}`; }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter')
+                          window.location.href = `/provider/patients/${patient.id}`;
+                      }}
                     >
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1 font-medium">
@@ -637,11 +648,15 @@ export default function ProviderPatientsPage() {
               <div className="py-4 text-center text-sm text-gray-500">
                 {searchQuery ? (
                   <>
-                    Showing {filteredPatients.length} of {meta.total} matching &quot;{searchQuery}&quot;
+                    Showing {filteredPatients.length} of {meta.total} matching &quot;{searchQuery}
+                    &quot;
                     {meta.totalInSystem > 0 && ` (${meta.totalInSystem.toLocaleString()} total)`}
                   </>
                 ) : (
-                  <>Showing {filteredPatients.length} of {meta.totalInSystem.toLocaleString()} patients</>
+                  <>
+                    Showing {filteredPatients.length} of {meta.totalInSystem.toLocaleString()}{' '}
+                    patients
+                  </>
                 )}
               </div>
             </div>

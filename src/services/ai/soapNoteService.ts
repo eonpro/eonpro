@@ -133,13 +133,19 @@ export async function generateSOAPFromIntake(
   const fnLooksEncrypted = fn.includes(':') && fn.length > 30;
   const lnLooksEncrypted = ln.includes(':') && ln.length > 30;
 
-  const isTestPatient = !fnLooksEncrypted && !lnLooksEncrypted && (
-    fn === 'unknown' || ln === 'unknown' ||
-    fn === 'test' || ln === 'test' || fn === 'demo' || ln === 'demo' ||
-    /^test[\s._-]|[\s._-]test$|^test\d*$/i.test(fn) ||
-    /^test[\s._-]|[\s._-]test$|^test\d*$/i.test(ln) ||
-    /^(test|demo)[.+_-].*@/.test(em) || /^.*[.+_-](test|demo)@/.test(em)
-  );
+  const isTestPatient =
+    !fnLooksEncrypted &&
+    !lnLooksEncrypted &&
+    (fn === 'unknown' ||
+      ln === 'unknown' ||
+      fn === 'test' ||
+      ln === 'test' ||
+      fn === 'demo' ||
+      ln === 'demo' ||
+      /^test[\s._-]|[\s._-]test$|^test\d*$/i.test(fn) ||
+      /^test[\s._-]|[\s._-]test$|^test\d*$/i.test(ln) ||
+      /^(test|demo)[.+_-].*@/.test(em) ||
+      /^.*[.+_-](test|demo)@/.test(em));
 
   if (isTestPatient) {
     throw new Error('Cannot generate SOAP notes for test/demo patients');
@@ -198,7 +204,7 @@ export async function generateSOAPFromIntake(
 
   // Also detect from patient tags if not already known
   if (!detectedTreatmentType) {
-    const tags = Array.isArray(patient.tags) ? patient.tags as string[] : [];
+    const tags = Array.isArray(patient.tags) ? (patient.tags as string[]) : [];
     if (tags.includes('peptide-therapy-intake') || tags.includes('sermorelin')) {
       detectedTreatmentType = 'peptides';
     }
@@ -208,15 +214,17 @@ export async function generateSOAPFromIntake(
 
   // Choose appropriate chief complaint based on treatment type
   const chiefComplaint = isPeptide
-    ? (intakeData['Sermorelin Therapy Goals'] ||
-       intakeData['Current Symptoms'] ||
-       intakeData.chiefComplaint ||
-       intakeData.reasonForVisit ||
-       'Peptide therapy evaluation — sermorelin for growth hormone optimization')
-    : (intakeData['How would your life change by losing weight?'] ||
-       intakeData.chiefComplaint ||
-       intakeData.reasonForVisit ||
-       (renewalContext?.isRenewal ? 'Follow-up weight management evaluation and dose titration' : 'Weight loss evaluation'));
+    ? intakeData['Sermorelin Therapy Goals'] ||
+      intakeData['Current Symptoms'] ||
+      intakeData.chiefComplaint ||
+      intakeData.reasonForVisit ||
+      'Peptide therapy evaluation — sermorelin for growth hormone optimization'
+    : intakeData['How would your life change by losing weight?'] ||
+      intakeData.chiefComplaint ||
+      intakeData.reasonForVisit ||
+      (renewalContext?.isRenewal
+        ? 'Follow-up weight management evaluation and dose titration'
+        : 'Weight loss evaluation');
 
   // Generate SOAP note using AI
   const soapInput: SOAPGenerationInput = {
@@ -632,13 +640,14 @@ export function formatSOAPNote(soapNote: any): string {
   const provider = soapNote.approvedByProvider;
 
   // Detect if this is a peptide therapy note from content
-  const noteContent = [soapNote.subjective, soapNote.assessment, soapNote.plan].join(' ').toLowerCase();
-  const isPeptideNote = (
+  const noteContent = [soapNote.subjective, soapNote.assessment, soapNote.plan]
+    .join(' ')
+    .toLowerCase();
+  const isPeptideNote =
     noteContent.includes('sermorelin') ||
     noteContent.includes('peptide therapy') ||
     noteContent.includes('growth hormone secretagogue') ||
-    (noteContent.includes('peptide') && !noteContent.includes('glp-1'))
-  );
+    (noteContent.includes('peptide') && !noteContent.includes('glp-1'));
 
   // Calculate age from DOB
   let age = '';
@@ -666,8 +675,8 @@ export function formatSOAPNote(soapNote: any): string {
     : 'Medical weight management evaluation and treatment consideration';
 
   const attestation = isPeptideNote
-    ? 'I attest that I personally reviewed the patient\'s intake, medical history, and responses. Based on my clinical judgment, peptide therapy is medically necessary and appropriate for this patient. The patient meets eligibility criteria and has no contraindications to treatment.'
-    : 'I attest that I personally reviewed the patient\'s intake, medical history, and responses. Based on my clinical judgment, compounded GLP-1 therapy with appropriate adjunctive support is medically necessary and appropriate for this patient. The patient meets eligibility criteria and has no contraindications to treatment.';
+    ? "I attest that I personally reviewed the patient's intake, medical history, and responses. Based on my clinical judgment, peptide therapy is medically necessary and appropriate for this patient. The patient meets eligibility criteria and has no contraindications to treatment."
+    : "I attest that I personally reviewed the patient's intake, medical history, and responses. Based on my clinical judgment, compounded GLP-1 therapy with appropriate adjunctive support is medically necessary and appropriate for this patient. The patient meets eligibility criteria and has no contraindications to treatment.";
 
   let formatted = `${noteTitle}\n\n`;
 

@@ -24,25 +24,16 @@ function getHeaders(): Record<string, string> {
   };
 }
 
-export function verifyTerraSignature(
-  payload: string,
-  signature: string
-): boolean {
+export function verifyTerraSignature(payload: string, signature: string): boolean {
   const { webhookSecret } = getConfig();
   if (!webhookSecret) {
     logger.error('TERRA_WEBHOOK_SECRET not configured — rejecting webhook');
     return false;
   }
-  const expected = crypto
-    .createHmac('sha256', webhookSecret)
-    .update(payload)
-    .digest('hex');
+  const expected = crypto.createHmac('sha256', webhookSecret).update(payload).digest('hex');
 
   try {
-    return crypto.timingSafeEqual(
-      Buffer.from(signature, 'hex'),
-      Buffer.from(expected, 'hex')
-    );
+    return crypto.timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expected, 'hex'));
   } catch {
     return false;
   }

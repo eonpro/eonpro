@@ -29,7 +29,6 @@ function getSemesterBounds(date: Date): { start: Date; end: Date } {
 
 async function getHandler(request: NextRequest, user: AuthUser) {
   try {
-
     const contextClinicId = getClinicContext();
     const clinicId = contextClinicId || user.clinicId;
 
@@ -103,15 +102,16 @@ async function getHandler(request: NextRequest, user: AuthUser) {
     const dateRange = { start: startDate, end: endDate };
 
     // Fetch all analytics data in parallel
-    const [overview, trends, mrr, byProduct, byCategory, byPaymentMethod, forecast] = await Promise.all([
-      RevenueAnalyticsService.getRevenueOverview(clinicId, dateRange),
-      RevenueAnalyticsService.getRevenueTrends(clinicId, dateRange, granularity),
-      RevenueAnalyticsService.getMrrBreakdown(clinicId),
-      RevenueAnalyticsService.getRevenueByProduct(clinicId, dateRange),
-      RevenueAnalyticsService.getRevenueByCategory(clinicId, dateRange),
-      RevenueAnalyticsService.getRevenueByPaymentMethod(clinicId, dateRange),
-      RevenueAnalyticsService.getForecast(clinicId, 6),
-    ]);
+    const [overview, trends, mrr, byProduct, byCategory, byPaymentMethod, forecast] =
+      await Promise.all([
+        RevenueAnalyticsService.getRevenueOverview(clinicId, dateRange),
+        RevenueAnalyticsService.getRevenueTrends(clinicId, dateRange, granularity),
+        RevenueAnalyticsService.getMrrBreakdown(clinicId),
+        RevenueAnalyticsService.getRevenueByProduct(clinicId, dateRange),
+        RevenueAnalyticsService.getRevenueByCategory(clinicId, dateRange),
+        RevenueAnalyticsService.getRevenueByPaymentMethod(clinicId, dateRange),
+        RevenueAnalyticsService.getForecast(clinicId, 6),
+      ]);
 
     return NextResponse.json({
       overview,

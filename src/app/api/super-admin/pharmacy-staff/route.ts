@@ -164,21 +164,21 @@ export const GET = withSuperAdminAuth(async (_req: NextRequest) => {
     const formatted = pharmacyStaff.map((row) => {
       const clinicsForUser = assignmentsByUser.get(row.id) || [];
       return {
-      id: row.id,
-      email: row.email,
-      firstName: row.firstName,
-      lastName: row.lastName,
-      status: row.status,
-      clinicId: row.clinicId,
-      createdAt: row.createdAt,
-      lastLogin: row.lastLogin,
-      primaryClinic: clinicsForUser.find((uc) => uc.isPrimary)?.clinic ?? row.clinic,
-      clinics: clinicsForUser.map((uc) => ({
-        clinicId: uc.clinicId,
-        isPrimary: uc.isPrimary,
-        isActive: uc.isActive,
-        clinic: uc.clinic,
-      })),
+        id: row.id,
+        email: row.email,
+        firstName: row.firstName,
+        lastName: row.lastName,
+        status: row.status,
+        clinicId: row.clinicId,
+        createdAt: row.createdAt,
+        lastLogin: row.lastLogin,
+        primaryClinic: clinicsForUser.find((uc) => uc.isPrimary)?.clinic ?? row.clinic,
+        clinics: clinicsForUser.map((uc) => ({
+          clinicId: uc.clinicId,
+          isPrimary: uc.isPrimary,
+          isActive: uc.isActive,
+          clinic: uc.clinic,
+        })),
       };
     });
 
@@ -194,7 +194,9 @@ export const GET = withSuperAdminAuth(async (_req: NextRequest) => {
 export const POST = withSuperAdminAuth(async (req: NextRequest) => {
   try {
     const body = await req.json();
-    const email = String(body?.email || '').trim().toLowerCase();
+    const email = String(body?.email || '')
+      .trim()
+      .toLowerCase();
     const firstName = String(body?.firstName || '').trim();
     const lastName = String(body?.lastName || '').trim();
     const password = String(body?.password || '');
@@ -229,7 +231,10 @@ export const POST = withSuperAdminAuth(async (req: NextRequest) => {
       select: { id: true },
     });
     if (clinics.length !== clinicIds.length) {
-      return NextResponse.json({ error: 'One or more selected clinics are invalid' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'One or more selected clinics are invalid' },
+        { status: 400 }
+      );
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
@@ -291,10 +296,13 @@ export const POST = withSuperAdminAuth(async (req: NextRequest) => {
             data: { isActive: false, isPrimary: false },
           });
         } catch (error) {
-          logger.warn('[SUPER-ADMIN-PHARMACY-STAFF][POST] UserClinic update failed for existing user, kept primary clinicId only', {
-            userId: existingUser.id,
-            error: error instanceof Error ? error.message : String(error),
-          });
+          logger.warn(
+            '[SUPER-ADMIN-PHARMACY-STAFF][POST] UserClinic update failed for existing user, kept primary clinicId only',
+            {
+              userId: existingUser.id,
+              error: error instanceof Error ? error.message : String(error),
+            }
+          );
         }
       });
 
@@ -318,27 +326,33 @@ export const POST = withSuperAdminAuth(async (req: NextRequest) => {
         select: { id: true },
       });
 
-        try {
-          await tx.userClinic.createMany({
-            data: clinicIds.map((clinicId: number) => ({
-              userId: user.id,
-              clinicId,
-              role: 'PHARMACY_REP' as const,
-              isActive: true,
-              isPrimary: clinicId === primaryClinicId,
-            })),
-          });
-      } catch (error) {
-        logger.warn('[SUPER-ADMIN-PHARMACY-STAFF][POST] UserClinic create failed for new user, kept primary clinicId only', {
-          userId: user.id,
-          error: error instanceof Error ? error.message : String(error),
+      try {
+        await tx.userClinic.createMany({
+          data: clinicIds.map((clinicId: number) => ({
+            userId: user.id,
+            clinicId,
+            role: 'PHARMACY_REP' as const,
+            isActive: true,
+            isPrimary: clinicId === primaryClinicId,
+          })),
         });
+      } catch (error) {
+        logger.warn(
+          '[SUPER-ADMIN-PHARMACY-STAFF][POST] UserClinic create failed for new user, kept primary clinicId only',
+          {
+            userId: user.id,
+            error: error instanceof Error ? error.message : String(error),
+          }
+        );
       }
 
       return user;
     });
 
-    return NextResponse.json({ message: 'Pharmacy staff created successfully', userId: created.id });
+    return NextResponse.json({
+      message: 'Pharmacy staff created successfully',
+      userId: created.id,
+    });
   } catch (error) {
     logger.error('[SUPER-ADMIN-PHARMACY-STAFF][POST] Failed to create pharmacy staff', {
       error: error instanceof Error ? error.message : String(error),

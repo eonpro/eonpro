@@ -56,11 +56,7 @@ const ruleCache = new Map<number, { rules: TicketAutomationRule[]; expiresAt: nu
 const CACHE_TTL = 5 * 60 * 1000;
 
 class TicketAutomationService {
-  async evaluate(
-    trigger: TriggerEvent,
-    ticket: TicketContext,
-    actorId: number
-  ): Promise<void> {
+  async evaluate(trigger: TriggerEvent, ticket: TicketContext, actorId: number): Promise<void> {
     if (!ticket.clinicId) return;
 
     try {
@@ -93,10 +89,12 @@ class TicketAutomationService {
             if (rule.stopOnMatch) break;
           }
         } catch (ruleError) {
-          await prisma.ticketAutomationRule.update({
-            where: { id: rule.id },
-            data: { lastErrorAt: new Date(), lastError: String(ruleError) },
-          }).catch(() => {});
+          await prisma.ticketAutomationRule
+            .update({
+              where: { id: rule.id },
+              data: { lastErrorAt: new Date(), lastError: String(ruleError) },
+            })
+            .catch(() => {});
 
           logger.error('[Automation] Rule execution failed', {
             ruleId: rule.id,
@@ -147,9 +145,15 @@ class TicketAutomationService {
       case 'not_equals':
         return fieldValue !== condition.value;
       case 'contains':
-        return typeof fieldValue === 'string' && fieldValue.toLowerCase().includes(String(condition.value).toLowerCase());
+        return (
+          typeof fieldValue === 'string' &&
+          fieldValue.toLowerCase().includes(String(condition.value).toLowerCase())
+        );
       case 'not_contains':
-        return typeof fieldValue === 'string' && !fieldValue.toLowerCase().includes(String(condition.value).toLowerCase());
+        return (
+          typeof fieldValue === 'string' &&
+          !fieldValue.toLowerCase().includes(String(condition.value).toLowerCase())
+        );
       case 'in':
         return Array.isArray(condition.value) && condition.value.includes(fieldValue);
       case 'not_in':
@@ -276,7 +280,11 @@ class TicketAutomationService {
           ticketId: ticket.id,
           userId: actorId,
           activityType: 'AUTOMATION_TRIGGERED',
-          details: { automationId, action: action.action, params: action.params } as unknown as Prisma.InputJsonValue,
+          details: {
+            automationId,
+            action: action.action,
+            params: action.params,
+          } as unknown as Prisma.InputJsonValue,
           automationId,
         },
       });

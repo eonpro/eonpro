@@ -76,7 +76,12 @@ const REACTION_EMOJIS = {
   love: { icon: Heart, label: 'Love', color: 'text-red-500', bg: 'bg-red-50' },
   like: { icon: ThumbsUp, label: 'Like', color: 'text-blue-500', bg: 'bg-blue-50' },
   dislike: { icon: ThumbsDown, label: 'Dislike', color: 'text-gray-500', bg: 'bg-gray-100' },
-  question: { icon: HelpCircle, label: 'Question', color: 'text-[var(--brand-primary)]', bg: 'bg-[var(--brand-primary-light)]' },
+  question: {
+    icon: HelpCircle,
+    label: 'Question',
+    color: 'text-[var(--brand-primary)]',
+    bg: 'bg-[var(--brand-primary-light)]',
+  },
   exclamation: {
     icon: AlertCircle,
     label: 'Emphasis',
@@ -377,10 +382,7 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
       if (cancelled) {
         return;
       }
-      const delay = Math.min(
-        BASE_MS * Math.pow(2, unreadPollFailuresRef.current),
-        MAX_MS
-      );
+      const delay = Math.min(BASE_MS * Math.pow(2, unreadPollFailuresRef.current), MAX_MS);
       timeoutId = setTimeout(() => {
         timeoutId = null;
         if (cancelled) {
@@ -393,10 +395,7 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
           if (ok) {
             unreadPollFailuresRef.current = 0;
           } else {
-            unreadPollFailuresRef.current = Math.min(
-              unreadPollFailuresRef.current + 1,
-              8
-            );
+            unreadPollFailuresRef.current = Math.min(unreadPollFailuresRef.current + 1, 8);
           }
           scheduleNext();
         });
@@ -472,10 +471,7 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
       if (cancelled) {
         return;
       }
-      const delay = Math.min(
-        BASE_MS * Math.pow(2, messagesPollFailuresRef.current),
-        MAX_MS
-      );
+      const delay = Math.min(BASE_MS * Math.pow(2, messagesPollFailuresRef.current), MAX_MS);
       timeoutId = setTimeout(() => {
         timeoutId = null;
         if (cancelled) {
@@ -488,10 +484,7 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
           if (ok) {
             messagesPollFailuresRef.current = 0;
           } else {
-            messagesPollFailuresRef.current = Math.min(
-              messagesPollFailuresRef.current + 1,
-              8
-            );
+            messagesPollFailuresRef.current = Math.min(messagesPollFailuresRef.current + 1, 8);
           }
           scheduleNext();
         });
@@ -678,15 +671,13 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
   // Helpers
   // ===========================================================================
 
-  const filteredUsers = users.filter(
-    (user) => {
-      if (!searchTerm) return true;
-      return (
-        normalizedIncludes(`${user.firstName} ${user.lastName}`, searchTerm) ||
-        normalizedIncludes(user.email, searchTerm)
-      );
-    }
-  );
+  const filteredUsers = users.filter((user) => {
+    if (!searchTerm) return true;
+    return (
+      normalizedIncludes(`${user.firstName} ${user.lastName}`, searchTerm) ||
+      normalizedIncludes(user.email, searchTerm)
+    );
+  });
 
   const platformAdmins = filteredUsers.filter((u) => u.isPlatformAdmin);
   const regularUsers = filteredUsers.filter((u) => !u.isPlatformAdmin);
@@ -755,7 +746,7 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className={`group fixed bottom-20 right-3 z-50 sm:bottom-6 sm:right-6${hideButtonOnMobile ? ' hidden sm:block' : ''}`}
+        className={`group fixed bottom-20 right-3 z-50 sm:bottom-6 sm:right-6${hideButtonOnMobile ? 'hidden sm:block' : ''}`}
         title="Open Team Chat"
       >
         <div className="relative">

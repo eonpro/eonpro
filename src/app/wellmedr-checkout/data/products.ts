@@ -44,10 +44,7 @@ export const products: Record<ProductNameType, ProductType> = {
       },
     },
     badgeText: 'Proven & Steady',
-    additionalFeatures: [
-      'Proven GLP-1 appetite control',
-      'Lower starting cost',
-    ],
+    additionalFeatures: ['Proven GLP-1 appetite control', 'Lower starting cost'],
   },
   tirzepatide: {
     pricing: {
@@ -71,9 +68,6 @@ export const products: Record<ProductNameType, ProductType> = {
       },
     },
     badgeText: 'Most Powerful Option',
-    additionalFeatures: [
-      'Strongest appetite suppression',
-      'Fastest results',
-    ],
+    additionalFeatures: ['Strongest appetite suppression', 'Fastest results'],
   },
 };

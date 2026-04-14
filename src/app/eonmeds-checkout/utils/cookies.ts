@@ -1,6 +1,6 @@
 /**
  * Cookie Management Utilities
- * 
+ *
  * Handles encrypted cookie storage for prefill data on .eonmeds.com domain
  * Supports cross-subdomain sharing (espanol.eonmeds.com <-> checkout.eonmeds.com)
  */
@@ -43,15 +43,11 @@ const DEFAULT_OPTIONS: CookieOptions = {
 /**
  * Set a cookie with options
  */
-function setCookie(
-  name: string,
-  value: string,
-  options: CookieOptions = {}
-): void {
+function setCookie(name: string, value: string, options: CookieOptions = {}): void {
   const opts = { ...DEFAULT_OPTIONS, ...options };
-  
+
   let cookie = `${encodeURIComponent(name)}=${encodeURIComponent(value)}`;
-  
+
   if (opts.domain) {
     cookie += `; domain=${opts.domain}`;
   }
@@ -67,7 +63,7 @@ function setCookie(
   if (opts.sameSite) {
     cookie += `; samesite=${opts.sameSite}`;
   }
-  
+
   document.cookie = cookie;
 }
 
@@ -77,14 +73,14 @@ function setCookie(
 function getCookie(name: string): string | null {
   const cookies = document.cookie.split(';');
   const encodedName = encodeURIComponent(name);
-  
+
   for (const cookie of cookies) {
     const [cookieName, cookieValue] = cookie.trim().split('=');
     if (cookieName === encodedName) {
       return decodeURIComponent(cookieValue || '');
     }
   }
-  
+
   return null;
 }
 
@@ -98,7 +94,7 @@ function deleteCookie(name: string, domain?: string): void {
     maxAge: 0,
   };
   setCookie(name, '', opts);
-  
+
   // Also try without domain in case it was set differently
   document.cookie = `${encodeURIComponent(name)}=; path=/; max-age=0`;
 }
@@ -120,20 +116,20 @@ export async function savePrefillCookie(
       expiresAt: Date.now() + COOKIE_EXPIRY_MS,
       intakeId,
     };
-    
+
     const encrypted = await encryptJson(cookieData);
     if (!encrypted) {
       console.error('[cookies] Failed to encrypt prefill data');
       return false;
     }
-    
+
     setCookie(PREFILL_COOKIE_NAME, encrypted);
-    
+
     // Also save intake ID separately for tracking (non-encrypted)
     if (intakeId) {
       setCookie(INTAKE_ID_COOKIE_NAME, intakeId);
     }
-    
+
     console.log('[cookies] Prefill data saved to cookie');
     return true;
   } catch (error) {
@@ -152,26 +148,26 @@ export async function loadPrefillCookie(): Promise<{
 }> {
   try {
     const encrypted = getCookie(PREFILL_COOKIE_NAME);
-    
+
     if (!encrypted) {
       return { data: null, intakeId: null, expired: false };
     }
-    
+
     const cookieData = await decryptJson<PrefillCookieData>(encrypted);
-    
+
     if (!cookieData) {
       console.warn('[cookies] Failed to decrypt prefill cookie');
       clearPrefillCookie();
       return { data: null, intakeId: null, expired: false };
     }
-    
+
     // Check expiration
     if (Date.now() > cookieData.expiresAt) {
       console.log('[cookies] Prefill cookie expired');
       clearPrefillCookie();
       return { data: null, intakeId: cookieData.intakeId || null, expired: true };
     }
-    
+
     console.log('[cookies] Prefill data loaded from cookie');
     return {
       data: cookieData.data,
@@ -242,7 +238,7 @@ export function loadFromSession(): {
     if (!stored) {
       return { data: null, intakeId: null };
     }
-    
+
     const parsed = JSON.parse(stored);
     return {
       data: parsed.data || null,

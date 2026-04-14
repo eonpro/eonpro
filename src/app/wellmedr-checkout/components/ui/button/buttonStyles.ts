@@ -6,19 +6,12 @@ export interface ButtonStyleProps {
   className?: string;
 }
 
-export const getButtonStyles = ({
-  variant = 'default',
-  disabled,
-  className,
-}: ButtonStyleProps) => {
+export const getButtonStyles = ({ variant = 'default', disabled, className }: ButtonStyleProps) => {
   return cn(
     'w-full py-4 rounded-full text-white font-medium text-base transition-all duration-300 flex items-center justify-center gap-4 cursor-pointer label',
 
     // Default variant
-    variant === 'default' && [
-      'bg-primary',
-      !disabled && 'hover:bg-primary-dark',
-    ],
+    variant === 'default' && ['bg-primary', !disabled && 'hover:bg-primary-dark'],
 
     // Outline variant
     variant === 'outline' && [
@@ -29,6 +22,6 @@ export const getButtonStyles = ({
     // Disabled state overrides
     disabled && 'opacity-50 cursor-not-allowed',
 
-    className,
+    className
   );
 };

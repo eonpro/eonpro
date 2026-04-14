@@ -66,9 +66,21 @@ const PERIOD_LABELS: Record<Period, string> = {
 };
 
 const BAR_COLORS = [
-  '#10b981', '#059669', '#047857', '#065f46', '#064e3b',
-  '#34d399', '#6ee7b7', '#a7f3d0', '#d1fae5', '#ecfdf5',
-  '#14b8a6', '#0d9488', '#0f766e', '#115e59', '#134e4a',
+  '#10b981',
+  '#059669',
+  '#047857',
+  '#065f46',
+  '#064e3b',
+  '#34d399',
+  '#6ee7b7',
+  '#a7f3d0',
+  '#d1fae5',
+  '#ecfdf5',
+  '#14b8a6',
+  '#0d9488',
+  '#0f766e',
+  '#115e59',
+  '#134e4a',
 ];
 
 function formatDuration(days: number): string {
@@ -140,13 +152,13 @@ export default function WeightLossResults({
     <div className="mx-auto max-w-[1400px] p-6">
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900">
               <Award className="h-7 w-7 text-emerald-600" />
               Weight Loss Results
             </h1>
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="mt-1 text-sm text-gray-500">
               Patient outcomes ranked by efficiency and total weight lost
             </p>
           </div>
@@ -175,7 +187,7 @@ export default function WeightLossResults({
 
         {/* Summary Cards */}
         {data && (
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
             <SummaryCard
               icon={<Users className="h-5 w-5 text-blue-600" />}
               label="Patients Tracked"
@@ -224,9 +236,7 @@ export default function WeightLossResults({
               sub={
                 data.results.length > 0
                   ? (() => {
-                      const sorted = [...data.results].sort(
-                        (a, b) => b.totalLost - a.totalLost
-                      );
+                      const sorted = [...data.results].sort((a, b) => b.totalLost - a.totalLost);
                       return `${sorted[0].firstName} ${sorted[0].lastName}`;
                     })()
                   : ''
@@ -245,17 +255,17 @@ export default function WeightLossResults({
         )}
 
         {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4 flex items-center gap-3">
-            <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0" />
+          <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
+            <AlertTriangle className="h-5 w-5 flex-shrink-0 text-red-500" />
             <p className="text-sm text-red-700">{error}</p>
           </div>
         )}
 
         {data && data.results.length === 0 && !loading && (
           <div className="rounded-lg border border-gray-200 bg-white p-12 text-center">
-            <Scale className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500 font-medium">No weight loss results yet</p>
-            <p className="text-sm text-gray-400 mt-1">
+            <Scale className="mx-auto mb-3 h-12 w-12 text-gray-300" />
+            <p className="font-medium text-gray-500">No weight loss results yet</p>
+            <p className="mt-1 text-sm text-gray-400">
               Patients need at least 2 weight logs over 7+ days to appear here
             </p>
           </div>
@@ -264,29 +274,29 @@ export default function WeightLossResults({
         {data && data.results.length > 0 && (
           <>
             {/* Tab Toggle */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+            <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
               <div className="border-b border-gray-200">
                 <div className="flex">
                   <button
                     onClick={() => setActiveTab('rate')}
-                    className={`flex-1 py-3 px-4 text-sm font-medium border-b-2 transition-colors ${
+                    className={`flex-1 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
                       activeTab === 'rate'
-                        ? 'border-emerald-600 text-emerald-700 bg-emerald-50/50'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        ? 'border-emerald-600 bg-emerald-50/50 text-emerald-700'
+                        : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                     }`}
                   >
-                    <Zap className="h-4 w-4 inline mr-1.5 -mt-0.5" />
+                    <Zap className="-mt-0.5 mr-1.5 inline h-4 w-4" />
                     Efficiency Leaderboard (lbs/month)
                   </button>
                   <button
                     onClick={() => setActiveTab('total')}
-                    className={`flex-1 py-3 px-4 text-sm font-medium border-b-2 transition-colors ${
+                    className={`flex-1 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
                       activeTab === 'total'
-                        ? 'border-emerald-600 text-emerald-700 bg-emerald-50/50'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        ? 'border-emerald-600 bg-emerald-50/50 text-emerald-700'
+                        : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                     }`}
                   >
-                    <Trophy className="h-4 w-4 inline mr-1.5 -mt-0.5" />
+                    <Trophy className="-mt-0.5 mr-1.5 inline h-4 w-4" />
                     Total Weight Lost
                   </button>
                 </div>
@@ -297,28 +307,16 @@ export default function WeightLossResults({
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-100 bg-gray-50/50">
-                      <th className="text-left py-3 px-4 font-semibold text-gray-600 w-12">
-                        #
-                      </th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-600">
-                        Patient
-                      </th>
-                      <th className="text-right py-3 px-4 font-semibold text-gray-600">
-                        Start
-                      </th>
-                      <th className="text-right py-3 px-4 font-semibold text-gray-600">
-                        Current
-                      </th>
-                      <th className="text-right py-3 px-4 font-semibold text-gray-600">
-                        Lost
-                      </th>
-                      <th className="text-right py-3 px-4 font-semibold text-gray-600">
-                        Duration
-                      </th>
-                      <th className="text-right py-3 px-4 font-semibold text-gray-600">
+                      <th className="w-12 px-4 py-3 text-left font-semibold text-gray-600">#</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-600">Patient</th>
+                      <th className="px-4 py-3 text-right font-semibold text-gray-600">Start</th>
+                      <th className="px-4 py-3 text-right font-semibold text-gray-600">Current</th>
+                      <th className="px-4 py-3 text-right font-semibold text-gray-600">Lost</th>
+                      <th className="px-4 py-3 text-right font-semibold text-gray-600">Duration</th>
+                      <th className="px-4 py-3 text-right font-semibold text-gray-600">
                         {activeTab === 'rate' ? 'lbs/mo' : 'Check-ins'}
                       </th>
-                      <th className="py-3 px-4 font-semibold text-gray-600 w-36">
+                      <th className="w-36 px-4 py-3 font-semibold text-gray-600">
                         {activeTab === 'rate' ? 'Rate' : 'Progress'}
                       </th>
                     </tr>
@@ -329,19 +327,18 @@ export default function WeightLossResults({
                         activeTab === 'rate'
                           ? Math.max(...data.results.map((x) => x.lbsPerMonth))
                           : Math.max(...data.results.map((x) => x.totalLost));
-                      const barValue =
-                        activeTab === 'rate' ? r.lbsPerMonth : r.totalLost;
+                      const barValue = activeTab === 'rate' ? r.lbsPerMonth : r.totalLost;
                       const barPct = maxValue > 0 ? (barValue / maxValue) * 100 : 0;
 
                       return (
                         <tr
                           key={r.patientId}
-                          className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors"
+                          className="border-b border-gray-50 transition-colors hover:bg-gray-50/50"
                         >
-                          <td className="py-3 px-4">
+                          <td className="px-4 py-3">
                             {idx < 3 ? (
                               <span
-                                className={`inline-flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold ${
+                                className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
                                   idx === 0
                                     ? 'bg-amber-100 text-amber-700'
                                     : idx === 1
@@ -352,43 +349,39 @@ export default function WeightLossResults({
                                 {idx + 1}
                               </span>
                             ) : (
-                              <span className="text-gray-400 font-medium pl-1.5">
-                                {idx + 1}
-                              </span>
+                              <span className="pl-1.5 font-medium text-gray-400">{idx + 1}</span>
                             )}
                           </td>
-                          <td className="py-3 px-4">
+                          <td className="px-4 py-3">
                             <a
                               href={`${patientLinkPrefix}/${r.patientId}`}
-                              className="font-medium text-gray-900 hover:text-emerald-700 hover:underline inline-flex items-center gap-1"
+                              className="inline-flex items-center gap-1 font-medium text-gray-900 hover:text-emerald-700 hover:underline"
                             >
                               {r.firstName} {r.lastName}
                               <ArrowUpRight className="h-3 w-3 text-gray-400" />
                             </a>
-                            <div className="text-xs text-gray-400 mt-0.5">
-                              <Calendar className="h-3 w-3 inline mr-0.5 -mt-0.5" />
+                            <div className="mt-0.5 text-xs text-gray-400">
+                              <Calendar className="-mt-0.5 mr-0.5 inline h-3 w-3" />
                               {formatDate(r.firstLogDate)} — {formatDate(r.lastLogDate)}
                             </div>
                           </td>
-                          <td className="py-3 px-4 text-right text-gray-600">
+                          <td className="px-4 py-3 text-right text-gray-600">
                             {r.startWeight} lbs
                           </td>
-                          <td className="py-3 px-4 text-right text-gray-600">
+                          <td className="px-4 py-3 text-right text-gray-600">
                             {r.currentWeight} lbs
                           </td>
-                          <td className="py-3 px-4 text-right font-semibold text-emerald-700">
+                          <td className="px-4 py-3 text-right font-semibold text-emerald-700">
                             -{r.totalLost} lbs
                           </td>
-                          <td className="py-3 px-4 text-right text-gray-500">
+                          <td className="px-4 py-3 text-right text-gray-500">
                             {formatDuration(r.durationDays)}
                           </td>
-                          <td className="py-3 px-4 text-right font-medium text-gray-700">
-                            {activeTab === 'rate'
-                              ? `${r.lbsPerMonth}`
-                              : `${r.logCount}`}
+                          <td className="px-4 py-3 text-right font-medium text-gray-700">
+                            {activeTab === 'rate' ? `${r.lbsPerMonth}` : `${r.logCount}`}
                           </td>
-                          <td className="py-3 px-4">
-                            <div className="w-full bg-gray-100 rounded-full h-2.5">
+                          <td className="px-4 py-3">
+                            <div className="h-2.5 w-full rounded-full bg-gray-100">
                               <div
                                 className="h-2.5 rounded-full bg-emerald-500 transition-all duration-500"
                                 style={{ width: `${Math.max(barPct, 4)}%` }}
@@ -404,11 +397,11 @@ export default function WeightLossResults({
             </div>
 
             {/* Total Loss Bar Chart */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-1">
+            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <h2 className="mb-1 text-lg font-semibold text-gray-900">
                 Most Weight Lost — Top 15
               </h2>
-              <p className="text-sm text-gray-500 mb-6">
+              <p className="mb-6 text-sm text-gray-500">
                 Patients ranked by total pounds lost ({PERIOD_LABELS[period]})
               </p>
               {chartData.length > 0 ? (
@@ -425,14 +418,12 @@ export default function WeightLossResults({
                         tickFormatter={(v: number) => `${v} lbs`}
                         fontSize={12}
                       />
-                      <YAxis
-                        type="category"
-                        dataKey="name"
-                        width={140}
-                        tick={{ fontSize: 12 }}
-                      />
+                      <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 12 }} />
                       <Tooltip
-                        formatter={(value: number | undefined) => [`${value ?? 0} lbs`, 'Total Lost']}
+                        formatter={(value: number | undefined) => [
+                          `${value ?? 0} lbs`,
+                          'Total Lost',
+                        ]}
                         contentStyle={{
                           borderRadius: '8px',
                           border: '1px solid #e5e7eb',
@@ -451,7 +442,7 @@ export default function WeightLossResults({
                   </ResponsiveContainer>
                 </div>
               ) : (
-                <p className="text-gray-400 text-center py-8">No data to display</p>
+                <p className="py-8 text-center text-gray-400">No data to display</p>
               )}
             </div>
           </>
@@ -475,17 +466,13 @@ function SummaryCard({
   bg: string;
 }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
       <div className="flex items-center gap-3">
         <div className={`rounded-lg p-2 ${bg}`}>{icon}</div>
         <div className="min-w-0">
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-            {label}
-          </p>
-          <p className="text-xl font-bold text-gray-900 truncate">{value}</p>
-          {sub && (
-            <p className="text-xs text-gray-400 truncate">{sub}</p>
-          )}
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">{label}</p>
+          <p className="truncate text-xl font-bold text-gray-900">{value}</p>
+          {sub && <p className="truncate text-xs text-gray-400">{sub}</p>}
         </div>
       </div>
     </div>

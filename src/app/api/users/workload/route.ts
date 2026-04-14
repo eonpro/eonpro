@@ -27,10 +27,7 @@ export const GET = withAuth(async (request, user) => {
           role: { in: ['ADMIN', 'STAFF', 'PROVIDER', 'SUPPORT'] },
           ...(clinicId
             ? {
-                OR: [
-                  { clinicId },
-                  { userClinics: { some: { clinicId, isActive: true } } },
-                ],
+                OR: [{ clinicId }, { userClinics: { some: { clinicId, isActive: true } } }],
               }
             : {}),
         },

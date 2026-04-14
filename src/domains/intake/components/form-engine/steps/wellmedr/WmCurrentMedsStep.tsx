@@ -20,19 +20,31 @@ const medsList = Object.values(MEDS).map((m) => {
   return { id: String(m.id), display, name: m.name };
 });
 
-export default function WmCurrentMedsStep({ basePath, nextStep, prevStep, progressPercent }: WmCurrentMedsStepProps) {
+export default function WmCurrentMedsStep({
+  basePath,
+  nextStep,
+  prevStep,
+  progressPercent,
+}: WmCurrentMedsStepProps) {
   const router = useRouter();
   const responses = useIntakeStore((s) => s.responses);
   const { setResponse, markStepCompleted, setCurrentStep } = useIntakeActions();
   const [mounted, setMounted] = useState(false);
-  useEffect(() => { requestAnimationFrame(() => setMounted(true)); }, []);
+  useEffect(() => {
+    requestAnimationFrame(() => setMounted(true));
+  }, []);
 
   const [answer, setAnswer] = useState<string>(String(responses.current_medications || ''));
   const [selectedMeds, setSelectedMeds] = useState<string[]>(() => {
     const existing = responses.current_medications_list;
     if (Array.isArray(existing)) return existing as string[];
     const detail = String(responses.current_medications_detail || '');
-    return detail ? detail.split(',').map((s) => s.trim()).filter(Boolean) : [];
+    return detail
+      ? detail
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : [];
   });
   const [search, setSearch] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
@@ -42,8 +54,12 @@ export default function WmCurrentMedsStep({ basePath, nextStep, prevStep, progre
   useEffect(() => {
     if (!showDropdown) return;
     const onClick = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
-          inputRef.current && !inputRef.current.contains(e.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node) &&
+        inputRef.current &&
+        !inputRef.current.contains(e.target as Node)
+      ) {
         setShowDropdown(false);
       }
     };
@@ -66,7 +82,10 @@ export default function WmCurrentMedsStep({ basePath, nextStep, prevStep, progre
       setResponse('current_medications_list', []);
       setResponse('current_medications_detail', '');
       markStepCompleted('current-meds');
-      setTimeout(() => { setCurrentStep(nextStep); router.push(`${basePath}/${nextStep}`); }, 300);
+      setTimeout(() => {
+        setCurrentStep(nextStep);
+        router.push(`${basePath}/${nextStep}`);
+      }, 300);
     }
   };
 
@@ -94,7 +113,10 @@ export default function WmCurrentMedsStep({ basePath, nextStep, prevStep, progre
   };
 
   const handleBack = () => {
-    if (prevStep) { setCurrentStep(prevStep); router.push(`${basePath}/${prevStep}`); }
+    if (prevStep) {
+      setCurrentStep(prevStep);
+      router.push(`${basePath}/${prevStep}`);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -109,7 +131,7 @@ export default function WmCurrentMedsStep({ basePath, nextStep, prevStep, progre
   };
 
   return (
-    <div className="min-h-[100dvh] flex flex-col" style={{ backgroundColor: '#F7F7F9' }}>
+    <div className="flex min-h-[100dvh] flex-col" style={{ backgroundColor: '#F7F7F9' }}>
       <style>{`
         .wm-input {
           width: 100%;
@@ -138,15 +160,39 @@ export default function WmCurrentMedsStep({ basePath, nextStep, prevStep, progre
         }
       `}</style>
 
-      <div className="w-full h-[3px]" style={{ backgroundColor: '#e5e0d8' }}>
-        <div className="h-full" style={{ width: `${progressPercent}%`, backgroundColor: '#c3b29e', transition: 'width 0.8s cubic-bezier(0.4,0,0.2,1)' }} />
+      <div className="h-[3px] w-full" style={{ backgroundColor: '#e5e0d8' }}>
+        <div
+          className="h-full"
+          style={{
+            width: `${progressPercent}%`,
+            backgroundColor: '#c3b29e',
+            transition: 'width 0.8s cubic-bezier(0.4,0,0.2,1)',
+          }}
+        />
       </div>
 
-      <div className="w-full max-w-[48rem] mx-auto px-6 pt-4 grid grid-cols-3 items-center">
+      <div className="mx-auto grid w-full max-w-[48rem] grid-cols-3 items-center px-6 pt-4">
         <div>
           {prevStep && (
-            <button onClick={handleBack} className="p-2.5 rounded-lg hover:bg-black/5 active:scale-95 transition-all" aria-label="Go back">
-              <svg className="w-5 h-5" style={{ color: '#101010' }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+            <button
+              onClick={handleBack}
+              className="rounded-lg p-2.5 transition-all hover:bg-black/5 active:scale-95"
+              aria-label="Go back"
+            >
+              <svg
+                className="h-5 w-5"
+                style={{ color: '#101010' }}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M15 19l-7-7 7-7"
+                />
+              </svg>
             </button>
           )}
         </div>
@@ -157,48 +203,95 @@ export default function WmCurrentMedsStep({ basePath, nextStep, prevStep, progre
         <div />
       </div>
 
-      <div className="flex flex-1 flex-col justify-center w-full max-w-[600px] mx-auto px-6 sm:px-8 pb-6"
-        style={{ opacity: mounted ? 1 : 0, transform: mounted ? 'translateY(0)' : 'translateY(6px)', transition: 'all 0.3s ease-out' }}>
-
-        <h2 className="text-xl sm:text-[1.5rem] font-bold text-center mb-6" style={{ color: '#101010' }}>
+      <div
+        className="mx-auto flex w-full max-w-[600px] flex-1 flex-col justify-center px-6 pb-6 sm:px-8"
+        style={{
+          opacity: mounted ? 1 : 0,
+          transform: mounted ? 'translateY(0)' : 'translateY(6px)',
+          transition: 'all 0.3s ease-out',
+        }}
+      >
+        <h2
+          className="mb-6 text-center text-xl font-bold sm:text-[1.5rem]"
+          style={{ color: '#101010' }}
+        >
           Do you currently take any medications?
-          <span className="ml-1" style={{ color: '#c3b29e' }}>*</span>
+          <span className="ml-1" style={{ color: '#c3b29e' }}>
+            *
+          </span>
         </h2>
 
-        <div className="grid grid-cols-2 gap-3 w-full mb-4">
+        <div className="mb-4 grid w-full grid-cols-2 gap-3">
           {['yes', 'no'].map((opt, i) => (
-            <button key={opt} onClick={() => handleSelect(opt)}
-              className="flex items-center gap-3 px-5 py-4 rounded-[18px] overflow-hidden"
+            <button
+              key={opt}
+              onClick={() => handleSelect(opt)}
+              className="flex items-center gap-3 overflow-hidden rounded-[18px] px-5 py-4"
               style={{
                 backgroundColor: answer === opt ? '#f5f0e8' : '#fff',
                 border: `2px solid ${answer === opt ? '#c3b29e' : 'rgba(0,0,0,0.06)'}`,
-                boxShadow: answer === opt ? '0 0 0 2px #c3b29e, 0 2px 8px rgba(195,178,158,0.15)' : '0 1px 3px rgba(0,0,0,0.04)',
+                boxShadow:
+                  answer === opt
+                    ? '0 0 0 2px #c3b29e, 0 2px 8px rgba(195,178,158,0.15)'
+                    : '0 1px 3px rgba(0,0,0,0.04)',
                 opacity: mounted ? 1 : 0,
                 transform: mounted ? 'scale(1)' : 'scale(0.95)',
                 transition: `all 0.35s cubic-bezier(0.4,0,0.2,1) ${0.15 + i * 0.05}s`,
-              }}>
-              <div className="w-[22px] h-[22px] rounded-full flex items-center justify-center shrink-0"
-                style={{ border: `2px solid ${answer === opt ? '#0C2631' : '#d1d5db'}`, backgroundColor: answer === opt ? '#0C2631' : 'transparent', transition: 'all 0.25s ease' }}>
-                {answer === opt && <div className="w-2.5 h-2.5 rounded-full bg-white" />}
+              }}
+            >
+              <div
+                className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full"
+                style={{
+                  border: `2px solid ${answer === opt ? '#0C2631' : '#d1d5db'}`,
+                  backgroundColor: answer === opt ? '#0C2631' : 'transparent',
+                  transition: 'all 0.25s ease',
+                }}
+              >
+                {answer === opt && <div className="h-2.5 w-2.5 rounded-full bg-white" />}
               </div>
-              <span className="font-medium text-[15px]" style={{ color: '#101010' }}>{opt === 'yes' ? 'Yes' : 'No'}</span>
+              <span className="text-[15px] font-medium" style={{ color: '#101010' }}>
+                {opt === 'yes' ? 'Yes' : 'No'}
+              </span>
             </button>
           ))}
         </div>
 
         {answer === 'yes' && (
-          <div className="w-full mt-2" style={{ animation: 'wmSlideDown 0.3s ease-out' }}>
+          <div className="mt-2 w-full" style={{ animation: 'wmSlideDown 0.3s ease-out' }}>
             <style>{`@keyframes wmSlideDown { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }`}</style>
 
             {/* Selected medications */}
             {selectedMeds.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-4">
+              <div className="mb-4 flex flex-wrap gap-2">
                 {selectedMeds.map((med) => (
-                  <div key={med} className="flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium"
-                    style={{ backgroundColor: '#f5f0e8', border: '1px solid #c3b29e', color: '#101010' }}>
+                  <div
+                    key={med}
+                    className="flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium"
+                    style={{
+                      backgroundColor: '#f5f0e8',
+                      border: '1px solid #c3b29e',
+                      color: '#101010',
+                    }}
+                  >
                     <span className="max-w-[200px] truncate">{med}</span>
-                    <button onClick={() => removeMed(med)} className="shrink-0 w-4 h-4 flex items-center justify-center rounded-full hover:bg-black/10 transition-colors" aria-label={`Remove ${med}`}>
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg>
+                    <button
+                      onClick={() => removeMed(med)}
+                      className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-black/10"
+                      aria-label={`Remove ${med}`}
+                    >
+                      <svg
+                        className="h-3 w-3"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="3"
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
                     </button>
                   </div>
                 ))}
@@ -213,32 +306,54 @@ export default function WmCurrentMedsStep({ basePath, nextStep, prevStep, progre
                 className="wm-input"
                 placeholder="Search medications..."
                 value={search}
-                onChange={(e) => { setSearch(e.target.value); setShowDropdown(true); }}
-                onFocus={() => { if (search.trim()) setShowDropdown(true); }}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setShowDropdown(true);
+                }}
+                onFocus={() => {
+                  if (search.trim()) setShowDropdown(true);
+                }}
                 onKeyDown={handleKeyDown}
               />
 
               {/* Dropdown */}
               {showDropdown && search.trim().length > 0 && (
-                <div ref={dropdownRef} className="absolute z-50 top-full mt-1 left-0 right-0 bg-white rounded-2xl shadow-lg border overflow-hidden"
-                  style={{ borderColor: 'rgba(53,28,12,0.12)', maxHeight: 320 }}>
-                  <div className="overflow-y-auto" style={{ maxHeight: 320, WebkitOverflowScrolling: 'touch' }}>
+                <div
+                  ref={dropdownRef}
+                  className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-2xl border bg-white shadow-lg"
+                  style={{ borderColor: 'rgba(53,28,12,0.12)', maxHeight: 320 }}
+                >
+                  <div
+                    className="overflow-y-auto"
+                    style={{ maxHeight: 320, WebkitOverflowScrolling: 'touch' }}
+                  >
                     {filtered.map((med) => (
-                      <button key={med.id} type="button" onClick={() => addMed(med.display)}
-                        className="w-full text-left px-5 py-3.5 text-base transition-colors hover:bg-gray-50 border-b"
-                        style={{ borderColor: 'rgba(0,0,0,0.04)', color: '#101010' }}>
+                      <button
+                        key={med.id}
+                        type="button"
+                        onClick={() => addMed(med.display)}
+                        className="w-full border-b px-5 py-3.5 text-left text-base transition-colors hover:bg-gray-50"
+                        style={{ borderColor: 'rgba(0,0,0,0.04)', color: '#101010' }}
+                      >
                         <span className="font-medium">{med.name}</span>
                         {med.display !== med.name && (
-                          <span className="text-sm ml-1" style={{ color: '#7B95A9' }}>{med.display.replace(med.name, '').trim()}</span>
+                          <span className="ml-1 text-sm" style={{ color: '#7B95A9' }}>
+                            {med.display.replace(med.name, '').trim()}
+                          </span>
                         )}
                       </button>
                     ))}
                     {filtered.length === 0 && (
-                      <button type="button" onClick={() => addMed(search.trim())}
-                        className="w-full text-left px-5 py-3.5 text-base transition-colors hover:bg-gray-50"
-                        style={{ color: '#101010' }}>
+                      <button
+                        type="button"
+                        onClick={() => addMed(search.trim())}
+                        className="w-full px-5 py-3.5 text-left text-base transition-colors hover:bg-gray-50"
+                        style={{ color: '#101010' }}
+                      >
                         <span className="font-medium">Add &ldquo;{search.trim()}&rdquo;</span>
-                        <span className="text-sm ml-1" style={{ color: '#7B95A9' }}>(custom)</span>
+                        <span className="ml-1 text-sm" style={{ color: '#7B95A9' }}>
+                          (custom)
+                        </span>
                       </button>
                     )}
                   </div>
@@ -246,7 +361,7 @@ export default function WmCurrentMedsStep({ basePath, nextStep, prevStep, progre
               )}
             </div>
 
-            <p className="text-xs mt-2" style={{ color: '#999' }}>
+            <p className="mt-2 text-xs" style={{ color: '#999' }}>
               Search and add each medication. Type a name and press Enter if not found.
             </p>
           </div>
@@ -254,10 +369,12 @@ export default function WmCurrentMedsStep({ basePath, nextStep, prevStep, progre
       </div>
 
       {answer === 'yes' && (
-        <div className="w-full max-w-[600px] sm:max-w-[31rem] mx-auto px-6 sm:px-8 pb-6">
-          <button onClick={handleContinue}
-            className="wm-next-btn w-full flex items-center justify-center gap-4 text-white text-base sm:text-[1.125rem] font-normal rounded-full active:scale-[0.98]"
-            style={{ height: 56, backgroundColor: '#0C2631', cursor: 'pointer' }}>
+        <div className="mx-auto w-full max-w-[600px] px-6 pb-6 sm:max-w-[31rem] sm:px-8">
+          <button
+            onClick={handleContinue}
+            className="wm-next-btn flex w-full items-center justify-center gap-4 rounded-full text-base font-normal text-white active:scale-[0.98] sm:text-[1.125rem]"
+            style={{ height: 56, backgroundColor: '#0C2631', cursor: 'pointer' }}
+          >
             Next <span aria-hidden="true">&#10132;</span>
           </button>
         </div>

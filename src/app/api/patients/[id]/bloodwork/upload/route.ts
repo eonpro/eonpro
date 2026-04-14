@@ -36,16 +36,21 @@ function isSchemaOrTableError(err: unknown): boolean {
     lower.includes('unknown argument') ||
     lower.includes('labreport') ||
     lower.includes('lab report') ||
-    lower.includes('relation') && lower.includes('exist') ||
-    lower.includes('table') && (lower.includes('exist') || lower.includes('missing')) ||
-    lower.includes('column') && lower.includes('exist')
+    (lower.includes('relation') && lower.includes('exist')) ||
+    (lower.includes('table') && (lower.includes('exist') || lower.includes('missing'))) ||
+    (lower.includes('column') && lower.includes('exist'))
   );
 }
 
 function isPrismaModelMissingError(err: unknown): boolean {
   if (err instanceof TypeError) {
     const msg = err.message.toLowerCase();
-    return msg.includes('findmany') || msg.includes('labreport') || msg.includes('undefined') || msg.includes('create');
+    return (
+      msg.includes('findmany') ||
+      msg.includes('labreport') ||
+      msg.includes('undefined') ||
+      msg.includes('create')
+    );
   }
   return false;
 }
@@ -90,7 +95,7 @@ async function postHandler(
     where: { id: patientId },
     select: { id: true, clinicId: true },
   });
-  const clinicId = user.role === 'super_admin' ? undefined : user.clinicId ?? undefined;
+  const clinicId = user.role === 'super_admin' ? undefined : (user.clinicId ?? undefined);
   const notFound = ensureTenantResource(patient, clinicId);
   if (notFound) return notFound;
   if (!patient) return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
@@ -106,7 +111,10 @@ async function postHandler(
     formData = await req.formData();
   } catch (formErr) {
     return NextResponse.json(
-      { error: 'Invalid request body. Use multipart/form-data with a "file" field containing the PDF.' },
+      {
+        error:
+          'Invalid request body. Use multipart/form-data with a "file" field containing the PDF.',
+      },
       { status: 400 }
     );
   }
@@ -114,7 +122,9 @@ async function postHandler(
   const file = formData.get('file') as File | null;
   if (!file || !(file instanceof File) || file.size === 0) {
     return NextResponse.json(
-      { error: 'No PDF file provided. Upload a file using the "file" field (multipart/form-data).' },
+      {
+        error: 'No PDF file provided. Upload a file using the "file" field (multipart/form-data).',
+      },
       { status: 400 }
     );
   }
@@ -146,10 +156,17 @@ async function postHandler(
       uploadedByUserId: user.id,
     });
     try {
-      await logPHICreate(req, { id: user.id, role: user.role, clinicId: user.clinicId }, 'LabReport', result.labReportId, patient.id, {
-        documentId: result.documentId,
-        resultCount: result.resultCount,
-      });
+      await logPHICreate(
+        req,
+        { id: user.id, role: user.role, clinicId: user.clinicId },
+        'LabReport',
+        result.labReportId,
+        patient.id,
+        {
+          documentId: result.documentId,
+          resultCount: result.resultCount,
+        }
+      );
     } catch (auditErr) {
       logger.warn('Bloodwork upload PHI audit log failed', {
         patientId,
@@ -172,7 +189,9 @@ async function postHandler(
       userId: user.id,
       patientId,
       error: err instanceof Error ? err.message : String(err),
-      ...(process.env.NODE_ENV === 'development' && { stack: err instanceof Error ? err.stack : undefined }),
+      ...(process.env.NODE_ENV === 'development' && {
+        stack: err instanceof Error ? err.stack : undefined,
+      }),
     });
 
     if (err instanceof AppError) {
@@ -182,7 +201,10 @@ async function postHandler(
       });
     }
 
-    if (err instanceof Prisma.PrismaClientKnownRequestError && ['P2021', 'P2022', 'P2010'].includes(err.code)) {
+    if (
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      ['P2021', 'P2022', 'P2010'].includes(err.code)
+    ) {
       return NextResponse.json({ error: BLOODWORK_UNAVAILABLE_MESSAGE }, { status: 503 });
     }
     if (isSchemaOrTableError(err) || isPrismaModelMissingError(err)) {
@@ -195,13 +217,16 @@ async function postHandler(
   }
 }
 
-const authHandler = withAuthParams(async (req, user, context) => {
-  return bloodworkUploadRateLimit((rateLimitedReq: NextRequest) =>
-    postHandler(rateLimitedReq, user, context)
-  )(req);
-}, {
-  roles: ['admin', 'provider', 'staff', 'super_admin', 'sales_rep'],
-});
+const authHandler = withAuthParams(
+  async (req, user, context) => {
+    return bloodworkUploadRateLimit((rateLimitedReq: NextRequest) =>
+      postHandler(rateLimitedReq, user, context)
+    )(req);
+  },
+  {
+    roles: ['admin', 'provider', 'staff', 'super_admin', 'sales_rep'],
+  }
+);
 
 export async function POST(
   req: NextRequest,

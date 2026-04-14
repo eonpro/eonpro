@@ -341,7 +341,9 @@ export default function PatientLabView({ patientId, patientName }: PatientLabVie
       } else {
         setReports([]);
         setListError(
-          typeof data?.error === 'string' ? data.error : 'Could not load lab reports. Please try again.'
+          typeof data?.error === 'string'
+            ? data.error
+            : 'Could not load lab reports. Please try again.'
         );
       }
     } catch {
@@ -431,10 +433,10 @@ export default function PatientLabView({ patientId, patientName }: PatientLabVie
 
   const openPdf = useCallback(
     (documentId: number) => {
-    apiFetch(`/api/patients/${patientId}/documents/${documentId}`, {
-      credentials: 'include',
-      headers: getAuthHeaders(),
-    })
+      apiFetch(`/api/patients/${patientId}/documents/${documentId}`, {
+        credentials: 'include',
+        headers: getAuthHeaders(),
+      })
         .then((res) => (res.ok ? res.blob() : Promise.reject(new Error('Failed'))))
         .then((blob) => {
           const url = window.URL.createObjectURL(blob);
@@ -522,9 +524,13 @@ export default function PatientLabView({ patientId, patientName }: PatientLabVie
         ? 'border-rose-200 bg-gradient-to-br from-rose-50 via-white to-amber-50'
         : 'border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-cyan-50';
     const keyHormones = results.filter((r) =>
-      ['TESTOSTERONE, TOTAL, MS', 'TESTOSTERONE, TOTAL', 'TESTOSTERONE, FREE', 'ESTRADIOL', 'PSA, TOTAL'].includes(
-        r.testName
-      )
+      [
+        'TESTOSTERONE, TOTAL, MS',
+        'TESTOSTERONE, TOTAL',
+        'TESTOSTERONE, FREE',
+        'ESTRADIOL',
+        'PSA, TOTAL',
+      ].includes(r.testName)
     );
 
     return (
@@ -615,7 +621,10 @@ export default function PatientLabView({ patientId, patientName }: PatientLabVie
             <div className="h-2 overflow-hidden rounded-full bg-gray-200">
               <div className="flex h-full">
                 <div style={{ width: `${optimalPct}%` }} className="bg-green-500" />
-                <div style={{ width: `${Math.max(0, inRangePct - optimalPct)}%` }} className="bg-emerald-300" />
+                <div
+                  style={{ width: `${Math.max(0, inRangePct - optimalPct)}%` }}
+                  className="bg-emerald-300"
+                />
                 <div style={{ width: `${attentionPct}%` }} className="bg-red-500" />
               </div>
             </div>
@@ -645,7 +654,9 @@ export default function PatientLabView({ patientId, patientName }: PatientLabVie
                       className={`rounded-xl border p-3 text-left transition hover:shadow-md ${theme.cardBg} ${theme.border}`}
                     >
                       <div className="flex items-center justify-between">
-                        <span className={`inline-flex items-center gap-2 text-sm font-semibold ${theme.iconText}`}>
+                        <span
+                          className={`inline-flex items-center gap-2 text-sm font-semibold ${theme.iconText}`}
+                        >
                           <span className={`rounded-lg p-1.5 ${theme.iconBg}`}>
                             <Icon className="h-4 w-4" />
                           </span>
@@ -657,7 +668,10 @@ export default function PatientLabView({ patientId, patientName }: PatientLabVie
                         {s.attention > 0 ? `${s.attention} need attention` : 'All in range'}
                       </p>
                       <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/90">
-                        <div className={`h-full ${theme.bar}`} style={{ width: `${Math.max(6, s.pct)}%` }} />
+                        <div
+                          className={`h-full ${theme.bar}`}
+                          style={{ width: `${Math.max(6, s.pct)}%` }}
+                        />
                       </div>
                     </button>
                   );
@@ -694,16 +708,27 @@ export default function PatientLabView({ patientId, patientName }: PatientLabVie
                     .slice()
                     .sort((a, b) => b.attention - a.attention || b.total - a.total)
                     .map((s) => (
-                      <div key={`stats-${s.category}`} className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+                      <div
+                        key={`stats-${s.category}`}
+                        className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2"
+                      >
                         <div className="mb-1 flex items-center justify-between text-xs">
                           <span className="font-medium text-gray-700">{s.label}</span>
-                          <span className={s.attention > 0 ? 'font-semibold text-red-600' : 'font-medium text-green-700'}>
+                          <span
+                            className={
+                              s.attention > 0
+                                ? 'font-semibold text-red-600'
+                                : 'font-medium text-green-700'
+                            }
+                          >
                             {s.attention}/{s.total} flagged
                           </span>
                         </div>
                         <div className="h-2 overflow-hidden rounded-full bg-gray-200">
                           <div
-                            className={s.attention > 0 ? 'h-full bg-red-500' : 'h-full bg-green-500'}
+                            className={
+                              s.attention > 0 ? 'h-full bg-red-500' : 'h-full bg-green-500'
+                            }
                             style={{ width: `${Math.max(3, s.pct)}%` }}
                           />
                         </div>
@@ -721,7 +746,10 @@ export default function PatientLabView({ patientId, patientName }: PatientLabVie
                 </p>
                 <div className="mt-3 grid gap-2 md:grid-cols-2">
                   {priorityMarkers.map((r) => (
-                    <div key={`priority-${r.id}`} className="rounded-lg border border-red-100 bg-white px-3 py-2">
+                    <div
+                      key={`priority-${r.id}`}
+                      className="rounded-lg border border-red-100 bg-white px-3 py-2"
+                    >
                       <p className="text-sm font-semibold text-gray-900">{r.testName}</p>
                       <p className="text-xs text-gray-500">Reference: {r.referenceRange || '—'}</p>
                       <div className="mt-1 flex items-center justify-between">
@@ -732,7 +760,9 @@ export default function PatientLabView({ patientId, patientName }: PatientLabVie
                           {r.flag === 'H' ? 'High' : 'Low'}
                         </span>
                       </div>
-                      <p className="mt-2 text-xs leading-relaxed text-gray-700">{getBiomarkerExplanation(r)}</p>
+                      <p className="mt-2 text-xs leading-relaxed text-gray-700">
+                        {getBiomarkerExplanation(r)}
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -755,7 +785,13 @@ export default function PatientLabView({ patientId, patientName }: PatientLabVie
                       <p className="text-xs font-medium tracking-wide text-gray-500">Key marker</p>
                       <p className="mt-1 text-sm font-semibold text-gray-900">{r.testName}</p>
                       <div className="mt-2 flex items-center justify-between gap-2">
-                        <p className={isOutOfRange ? 'text-lg font-bold text-red-600' : 'text-lg font-bold text-gray-900'}>
+                        <p
+                          className={
+                            isOutOfRange
+                              ? 'text-lg font-bold text-red-600'
+                              : 'text-lg font-bold text-gray-900'
+                          }
+                        >
                           {r.value} {r.unit}
                         </p>
                         <span
@@ -763,12 +799,20 @@ export default function PatientLabView({ patientId, patientName }: PatientLabVie
                             isOutOfRange ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
                           }`}
                         >
-                          {isOutOfRange ? <AlertTriangle className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                          {isOutOfRange ? (
+                            <AlertTriangle className="h-3.5 w-3.5" />
+                          ) : (
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                          )}
                           {isOutOfRange ? (r.flag === 'H' ? 'High' : 'Low') : 'In range'}
                         </span>
                       </div>
-                      {r.referenceRange && <p className="mt-1 text-xs text-gray-500">Ref: {r.referenceRange}</p>}
-                      <p className="mt-2 text-xs leading-relaxed text-gray-700">{getBiomarkerExplanation(r)}</p>
+                      {r.referenceRange && (
+                        <p className="mt-1 text-xs text-gray-500">Ref: {r.referenceRange}</p>
+                      )}
+                      <p className="mt-2 text-xs leading-relaxed text-gray-700">
+                        {getBiomarkerExplanation(r)}
+                      </p>
                     </div>
                   );
                 })}
@@ -802,14 +846,22 @@ export default function PatientLabView({ patientId, patientName }: PatientLabVie
                     {rows.map((r) => {
                       const range = parseNumericReferenceRange(r.referenceRange);
                       const hasGraphic = r.valueNumeric != null && range != null;
-                      const markerPos = hasGraphic ? computeRangePosition(r.valueNumeric!, range) : 0;
+                      const markerPos = hasGraphic
+                        ? computeRangePosition(r.valueNumeric!, range)
+                        : 0;
                       const isOutOfRange = r.flag === 'H' || r.flag === 'L';
                       return (
                         <li key={r.id} className="rounded-lg bg-white px-3 py-2 text-sm">
                           <div className="flex items-center justify-between gap-2">
                             <span className="text-gray-700">{r.testName}</span>
                             <span className="flex items-center gap-2">
-                              <span className={isOutOfRange ? 'font-semibold text-red-600' : 'font-semibold text-gray-900'}>
+                              <span
+                                className={
+                                  isOutOfRange
+                                    ? 'font-semibold text-red-600'
+                                    : 'font-semibold text-gray-900'
+                                }
+                              >
                                 {r.value} {r.unit}
                               </span>
                               <span
@@ -825,14 +877,20 @@ export default function PatientLabView({ patientId, patientName }: PatientLabVie
                               </span>
                             </span>
                           </div>
-                          {r.referenceRange && <p className="mt-1 text-xs text-gray-500">Reference: {r.referenceRange}</p>}
+                          {r.referenceRange && (
+                            <p className="mt-1 text-xs text-gray-500">
+                              Reference: {r.referenceRange}
+                            </p>
+                          )}
                           {hasGraphic && (
                             <div className="mt-2">
                               <div className="relative h-2 rounded-full bg-gray-200">
                                 <div className="absolute inset-y-0 left-0 right-0 rounded-full bg-gradient-to-r from-green-200 via-green-300 to-green-200" />
                                 <span
                                   className={`absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full border-2 border-white shadow ${
-                                    isOutOfRange ? 'bg-red-500' : 'bg-[var(--brand-primary,#4fa77e)]'
+                                    isOutOfRange
+                                      ? 'bg-red-500'
+                                      : 'bg-[var(--brand-primary,#4fa77e)]'
                                   }`}
                                   style={{ left: `calc(${markerPos}% - 6px)` }}
                                 />
@@ -857,11 +915,13 @@ export default function PatientLabView({ patientId, patientName }: PatientLabVie
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Lab Results</h1>
-        <p className="text-sm text-gray-600">Supported labs: Quest, Rythm, Access — parsed results</p>
+        <p className="text-sm text-gray-600">
+          Supported labs: Quest, Rythm, Access — parsed results
+        </p>
       </div>
 
       {listError && (
-        <div className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800 border border-amber-200">
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
           {listError}
         </div>
       )}
@@ -915,7 +975,8 @@ export default function PatientLabView({ patientId, patientName }: PatientLabVie
       <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm md:p-6">
         <h2 className="text-lg font-semibold text-gray-900">Upload lab report</h2>
         <p className="mt-1 text-sm text-gray-600">
-          PDF only (Quest, Rythm, or Access). The patient name on the report must match this profile ({patientName}).
+          PDF only (Quest, Rythm, or Access). The patient name on the report must match this profile
+          ({patientName}).
         </p>
         {uploadError && (
           <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-800">{uploadError}</div>

@@ -32,7 +32,9 @@ export function usePatientId() {
           return;
         }
 
-        const userData = safeParseJsonString<{ patientId?: number; role?: string; id?: number }>(userJson);
+        const userData = safeParseJsonString<{ patientId?: number; role?: string; id?: number }>(
+          userJson
+        );
         if (!userData) {
           setError('Invalid user session');
           setLoading(false);

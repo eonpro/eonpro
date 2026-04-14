@@ -33,20 +33,17 @@ export default function SignatureField({
     }
   }, [value]);
 
-  const getPosition = useCallback(
-    (e: React.MouseEvent | React.TouchEvent) => {
-      const canvas = canvasRef.current;
-      if (!canvas) return { x: 0, y: 0 };
-      const rect = canvas.getBoundingClientRect();
-      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-      return {
-        x: clientX - rect.left,
-        y: clientY - rect.top,
-      };
-    },
-    [],
-  );
+  const getPosition = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    return {
+      x: clientX - rect.left,
+      y: clientY - rect.top,
+    };
+  }, []);
 
   const startDrawing = useCallback(
     (e: React.MouseEvent | React.TouchEvent) => {
@@ -59,7 +56,7 @@ export default function SignatureField({
       ctx.moveTo(pos.x, pos.y);
       setIsDrawing(true);
     },
-    [disabled, getPosition],
+    [disabled, getPosition]
   );
 
   const draw = useCallback(
@@ -74,7 +71,7 @@ export default function SignatureField({
       ctx.lineTo(pos.x, pos.y);
       ctx.stroke();
     },
-    [isDrawing, disabled, getPosition],
+    [isDrawing, disabled, getPosition]
   );
 
   const stopDrawing = useCallback(() => {
@@ -97,23 +94,19 @@ export default function SignatureField({
   return (
     <div className="w-full">
       {label && (
-        <label htmlFor={id} className="block text-sm text-gray-600 mb-2">
+        <label htmlFor={id} className="mb-2 block text-sm text-gray-600">
           {label}
         </label>
       )}
       <div
-        className={`
-          relative border-2 rounded-2xl overflow-hidden bg-white
-          ${error ? 'border-red-500' : 'border-gray-200'}
-          ${disabled ? 'opacity-50' : ''}
-        `}
+        className={`relative overflow-hidden rounded-2xl border-2 bg-white ${error ? 'border-red-500' : 'border-gray-200'} ${disabled ? 'opacity-50' : ''} `}
       >
         <canvas
           ref={canvasRef}
           id={id}
           width={400}
           height={150}
-          className="w-full touch-none cursor-crosshair"
+          className="w-full cursor-crosshair touch-none"
           onMouseDown={startDrawing}
           onMouseMove={draw}
           onMouseUp={stopDrawing}
@@ -123,8 +116,8 @@ export default function SignatureField({
           onTouchEnd={stopDrawing}
         />
         {!hasSignature && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <span className="text-gray-300 text-sm">Sign here</span>
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <span className="text-sm text-gray-300">Sign here</span>
           </div>
         )}
       </div>
@@ -132,7 +125,7 @@ export default function SignatureField({
         <button
           type="button"
           onClick={clearSignature}
-          className="mt-2 text-sm text-gray-500 hover:text-gray-700 underline"
+          className="mt-2 text-sm text-gray-500 underline hover:text-gray-700"
         >
           Clear signature
         </button>

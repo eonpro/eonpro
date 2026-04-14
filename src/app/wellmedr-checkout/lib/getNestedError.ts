@@ -1,5 +1,5 @@
 const getNestedError = (name: string, errors: any) => {
-  const keys = name.split(".");
+  const keys = name.split('.');
   let error = errors;
   for (const key of keys) {
     if (!error || !error[key]) {

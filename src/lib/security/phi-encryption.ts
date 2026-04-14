@@ -193,9 +193,7 @@ export function decryptPHI(encryptedData: string | null | undefined): string | n
 
   try {
     // Normalize: trim, remove internal whitespace, restore + if corrupted (URL encoding)
-    const parts = encryptedData
-      .split(':')
-      .map((p) => p.trim().replace(/\s/g, ''));
+    const parts = encryptedData.split(':').map((p) => p.trim().replace(/\s/g, ''));
 
     if (parts.length !== 3) {
       // Data might be unencrypted (migration period)
@@ -477,17 +475,12 @@ let hmacKey: Buffer | null = null;
 function getHmacKey(): Buffer {
   if (hmacKey) return hmacKey;
   const masterKey = getKeySync();
-  hmacKey = crypto.createHmac(HMAC_ALGO, masterKey)
-    .update(DEDUP_HMAC_CONTEXT)
-    .digest();
+  hmacKey = crypto.createHmac(HMAC_ALGO, masterKey).update(DEDUP_HMAC_CONTEXT).digest();
   return hmacKey;
 }
 
 function hmacHash(value: string): string {
-  return crypto
-    .createHmac(HMAC_ALGO, getHmacKey())
-    .update(value)
-    .digest('hex');
+  return crypto.createHmac(HMAC_ALGO, getHmacKey()).update(value).digest('hex');
 }
 
 const PLACEHOLDER_EMAILS = new Set([
@@ -497,10 +490,7 @@ const PLACEHOLDER_EMAILS = new Set([
   '',
 ]);
 
-const PLACEHOLDER_DOBS = new Set([
-  '1900-01-01',
-  '',
-]);
+const PLACEHOLDER_DOBS = new Set(['1900-01-01', '']);
 
 /**
  * Compute a deterministic HMAC-SHA256 hash of a normalized email address.
@@ -509,7 +499,11 @@ const PLACEHOLDER_DOBS = new Set([
 export function computeEmailHash(email: string | null | undefined): string | null {
   if (!email) return null;
   const normalized = email.toLowerCase().trim();
-  if (PLACEHOLDER_EMAILS.has(normalized) || normalized.endsWith('@intake.local') || normalized.endsWith('@placeholder.local')) {
+  if (
+    PLACEHOLDER_EMAILS.has(normalized) ||
+    normalized.endsWith('@intake.local') ||
+    normalized.endsWith('@placeholder.local')
+  ) {
     return null;
   }
   return hmacHash(normalized);
@@ -546,7 +540,7 @@ export function computeDobHash(dob: string | null | undefined): string | null {
 export function withPatientHashes<T extends Record<string, unknown>>(
   data: T,
   plainEmail?: string | null,
-  plainDob?: string | null,
+  plainDob?: string | null
 ): T & { emailHash: string | null; dobHash: string | null } {
   return {
     ...data,

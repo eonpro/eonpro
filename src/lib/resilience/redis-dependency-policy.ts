@@ -3,7 +3,10 @@
  * Keeps fail-open/fail-closed decisions explicit and operationally visible.
  */
 
-export type RedisDependencyTier = 'tier_a_auth_controls' | 'tier_b_performance_cache' | 'tier_c_retry_pipeline';
+export type RedisDependencyTier =
+  | 'tier_a_auth_controls'
+  | 'tier_b_performance_cache'
+  | 'tier_c_retry_pipeline';
 export type DegradationMode = 'fail_open' | 'fail_closed' | 'best_effort';
 
 export interface RedisTierPolicy {
@@ -38,7 +41,5 @@ export const REDIS_TIER_POLICIES: RedisTierPolicy[] = [
 ];
 
 export function summarizeRedisTierPolicy(): string[] {
-  return REDIS_TIER_POLICIES.map(
-    (p) => `${p.tier}:${p.mode} -> ${p.systems.join(', ')}`
-  );
+  return REDIS_TIER_POLICIES.map((p) => `${p.tier}:${p.mode} -> ${p.systems.join(', ')}`);
 }

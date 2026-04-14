@@ -28,9 +28,7 @@ function roleAbbreviation(role: string): string {
   return map[role] ?? role.slice(0, 2).toUpperCase();
 }
 
-function formatCenter(
-  clinic: { name?: string | null; address?: unknown } | null
-): string | null {
+function formatCenter(clinic: { name?: string | null; address?: unknown } | null): string | null {
   if (!clinic?.name) return null;
   const addr = clinic.address as { city?: string; state?: string } | undefined;
   if (addr && (addr.city || addr.state)) {
@@ -53,7 +51,7 @@ const getHandler = withAuthParams(
         where: { id: patientId },
         select: { id: true, clinicId: true },
       });
-      const clinicId = user.role === 'super_admin' ? undefined : user.clinicId ?? undefined;
+      const clinicId = user.role === 'super_admin' ? undefined : (user.clinicId ?? undefined);
       if (ensureTenantResource(patient, clinicId)) return tenantNotFoundResponse();
       if (user.role === 'patient' && user.patientId !== patientId) {
         return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -100,10 +98,7 @@ const getHandler = withAuthParams(
         patientId: (await params).id,
         error: err instanceof Error ? err.message : String(err),
       });
-      return NextResponse.json(
-        { error: 'Failed to fetch notes' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to fetch notes' }, { status: 500 });
     }
   },
   { roles: ['super_admin', 'admin', 'provider', 'staff', 'support', 'patient', 'sales_rep'] }
@@ -122,10 +117,13 @@ const postHandler = withAuthParams(
         where: { id: patientId },
         select: { id: true, clinicId: true },
       });
-      const clinicId = user.role === 'super_admin' ? undefined : user.clinicId ?? undefined;
+      const clinicId = user.role === 'super_admin' ? undefined : (user.clinicId ?? undefined);
       if (ensureTenantResource(patient, clinicId)) return tenantNotFoundResponse();
       if (user.role === 'patient') {
-        return NextResponse.json({ error: 'Patients cannot create profile notes' }, { status: 403 });
+        return NextResponse.json(
+          { error: 'Patients cannot create profile notes' },
+          { status: 403 }
+        );
       }
 
       const body = await request.json();
@@ -200,10 +198,7 @@ const postHandler = withAuthParams(
         patientId: (await params).id,
         error: err instanceof Error ? err.message : String(err),
       });
-      return NextResponse.json(
-        { error: 'Failed to create note' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to create note' }, { status: 500 });
     }
   },
   { roles: ['super_admin', 'admin', 'provider', 'staff', 'support', 'sales_rep'] }

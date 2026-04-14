@@ -142,9 +142,7 @@ function normalizeError(error: unknown): AppError {
   // Tenant context missing — session likely lacks clinicId (e.g. after token refresh).
   // Return 403 so the client can prompt re-login instead of showing a generic 500.
   if (error instanceof TenantContextRequiredError) {
-    return new ForbiddenError(
-      'Clinic context is required. Please log in again.'
-    );
+    return new ForbiddenError('Clinic context is required. Please log in again.');
   }
 
   // DoseSpot API errors carry their own statusCode (400, 409, etc.)
@@ -201,10 +199,7 @@ function normalizeError(error: unknown): AppError {
       message.includes('connection pool') ||
       message.includes('timed out fetching')
     ) {
-      return new ServiceUnavailableError(
-        'Service is busy. Please try again in a moment.',
-        10
-      );
+      return new ServiceUnavailableError('Service is busy. Please try again in a moment.', 10);
     }
 
     // Unknown error - treat as internal
@@ -270,7 +265,9 @@ function convertPrismaError(
               ['clinicId', 'patientId', 'email'].some((k) => t.toLowerCase().includes(k))
           ) || targetStr.toLowerCase().includes('patient');
         return new ConflictError(
-          isPatientConstraint ? 'This patient already exists.' : `A record with this ${targetStr || 'field'} already exists`
+          isPatientConstraint
+            ? 'This patient already exists.'
+            : `A record with this ${targetStr || 'field'} already exists`
         );
       }
 
@@ -364,17 +361,11 @@ function convertPrismaError(
 
       // P2034: Write conflict or deadlock (Prisma docs: "Please retry your transaction")
       case 'P2034':
-        return new ServiceUnavailableError(
-          'A temporary conflict occurred. Please try again.',
-          3
-        );
+        return new ServiceUnavailableError('A temporary conflict occurred. Please try again.', 3);
 
       // P2037: Too many database connections opened
       case 'P2037':
-        return new ServiceUnavailableError(
-          'Service is busy. Please try again in a moment.',
-          10
-        );
+        return new ServiceUnavailableError('Service is busy. Please try again in a moment.', 10);
 
       // P2023: Inconsistent column data (replica lag or temporary inconsistency)
       case 'P2023':
@@ -385,10 +376,7 @@ function convertPrismaError(
 
       // P2028: Transaction API error (deadlock, connection loss during transaction)
       case 'P2028':
-        return new ServiceUnavailableError(
-          'A temporary conflict occurred. Please try again.',
-          5
-        );
+        return new ServiceUnavailableError('A temporary conflict occurred. Please try again.', 5);
 
       // P1000: Authentication failed (transient during IAM rotation, failover)
       case 'P1000':
@@ -399,10 +387,7 @@ function convertPrismaError(
 
       // P1011: Error opening TLS connection (transient during cert renewal)
       case 'P1011':
-        return new ServiceUnavailableError(
-          'Database connection issue. Please try again.',
-          5
-        );
+        return new ServiceUnavailableError('Database connection issue. Please try again.', 5);
 
       // Default - check for connection/pool errors that may slip through
       default: {
@@ -415,10 +400,7 @@ function convertPrismaError(
           msg.includes('connection pool') ||
           msg.includes('timed out fetching');
         if (isPoolOrConnection) {
-          return new ServiceUnavailableError(
-            'Service is busy. Please try again in a moment.',
-            10
-          );
+          return new ServiceUnavailableError('Service is busy. Please try again in a moment.', 10);
         }
         return new DatabaseError(`Database error: ${error.code}`);
       }
@@ -549,10 +531,7 @@ export function withErrorHandler<T extends unknown[]>(
  * Note: withAuth already uses handleApiError in its catch - use withApiHandler
  * for routes that don't use withAuth (webhooks, public, etc).
  */
-export function withApiHandler<
-  T extends [NextRequest, ...unknown[]],
-  R extends Promise<Response>,
->(
+export function withApiHandler<T extends [NextRequest, ...unknown[]], R extends Promise<Response>>(
   handler: (...args: T) => R
 ): (...args: T) => Promise<Response> {
   return async (...args: T): Promise<Response> => {

@@ -17,14 +17,11 @@ import {
   Camera,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
-import {
-  NotificationProvider,
-  NotificationToastContainer,
-} from '@/components/notifications';
-const NotificationCenter = dynamic(
-  () => import('@/components/notifications/NotificationCenter'),
-  { ssr: false, loading: () => <div className="h-8 w-8 animate-pulse rounded-full bg-gray-200" /> },
-);
+import { NotificationProvider, NotificationToastContainer } from '@/components/notifications';
+const NotificationCenter = dynamic(() => import('@/components/notifications/NotificationCenter'), {
+  ssr: false,
+  loading: () => <div className="h-8 w-8 animate-pulse rounded-full bg-gray-200" />,
+});
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { getAdminNavConfig } from '@/lib/nav/adminNav';
 import { EONPRO_LOGO, EONPRO_ICON } from '@/lib/constants/brand-assets';
@@ -80,9 +77,7 @@ function StaffLayoutInner({ children }: { children: React.ReactNode }) {
   const handleLogout = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const token =
-      localStorage.getItem('auth-token') ||
-      localStorage.getItem('staff-token');
+    const token = localStorage.getItem('auth-token') || localStorage.getItem('staff-token');
     if (token)
       fetch('/api/auth/logout', {
         method: 'POST',
@@ -96,11 +91,7 @@ function StaffLayoutInner({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('token_timestamp');
-    [
-      'auth-token',
-      'staff-token',
-      'selected-clinic',
-    ].forEach((name) => {
+    ['auth-token', 'staff-token', 'selected-clinic'].forEach((name) => {
       document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
       document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.eonpro.io;`;
     });
@@ -146,9 +137,8 @@ function StaffLayoutInner({ children }: { children: React.ReactNode }) {
                 )}
               </a>
               {isWhiteLabeled && sidebarExpanded && (
-                <span className="mt-1 flex items-center justify-center gap-1 text-[10px] text-gray-400 whitespace-nowrap">
-                  Powered by{' '}
-                  <img src={EONPRO_LOGO} alt="EONPRO" className="h-[21px] w-auto" />
+                <span className="mt-1 flex items-center justify-center gap-1 whitespace-nowrap text-[10px] text-gray-400">
+                  Powered by <img src={EONPRO_LOGO} alt="EONPRO" className="h-[21px] w-auto" />
                 </span>
               )}
             </div>
@@ -177,7 +167,9 @@ function StaffLayoutInner({ children }: { children: React.ReactNode }) {
                     className={`flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left no-underline transition-all ${
                       active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                     }`}
-                    style={active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
+                    style={
+                      active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}
+                    }
                   >
                     <Icon className="h-5 w-5 flex-shrink-0" />
                     {sidebarExpanded && (
@@ -216,10 +208,7 @@ function StaffLayoutInner({ children }: { children: React.ReactNode }) {
         <div className="sticky top-0 z-40 border-b border-gray-200/50 bg-[#efece7]/95 px-6 py-3 backdrop-blur-sm">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <NotificationCenter
-                notificationsPath="/staff"
-                dropdownPosition="left"
-              />
+              <NotificationCenter notificationsPath="/staff" dropdownPosition="left" />
               <span className="text-sm font-medium text-gray-600">Notifications</span>
             </div>
           </div>

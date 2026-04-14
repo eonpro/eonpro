@@ -528,10 +528,7 @@ export const TIRZEPATIDE_PRODUCT_IDS = new Set([
   203448972, 203448973, 203449364, 203449500, 203449362, 203418602,
 ]);
 
-export const GLP1_PRODUCT_IDS = new Set([
-  ...SEMAGLUTIDE_PRODUCT_IDS,
-  ...TIRZEPATIDE_PRODUCT_IDS,
-]);
+export const GLP1_PRODUCT_IDS = new Set([...SEMAGLUTIDE_PRODUCT_IDS, ...TIRZEPATIDE_PRODUCT_IDS]);
 
 /**
  * WellMedR checkout add-on products → Lifefile pharmacy medication keys.
@@ -547,9 +544,7 @@ export const ADDON_MEDICATION_MAP: Record<string, string> = {
  * Elite Bundle injectable medication Lifefile product IDs (NAD+, Sermorelin, B12).
  * Used to auto-add syringe kits when these meds are on an order.
  */
-export const ELITE_ADDON_PRODUCT_IDS = new Set(
-  Object.values(ADDON_MEDICATION_MAP).map(Number)
-);
+export const ELITE_ADDON_PRODUCT_IDS = new Set(Object.values(ADDON_MEDICATION_MAP).map(Number));
 
 /** WellMedR Elite Package ships with 5 syringe kits (50 syringes total). */
 export const ELITE_SYRINGE_KIT_QUANTITY = 5;

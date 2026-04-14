@@ -2,8 +2,17 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
-  ChevronLeft, Pencil, Trash2, DollarSign, Users,
-  Search, RefreshCw, X, Check, Loader2, Wallet,
+  ChevronLeft,
+  Pencil,
+  Trash2,
+  DollarSign,
+  Users,
+  Search,
+  RefreshCw,
+  X,
+  Check,
+  Loader2,
+  Wallet,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 
@@ -34,7 +43,10 @@ interface ClinicUser {
   clinicName: string;
 }
 
-interface Clinic { id: number; name: string; }
+interface Clinic {
+  id: number;
+  name: string;
+}
 
 function $(c: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(c / 100);
@@ -55,7 +67,14 @@ export default function EmployeeSalariesPage() {
 
   // Edit modal state
   const [showModal, setShowModal] = useState(false);
-  const [editingUser, setEditingUser] = useState<{ userId: number; userName: string; userEmail: string; userRole: string; clinicId: number; clinicName: string } | null>(null);
+  const [editingUser, setEditingUser] = useState<{
+    userId: number;
+    userName: string;
+    userEmail: string;
+    userRole: string;
+    clinicId: number;
+    clinicName: string;
+  } | null>(null);
   const [editingSalaryId, setEditingSalaryId] = useState<number | null>(null);
   const [weeklyPay, setWeeklyPay] = useState('');
   const [hourlyRate, setHourlyRate] = useState('');
@@ -68,7 +87,9 @@ export default function EmployeeSalariesPage() {
     try {
       const res = await apiFetch('/api/super-admin/clinics');
       if (res.ok) setClinics((await res.json()).clinics || []);
-    } catch { /* non-critical */ }
+    } catch {
+      /* non-critical */
+    }
   }, []);
 
   const fetchSalaries = useCallback(async () => {
@@ -78,7 +99,9 @@ export default function EmployeeSalariesPage() {
         const json = await res.json();
         setSalaries(json.salaries || []);
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, []);
 
   const fetchAllEmployees = useCallback(async () => {
@@ -87,19 +110,24 @@ export default function EmployeeSalariesPage() {
       const res = await apiFetch('/api/super-admin/employees');
       if (res.ok) {
         const json = await res.json();
-        setAllEmployees((json.employees || []).map((u: any) => ({
-          id: u.id,
-          firstName: u.firstName,
-          lastName: u.lastName,
-          email: u.email,
-          role: u.role,
-          status: u.status,
-          clinicId: u.clinicId,
-          clinicName: u.clinicName,
-        })));
+        setAllEmployees(
+          (json.employees || []).map((u: any) => ({
+            id: u.id,
+            firstName: u.firstName,
+            lastName: u.lastName,
+            email: u.email,
+            role: u.role,
+            status: u.status,
+            clinicId: u.clinicId,
+            clinicName: u.clinicName,
+          }))
+        );
       }
-    } catch { /* ignore */ }
-    finally { setLoading(false); }
+    } catch {
+      /* ignore */
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -138,8 +166,8 @@ export default function EmployeeSalariesPage() {
     }
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      result = result.filter((r) =>
-        r.userName.toLowerCase().includes(q) || r.userEmail.toLowerCase().includes(q)
+      result = result.filter(
+        (r) => r.userName.toLowerCase().includes(q) || r.userEmail.toLowerCase().includes(q)
       );
     }
     return result.sort((a, b) => {
@@ -149,13 +177,14 @@ export default function EmployeeSalariesPage() {
     });
   }, [merged, clinicFilter, searchQuery]);
 
-  const totalWeekly = useMemo(() =>
-    filtered.reduce((a, r) => a + (r.salary?.weeklyBasePayCents || 0), 0)
-  , [filtered]);
+  const totalWeekly = useMemo(
+    () => filtered.reduce((a, r) => a + (r.salary?.weeklyBasePayCents || 0), 0),
+    [filtered]
+  );
 
   const salariedCount = filtered.filter((r) => r.salary).length;
 
-  const openSetSalary = (emp: typeof filtered[number]) => {
+  const openSetSalary = (emp: (typeof filtered)[number]) => {
     setEditingUser({
       userId: emp.userId,
       userName: emp.userName,
@@ -167,7 +196,11 @@ export default function EmployeeSalariesPage() {
     if (emp.salary) {
       setEditingSalaryId(emp.salary.id);
       setWeeklyPay(String((emp.salary.weeklyBasePayCents / 100).toFixed(2)));
-      setHourlyRate(emp.salary.hourlyRateCents != null ? String((emp.salary.hourlyRateCents / 100).toFixed(2)) : '');
+      setHourlyRate(
+        emp.salary.hourlyRateCents != null
+          ? String((emp.salary.hourlyRateCents / 100).toFixed(2))
+          : ''
+      );
       setNotes(emp.salary.notes || '');
     } else {
       setEditingSalaryId(null);
@@ -190,7 +223,8 @@ export default function EmployeeSalariesPage() {
     if (!editingUser) return;
 
     const hourlyParsed = hourlyRate ? parseFloat(hourlyRate) : null;
-    const hourlyCents = hourlyParsed !== null && !Number.isNaN(hourlyParsed) ? Math.round(hourlyParsed * 100) : null;
+    const hourlyCents =
+      hourlyParsed !== null && !Number.isNaN(hourlyParsed) ? Math.round(hourlyParsed * 100) : null;
 
     setSaving(true);
     try {
@@ -237,14 +271,17 @@ export default function EmployeeSalariesPage() {
   const handleDelete = async (userId: number, clinicId: number) => {
     const salary = salaryByKey.get(`${userId}-${clinicId}`);
     if (!salary) return;
-    if (!confirm('Remove this employee\'s weekly salary?')) return;
+    if (!confirm("Remove this employee's weekly salary?")) return;
     setDeletingId(salary.id);
     try {
       const res = await apiFetch(`/api/admin/employee-salaries/${salary.id}`, { method: 'DELETE' });
       if (res.ok) fetchSalaries();
       else alert('Failed to remove salary');
-    } catch { alert('Failed to remove salary'); }
-    finally { setDeletingId(null); }
+    } catch {
+      alert('Failed to remove salary');
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const handleRefresh = () => {
@@ -256,7 +293,10 @@ export default function EmployeeSalariesPage() {
     <div className="p-4 md:p-6">
       {/* Header */}
       <div className="mb-6">
-        <a href="/super-admin/sales-reps" className="mb-3 flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900">
+        <a
+          href="/super-admin/sales-reps"
+          className="mb-3 flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900"
+        >
           <ChevronLeft className="h-4 w-4" /> Back to Sales Reps
         </a>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -264,10 +304,17 @@ export default function EmployeeSalariesPage() {
             <h1 className="text-2xl font-bold text-gray-900">Employee Weekly Salaries</h1>
             <p className="text-gray-500">Manage weekly base pay for sales reps and staff.</p>
             <p className="mt-1 text-sm text-gray-600">
-              To add pay: click <strong className="font-semibold text-gray-800">Set Salary</strong> in the right-hand Actions column, or click <strong className="font-semibold text-gray-800">Not set</strong> under Weekly Salary. On small screens, scroll the table sideways to reach Actions.
+              To add pay: click <strong className="font-semibold text-gray-800">Set Salary</strong>{' '}
+              in the right-hand Actions column, or click{' '}
+              <strong className="font-semibold text-gray-800">Not set</strong> under Weekly Salary.
+              On small screens, scroll the table sideways to reach Actions.
             </p>
           </div>
-          <button onClick={handleRefresh} disabled={loading} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50">
+          <button
+            onClick={handleRefresh}
+            disabled={loading}
+            className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
           </button>
         </div>
@@ -277,31 +324,59 @@ export default function EmployeeSalariesPage() {
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <div className="relative flex-1 sm:max-w-xs">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <input type="text" placeholder="Search by name or email..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full rounded-lg border border-gray-200 py-2 pl-9 pr-3 text-sm" />
+          <input
+            type="text"
+            placeholder="Search by name or email..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full rounded-lg border border-gray-200 py-2 pl-9 pr-3 text-sm"
+          />
         </div>
-        <select value={clinicFilter} onChange={(e) => setClinicFilter(e.target.value)} className="rounded-lg border border-gray-200 px-3 py-2 text-sm">
+        <select
+          value={clinicFilter}
+          onChange={(e) => setClinicFilter(e.target.value)}
+          className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
+        >
           <option value="">All Clinics</option>
-          {clinics.map((c) => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
+          {clinics.map((c) => (
+            <option key={c.id} value={String(c.id)}>
+              {c.name}
+            </option>
+          ))}
         </select>
       </div>
 
       {/* Summary */}
       <div className="mb-6 grid gap-3 sm:grid-cols-4">
         <div className="rounded-xl bg-white p-4 shadow-sm">
-          <div className="flex items-center gap-2"><Users className="h-4 w-4 text-blue-500" /><span className="text-xs font-medium text-gray-500">Total Staff & Sales Reps</span></div>
+          <div className="flex items-center gap-2">
+            <Users className="h-4 w-4 text-blue-500" />
+            <span className="text-xs font-medium text-gray-500">Total Staff & Sales Reps</span>
+          </div>
           <p className="mt-1 text-lg font-bold text-gray-900">{filtered.length}</p>
         </div>
         <div className="rounded-xl bg-white p-4 shadow-sm">
-          <div className="flex items-center gap-2"><Users className="h-4 w-4 text-green-500" /><span className="text-xs font-medium text-gray-500">With Salary</span></div>
+          <div className="flex items-center gap-2">
+            <Users className="h-4 w-4 text-green-500" />
+            <span className="text-xs font-medium text-gray-500">With Salary</span>
+          </div>
           <p className="mt-1 text-lg font-bold text-green-700">{salariedCount}</p>
         </div>
         <div className="rounded-xl bg-white p-4 shadow-sm">
-          <div className="flex items-center gap-2"><Wallet className="h-4 w-4 text-orange-500" /><span className="text-xs font-medium text-gray-500">Total Weekly Salary</span></div>
+          <div className="flex items-center gap-2">
+            <Wallet className="h-4 w-4 text-orange-500" />
+            <span className="text-xs font-medium text-gray-500">Total Weekly Salary</span>
+          </div>
           <p className="mt-1 text-lg font-bold text-orange-700">{$(totalWeekly)}</p>
         </div>
         <div className="rounded-xl bg-white p-4 shadow-sm">
-          <div className="flex items-center gap-2"><DollarSign className="h-4 w-4 text-emerald-500" /><span className="text-xs font-medium text-gray-500">Monthly Estimate</span></div>
-          <p className="mt-1 text-lg font-bold text-emerald-700">{$(Math.round(totalWeekly * 4.33))}</p>
+          <div className="flex items-center gap-2">
+            <DollarSign className="h-4 w-4 text-emerald-500" />
+            <span className="text-xs font-medium text-gray-500">Monthly Estimate</span>
+          </div>
+          <p className="mt-1 text-lg font-bold text-emerald-700">
+            {$(Math.round(totalWeekly * 4.33))}
+          </p>
         </div>
       </div>
 
@@ -314,24 +389,46 @@ export default function EmployeeSalariesPage() {
           <table className="min-w-full divide-y divide-gray-200 text-sm">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Employee</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Role</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Clinic</th>
-                <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Weekly Salary</th>
-                <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Hourly Rate</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Notes</th>
-                <th className="px-4 py-3 text-center text-xs font-medium uppercase text-gray-500">Actions</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                  Employee
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                  Role
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                  Clinic
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">
+                  Weekly Salary
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">
+                  Hourly Rate
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                  Notes
+                </th>
+                <th className="px-4 py-3 text-center text-xs font-medium uppercase text-gray-500">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i}><td colSpan={7} className="px-4 py-3"><div className="h-4 animate-pulse rounded bg-gray-200" /></td></tr>
+                  <tr key={i}>
+                    <td colSpan={7} className="px-4 py-3">
+                      <div className="h-4 animate-pulse rounded bg-gray-200" />
+                    </td>
+                  </tr>
                 ))
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={7} className="py-12 text-center text-gray-500">
-                  {allEmployees.length === 0 ? 'No staff or sales reps found across your clinics.' : 'No results match your search.'}
-                </td></tr>
+                <tr>
+                  <td colSpan={7} className="py-12 text-center text-gray-500">
+                    {allEmployees.length === 0
+                      ? 'No staff or sales reps found across your clinics.'
+                      : 'No results match your search.'}
+                  </td>
+                </tr>
               ) : (
                 filtered.map((emp) => (
                   <tr key={`${emp.userId}-${emp.clinicId}`} className="hover:bg-gray-50">
@@ -340,14 +437,22 @@ export default function EmployeeSalariesPage() {
                       <p className="text-xs text-gray-500">{emp.userEmail}</p>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${roleBadge[emp.userRole] || 'bg-gray-100 text-gray-700'}`}>
-                        {emp.userRole === 'SALES_REP' ? 'Sales Rep' : emp.userRole === 'STAFF' ? 'Staff' : emp.userRole}
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${roleBadge[emp.userRole] || 'bg-gray-100 text-gray-700'}`}
+                      >
+                        {emp.userRole === 'SALES_REP'
+                          ? 'Sales Rep'
+                          : emp.userRole === 'STAFF'
+                            ? 'Staff'
+                            : emp.userRole}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-gray-600">{emp.clinicName}</td>
                     <td className="px-4 py-3 text-right">
                       {emp.salary ? (
-                        <span className="font-semibold text-orange-700">{$(emp.salary.weeklyBasePayCents)}/wk</span>
+                        <span className="font-semibold text-orange-700">
+                          {$(emp.salary.weeklyBasePayCents)}/wk
+                        </span>
                       ) : (
                         <button
                           type="button"
@@ -360,7 +465,9 @@ export default function EmployeeSalariesPage() {
                       )}
                     </td>
                     <td className="px-4 py-3 text-right text-gray-600">
-                      {emp.salary?.hourlyRateCents != null ? `${$(emp.salary.hourlyRateCents)}/hr` : '—'}
+                      {emp.salary?.hourlyRateCents != null
+                        ? `${$(emp.salary.hourlyRateCents)}/hr`
+                        : '—'}
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-500">{emp.salary?.notes || '—'}</td>
                     <td className="px-4 py-3">
@@ -375,7 +482,11 @@ export default function EmployeeSalariesPage() {
                           }
                           title={emp.salary ? 'Edit salary' : 'Set weekly salary'}
                         >
-                          {emp.salary ? <Pencil className="h-3.5 w-3.5" /> : <DollarSign className="h-3.5 w-3.5" />}
+                          {emp.salary ? (
+                            <Pencil className="h-3.5 w-3.5" />
+                          ) : (
+                            <DollarSign className="h-3.5 w-3.5" />
+                          )}
                           {emp.salary ? 'Edit' : 'Set Salary'}
                         </button>
                         {emp.salary && (
@@ -385,7 +496,11 @@ export default function EmployeeSalariesPage() {
                             className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-red-600 disabled:opacity-50"
                             title="Remove salary"
                           >
-                            {deletingId === emp.salary?.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                            {deletingId === emp.salary?.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-3.5 w-3.5" />
+                            )}
                           </button>
                         )}
                       </div>
@@ -403,8 +518,15 @@ export default function EmployeeSalariesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-gray-900">{editingSalaryId ? 'Edit Weekly Salary' : 'Set Weekly Salary'}</h2>
-              <button onClick={() => setShowModal(false)} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"><X className="h-5 w-5" /></button>
+              <h2 className="text-lg font-bold text-gray-900">
+                {editingSalaryId ? 'Edit Weekly Salary' : 'Set Weekly Salary'}
+              </h2>
+              <button
+                onClick={() => setShowModal(false)}
+                className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
 
             <div className="space-y-4">
@@ -414,15 +536,23 @@ export default function EmployeeSalariesPage() {
                     <p className="text-sm font-medium text-gray-900">{editingUser.userName}</p>
                     <p className="text-xs text-gray-500">{editingUser.userEmail}</p>
                   </div>
-                  <span className={`ml-auto rounded-full px-2 py-0.5 text-xs font-medium ${roleBadge[editingUser.userRole] || 'bg-gray-100 text-gray-700'}`}>
-                    {editingUser.userRole === 'SALES_REP' ? 'Sales Rep' : editingUser.userRole === 'STAFF' ? 'Staff' : editingUser.userRole}
+                  <span
+                    className={`ml-auto rounded-full px-2 py-0.5 text-xs font-medium ${roleBadge[editingUser.userRole] || 'bg-gray-100 text-gray-700'}`}
+                  >
+                    {editingUser.userRole === 'SALES_REP'
+                      ? 'Sales Rep'
+                      : editingUser.userRole === 'STAFF'
+                        ? 'Staff'
+                        : editingUser.userRole}
                   </span>
                 </div>
                 <p className="mt-1 text-xs text-gray-400">{editingUser.clinicName}</p>
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Weekly Salary ($)</label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Weekly Salary ($)
+                </label>
                 <div className="relative">
                   <DollarSign className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                   <input
@@ -438,13 +568,16 @@ export default function EmployeeSalariesPage() {
                 </div>
                 {weeklyPay && parseFloat(weeklyPay) > 0 && (
                   <p className="mt-1 text-xs text-gray-500">
-                    Monthly: ~{$(Math.round(parseFloat(weeklyPay) * 100 * 4.33))} &middot; Annual: ~{$(Math.round(parseFloat(weeklyPay) * 100 * 52))}
+                    Monthly: ~{$(Math.round(parseFloat(weeklyPay) * 100 * 4.33))} &middot; Annual: ~
+                    {$(Math.round(parseFloat(weeklyPay) * 100 * 52))}
                   </p>
                 )}
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Hourly Rate ($) <span className="text-gray-400">(optional, for reference)</span></label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Hourly Rate ($) <span className="text-gray-400">(optional, for reference)</span>
+                </label>
                 <div className="relative">
                   <DollarSign className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                   <input
@@ -460,16 +593,38 @@ export default function EmployeeSalariesPage() {
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Notes <span className="text-gray-400">(optional)</span></label>
-                <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g., Part-time, 20 hrs/week" className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" maxLength={500} />
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Notes <span className="text-gray-400">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="e.g., Part-time, 20 hrs/week"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                  maxLength={500}
+                />
               </div>
 
               {modalError && <p className="text-sm text-red-600">{modalError}</p>}
 
               <div className="flex items-center justify-end gap-3 pt-2">
-                <button onClick={() => setShowModal(false)} className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Cancel</button>
-                <button onClick={handleSave} disabled={saving} className="flex items-center gap-2 rounded-lg bg-[var(--brand-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[#3d8a66] disabled:opacity-50">
-                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="flex items-center gap-2 rounded-lg bg-[var(--brand-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[#3d8a66] disabled:opacity-50"
+                >
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Check className="h-4 w-4" />
+                  )}
                   {editingSalaryId ? 'Update' : 'Set Salary'}
                 </button>
               </div>

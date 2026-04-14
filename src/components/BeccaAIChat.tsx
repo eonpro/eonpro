@@ -44,11 +44,27 @@ function ToolCallIndicator({ tc }: { tc: ToolCallEvent }) {
     <div className="my-1 flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">
       {tc.status === 'running' ? (
         <svg className="h-3.5 w-3.5 animate-spin text-[#17aa7b]" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          <circle
+            className="opacity-25"
+            cx="12"
+            cy="12"
+            r="10"
+            stroke="currentColor"
+            strokeWidth="4"
+          />
+          <path
+            className="opacity-75"
+            fill="currentColor"
+            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+          />
         </svg>
       ) : (
-        <svg className="h-3.5 w-3.5 text-[#17aa7b]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg
+          className="h-3.5 w-3.5 text-[#17aa7b]"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
         </svg>
       )}
@@ -65,7 +81,9 @@ function CopyButton({ text }: { text: string }) {
       await navigator.clipboard.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch { /* clipboard not available */ }
+    } catch {
+      /* clipboard not available */
+    }
   };
 
   return (
@@ -75,12 +93,22 @@ function CopyButton({ text }: { text: string }) {
       title="Copy to clipboard"
     >
       {copied ? (
-        <svg className="h-3.5 w-3.5 text-[#17aa7b]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg
+          className="h-3.5 w-3.5 text-[#17aa7b]"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
         </svg>
       ) : (
         <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+          />
         </svg>
       )}
     </button>
@@ -182,7 +210,7 @@ async function consumeSSEStream(
     onSuggestions: (suggestions: string[]) => void;
     onDone: (data: { sessionId: string; messageId: number }) => void;
     onError: (message: string) => void;
-  },
+  }
 ) {
   const decoder = new TextDecoder();
   let buffer = '';
@@ -267,9 +295,15 @@ export default function BeccaAIChat({
       setMessages([welcome]);
 
       if (patientName) {
-        setSuggestions([`Show ${patientName}'s recent orders`, `What prescriptions does ${patientName} have?`]);
+        setSuggestions([
+          `Show ${patientName}'s recent orders`,
+          `What prescriptions does ${patientName} have?`,
+        ]);
       } else {
-        setSuggestions(['How many patients do we have?', 'What is the semaglutide titration schedule?']);
+        setSuggestions([
+          'How many patients do we have?',
+          'What is the semaglutide titration schedule?',
+        ]);
       }
     }
   }, [patientName, messages.length]);
@@ -296,7 +330,12 @@ export default function BeccaAIChat({
       setSuggestions([]);
 
       // Create streaming placeholder
-      const streamingMsg: Message = { role: 'assistant', content: '', isStreaming: true, toolCalls: [] };
+      const streamingMsg: Message = {
+        role: 'assistant',
+        content: '',
+        isStreaming: true,
+        toolCalls: [],
+      };
       setMessages((prev) => [...prev, streamingMsg]);
 
       const controller = new AbortController();
@@ -345,7 +384,10 @@ export default function BeccaAIChat({
               const arr = [...prev];
               const last = arr[arr.length - 1];
               if (last?.isStreaming) {
-                const toolCalls = [...(last.toolCalls || []), { name, description, status: 'running' as const }];
+                const toolCalls = [
+                  ...(last.toolCalls || []),
+                  { name, description, status: 'running' as const },
+                ];
                 arr[arr.length - 1] = { ...last, toolCalls };
               }
               return arr;
@@ -359,7 +401,7 @@ export default function BeccaAIChat({
                 const toolCalls = (last.toolCalls || []).map((tc) =>
                   tc.name === name && tc.status === 'running'
                     ? { ...tc, status: 'done' as const, summary }
-                    : tc,
+                    : tc
                 );
                 arr[arr.length - 1] = { ...last, toolCalls };
               }
@@ -414,7 +456,7 @@ export default function BeccaAIChat({
         abortRef.current = null;
       }
     },
-    [input, isLoading, clinicId, userEmail, sessionId, patientId],
+    [input, isLoading, clinicId, userEmail, sessionId, patientId]
   );
 
   // Keep ref current for event listener
@@ -497,14 +539,22 @@ export default function BeccaAIChat({
             }`}
           >
             <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 12h14M12 5l7 7-7 7"
+              />
             </svg>
           </button>
         </div>
 
         {messages.length > 1 && (
           <div className="mt-2 flex justify-center">
-            <button onClick={clearChat} className="text-xs text-gray-400 transition-colors hover:text-gray-600">
+            <button
+              onClick={clearChat}
+              className="text-xs text-gray-400 transition-colors hover:text-gray-600"
+            >
               Clear conversation
             </button>
           </div>
@@ -513,23 +563,77 @@ export default function BeccaAIChat({
 
       <style jsx global>{`
         @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
         }
-        .animate-fadeIn { animation: fadeIn 0.3s ease-out; }
+        .animate-fadeIn {
+          animation: fadeIn 0.3s ease-out;
+        }
 
-        .becca-prose p { margin: 0.25em 0; }
-        .becca-prose ul, .becca-prose ol { margin: 0.25em 0; padding-left: 1.25em; }
-        .becca-prose li { margin: 0.1em 0; }
-        .becca-prose strong { font-weight: 600; }
-        .becca-prose table { width: 100%; border-collapse: collapse; margin: 0.5em 0; font-size: 0.85em; }
-        .becca-prose th, .becca-prose td { border: 1px solid #e5e7eb; padding: 4px 8px; text-align: left; }
-        .becca-prose th { background: #f9fafb; font-weight: 600; }
-        .becca-prose code { background: #f3f4f6; padding: 1px 4px; border-radius: 3px; font-size: 0.9em; }
-        .becca-prose pre { background: #f3f4f6; padding: 8px 12px; border-radius: 6px; overflow-x: auto; margin: 0.5em 0; }
-        .becca-prose pre code { background: none; padding: 0; }
-        .becca-prose hr { border: none; border-top: 1px solid #e5e7eb; margin: 0.75em 0; }
-        .becca-prose blockquote { border-left: 3px solid #17aa7b; padding-left: 12px; margin: 0.5em 0; color: #6b7280; }
+        .becca-prose p {
+          margin: 0.25em 0;
+        }
+        .becca-prose ul,
+        .becca-prose ol {
+          margin: 0.25em 0;
+          padding-left: 1.25em;
+        }
+        .becca-prose li {
+          margin: 0.1em 0;
+        }
+        .becca-prose strong {
+          font-weight: 600;
+        }
+        .becca-prose table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 0.5em 0;
+          font-size: 0.85em;
+        }
+        .becca-prose th,
+        .becca-prose td {
+          border: 1px solid #e5e7eb;
+          padding: 4px 8px;
+          text-align: left;
+        }
+        .becca-prose th {
+          background: #f9fafb;
+          font-weight: 600;
+        }
+        .becca-prose code {
+          background: #f3f4f6;
+          padding: 1px 4px;
+          border-radius: 3px;
+          font-size: 0.9em;
+        }
+        .becca-prose pre {
+          background: #f3f4f6;
+          padding: 8px 12px;
+          border-radius: 6px;
+          overflow-x: auto;
+          margin: 0.5em 0;
+        }
+        .becca-prose pre code {
+          background: none;
+          padding: 0;
+        }
+        .becca-prose hr {
+          border: none;
+          border-top: 1px solid #e5e7eb;
+          margin: 0.75em 0;
+        }
+        .becca-prose blockquote {
+          border-left: 3px solid #17aa7b;
+          padding-left: 12px;
+          margin: 0.5em 0;
+          color: #6b7280;
+        }
       `}</style>
     </div>
   );

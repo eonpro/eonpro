@@ -141,7 +141,8 @@ export default function UserClinicsPage() {
         }
       }
     } catch (error) {
-      process.env.NODE_ENV === 'development' && console.error('Error fetching user clinics:', error);
+      process.env.NODE_ENV === 'development' &&
+        console.error('Error fetching user clinics:', error);
     } finally {
       setLoading(false);
     }
@@ -251,7 +252,8 @@ export default function UserClinicsPage() {
         fetchUserClinics();
       }
     } catch (error) {
-      process.env.NODE_ENV === 'development' && console.error('Error setting primary clinic:', error);
+      process.env.NODE_ENV === 'development' &&
+        console.error('Error setting primary clinic:', error);
     }
   };
 
@@ -704,7 +706,9 @@ export default function UserClinicsPage() {
                   <option value="PROVIDER">Provider - Patient care access</option>
                   <option value="STAFF">Staff - Limited administrative access</option>
                   <option value="SUPPORT">Support - Customer service access</option>
-                  <option value="PHARMACY_REP">Pharmacy Rep - Patient read + shipping/tracking</option>
+                  <option value="PHARMACY_REP">
+                    Pharmacy Rep - Patient read + shipping/tracking
+                  </option>
                 </select>
               </div>
             </div>

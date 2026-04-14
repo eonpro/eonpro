@@ -50,7 +50,7 @@ export function createSubscriptionService(): SubscriptionService {
           await stripeContext.stripe.subscriptions.update(
             sub.stripeSubscriptionId,
             { cancel_at_period_end: input.cancelAtPeriodEnd ?? true },
-            requestOptions,
+            requestOptions
           );
         } catch (err) {
           logger.error('[SubscriptionService] Stripe cancel failed', {

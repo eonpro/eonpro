@@ -23,16 +23,13 @@ const METRICS_WINDOW_SECONDS = 3600; // 1 hour rolling window
 const ALERT_THRESHOLD_SUCCESS_RATE = 0.95; // Alert if below 95%
 const ALERT_THRESHOLD_LATENCY_MS = 5000; // Alert if above 5s average
 const REDIS_GUARDRAIL_FALLBACK_RATE_THRESHOLD = parseFloat(
-  process.env.REDIS_GUARDRAIL_FALLBACK_RATE_THRESHOLD ?? '0.05',
+  process.env.REDIS_GUARDRAIL_FALLBACK_RATE_THRESHOLD ?? '0.05'
 );
-const REDIS_GUARDRAIL_MIN_CALLS = parseInt(
-  process.env.REDIS_GUARDRAIL_MIN_CALLS ?? '20',
-  10,
-);
+const REDIS_GUARDRAIL_MIN_CALLS = parseInt(process.env.REDIS_GUARDRAIL_MIN_CALLS ?? '20', 10);
 const REDIS_PREFIX_PATTERNS = ['sessions:*', 'ratelimit:*', 'eonpro:*'];
 const REDIS_PREFIX_COUNT_ALERT_THRESHOLD = parseInt(
   process.env.REDIS_PREFIX_COUNT_ALERT_THRESHOLD ?? '50000',
-  10,
+  10
 );
 
 // =============================================================================
@@ -93,24 +90,20 @@ export async function recordMetric(event: Omit<MetricEvent, 'timestamp'>): Promi
   };
 
   try {
-    await cache.withClient<void>(
-      'healthMonitor:recordMetric',
-      undefined,
-      async (redis) => {
-        const key = `${METRICS_KEY}:${metric.timestamp}`;
-        await redis.set(key, JSON.stringify(metric), { ex: METRICS_WINDOW_SECONDS });
+    await cache.withClient<void>('healthMonitor:recordMetric', undefined, async (redis) => {
+      const key = `${METRICS_KEY}:${metric.timestamp}`;
+      await redis.set(key, JSON.stringify(metric), { ex: METRICS_WINDOW_SECONDS });
 
-        const counterKey = `${METRICS_KEY}:counters`;
-        if (metric.success) {
-          await redis.hincrby(counterKey, 'success', 1);
-        } else {
-          await redis.hincrby(counterKey, 'errors', 1);
-        }
-        await redis.hincrby(counterKey, 'total', 1);
-        await redis.hincrby(counterKey, 'latencySum', metric.latencyMs);
-        await redis.expire(counterKey, METRICS_WINDOW_SECONDS);
-      },
-    );
+      const counterKey = `${METRICS_KEY}:counters`;
+      if (metric.success) {
+        await redis.hincrby(counterKey, 'success', 1);
+      } else {
+        await redis.hincrby(counterKey, 'errors', 1);
+      }
+      await redis.hincrby(counterKey, 'total', 1);
+      await redis.hincrby(counterKey, 'latencySum', metric.latencyMs);
+      await redis.expire(counterKey, METRICS_WINDOW_SECONDS);
+    });
   } catch {
     // Metrics are best-effort; don't break the caller
   }
@@ -190,7 +183,7 @@ async function checkRedis(): Promise<ServiceCheck> {
   const result = await cache.withClient<string | null>(
     'healthMonitor:checkRedisPing',
     null,
-    async (redis) => redis.ping(),
+    async (redis) => redis.ping()
   );
 
   if (!result) {
@@ -206,7 +199,10 @@ async function checkRedis(): Promise<ServiceCheck> {
   const calls = guardrailStats.totals.calls;
   const fallbackRate = calls > 0 ? guardrailStats.totals.fallbacks / calls : 0;
 
-  if (calls >= REDIS_GUARDRAIL_MIN_CALLS && fallbackRate > REDIS_GUARDRAIL_FALLBACK_RATE_THRESHOLD) {
+  if (
+    calls >= REDIS_GUARDRAIL_MIN_CALLS &&
+    fallbackRate > REDIS_GUARDRAIL_FALLBACK_RATE_THRESHOLD
+  ) {
     return {
       status: 'degraded',
       latencyMs: Date.now() - start,
@@ -233,7 +229,10 @@ async function getRedisPrefixCounts(): Promise<Record<string, number>> {
         let cursor: string | number = 0;
         let count = 0;
         do {
-          const [nextCursor, keys]: [string | number, string[]] = await redis.scan(cursor, { match: pattern, count: 200 });
+          const [nextCursor, keys]: [string | number, string[]] = await redis.scan(cursor, {
+            match: pattern,
+            count: 200,
+          });
           count += keys.length;
           cursor = nextCursor;
           // Keep bounded to avoid expensive scans in health probes.
@@ -243,7 +242,7 @@ async function getRedisPrefixCounts(): Promise<Record<string, number>> {
       }
 
       return counts;
-    },
+    }
   );
 }
 
@@ -258,7 +257,7 @@ async function checkWebhook(): Promise<ServiceCheck> {
     async (redis) => {
       const data = await redis.hgetall<Record<string, string>>(counterKey);
       return data ?? null;
-    },
+    }
   );
 
   if (!counters || Object.keys(counters).length === 0) {
@@ -325,7 +324,7 @@ async function getMetrics(): Promise<HealthStatus['metrics']> {
     async (redis) => {
       const data = await redis.hgetall<Record<string, string>>(counterKey);
       return data ?? null;
-    },
+    }
   );
   if (counters) {
     for (const [k, v] of Object.entries(counters)) {

@@ -6,7 +6,10 @@ import { upsertPatientFromIntake } from '@/lib/medlink/patientService';
 import { generateIntakePdf } from '@/services/intakePdfService';
 import { storeIntakePdf } from '@/services/storage/intakeStorage';
 import { generateSOAPFromIntake } from '@/services/ai/soapNoteService';
-import { attributeFromIntakeExtended, tagPatientWithReferralCodeOnly } from '@/services/affiliate/attributionService';
+import {
+  attributeFromIntakeExtended,
+  tagPatientWithReferralCodeOnly,
+} from '@/services/affiliate/attributionService';
 import { logger } from '@/lib/logger';
 import { storeIntakeData } from '@/lib/storage/document-data-store';
 
@@ -113,17 +116,32 @@ export async function POST(req: NextRequest) {
         const patientClinicId = patientRecord?.clinicId;
 
         if (patientClinicId) {
-          const result = await attributeFromIntakeExtended(patient.id, promoCode, patientClinicId, 'medlink-intake');
+          const result = await attributeFromIntakeExtended(
+            patient.id,
+            promoCode,
+            patientClinicId,
+            'medlink-intake'
+          );
           if (result.success) {
-            logger.info(`[MEDLINK WEBHOOK] ✓ Affiliate attribution: ${promoCode} -> affiliateId=${result.affiliateId}`);
+            logger.info(
+              `[MEDLINK WEBHOOK] ✓ Affiliate attribution: ${promoCode} -> affiliateId=${result.affiliateId}`
+            );
           } else {
-            const tagged = await tagPatientWithReferralCodeOnly(patient.id, promoCode, patientClinicId);
+            const tagged = await tagPatientWithReferralCodeOnly(
+              patient.id,
+              promoCode,
+              patientClinicId
+            );
             if (tagged) {
-              logger.info(`[MEDLINK WEBHOOK] ✓ Profile tagged with referral code (no affiliate yet): ${promoCode}`);
+              logger.info(
+                `[MEDLINK WEBHOOK] ✓ Profile tagged with referral code (no affiliate yet): ${promoCode}`
+              );
             }
           }
         } else {
-          logger.warn(`[MEDLINK WEBHOOK] No clinicId found for patient ${patient.id}, skipping affiliate tracking`);
+          logger.warn(
+            `[MEDLINK WEBHOOK] No clinicId found for patient ${patient.id}, skipping affiliate tracking`
+          );
         }
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : 'Unknown error';
@@ -149,10 +167,11 @@ export async function POST(req: NextRequest) {
     });
 
     // Dual-write: S3 + DB `data` column (Phase 3.3)
-    const { s3DataKey, dataBuffer: intakeDataBuffer } = await storeIntakeData(
-      intakeDataToStore,
-      { documentId: existingDocument?.id, patientId: patient.id, clinicId: null }
-    );
+    const { s3DataKey, dataBuffer: intakeDataBuffer } = await storeIntakeData(intakeDataToStore, {
+      documentId: existingDocument?.id,
+      patientId: patient.id,
+      clinicId: null,
+    });
 
     let patientDocument;
     if (existingDocument) {
@@ -189,7 +208,6 @@ export async function POST(req: NextRequest) {
       soapNoteId = soapNote.id;
       logger.debug('[MEDLINK WEBHOOK] SOAP note generated successfully:', { value: soapNoteId });
     } catch (error: unknown) {
-
       logger.error('[MEDLINK WEBHOOK] Failed to generate SOAP note:', { error });
       // Don't fail the webhook if SOAP generation fails
     }
@@ -205,7 +223,6 @@ export async function POST(req: NextRequest) {
       { status: 200 }
     );
   } catch (err: unknown) {
-
     logger.error('Failed to process MedLink webhook', { error: err });
     return Response.json({ error: 'Failed to process intake' }, { status: 500 });
   }

@@ -37,7 +37,7 @@ export const BUNDLE_ADDON_ID: AddonId = 'elite_bundle';
 
 const INDIVIDUAL_TOTAL = INDIVIDUAL_ADDON_IDS.reduce(
   (sum, id) => sum + ADDON_PRODUCTS[id].monthlyPrice,
-  0,
+  0
 );
 export const BUNDLE_SAVINGS = INDIVIDUAL_TOTAL - ADDON_PRODUCTS.elite_bundle.monthlyPrice;
 
@@ -50,8 +50,5 @@ export function getAddonTotal(selectedAddons: AddonId[]): number {
   if (selectedAddons.includes('elite_bundle')) {
     return ADDON_PRODUCTS.elite_bundle.monthlyPrice;
   }
-  return selectedAddons.reduce(
-    (sum, id) => sum + (ADDON_PRODUCTS[id]?.monthlyPrice ?? 0),
-    0,
-  );
+  return selectedAddons.reduce((sum, id) => sum + (ADDON_PRODUCTS[id]?.monthlyPrice ?? 0), 0);
 }

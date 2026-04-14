@@ -1,14 +1,42 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useTransition, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import { ArrowLeft, Syringe, Droplets, Check, ChevronRight } from 'lucide-react';
 
+const TirzepatideSupportPanels = dynamic(() => import('./TirzepatideSupportPanels'), {
+  ssr: false,
+  loading: () => (
+    <div className="space-y-6">
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div key={i} className="rounded-3xl bg-white p-6 shadow-xl shadow-gray-200/50">
+          <div className="h-5 w-40 animate-pulse rounded bg-gray-100" />
+          <div className="mt-4 h-4 w-full animate-pulse rounded bg-gray-100" />
+          <div className="mt-2 h-4 w-3/4 animate-pulse rounded bg-gray-100" />
+        </div>
+      ))}
+    </div>
+  ),
+});
+
 const concentrations = [
-  { value: 10, label: '10 mg/mL', color: '#3B82F6', tag: 'Most Popular', tagColor: 'bg-amber-100 text-amber-700' },
-  { value: 30, label: '30 mg/mL', color: '#8B5CF6', tag: 'Highest Dose/mL', tagColor: 'bg-blue-100 text-blue-700' },
+  {
+    value: 10,
+    label: '10 mg/mL',
+    color: '#3B82F6',
+    tag: 'Most Popular',
+    tagColor: 'bg-amber-100 text-amber-700',
+  },
+  {
+    value: 30,
+    label: '30 mg/mL',
+    color: '#8B5CF6',
+    tag: 'Highest Dose/mL',
+    tagColor: 'bg-blue-100 text-blue-700',
+  },
 ];
 
 const dosingSchedule = [
@@ -28,6 +56,17 @@ export default function TirzepatideDoseCalculatorPage() {
   const [units, setUnits] = useState('');
   const [concentration, setConcentration] = useState(10);
   const [selectedWeek, setSelectedWeek] = useState<(typeof dosingSchedule)[0] | null>(null);
+  const [, startTransition] = useTransition();
+
+  const handleUnitsChange = useCallback(
+    (value: string) => {
+      startTransition(() => {
+        setUnits(value);
+        setSelectedWeek(null);
+      });
+    },
+    [startTransition]
+  );
 
   const result = useMemo(() => {
     const unitsNum = parseFloat(units || '0');
@@ -83,9 +122,7 @@ export default function TirzepatideDoseCalculatorPage() {
                   >
                     <span
                       className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                        concentration === c.value
-                          ? 'bg-white/20 text-white'
-                          : c.tagColor
+                        concentration === c.value ? 'bg-white/20 text-white' : c.tagColor
                       }`}
                     >
                       {c.tag}
@@ -127,10 +164,7 @@ export default function TirzepatideDoseCalculatorPage() {
                   inputMode="numeric"
                   pattern="[0-9]*"
                   value={units}
-                  onChange={(e) => {
-                    setUnits(e.target.value);
-                    setSelectedWeek(null);
-                  }}
+                  onChange={(e) => handleUnitsChange(e.target.value)}
                   placeholder="0"
                   min="0"
                   max="100"
@@ -190,29 +224,94 @@ export default function TirzepatideDoseCalculatorPage() {
                       <rect x="74" y="34" width="236" height="16" rx="3" />
                     </clipPath>
                     <filter id="syrShadow" x="-2%" y="-12%" width="104%" height="135%">
-                      <feDropShadow dx="0" dy="1" stdDeviation="1.5" floodColor="#000" floodOpacity="0.06" />
+                      <feDropShadow
+                        dx="0"
+                        dy="1"
+                        stdDeviation="1.5"
+                        floodColor="#000"
+                        floodOpacity="0.06"
+                      />
                     </filter>
                   </defs>
 
                   {/* Plunger rod (behind barrel) */}
-                  <rect x="100" y="40" width="248" height="5" rx="1.5" fill="url(#syrMetal)" stroke="#c0c5cc" strokeWidth="0.4" />
+                  <rect
+                    x="100"
+                    y="40"
+                    width="248"
+                    height="5"
+                    rx="1.5"
+                    fill="url(#syrMetal)"
+                    stroke="#c0c5cc"
+                    strokeWidth="0.4"
+                  />
                   {[0, 5, 10].map((d) => (
-                    <line key={d} x1={330 + d} y1="40.5" x2={330 + d} y2="44.5" stroke="#b0b6be" strokeWidth="0.5" strokeLinecap="round" />
+                    <line
+                      key={d}
+                      x1={330 + d}
+                      y1="40.5"
+                      x2={330 + d}
+                      y2="44.5"
+                      stroke="#b0b6be"
+                      strokeWidth="0.5"
+                      strokeLinecap="round"
+                    />
                   ))}
 
                   {/* Thumb rest */}
-                  <rect x="346" y="37.5" width="6" height="10" rx="2" fill="url(#syrMetal)" stroke="#b0b6be" strokeWidth="0.5" />
-                  <rect x="350" y="35" width="5" height="15" rx="2.5" fill="url(#syrMetal)" stroke="#b0b6be" strokeWidth="0.5" />
+                  <rect
+                    x="346"
+                    y="37.5"
+                    width="6"
+                    height="10"
+                    rx="2"
+                    fill="url(#syrMetal)"
+                    stroke="#b0b6be"
+                    strokeWidth="0.5"
+                  />
+                  <rect
+                    x="350"
+                    y="35"
+                    width="5"
+                    height="15"
+                    rx="2.5"
+                    fill="url(#syrMetal)"
+                    stroke="#b0b6be"
+                    strokeWidth="0.5"
+                  />
 
                   {/* Barrel body */}
-                  <rect x="72" y="32" width="240" height="20" rx="4" fill="url(#syrGlass)" stroke="#c5c9d0" strokeWidth="1" filter="url(#syrShadow)" />
-                  <rect x="80" y="34" width="224" height="2.5" rx="1.25" fill="white" opacity="0.5" />
+                  <rect
+                    x="72"
+                    y="32"
+                    width="240"
+                    height="20"
+                    rx="4"
+                    fill="url(#syrGlass)"
+                    stroke="#c5c9d0"
+                    strokeWidth="1"
+                    filter="url(#syrShadow)"
+                  />
+                  <rect
+                    x="80"
+                    y="34"
+                    width="224"
+                    height="2.5"
+                    rx="1.25"
+                    fill="white"
+                    opacity="0.5"
+                  />
 
                   {/* Liquid fill */}
                   <g clipPath="url(#syrClip)">
                     <rect
-                      x="74" y="34" width="236" height="16" rx="3"
-                      fill="url(#syrLiquid)" opacity="0.55"
+                      x="74"
+                      y="34"
+                      width="236"
+                      height="16"
+                      rx="3"
+                      fill="url(#syrLiquid)"
+                      opacity="0.55"
                       style={{
                         transformOrigin: '74px 42px',
                         transform: `scaleX(${fillPercentage / 100})`,
@@ -222,18 +321,70 @@ export default function TirzepatideDoseCalculatorPage() {
                   </g>
 
                   {/* Stopper */}
-                  <g style={{ transform: `translateX(${230 * (fillPercentage / 100)}px)`, transition: 'transform 700ms ease-out' }}>
+                  <g
+                    style={{
+                      transform: `translateX(${230 * (fillPercentage / 100)}px)`,
+                      transition: 'transform 700ms ease-out',
+                    }}
+                  >
                     <rect x="74" y="33" width="6" height="18" rx="1.5" fill="url(#syrRubber)" />
-                    <line x1="76" y1="35" x2="76" y2="49" stroke="#6b7280" strokeWidth="0.3" opacity="0.3" />
-                    <line x1="78" y1="35" x2="78" y2="49" stroke="#6b7280" strokeWidth="0.3" opacity="0.3" />
+                    <line
+                      x1="76"
+                      y1="35"
+                      x2="76"
+                      y2="49"
+                      stroke="#6b7280"
+                      strokeWidth="0.3"
+                      opacity="0.3"
+                    />
+                    <line
+                      x1="78"
+                      y1="35"
+                      x2="78"
+                      y2="49"
+                      stroke="#6b7280"
+                      strokeWidth="0.3"
+                      opacity="0.3"
+                    />
                   </g>
 
                   {/* mg indicator */}
                   {result && fillPercentage > 0 && (
-                    <g style={{ transform: `translateX(${230 * (fillPercentage / 100)}px)`, transition: 'transform 700ms ease-out' }}>
-                      <line x1="77" y1="24" x2="77" y2="32" stroke="#c9a84c" strokeWidth="0.6" opacity="0.5" />
-                      <rect x="58" y="11" width="38" height="14" rx="4" fill="#fef9eb" stroke="#e8c766" strokeWidth="0.6" />
-                      <text x="77" y="21" textAnchor="middle" fill="#a8861e" fontSize="7" fontWeight="700" fontFamily="system-ui, sans-serif" className="select-none">
+                    <g
+                      style={{
+                        transform: `translateX(${230 * (fillPercentage / 100)}px)`,
+                        transition: 'transform 700ms ease-out',
+                      }}
+                    >
+                      <line
+                        x1="77"
+                        y1="24"
+                        x2="77"
+                        y2="32"
+                        stroke="#c9a84c"
+                        strokeWidth="0.6"
+                        opacity="0.5"
+                      />
+                      <rect
+                        x="58"
+                        y="11"
+                        width="38"
+                        height="14"
+                        rx="4"
+                        fill="#fef9eb"
+                        stroke="#e8c766"
+                        strokeWidth="0.6"
+                      />
+                      <text
+                        x="77"
+                        y="21"
+                        textAnchor="middle"
+                        fill="#a8861e"
+                        fontSize="7"
+                        fontWeight="700"
+                        fontFamily="system-ui, sans-serif"
+                        className="select-none"
+                      >
                         {parseFloat(result.mg)} mg
                       </text>
                     </g>
@@ -246,10 +397,35 @@ export default function TirzepatideDoseCalculatorPage() {
                     const tickLen = isMajor ? 6 : 4;
                     return (
                       <g key={mark}>
-                        <line x1={x} y1={32} x2={x} y2={32 + tickLen} stroke={isMajor ? '#6b7280' : '#b0b6be'} strokeWidth={isMajor ? 0.8 : 0.5} strokeLinecap="round" />
-                        <line x1={x} y1={52} x2={x} y2={52 - tickLen} stroke={isMajor ? '#6b7280' : '#b0b6be'} strokeWidth={isMajor ? 0.8 : 0.5} strokeLinecap="round" />
+                        <line
+                          x1={x}
+                          y1={32}
+                          x2={x}
+                          y2={32 + tickLen}
+                          stroke={isMajor ? '#6b7280' : '#b0b6be'}
+                          strokeWidth={isMajor ? 0.8 : 0.5}
+                          strokeLinecap="round"
+                        />
+                        <line
+                          x1={x}
+                          y1={52}
+                          x2={x}
+                          y2={52 - tickLen}
+                          stroke={isMajor ? '#6b7280' : '#b0b6be'}
+                          strokeWidth={isMajor ? 0.8 : 0.5}
+                          strokeLinecap="round"
+                        />
                         {mark > 0 && (
-                          <text x={x} y={64} textAnchor="middle" fill={isMajor ? '#6b7280' : '#9ca3af'} fontSize={isMajor ? '9' : '7.5'} fontWeight={isMajor ? '600' : '500'} fontFamily="system-ui, sans-serif" className="select-none">
+                          <text
+                            x={x}
+                            y={64}
+                            textAnchor="middle"
+                            fill={isMajor ? '#6b7280' : '#9ca3af'}
+                            fontSize={isMajor ? '9' : '7.5'}
+                            fontWeight={isMajor ? '600' : '500'}
+                            fontFamily="system-ui, sans-serif"
+                            className="select-none"
+                          >
                             {mark}
                           </text>
                         )}
@@ -258,18 +434,51 @@ export default function TirzepatideDoseCalculatorPage() {
                   })}
 
                   {/* Hub connector */}
-                  <path d="M 72 36 L 62 39 L 62 45 L 72 48 Z" fill="url(#syrHub)" stroke="#adb3bc" strokeWidth="0.5" strokeLinejoin="round" />
-                  <line x1="67" y1="38" x2="67" y2="46" stroke="#b8bfc8" strokeWidth="0.4" opacity="0.4" />
+                  <path
+                    d="M 72 36 L 62 39 L 62 45 L 72 48 Z"
+                    fill="url(#syrHub)"
+                    stroke="#adb3bc"
+                    strokeWidth="0.5"
+                    strokeLinejoin="round"
+                  />
+                  <line
+                    x1="67"
+                    y1="38"
+                    x2="67"
+                    y2="46"
+                    stroke="#b8bfc8"
+                    strokeWidth="0.4"
+                    opacity="0.4"
+                  />
 
                   {/* Needle */}
                   <rect x="42" y="41.2" width="22" height="1.6" rx="0.8" fill="url(#syrNeedle)" />
                   <polygon points="42,41.2 38,42 42,42.8" fill="#a0a8b2" />
 
                   {/* Finger flange */}
-                  <rect x="312" y="24" width="4" height="36" rx="2" fill="#d4d8de" stroke="#b8bfc8" strokeWidth="0.5" />
+                  <rect
+                    x="312"
+                    y="24"
+                    width="4"
+                    height="36"
+                    rx="2"
+                    fill="#d4d8de"
+                    stroke="#b8bfc8"
+                    strokeWidth="0.5"
+                  />
 
                   {/* UNITS label */}
-                  <text x="190" y="77" textAnchor="middle" fill="#b0b6be" fontSize="7" fontWeight="600" fontFamily="system-ui, sans-serif" letterSpacing="0.1em" className="select-none">
+                  <text
+                    x="190"
+                    y="77"
+                    textAnchor="middle"
+                    fill="#b0b6be"
+                    fontSize="7"
+                    fontWeight="600"
+                    fontFamily="system-ui, sans-serif"
+                    letterSpacing="0.1em"
+                    className="select-none"
+                  >
                     UNITS
                   </text>
                 </svg>
@@ -374,60 +583,11 @@ export default function TirzepatideDoseCalculatorPage() {
             </div>
           </div>
 
-          {/* How It Works */}
-          <div className="overflow-hidden rounded-3xl bg-white p-6 shadow-xl shadow-gray-200/50">
-            <h3 className="mb-3 text-lg font-semibold text-gray-900">How It Works</h3>
-            <div className="space-y-3 text-sm">
-              <div className="flex items-center gap-3 rounded-xl bg-gray-50 p-4">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-200 text-sm font-bold text-gray-600">1</span>
-                <span className="text-gray-700">Enter units drawn on your insulin syringe</span>
-              </div>
-              <div className="flex items-center gap-3 rounded-xl bg-gray-50 p-4">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-200 text-sm font-bold text-gray-600">2</span>
-                <span className="text-gray-700">100 units = 1 mL</span>
-              </div>
-              <div className="flex items-center gap-3 rounded-xl bg-gray-50 p-4">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-200 text-sm font-bold text-gray-600">3</span>
-                <span className="text-gray-700">mL × {concentration} mg/mL = your dose in mg</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Standard Titration Schedule */}
-          <div className="overflow-hidden rounded-3xl bg-white p-6 shadow-xl shadow-gray-200/50">
-            <h3 className="mb-3 text-lg font-semibold text-gray-900">Standard Titration Schedule</h3>
-            <div className="space-y-2">
-              {dosingSchedule.map((s) => (
-                <div
-                  key={s.week}
-                  className="flex items-center justify-between border-b border-gray-100 py-2.5 text-sm last:border-0"
-                >
-                  <span className="text-gray-600">{s.label}</span>
-                  <span className="font-semibold text-gray-900">{s.dose} mg</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Injection Tracker Link */}
-          <Link
-            href={`${PATIENT_PORTAL_PATH}/tools/injection-tracker`}
-            className="block overflow-hidden rounded-3xl bg-white p-5 shadow-xl shadow-gray-200/50 transition-shadow hover:shadow-2xl"
-          >
-            <div className="flex items-center gap-4">
-              <div
-                className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl"
-                style={{ backgroundColor: `${primaryColor}15` }}
-              >
-                <Syringe className="h-6 w-6" style={{ color: primaryColor }} />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-gray-900">Injection Site Tracker</h3>
-                <p className="text-sm text-gray-500">Track and rotate your injection sites</p>
-              </div>
-              <ChevronRight className="h-5 w-5 text-gray-400" />
-            </div>
-          </Link>
+          <TirzepatideSupportPanels
+            concentration={concentration}
+            dosingSchedule={dosingSchedule}
+            primaryColor={primaryColor}
+          />
         </div>
       </div>
     </div>

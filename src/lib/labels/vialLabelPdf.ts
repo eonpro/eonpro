@@ -1,4 +1,12 @@
-import { PDFDocument, StandardFonts, degrees, rgb, type PDFPage, type PDFFont, type PDFImage } from 'pdf-lib';
+import {
+  PDFDocument,
+  StandardFonts,
+  degrees,
+  rgb,
+  type PDFPage,
+  type PDFFont,
+  type PDFImage,
+} from 'pdf-lib';
 import JsBarcode from 'jsbarcode';
 import fontkit from '@pdf-lib/fontkit';
 import { access, readdir, readFile } from 'node:fs/promises';
@@ -61,7 +69,7 @@ function hexToRgb(hex: string) {
   return rgb(
     parseInt(h.slice(0, 2), 16) / 255,
     parseInt(h.slice(2, 4), 16) / 255,
-    parseInt(h.slice(4, 6), 16) / 255,
+    parseInt(h.slice(4, 6), 16) / 255
   );
 }
 
@@ -99,11 +107,7 @@ function titleCase(value: string): string {
 }
 
 function normalizeConcentration(value: string): string {
-  return value
-    .toUpperCase()
-    .replace(/MCG/g, 'mcg')
-    .replace(/MG/g, 'mg')
-    .replace(/ML/g, 'mL');
+  return value.toUpperCase().replace(/MCG/g, 'mcg').replace(/MG/g, 'mg').replace(/ML/g, 'mL');
 }
 
 function parseProduct(productId: number): ParsedProduct {
@@ -112,7 +116,10 @@ function parseProduct(productId: number): ParsedProduct {
     throw new Error(`Unknown product id: ${productId}`);
   }
 
-  const baseName = product.name.replace(/\([^)]*\)/g, '').replace(/\s+SOLUTION\s*$/i, '').trim();
+  const baseName = product.name
+    .replace(/\([^)]*\)/g, '')
+    .replace(/\s+SOLUTION\s*$/i, '')
+    .trim();
   const strengthIdx = baseName.search(/\d/);
   const head = strengthIdx > 0 ? baseName.slice(0, strengthIdx).trim() : baseName;
   const normalizedHead = head
@@ -136,7 +143,13 @@ function parseProduct(productId: number): ParsedProduct {
   };
 }
 
-function wrapText(font: PDFFont, text: string, size: number, maxWidth: number, maxLines: number): string[] {
+function wrapText(
+  font: PDFFont,
+  text: string,
+  size: number,
+  maxWidth: number,
+  maxLines: number
+): string[] {
   const words = text.split(/\s+/).filter(Boolean);
   const lines: string[] = [];
   let current = '';
@@ -164,12 +177,16 @@ function wrapText(font: PDFFont, text: string, size: number, maxWidth: number, m
 
 function getCode128Bits(value: string): string {
   const target: BarcodeTarget = {};
-  (JsBarcode as unknown as (t: unknown, v: string, o: Record<string, unknown>) => void)(target, value, {
-    format: 'CODE128',
-    displayValue: false,
-    margin: 0,
-    flat: true,
-  });
+  (JsBarcode as unknown as (t: unknown, v: string, o: Record<string, unknown>) => void)(
+    target,
+    value,
+    {
+      format: 'CODE128',
+      displayValue: false,
+      margin: 0,
+      flat: true,
+    }
+  );
 
   const encoded = target.encodings?.[0]?.data;
   if (!encoded) {
@@ -178,7 +195,14 @@ function getCode128Bits(value: string): string {
   return encoded;
 }
 
-function drawBarcodeBars(page: PDFPage, bits: string, x: number, y: number, width: number, height: number): void {
+function drawBarcodeBars(
+  page: PDFPage,
+  bits: string,
+  x: number,
+  y: number,
+  width: number,
+  height: number
+): void {
   const moduleHeight = height / bits.length;
   let idx = 0;
   while (idx < bits.length) {
@@ -340,10 +364,9 @@ function drawLabel({
   const FRAME_MARGIN_Y = 7;
   const fullWidth = LABEL_WIDTH;
   const fullHeight = LABEL_HEIGHT;
-  // Calibrated to LG396000936 SVG proportions (single label geometry within OL950 sheet pitch).
   const brandWidth = 27;
   const warningWidth = 54;
-  const barcodeWidth = 26;
+  const barcodeWidth = 29;
   const contentWidth = fullWidth - brandWidth - warningWidth - barcodeWidth - 8;
   const contentX = x + brandWidth + 3;
   const barcodeX = contentX + contentWidth + 3;
@@ -453,10 +476,14 @@ function drawLabel({
     color: COLOR_TEXT,
   });
 
+  const subcutaneousText = 'FOR SUBCUTANEOUS USE ONLY';
+  const subcutaneousSize = 4.6;
+  const subcutaneousLength = fonts.robotoCondensed.widthOfTextAtSize(subcutaneousText, subcutaneousSize);
+
   const bits = getCode128Bits(batchNumber);
-  const barsWidth = Math.min(barcodeWidth - 1, (barcodeWidth - 0.9) * 1.14);
-  const barsHeight = Math.min(contentHeight, ((fullHeight - 1.6) * 0.85) * 1.28);
-  const barsX = barcodeX + (barcodeWidth - barsWidth) / 2 + 2;
+  const barsWidth = Math.min(subcutaneousLength, contentHeight * 0.92);
+  const barsHeight = contentHeight * 0.88;
+  const barsX = warningX - barsWidth - 4;
   const barsY = contentBottom + (contentHeight - barsHeight) / 2;
   drawBarcodeBars(page, bits, barsX, barsY, barsWidth, barsHeight);
   let lgSize = 6.75;
@@ -466,7 +493,7 @@ function drawLabel({
     lgSize = (lgSize * lgMaxHeight) / lgLineLength;
   }
   const lgWidth = fonts.typewriter.widthOfTextAtSize(batchNumber, lgSize);
-  const lgX = barsX + barsWidth + 8;
+  const lgX = barsX - lgSize - 4;
   page.drawText(batchNumber, {
     x: lgX,
     y: barsY + (barsHeight - lgWidth) / 2,
@@ -477,7 +504,7 @@ function drawLabel({
   });
 
   const warningLines = [
-    { text: 'FOR SUBCUTANEOUS USE ONLY', size: 4.6, color: COLOR_BLUE },
+    { text: subcutaneousText, size: subcutaneousSize, color: COLOR_BLUE },
     { text: 'Refrigerate 2 C to 8 C (36 F to 46 F)', size: 3.9, color: COLOR_TEXT },
     { text: 'Protect from light. Compounded Drug', size: 3.9, color: COLOR_TEXT },
     { text: 'Do Not Freeze. Not for Resale.', size: 3.9, color: COLOR_TEXT },
@@ -488,7 +515,7 @@ function drawLabel({
   const availableHeight = contentHeight;
   const colPadding = 1.4;
   const warningRight = warningX + warningWidth - colPadding;
-  const warningStart = Math.max(warningX + colPadding, lgX + lgSize + 2);
+  const warningStart = warningX + colPadding;
   const usableWidth = Math.max(8, warningRight - warningStart);
   const fullStep = usableWidth / warningLines.length;
   const step = fullStep * 0.5;
@@ -622,8 +649,12 @@ async function tryEmbedLogosRxLogo(doc: PDFDocument): Promise<PDFImage | null> {
 
 async function tryEmbedProductTemplate(
   doc: PDFDocument,
-  productId: number,
-): Promise<PDFImage | ReturnType<Awaited<ReturnType<typeof doc.embedPdf>>[number] extends infer T ? () => T : never> | null> {
+  productId: number
+): Promise<
+  | PDFImage
+  | ReturnType<Awaited<ReturnType<typeof doc.embedPdf>>[number] extends infer T ? () => T : never>
+  | null
+> {
   const baseDirs = [
     path.join(process.cwd(), 'assets', 'labels', 'templates'),
     path.join(process.cwd(), 'public', 'labels', 'templates'),
@@ -693,10 +724,11 @@ function drawTemplateLabel({
 
   const brandWidth = 27;
   const warningWidth = 54;
-  const barcodeWidth = 26;
+  const barcodeWidth = 29;
   const contentWidth = fullWidth - brandWidth - warningWidth - barcodeWidth - 8;
   const contentX = x + brandWidth + 3;
   const barcodeX = contentX + contentWidth + 3;
+  const warningX = barcodeX + barcodeWidth + 3;
   const top = y + fullHeight;
   const contentTop = top - FRAME_MARGIN_Y;
   const contentBottom = y + FRAME_MARGIN_Y;
@@ -720,10 +752,14 @@ function drawTemplateLabel({
     color: yearRgb,
   });
 
+  const subcutaneousText = 'FOR SUBCUTANEOUS USE ONLY';
+  const subcutaneousSize = 4.6;
+  const subcutaneousLength = fonts.robotoCondensed.widthOfTextAtSize(subcutaneousText, subcutaneousSize);
+
   const bits = getCode128Bits(batchNumber);
-  const barsWidth = Math.min(barcodeWidth - 1, (barcodeWidth - 0.9) * 1.14);
-  const barsHeight = Math.min(contentHeight, ((fullHeight - 1.6) * 0.85) * 1.28);
-  const barsX = barcodeX + (barcodeWidth - barsWidth) / 2 + 2;
+  const barsWidth = Math.min(subcutaneousLength, contentHeight * 0.92);
+  const barsHeight = contentHeight * 0.88;
+  const barsX = warningX - barsWidth - 4;
   const barsY = contentBottom + (contentHeight - barsHeight) / 2;
   drawBarcodeBars(page, bits, barsX, barsY, barsWidth, barsHeight);
 
@@ -734,7 +770,7 @@ function drawTemplateLabel({
     lgSize = (lgSize * lgMaxHeight) / lgLineLength;
   }
   const lgWidth = fonts.typewriter.widthOfTextAtSize(batchNumber, lgSize);
-  const lgX = barsX + barsWidth + 8;
+  const lgX = barsX - lgSize - 4;
   page.drawText(batchNumber, {
     x: lgX,
     y: barsY + (barsHeight - lgWidth) / 2,
@@ -771,9 +807,28 @@ export async function generateVialLabelSheetPdf(input: VialLabelRequest): Promis
     const x = (SHEET_WIDTH - LABEL_WIDTH) / 2;
     const y = (SHEET_HEIGHT - LABEL_HEIGHT) / 2;
     if (productTemplate) {
-      drawTemplateLabel({ page, x, y, batchNumber, budIsoDate: input.budIsoDate, fonts, template: productTemplate, yearColor: yearRgb });
+      drawTemplateLabel({
+        page,
+        x,
+        y,
+        batchNumber,
+        budIsoDate: input.budIsoDate,
+        fonts,
+        template: productTemplate,
+        yearColor: yearRgb,
+      });
     } else {
-      drawLabel({ page, x, y, label: parsed, batchNumber, budIsoDate: input.budIsoDate, fonts, logoImage: logoImage ?? undefined, yearColor: yearRgb });
+      drawLabel({
+        page,
+        x,
+        y,
+        label: parsed,
+        batchNumber,
+        budIsoDate: input.budIsoDate,
+        fonts,
+        logoImage: logoImage ?? undefined,
+        yearColor: yearRgb,
+      });
     }
   } else {
     for (let i = 0; i < safeQuantity; i += 1) {
@@ -784,9 +839,28 @@ export async function generateVialLabelSheetPdf(input: VialLabelRequest): Promis
       const y = top - LABEL_HEIGHT;
 
       if (productTemplate) {
-        drawTemplateLabel({ page, x, y, batchNumber, budIsoDate: input.budIsoDate, fonts, template: productTemplate, yearColor: yearRgb });
+        drawTemplateLabel({
+          page,
+          x,
+          y,
+          batchNumber,
+          budIsoDate: input.budIsoDate,
+          fonts,
+          template: productTemplate,
+          yearColor: yearRgb,
+        });
       } else {
-        drawLabel({ page, x, y, label: parsed, batchNumber, budIsoDate: input.budIsoDate, fonts, logoImage: logoImage ?? undefined, yearColor: yearRgb });
+        drawLabel({
+          page,
+          x,
+          y,
+          label: parsed,
+          batchNumber,
+          budIsoDate: input.budIsoDate,
+          fonts,
+          logoImage: logoImage ?? undefined,
+          yearColor: yearRgb,
+        });
       }
     }
   }

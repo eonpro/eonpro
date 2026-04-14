@@ -138,13 +138,20 @@ export default function AffiliateActivityPage() {
                             ? 'bg-gray-50'
                             : ''
                       }`}
-                      style={activity.type === 'payout' ? { backgroundColor: 'var(--brand-accent-light)' } : undefined}
+                      style={
+                        activity.type === 'payout'
+                          ? { backgroundColor: 'var(--brand-accent-light)' }
+                          : undefined
+                      }
                     >
                       {activity.type === 'conversion' && (
                         <TrendingUp className="h-5 w-5 text-green-600" />
                       )}
                       {activity.type === 'payout' && (
-                        <ArrowUpRight className="h-5 w-5" style={{ color: 'var(--brand-accent)' }} />
+                        <ArrowUpRight
+                          className="h-5 w-5"
+                          style={{ color: 'var(--brand-accent)' }}
+                        />
                       )}
                       {activity.type === 'click' && <Clock className="h-5 w-5 text-gray-600" />}
                     </div>

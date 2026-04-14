@@ -53,7 +53,11 @@ type Step = 'provider' | 'patient' | 'datetime' | 'confirm';
 function formatTime12(isoOrTime: string): string {
   const d = new Date(isoOrTime);
   if (!isNaN(d.getTime())) {
-    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: EASTERN_TZ });
+    return d.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZone: EASTERN_TZ,
+    });
   }
   const [h, m] = isoOrTime.split(':').map(Number);
   const ampm = h >= 12 ? 'PM' : 'AM';
@@ -124,7 +128,9 @@ export default function BookTelehealthWizard({
     const timeout = setTimeout(async () => {
       setPatientsLoading(true);
       try {
-        const res = await apiFetch(`/api/admin/patients?search=${encodeURIComponent(patientSearch)}&limit=10`);
+        const res = await apiFetch(
+          `/api/admin/patients?search=${encodeURIComponent(patientSearch)}&limit=10`
+        );
         if (res.ok) {
           const data = await res.json();
           setPatients(data.patients || []);
@@ -241,10 +247,15 @@ export default function BookTelehealthWizard({
             </div>
             <div>
               <h2 className="text-lg font-bold text-gray-900">Book Telehealth Consultation</h2>
-              <p className="text-xs text-gray-500">Step {stepIdx + 1} of {steps.length}</p>
+              <p className="text-xs text-gray-500">
+                Step {stepIdx + 1} of {steps.length}
+              </p>
             </div>
           </div>
-          <button onClick={onClose} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+          <button
+            onClick={onClose}
+            className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -272,7 +283,9 @@ export default function BookTelehealthWizard({
                 {s.label}
               </span>
               {i < steps.length - 1 && (
-                <div className={`mx-2 h-px flex-1 ${i < stepIdx ? 'bg-[#4fa77e]' : 'bg-gray-200'}`} />
+                <div
+                  className={`mx-2 h-px flex-1 ${i < stepIdx ? 'bg-[#4fa77e]' : 'bg-gray-200'}`}
+                />
               )}
             </div>
           ))}
@@ -330,9 +343,7 @@ export default function BookTelehealthWizard({
                         <div className="text-sm font-medium text-gray-900">
                           {p.firstName} {p.lastName}
                         </div>
-                        {p.titleLine && (
-                          <div className="text-xs text-gray-500">{p.titleLine}</div>
-                        )}
+                        {p.titleLine && <div className="text-xs text-gray-500">{p.titleLine}</div>}
                       </div>
                     </button>
                   ))}
@@ -428,11 +439,21 @@ export default function BookTelehealthWizard({
                     <ChevronLeft className="h-4 w-4" />
                   </button>
                   <span className="text-sm font-medium text-gray-700">
-                    {weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: EASTERN_TZ })} –{' '}
+                    {weekStart.toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      timeZone: EASTERN_TZ,
+                    })}{' '}
+                    –{' '}
                     {(() => {
                       const end = new Date(weekStart);
                       end.setDate(end.getDate() + 6);
-                      return end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: EASTERN_TZ });
+                      return end.toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                        timeZone: EASTERN_TZ,
+                      });
                     })()}
                   </span>
                   <button
@@ -450,7 +471,9 @@ export default function BookTelehealthWizard({
                 {/* Day Picker */}
                 <div className="mb-4 grid grid-cols-7 gap-1">
                   {getWeekDays().map((d) => {
-                    const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), dd = String(d.getDate()).padStart(2, '0');
+                    const y = d.getFullYear(),
+                      m = String(d.getMonth() + 1).padStart(2, '0'),
+                      dd = String(d.getDate()).padStart(2, '0');
                     const dateStr = `${y}-${m}-${dd}`;
                     const isSelected = selectedDate === dateStr;
                     const todayStr = todayET();
@@ -475,7 +498,11 @@ export default function BookTelehealthWizard({
                         </div>
                         <div
                           className={`text-sm font-semibold ${
-                            isSelected ? 'text-blue-700' : isToday ? 'text-[#4fa77e]' : 'text-gray-900'
+                            isSelected
+                              ? 'text-blue-700'
+                              : isToday
+                                ? 'text-[#4fa77e]'
+                                : 'text-gray-900'
                           }`}
                         >
                           {d.getDate()}
@@ -496,8 +523,7 @@ export default function BookTelehealthWizard({
                     ) : slots.length > 0 ? (
                       <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                         {slots.map((slot, i) => {
-                          const isSelected =
-                            selectedSlot?.startTime === slot.startTime;
+                          const isSelected = selectedSlot?.startTime === slot.startTime;
                           return (
                             <button
                               key={i}
@@ -575,7 +601,8 @@ export default function BookTelehealthWizard({
                         Time
                       </span>
                       <p className="text-sm font-medium text-gray-900">
-                        {formatTime12(selectedSlot.startTime)} – {formatTime12(selectedSlot.endTime)}
+                        {formatTime12(selectedSlot.startTime)} –{' '}
+                        {formatTime12(selectedSlot.endTime)}
                       </p>
                     </div>
                     <div className="sm:col-span-2">
@@ -592,9 +619,7 @@ export default function BookTelehealthWizard({
 
                 <div className="space-y-3">
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-600">
-                      Duration
-                    </label>
+                    <label className="mb-1 block text-xs font-medium text-gray-600">Duration</label>
                     <div className="flex gap-2">
                       {[10, 15, 30].map((dur) => (
                         <button
@@ -670,10 +695,7 @@ export default function BookTelehealthWizard({
               <ChevronLeft className="h-4 w-4" />
               Back
             </button>
-            <button
-              onClick={onClose}
-              className="text-sm text-gray-400 hover:text-gray-600"
-            >
+            <button onClick={onClose} className="text-sm text-gray-400 hover:text-gray-600">
               Cancel
             </button>
           </div>

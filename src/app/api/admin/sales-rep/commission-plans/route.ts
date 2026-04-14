@@ -27,7 +27,7 @@ export const GET = withAuth(
           ? searchParams.get('clinicId')
             ? parseInt(searchParams.get('clinicId')!, 10)
             : undefined
-          : user.clinicId ?? undefined;
+          : (user.clinicId ?? undefined);
 
       if (!clinicId) {
         return NextResponse.json(
@@ -144,7 +144,7 @@ export const POST = withAuth(
       const clinicId =
         user.role === 'super_admin' && bodyClinicId
           ? Number(bodyClinicId)
-          : user.clinicId ?? undefined;
+          : (user.clinicId ?? undefined);
 
       if (!clinicId) {
         return NextResponse.json(
@@ -199,7 +199,10 @@ export const POST = withAuth(
       if (multiItemBonusEnabled) {
         if (multiItemBonusType !== 'PERCENT' && multiItemBonusType !== 'FLAT') {
           return NextResponse.json(
-            { error: 'multiItemBonusType must be PERCENT or FLAT when multi-item bonus is enabled', code: 'INVALID_MULTI_ITEM_BONUS' },
+            {
+              error: 'multiItemBonusType must be PERCENT or FLAT when multi-item bonus is enabled',
+              code: 'INVALID_MULTI_ITEM_BONUS',
+            },
             { status: 400 }
           );
         }
@@ -214,9 +217,16 @@ export const POST = withAuth(
             return NextResponse.json({ error: err }, { status: 400 });
           }
         }
-        if (multiItemMinQuantity !== undefined && multiItemMinQuantity !== null && (multiItemMinQuantity < 2 || multiItemMinQuantity > 99)) {
+        if (
+          multiItemMinQuantity !== undefined &&
+          multiItemMinQuantity !== null &&
+          (multiItemMinQuantity < 2 || multiItemMinQuantity > 99)
+        ) {
           return NextResponse.json(
-            { error: 'multiItemMinQuantity must be between 2 and 99', code: 'INVALID_MULTI_ITEM_MIN' },
+            {
+              error: 'multiItemMinQuantity must be between 2 and 99',
+              code: 'INVALID_MULTI_ITEM_MIN',
+            },
             { status: 400 }
           );
         }
@@ -230,10 +240,7 @@ export const POST = withAuth(
       ].filter(Boolean);
 
       if (validationErrors.length > 0) {
-        return NextResponse.json(
-          { error: validationErrors[0] as string },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: validationErrors[0] as string }, { status: 400 });
       }
 
       if (
@@ -243,7 +250,8 @@ export const POST = withAuth(
       ) {
         return NextResponse.json(
           {
-            error: 'volumeTierWindow must be CALENDAR_WEEK_MON_SUN or REPORT_PERIOD when volume tiers are enabled',
+            error:
+              'volumeTierWindow must be CALENDAR_WEEK_MON_SUN or REPORT_PERIOD when volume tiers are enabled',
             code: 'INVALID_VOLUME_TIER_WINDOW',
           },
           { status: 400 }
@@ -255,7 +263,11 @@ export const POST = withAuth(
           ? VOLUME_TIER_BASIS_WEEKLY_REVENUE
           : 'SALE_COUNT';
 
-      if (volumeTierEnabled && resolvedTierBasis === VOLUME_TIER_BASIS_WEEKLY_REVENUE && planType !== 'PERCENT') {
+      if (
+        volumeTierEnabled &&
+        resolvedTierBasis === VOLUME_TIER_BASIS_WEEKLY_REVENUE &&
+        planType !== 'PERCENT'
+      ) {
         return NextResponse.json(
           {
             error: 'Weekly revenue volume tiers require planType PERCENT',
@@ -297,14 +309,22 @@ export const POST = withAuth(
             recurringMonths: recurringMonths ?? null,
             isActive: true,
             multiItemBonusEnabled: multiItemBonusEnabled ?? false,
-            multiItemBonusType: multiItemBonusEnabled ? multiItemBonusType ?? null : null,
-            multiItemBonusPercentBps: multiItemBonusEnabled && multiItemBonusType === 'PERCENT' ? multiItemBonusPercentBps ?? null : null,
-            multiItemBonusFlatCents: multiItemBonusEnabled && multiItemBonusType === 'FLAT' ? multiItemBonusFlatCents ?? null : null,
+            multiItemBonusType: multiItemBonusEnabled ? (multiItemBonusType ?? null) : null,
+            multiItemBonusPercentBps:
+              multiItemBonusEnabled && multiItemBonusType === 'PERCENT'
+                ? (multiItemBonusPercentBps ?? null)
+                : null,
+            multiItemBonusFlatCents:
+              multiItemBonusEnabled && multiItemBonusType === 'FLAT'
+                ? (multiItemBonusFlatCents ?? null)
+                : null,
             multiItemMinQuantity: multiItemBonusEnabled ? (multiItemMinQuantity ?? 2) : null,
             volumeTierEnabled: volumeTierEnabled ?? false,
             volumeTierBasis: volumeTierEnabled ? resolvedTierBasis : 'SALE_COUNT',
-            volumeTierWindow: volumeTierEnabled ? volumeTierWindow ?? 'CALENDAR_WEEK_MON_SUN' : null,
-            volumeTierRetroactive: volumeTierEnabled ? volumeTierRetroactive ?? true : true,
+            volumeTierWindow: volumeTierEnabled
+              ? (volumeTierWindow ?? 'CALENDAR_WEEK_MON_SUN')
+              : null,
+            volumeTierRetroactive: volumeTierEnabled ? (volumeTierRetroactive ?? true) : true,
             volumeTiers: volumeTierEnabled
               ? {
                   create: normalizedVolumeTiers.normalized.map((tier) => ({

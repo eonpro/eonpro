@@ -251,8 +251,7 @@ export default function AdminPatientsPage() {
   // Apply client-side treatment filter (status filter removed — API returns constant 'patient' status)
   const filteredPatients = patients.filter((patient) => {
     const matchesTreatment =
-      treatmentFilter === 'all' ||
-      safeTags(patient.tags).some((tag) => tag === treatmentFilter);
+      treatmentFilter === 'all' || safeTags(patient.tags).some((tag) => tag === treatmentFilter);
     return matchesTreatment;
   });
 
@@ -333,9 +332,7 @@ export default function AdminPatientsPage() {
     <div className="mx-auto max-w-7xl p-6">
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Patients
-          </h1>
+          <h1 className="text-2xl font-bold text-gray-900">Patients</h1>
           <p className="mt-1 text-gray-600">
             Patients who have an invoice or a prescription placed
           </p>
@@ -564,9 +561,7 @@ export default function AdminPatientsPage() {
             </h3>
             {searchTerm ? (
               <div className="space-y-2">
-                <p className="text-gray-600">
-                  No patients match &quot;{searchTerm}&quot;
-                </p>
+                <p className="text-gray-600">No patients match &quot;{searchTerm}&quot;</p>
                 <p className="text-sm text-gray-500">
                   Try searching by first name, last name, email, phone, or patient ID
                 </p>
@@ -627,7 +622,9 @@ export default function AdminPatientsPage() {
                     tabIndex={0}
                     role="link"
                     onClick={() => (window.location.href = `/admin/patients/${patient.id}`)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') window.location.href = `/admin/patients/${patient.id}`; }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') window.location.href = `/admin/patients/${patient.id}`;
+                    }}
                     onMouseEnter={() => {
                       const link = document.createElement('link');
                       link.rel = 'prefetch';
@@ -642,8 +639,7 @@ export default function AdminPatientsPage() {
                         <div
                           className="flex h-10 w-10 items-center justify-center rounded-full"
                           style={{
-                            backgroundColor:
-                              'var(--brand-primary-light, rgba(79, 167, 126, 0.15))',
+                            backgroundColor: 'var(--brand-primary-light, rgba(79, 167, 126, 0.15))',
                           }}
                         >
                           <span
@@ -666,8 +662,12 @@ export default function AdminPatientsPage() {
                       </div>
                     </td>
                     <td className="whitespace-nowrap px-6 py-4">
-                      <div className="text-sm text-gray-900">{displayContact(patient.email, { type: 'email' })}</div>
-                      <div className="text-sm text-gray-500">{displayContact(patient.phone, { type: 'phone' })}</div>
+                      <div className="text-sm text-gray-900">
+                        {displayContact(patient.email, { type: 'email' })}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {displayContact(patient.phone, { type: 'phone' })}
+                      </div>
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
                       {(() => {
@@ -747,7 +747,7 @@ export default function AdminPatientsPage() {
                             )}
                           </>
                         )}
-                        {(!patient.medicationNames?.length &&
+                        {!patient.medicationNames?.length &&
                           !safeTags(patient.tags).some((t) =>
                             [
                               'peptides',
@@ -757,7 +757,7 @@ export default function AdminPatientsPage() {
                               'labs',
                               'weight-loss',
                             ].includes(t)
-                          )) && <span className="text-gray-400">-</span>}
+                          ) && <span className="text-gray-400">-</span>}
                       </div>
                     </td>
                     {salesReps.length > 0 && (

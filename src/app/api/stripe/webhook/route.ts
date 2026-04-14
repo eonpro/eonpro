@@ -674,12 +674,15 @@ async function processWebhookEvent(
                       );
                       if (covered) {
                         mainInvoiceCoversAddons = true;
-                        logger.info('[STRIPE WEBHOOK] Skipping addon Invoice — main invoice already covers these addons', {
-                          patientId,
-                          mainInvoiceId: recentMainInvoice.id,
-                          addonIds,
-                          stripeInvoiceId: invoice.id,
-                        });
+                        logger.info(
+                          '[STRIPE WEBHOOK] Skipping addon Invoice — main invoice already covers these addons',
+                          {
+                            patientId,
+                            mainInvoiceId: recentMainInvoice.id,
+                            addonIds,
+                            stripeInvoiceId: invoice.id,
+                          }
+                        );
                       }
                     }
                   }

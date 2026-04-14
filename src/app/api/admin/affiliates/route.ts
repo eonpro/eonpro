@@ -24,7 +24,10 @@ const createAffiliateSchema = z.object({
   initialRefCode: z
     .string()
     .max(50)
-    .regex(/^[A-Za-z0-9_-]+$/, 'Ref code may only contain letters, numbers, hyphens, and underscores')
+    .regex(
+      /^[A-Za-z0-9_-]+$/,
+      'Ref code may only contain letters, numbers, hyphens, and underscores'
+    )
     .optional(),
   commissionPlanId: z.number().int().positive().optional(),
   clinicId: z.number().int().positive().optional(),
@@ -173,7 +176,10 @@ export const POST = withAuth(
 
       if (!parsed.success) {
         return NextResponse.json(
-          { error: parsed.error.issues[0]?.message || 'Invalid input', details: parsed.error.issues },
+          {
+            error: parsed.error.issues[0]?.message || 'Invalid input',
+            details: parsed.error.issues,
+          },
           { status: 400 }
         );
       }
@@ -235,56 +241,59 @@ export const POST = withAuth(
       const passwordHash = await bcrypt.hash(password, 12);
 
       // Create user and affiliate in transaction
-      const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-        // Create user account
-        const newUser = await tx.user.create({
-          data: {
-            email: email.toLowerCase(),
-            passwordHash,
-            firstName: firstName || displayName.split(' ')[0] || 'Affiliate',
-            lastName: lastName || displayName.split(' ').slice(1).join(' ') || '',
-            role: 'AFFILIATE',
-            clinicId,
-            status: 'ACTIVE',
-          },
-        });
-
-        // Create affiliate profile
-        const newAffiliate = await tx.affiliate.create({
-          data: {
-            clinicId,
-            userId: newUser.id,
-            displayName,
-            status: 'ACTIVE',
-          },
-        });
-
-        // Create initial ref code if provided
-        if (initialRefCode) {
-          await tx.affiliateRefCode.create({
+      const result = await prisma.$transaction(
+        async (tx: Prisma.TransactionClient) => {
+          // Create user account
+          const newUser = await tx.user.create({
             data: {
+              email: email.toLowerCase(),
+              passwordHash,
+              firstName: firstName || displayName.split(' ')[0] || 'Affiliate',
+              lastName: lastName || displayName.split(' ').slice(1).join(' ') || '',
+              role: 'AFFILIATE',
               clinicId,
-              affiliateId: newAffiliate.id,
-              refCode: initialRefCode.toUpperCase(),
-              isActive: true,
+              status: 'ACTIVE',
             },
           });
-        }
 
-        // Assign commission plan if provided
-        if (commissionPlanId) {
-          await tx.affiliatePlanAssignment.create({
+          // Create affiliate profile
+          const newAffiliate = await tx.affiliate.create({
             data: {
               clinicId,
-              affiliateId: newAffiliate.id,
-              commissionPlanId,
-              effectiveFrom: new Date(),
+              userId: newUser.id,
+              displayName,
+              status: 'ACTIVE',
             },
           });
-        }
 
-        return { user: newUser, affiliate: newAffiliate };
-      }, { timeout: 15000 });
+          // Create initial ref code if provided
+          if (initialRefCode) {
+            await tx.affiliateRefCode.create({
+              data: {
+                clinicId,
+                affiliateId: newAffiliate.id,
+                refCode: initialRefCode.toUpperCase(),
+                isActive: true,
+              },
+            });
+          }
+
+          // Assign commission plan if provided
+          if (commissionPlanId) {
+            await tx.affiliatePlanAssignment.create({
+              data: {
+                clinicId,
+                affiliateId: newAffiliate.id,
+                commissionPlanId,
+                effectiveFrom: new Date(),
+              },
+            });
+          }
+
+          return { user: newUser, affiliate: newAffiliate };
+        },
+        { timeout: 15000 }
+      );
 
       logger.info('[Admin Affiliates] Created new affiliate', {
         affiliateId: result.affiliate.id,

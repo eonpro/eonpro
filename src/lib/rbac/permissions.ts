@@ -90,20 +90,20 @@ const ROLE_PERMISSIONS: Record<string, Permission[]> = {
     'message:view',
     'message:send',
   ],
-  pharmacy_rep: [
+  pharmacy_rep: ['patient:view', 'order:view', 'order:create', 'message:view', 'message:send'],
+  support: ['patient:view', 'order:view', 'message:view', 'message:send'],
+  sales_rep: [
     'patient:view',
+    'patient:edit',
     'order:view',
     'order:create',
+    'invoice:view',
+    'invoice:create',
+    'invoice:export',
+    'report:run',
     'message:view',
     'message:send',
   ],
-  support: [
-    'patient:view',
-    'order:view',
-    'message:view',
-    'message:send',
-  ],
-  sales_rep: ['patient:view', 'patient:edit', 'order:view', 'order:create', 'invoice:view', 'invoice:create', 'invoice:export', 'report:run', 'message:view', 'message:send'],
   patient: ['patient:view', 'patient:edit'], // only own
   affiliate: ['affiliate:view'],
 };
@@ -123,10 +123,22 @@ export function hasPermission(
   if (normalizedRole === 'super_admin') return true;
   if (resource?.clinicId != null && ctx.clinicId != null && resource.clinicId !== ctx.clinicId)
     return false;
-  if (permission === 'patient:view' || permission === 'patient:edit' || permission === 'patient:delete') {
-    if (normalizedRole === 'patient' && resource?.patientId != null && ctx.patientId !== resource.patientId)
+  if (
+    permission === 'patient:view' ||
+    permission === 'patient:edit' ||
+    permission === 'patient:delete'
+  ) {
+    if (
+      normalizedRole === 'patient' &&
+      resource?.patientId != null &&
+      ctx.patientId !== resource.patientId
+    )
       return false;
-    if (normalizedRole === 'provider' && resource?.ownerId != null && ctx.providerId !== resource.ownerId)
+    if (
+      normalizedRole === 'provider' &&
+      resource?.ownerId != null &&
+      ctx.providerId !== resource.ownerId
+    )
       return false; // provider can only see own patients when resource has ownerId
   }
   return true;
@@ -167,27 +179,40 @@ export function toPermissionContext(user: {
  * Permission matrix (role x permission). Export for docs.
  */
 export const PERMISSION_MATRIX: Record<string, Record<Permission, boolean>> = (
-  ['super_admin', 'admin', 'provider', 'staff', 'support', 'pharmacy_rep', 'sales_rep', 'patient', 'affiliate'] as const
-).reduce((acc, role) => {
-  const perms = ROLE_PERMISSIONS[role] ?? [];
-  acc[role] = {
-    'patient:view': perms.includes('patient:view'),
-    'patient:edit': perms.includes('patient:edit'),
-    'patient:delete': perms.includes('patient:delete'),
-    'order:view': perms.includes('order:view'),
-    'order:create': perms.includes('order:create'),
-    'invoice:view': perms.includes('invoice:view'),
-    'invoice:create': perms.includes('invoice:create'),
-    'invoice:export': perms.includes('invoice:export'),
-    'report:run': perms.includes('report:run'),
-    'financial:view': perms.includes('financial:view'),
-    'admin:cross-tenant': perms.includes('admin:cross-tenant'),
-    'message:view': perms.includes('message:view'),
-    'message:send': perms.includes('message:send'),
-    'affiliate:view': perms.includes('affiliate:view'),
-    'affiliate:manage': perms.includes('affiliate:manage'),
-    'settings:manage': perms.includes('settings:manage'),
-    'user:manage': perms.includes('user:manage'),
-  };
-  return acc;
-}, {} as Record<string, Record<Permission, boolean>>);
+  [
+    'super_admin',
+    'admin',
+    'provider',
+    'staff',
+    'support',
+    'pharmacy_rep',
+    'sales_rep',
+    'patient',
+    'affiliate',
+  ] as const
+).reduce(
+  (acc, role) => {
+    const perms = ROLE_PERMISSIONS[role] ?? [];
+    acc[role] = {
+      'patient:view': perms.includes('patient:view'),
+      'patient:edit': perms.includes('patient:edit'),
+      'patient:delete': perms.includes('patient:delete'),
+      'order:view': perms.includes('order:view'),
+      'order:create': perms.includes('order:create'),
+      'invoice:view': perms.includes('invoice:view'),
+      'invoice:create': perms.includes('invoice:create'),
+      'invoice:export': perms.includes('invoice:export'),
+      'report:run': perms.includes('report:run'),
+      'financial:view': perms.includes('financial:view'),
+      'admin:cross-tenant': perms.includes('admin:cross-tenant'),
+      'message:view': perms.includes('message:view'),
+      'message:send': perms.includes('message:send'),
+      'affiliate:view': perms.includes('affiliate:view'),
+      'affiliate:manage': perms.includes('affiliate:manage'),
+      'settings:manage': perms.includes('settings:manage'),
+      'user:manage': perms.includes('user:manage'),
+    };
+    return acc;
+  },
+  {} as Record<string, Record<Permission, boolean>>
+);

@@ -17,8 +17,15 @@ import { standardRateLimiter } from '@/lib/security/rate-limiter-redis';
 const bankMethodSchema = z.object({
   type: z.literal('bank'),
   accountHolderName: z.string().min(1, 'Account holder name is required').max(200),
-  routingNumber: z.string().length(9, 'Routing number must be 9 digits').regex(/^\d+$/, 'Routing number must be numeric'),
-  accountNumber: z.string().min(4, 'Account number is required').max(17).regex(/^\d+$/, 'Account number must be numeric'),
+  routingNumber: z
+    .string()
+    .length(9, 'Routing number must be 9 digits')
+    .regex(/^\d+$/, 'Routing number must be numeric'),
+  accountNumber: z
+    .string()
+    .min(4, 'Account number is required')
+    .max(17)
+    .regex(/^\d+$/, 'Account number must be numeric'),
   accountType: z.enum(['checking', 'savings']).optional(),
 });
 

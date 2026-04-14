@@ -100,7 +100,10 @@ export async function GET(req: NextRequest) {
         report.recommendations?.push(
           'Rate limit exceeded. Check your OpenAI usage at https://platform.openai.com/usage'
         );
-      } else if ((connectError as any).code === 'ECONNREFUSED' || (connectError as any).code === 'ENOTFOUND') {
+      } else if (
+        (connectError as any).code === 'ECONNREFUSED' ||
+        (connectError as any).code === 'ENOTFOUND'
+      ) {
         report.recommendations?.push(
           'Network connectivity issue. Check if the server can reach api.openai.com'
         );
@@ -176,7 +179,9 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (error: unknown) {
-    logger.error('[AI Health] Health check failed', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('[AI Health] Health check failed', {
+      error: error instanceof Error ? error.message : String(error),
+    });
 
     report.status = 'unhealthy';
     report.checks.errorDetails = error instanceof Error ? error.message : String(error);

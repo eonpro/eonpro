@@ -16,8 +16,17 @@ import { logger } from '@/lib/logger';
 import type { EmailLogStatus } from '@prisma/client';
 
 const VALID_STATUSES: EmailLogStatus[] = [
-  'PENDING', 'QUEUED', 'SENDING', 'SENT', 'DELIVERED',
-  'OPENED', 'CLICKED', 'BOUNCED', 'COMPLAINED', 'FAILED', 'SUPPRESSED',
+  'PENDING',
+  'QUEUED',
+  'SENDING',
+  'SENT',
+  'DELIVERED',
+  'OPENED',
+  'CLICKED',
+  'BOUNCED',
+  'COMPLAINED',
+  'FAILED',
+  'SUPPRESSED',
 ];
 
 export const GET = withAuth(
@@ -36,9 +45,10 @@ export const GET = withAuth(
       const fromParam = sp.get('from');
       const toParam = sp.get('to');
 
-      const statusFilter = statusParam && VALID_STATUSES.includes(statusParam as EmailLogStatus)
-        ? (statusParam as EmailLogStatus)
-        : undefined;
+      const statusFilter =
+        statusParam && VALID_STATUSES.includes(statusParam as EmailLogStatus)
+          ? (statusParam as EmailLogStatus)
+          : undefined;
 
       const clinicId = clinicIdParam ? parseInt(clinicIdParam, 10) || undefined : undefined;
 

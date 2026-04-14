@@ -25,13 +25,7 @@ const EMR_OPTIONS = [
   'None / Starting Fresh',
 ];
 
-const RX_RANGES = [
-  'Under 100',
-  '100 – 500',
-  '500 – 1,000',
-  '1,000 – 5,000',
-  '5,000+',
-];
+const RX_RANGES = ['Under 100', '100 – 500', '500 – 1,000', '1,000 – 5,000', '5,000+'];
 
 const demoSchema = z.object({
   firstName: z.string().min(1, 'First name is required').max(100),
@@ -88,13 +82,10 @@ export default function RequestDemoPage() {
           <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-[#4fa77e]/10">
             <CheckCircle className="h-10 w-10 text-[#4fa77e]" />
           </div>
-          <h1 className="text-3xl font-bold text-[#1f2933] sm:text-4xl">
-            Thank you!
-          </h1>
+          <h1 className="text-3xl font-bold text-[#1f2933] sm:text-4xl">Thank you!</h1>
           <p className="mt-4 text-lg text-[#1f2933]/60">
-            We&apos;ve received your demo request. A member of our team will
-            reach out within 24 hours to schedule a personalized walkthrough of
-            EonPro.
+            We&apos;ve received your demo request. A member of our team will reach out within 24
+            hours to schedule a personalized walkthrough of EonPro.
           </p>
           <a
             href="/"
@@ -143,9 +134,9 @@ export default function RequestDemoPage() {
             </h1>
 
             <p className="mt-6 max-w-lg text-lg leading-relaxed text-[#1f2933]/60">
-              Schedule a personalized demo and discover how EonPro can
-              streamline your telehealth operations, pharmacy fulfillment, and
-              patient engagement — all on one HIPAA-compliant platform.
+              Schedule a personalized demo and discover how EonPro can streamline your telehealth
+              operations, pharmacy fulfillment, and patient engagement — all on one HIPAA-compliant
+              platform.
             </p>
 
             <div className="mt-10 space-y-4">
@@ -165,9 +156,7 @@ export default function RequestDemoPage() {
 
           {/* Right column - Form */}
           <div className="rounded-2xl border border-gray-200/60 bg-white p-8 shadow-xl shadow-black/5 sm:p-10">
-            <h2 className="text-xl font-bold text-[#1f2933]">
-              Request a Demo
-            </h2>
+            <h2 className="text-xl font-bold text-[#1f2933]">Request a Demo</h2>
             <p className="mt-1 text-sm text-[#1f2933]/50">
               Fill out the form and we&apos;ll be in touch shortly.
             </p>
@@ -182,7 +171,10 @@ export default function RequestDemoPage() {
               {/* Name row */}
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label htmlFor="firstName" className="mb-1.5 block text-sm font-medium text-[#1f2933]">
+                  <label
+                    htmlFor="firstName"
+                    className="mb-1.5 block text-sm font-medium text-[#1f2933]"
+                  >
                     First Name *
                   </label>
                   <input
@@ -198,7 +190,10 @@ export default function RequestDemoPage() {
                   )}
                 </div>
                 <div>
-                  <label htmlFor="lastName" className="mb-1.5 block text-sm font-medium text-[#1f2933]">
+                  <label
+                    htmlFor="lastName"
+                    className="mb-1.5 block text-sm font-medium text-[#1f2933]"
+                  >
                     Last Name *
                   </label>
                   <input
@@ -217,7 +212,10 @@ export default function RequestDemoPage() {
 
               {/* Practice */}
               <div>
-                <label htmlFor="practiceName" className="mb-1.5 block text-sm font-medium text-[#1f2933]">
+                <label
+                  htmlFor="practiceName"
+                  className="mb-1.5 block text-sm font-medium text-[#1f2933]"
+                >
                   Practice / Clinic Name *
                 </label>
                 <input
@@ -236,7 +234,10 @@ export default function RequestDemoPage() {
               {/* Email + Phone */}
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-[#1f2933]">
+                  <label
+                    htmlFor="email"
+                    className="mb-1.5 block text-sm font-medium text-[#1f2933]"
+                  >
                     Email *
                   </label>
                   <input
@@ -252,7 +253,10 @@ export default function RequestDemoPage() {
                   )}
                 </div>
                 <div>
-                  <label htmlFor="phone" className="mb-1.5 block text-sm font-medium text-[#1f2933]">
+                  <label
+                    htmlFor="phone"
+                    className="mb-1.5 block text-sm font-medium text-[#1f2933]"
+                  >
                     Phone Number *
                   </label>
                   <input
@@ -271,7 +275,10 @@ export default function RequestDemoPage() {
 
               {/* Prescriptions per month */}
               <div>
-                <label htmlFor="prescriptionsPerMonth" className="mb-1.5 block text-sm font-medium text-[#1f2933]">
+                <label
+                  htmlFor="prescriptionsPerMonth"
+                  className="mb-1.5 block text-sm font-medium text-[#1f2933]"
+                >
                   Prescriptions per Month *
                 </label>
                 <select
@@ -290,13 +297,18 @@ export default function RequestDemoPage() {
                   ))}
                 </select>
                 {errors.prescriptionsPerMonth && (
-                  <p className="mt-1 text-xs text-red-500">{errors.prescriptionsPerMonth.message}</p>
+                  <p className="mt-1 text-xs text-red-500">
+                    {errors.prescriptionsPerMonth.message}
+                  </p>
                 )}
               </div>
 
               {/* Current EMR */}
               <div>
-                <label htmlFor="currentEmr" className="mb-1.5 block text-sm font-medium text-[#1f2933]">
+                <label
+                  htmlFor="currentEmr"
+                  className="mb-1.5 block text-sm font-medium text-[#1f2933]"
+                >
                   Current EMR *
                 </label>
                 <select

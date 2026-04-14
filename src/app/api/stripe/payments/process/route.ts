@@ -35,7 +35,18 @@ function isStripePaymentIntentUniqueConstraint(error: unknown): boolean {
 async function handlePost(request: NextRequest, _user: AuthUser) {
   try {
     const body = await request.json();
-    const { patientId, amount, description, paymentMethodId: savedPaymentMethodId, subscription, subscriptions: rawSubscriptions, notes, useStripeElements, saveCard, lineItems } = body;
+    const {
+      patientId,
+      amount,
+      description,
+      paymentMethodId: savedPaymentMethodId,
+      subscription,
+      subscriptions: rawSubscriptions,
+      notes,
+      useStripeElements,
+      saveCard,
+      lineItems,
+    } = body;
 
     const subscriptions: SubscriptionInfo[] = rawSubscriptions
       ? (rawSubscriptions as SubscriptionInfo[])
@@ -76,7 +87,7 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
     const customer = await StripeCustomerService.getOrCreateCustomerForContext(
       patient.id,
       stripe,
-      connectOpts,
+      connectOpts
     );
     const stripeCustomerId = customer.id;
 
@@ -103,7 +114,10 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
         });
 
         if (!existingMethod) {
-          return NextResponse.json({ error: 'Payment method not found or inactive' }, { status: 404 });
+          return NextResponse.json(
+            { error: 'Payment method not found or inactive' },
+            { status: 404 }
+          );
         }
 
         stripePaymentMethodId = existingMethod.stripePaymentMethodId;
@@ -227,13 +241,12 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
           },
         };
 
-        paymentIntent = await stripe.paymentIntents.create(
-          intentParams as any,
-          {
-            idempotencyKey,
-            ...(stripeContext.stripeAccountId ? { stripeAccount: stripeContext.stripeAccountId } : {}),
-          }
-        );
+        paymentIntent = await stripe.paymentIntents.create(intentParams as any, {
+          idempotencyKey,
+          ...(stripeContext.stripeAccountId
+            ? { stripeAccount: stripeContext.stripeAccountId }
+            : {}),
+        });
       } catch (stripeError: unknown) {
         const errMsg = stripeError instanceof Error ? stripeError.message : 'Stripe charge failed';
         await prisma.payment.update({
@@ -254,15 +267,21 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
             localPaymentMethodId,
             stripePaymentMethodId,
           });
-          await prisma.paymentMethod.updateMany({
-            where: { id: localPaymentMethodId, patientId: patient.id },
-            data: { isActive: false },
-          }).catch(() => {});
+          await prisma.paymentMethod
+            .updateMany({
+              where: { id: localPaymentMethodId, patientId: patient.id },
+              data: { isActive: false },
+            })
+            .catch(() => {});
 
-          return NextResponse.json({
-            error: 'This saved card is no longer valid (it was linked to a previous profile). Please select a different card or enter a new one.',
-            code: 'STALE_PAYMENT_METHOD',
-          }, { status: 400 });
+          return NextResponse.json(
+            {
+              error:
+                'This saved card is no longer valid (it was linked to a previous profile). Please select a different card or enter a new one.',
+              code: 'STALE_PAYMENT_METHOD',
+            },
+            { status: 400 }
+          );
         }
 
         logger.error('[PaymentProcess] Stripe charge failed for saved card', {
@@ -283,110 +302,133 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
       });
 
       // Map Stripe status
-      const stripeStatus = paymentIntent.status === 'succeeded'
-        ? PaymentStatus.SUCCEEDED
-        : paymentIntent.status === 'processing'
-          ? PaymentStatus.PROCESSING
-          : PaymentStatus.FAILED;
+      const stripeStatus =
+        paymentIntent.status === 'succeeded'
+          ? PaymentStatus.SUCCEEDED
+          : paymentIntent.status === 'processing'
+            ? PaymentStatus.PROCESSING
+            : PaymentStatus.FAILED;
 
       let stripeSubscriptionIds: string[] = [];
-      let result: { subscriptionId: number | null; allSubscriptionIds: number[] } = { subscriptionId: null, allSubscriptionIds: [] };
+      let result: { subscriptionId: number | null; allSubscriptionIds: number[] } = {
+        subscriptionId: null,
+        allSubscriptionIds: [],
+      };
       try {
-        result = await prisma.$transaction(async (tx) => {
-          const createdSubIds: number[] = [];
+        result = await prisma.$transaction(
+          async (tx) => {
+            const createdSubIds: number[] = [];
 
-          await tx.payment.update({
-            where: { id: pendingPayment.id },
-            data: {
-              status: stripeStatus,
-              stripeChargeId: paymentIntent.latest_charge?.toString(),
-            },
-          });
-
-          if (subscriptions.length > 0 && stripeStatus === PaymentStatus.SUCCEEDED) {
-            const now = new Date();
-            const tagsToAdd: string[] = [];
-
-            for (const subscriptionInfo of subscriptions) {
-              const periodEnd = new Date(now);
-              const totalMonths = subscriptionInfo.intervalCount *
-                (subscriptionInfo.interval === 'year' ? 12 : subscriptionInfo.interval === 'month' ? 1 : 1);
-              periodEnd.setMonth(periodEnd.getMonth() + (totalMonths || 1));
-
-              const itemAmount = (subscriptionInfo as any).amountCents || amount;
-              const subscriptionRecurringAmount = subscriptionInfo.discountMode === 'first_only' && subscriptionInfo.catalogAmountCents
-                ? subscriptionInfo.catalogAmountCents
-                : itemAmount;
-
-              const createdSubscription = await tx.subscription.create({
-                data: {
-                  patientId: patient.id,
-                  planId: subscriptionInfo.planId,
-                  planName: subscriptionInfo.planName,
-                  planDescription: description,
-                  amount: subscriptionRecurringAmount,
-                  interval: subscriptionInfo.interval,
-                  intervalCount: subscriptionInfo.intervalCount,
-                  startDate: now,
-                  currentPeriodStart: now,
-                  currentPeriodEnd: periodEnd,
-                  nextBillingDate: periodEnd,
-                  paymentMethodId: localPaymentMethodId,
-                  ...(subscriptionInfo.discountMode && itemAmount !== subscriptionRecurringAmount ? {
-                    metadata: {
-                      discountMode: subscriptionInfo.discountMode,
-                      firstPaymentAmount: itemAmount,
-                      catalogAmount: subscriptionInfo.catalogAmountCents,
-                    },
-                  } : {}),
-                },
-              });
-
-              createdSubIds.push(createdSubscription.id);
-
-              const subscriptionTag = `subscription-${subscriptionInfo.planName.toLowerCase().replace(/\s+/g, '-')}`;
-              tagsToAdd.push(subscriptionTag);
-            }
-
-            // Link payment to first subscription
-            if (createdSubIds.length > 0) {
-              await tx.payment.update({
-                where: { id: pendingPayment.id },
-                data: {
-                  subscriptionId: createdSubIds[0],
-                  ...(createdSubIds.length > 1 ? {
-                    metadata: {
-                      ...((await tx.payment.findUnique({ where: { id: pendingPayment.id }, select: { metadata: true } }))?.metadata as Record<string, unknown> || {}),
-                      allSubscriptionIds: createdSubIds,
-                    },
-                  } : {}),
-                },
-              });
-            }
-
-            const currentTags = (patient.tags as string[]) || [];
-            const newTags = [...currentTags];
-            for (const tag of tagsToAdd) {
-              if (!newTags.includes(tag)) newTags.push(tag);
-            }
-            if (!newTags.includes('active-subscription')) newTags.push('active-subscription');
-            if (newTags.length !== currentTags.length) {
-              await tx.patient.update({
-                where: { id: patient.id },
-                data: { tags: newTags },
-              });
-            }
-          }
-
-          if (localPaymentMethodId) {
-            await tx.paymentMethod.update({
-              where: { id: localPaymentMethodId },
-              data: { lastUsedAt: new Date() },
+            await tx.payment.update({
+              where: { id: pendingPayment.id },
+              data: {
+                status: stripeStatus,
+                stripeChargeId: paymentIntent.latest_charge?.toString(),
+              },
             });
-          }
 
-          return { subscriptionId: createdSubIds[0] || null, allSubscriptionIds: createdSubIds };
-        }, { timeout: 15000 });
+            if (subscriptions.length > 0 && stripeStatus === PaymentStatus.SUCCEEDED) {
+              const now = new Date();
+              const tagsToAdd: string[] = [];
+
+              for (const subscriptionInfo of subscriptions) {
+                const periodEnd = new Date(now);
+                const totalMonths =
+                  subscriptionInfo.intervalCount *
+                  (subscriptionInfo.interval === 'year'
+                    ? 12
+                    : subscriptionInfo.interval === 'month'
+                      ? 1
+                      : 1);
+                periodEnd.setMonth(periodEnd.getMonth() + (totalMonths || 1));
+
+                const itemAmount = (subscriptionInfo as any).amountCents || amount;
+                const subscriptionRecurringAmount =
+                  subscriptionInfo.discountMode === 'first_only' &&
+                  subscriptionInfo.catalogAmountCents
+                    ? subscriptionInfo.catalogAmountCents
+                    : itemAmount;
+
+                const createdSubscription = await tx.subscription.create({
+                  data: {
+                    patientId: patient.id,
+                    planId: subscriptionInfo.planId,
+                    planName: subscriptionInfo.planName,
+                    planDescription: description,
+                    amount: subscriptionRecurringAmount,
+                    interval: subscriptionInfo.interval,
+                    intervalCount: subscriptionInfo.intervalCount,
+                    startDate: now,
+                    currentPeriodStart: now,
+                    currentPeriodEnd: periodEnd,
+                    nextBillingDate: periodEnd,
+                    paymentMethodId: localPaymentMethodId,
+                    ...(subscriptionInfo.discountMode && itemAmount !== subscriptionRecurringAmount
+                      ? {
+                          metadata: {
+                            discountMode: subscriptionInfo.discountMode,
+                            firstPaymentAmount: itemAmount,
+                            catalogAmount: subscriptionInfo.catalogAmountCents,
+                          },
+                        }
+                      : {}),
+                  },
+                });
+
+                createdSubIds.push(createdSubscription.id);
+
+                const subscriptionTag = `subscription-${subscriptionInfo.planName.toLowerCase().replace(/\s+/g, '-')}`;
+                tagsToAdd.push(subscriptionTag);
+              }
+
+              // Link payment to first subscription
+              if (createdSubIds.length > 0) {
+                await tx.payment.update({
+                  where: { id: pendingPayment.id },
+                  data: {
+                    subscriptionId: createdSubIds[0],
+                    ...(createdSubIds.length > 1
+                      ? {
+                          metadata: {
+                            ...(((
+                              await tx.payment.findUnique({
+                                where: { id: pendingPayment.id },
+                                select: { metadata: true },
+                              })
+                            )?.metadata as Record<string, unknown>) || {}),
+                            allSubscriptionIds: createdSubIds,
+                          },
+                        }
+                      : {}),
+                  },
+                });
+              }
+
+              const currentTags = (patient.tags as string[]) || [];
+              const newTags = [...currentTags];
+              for (const tag of tagsToAdd) {
+                if (!newTags.includes(tag)) newTags.push(tag);
+              }
+              if (!newTags.includes('active-subscription')) newTags.push('active-subscription');
+              if (newTags.length !== currentTags.length) {
+                await tx.patient.update({
+                  where: { id: patient.id },
+                  data: { tags: newTags },
+                });
+              }
+            }
+
+            if (localPaymentMethodId) {
+              await tx.paymentMethod.update({
+                where: { id: localPaymentMethodId },
+                data: { lastUsedAt: new Date() },
+              });
+            }
+
+            return { subscriptionId: createdSubIds[0] || null, allSubscriptionIds: createdSubIds };
+          },
+          { timeout: 15000 }
+        );
       } catch (txError) {
         // Webhook can create a payment row for the same Stripe PaymentIntent milliseconds earlier.
         // Treat that race as idempotent success rather than surfacing a unique-constraint failure.
@@ -396,12 +438,15 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
           });
 
           if (existingPayment) {
-            logger.warn('[PaymentProcess] Detected duplicate Stripe PaymentIntent (idempotent race)', {
-              pendingPaymentId: pendingPayment.id,
-              existingPaymentId: existingPayment.id,
-              stripePaymentIntentId: paymentIntent.id,
-              patientId: patient.id,
-            });
+            logger.warn(
+              '[PaymentProcess] Detected duplicate Stripe PaymentIntent (idempotent race)',
+              {
+                pendingPaymentId: pendingPayment.id,
+                existingPaymentId: existingPayment.id,
+                stripePaymentIntentId: paymentIntent.id,
+                patientId: patient.id,
+              }
+            );
 
             await prisma.payment.update({
               where: { id: pendingPayment.id },
@@ -411,9 +456,14 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
               },
             });
 
-            if (existingPayment.status === PaymentStatus.FAILED || existingPayment.status === PaymentStatus.CANCELED) {
+            if (
+              existingPayment.status === PaymentStatus.FAILED ||
+              existingPayment.status === PaymentStatus.CANCELED
+            ) {
               return NextResponse.json(
-                { error: `Payment ${existingPayment.status.toLowerCase()}. Please try again or use a different card.` },
+                {
+                  error: `Payment ${existingPayment.status.toLowerCase()}. Please try again or use a different card.`,
+                },
                 { status: 402 }
               );
             }
@@ -433,7 +483,12 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
       }
 
       // Create real Stripe Subscriptions for recurring plans
-      if (subscriptions.length > 0 && stripeStatus === PaymentStatus.SUCCEEDED && stripePaymentMethodId && stripeCustomerId) {
+      if (
+        subscriptions.length > 0 &&
+        stripeStatus === PaymentStatus.SUCCEEDED &&
+        stripePaymentMethodId &&
+        stripeCustomerId
+      ) {
         const connectSubOpts = stripeContext.stripeAccountId
           ? { stripeAccount: stripeContext.stripeAccountId }
           : undefined;
@@ -443,9 +498,10 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
           const localSubId = result.allSubscriptionIds[i];
           try {
             const itemAmount = (subscriptionInfo as any).amountCents || amount;
-            const recurringAmount = subscriptionInfo.discountMode === 'first_only' && subscriptionInfo.catalogAmountCents
-              ? subscriptionInfo.catalogAmountCents
-              : itemAmount;
+            const recurringAmount =
+              subscriptionInfo.discountMode === 'first_only' && subscriptionInfo.catalogAmountCents
+                ? subscriptionInfo.catalogAmountCents
+                : itemAmount;
             const stripePrice = await getOrCreateStripePrice(
               stripe,
               subscriptionInfo,
@@ -457,7 +513,10 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
               customer: stripeCustomerId,
               items: [{ price: stripePrice.id }],
               default_payment_method: stripePaymentMethodId,
-              trial_end: computeNextBillingUnix(subscriptionInfo.interval, subscriptionInfo.intervalCount),
+              trial_end: computeNextBillingUnix(
+                subscriptionInfo.interval,
+                subscriptionInfo.intervalCount
+              ),
               metadata: {
                 patientId: patient.id.toString(),
                 planId: subscriptionInfo.planId,
@@ -561,7 +620,11 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
 
       return NextResponse.json({
         success: true,
-        payment: { ...pendingPayment, status: stripeStatus, stripePaymentIntentId: paymentIntent.id },
+        payment: {
+          ...pendingPayment,
+          status: stripeStatus,
+          stripePaymentIntentId: paymentIntent.id,
+        },
         paymentMethodSaved: false,
         subscriptionCreated: result.allSubscriptionIds.length > 0,
         subscriptionsCreated: result.allSubscriptionIds.length,
@@ -644,10 +707,7 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
           error: msg,
           stripeType,
         });
-        return NextResponse.json(
-          { error: msg },
-          { status: (error as any).statusCode || 402 },
-        );
+        return NextResponse.json({ error: msg }, { status: (error as any).statusCode || 402 });
       }
     }
 

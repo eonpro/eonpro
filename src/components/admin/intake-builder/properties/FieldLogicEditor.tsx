@@ -3,11 +3,7 @@
 import React from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import LocalizedInput from '../shared/LocalizedInput';
-import type {
-  FormField,
-  FormStep,
-  ConditionalRule,
-} from '../state/builderTypes';
+import type { FormField, FormStep, ConditionalRule } from '../state/builderTypes';
 
 const OPERATORS: { value: ConditionalRule['operator']; label: string }[] = [
   { value: 'equals', label: 'Equals' },
@@ -25,14 +21,13 @@ interface FieldLogicEditorProps {
   step: FormStep;
   field: FormField;
   steps: FormStep[];
-  onUpdateField: (
-    stepId: string,
-    fieldId: string,
-    updates: Partial<FormField>
-  ) => void;
+  onUpdateField: (stepId: string, fieldId: string, updates: Partial<FormField>) => void;
 }
 
-function getFieldOptions(steps: FormStep[], excludeFieldId?: string): { storageKey: string; label: string }[] {
+function getFieldOptions(
+  steps: FormStep[],
+  excludeFieldId?: string
+): { storageKey: string; label: string }[] {
   const options: { storageKey: string; label: string }[] = [];
   for (const step of steps) {
     for (const f of step.fields) {
@@ -95,14 +90,14 @@ export default function FieldLogicEditor({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-gray-600 uppercase tracking-wider">
+        <span className="text-xs font-medium uppercase tracking-wider text-gray-600">
           Conditional Display
         </span>
         <div className="flex rounded-lg border border-gray-200 p-0.5">
           <button
             type="button"
             onClick={() => setLogicMode('and')}
-            className={`px-2 py-1 text-xs font-medium rounded ${
+            className={`rounded px-2 py-1 text-xs font-medium ${
               logicMode === 'and'
                 ? 'bg-indigo-100 text-indigo-700'
                 : 'text-gray-600 hover:bg-gray-100'
@@ -113,7 +108,7 @@ export default function FieldLogicEditor({
           <button
             type="button"
             onClick={() => setLogicMode('or')}
-            className={`px-2 py-1 text-xs font-medium rounded ${
+            className={`rounded px-2 py-1 text-xs font-medium ${
               logicMode === 'or'
                 ? 'bg-indigo-100 text-indigo-700'
                 : 'text-gray-600 hover:bg-gray-100'
@@ -132,43 +127,37 @@ export default function FieldLogicEditor({
         {rules.map((rule, index) => (
           <div
             key={index}
-            className="p-3 rounded-lg border border-gray-200 bg-gray-50/50 space-y-2"
+            className="space-y-2 rounded-lg border border-gray-200 bg-gray-50/50 p-3"
           >
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[10px] font-medium text-gray-500">
-                Rule {index + 1}
-              </span>
+              <span className="text-[10px] font-medium text-gray-500">Rule {index + 1}</span>
               <button
                 type="button"
                 onClick={() => removeRule(index)}
-                className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"
                 aria-label="Remove rule"
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="h-4 w-4" />
               </button>
             </div>
             <div className="grid gap-2">
               <div>
-                <label className="block text-[10px] font-medium text-gray-500 mb-0.5">
-                  Field
-                </label>
+                <label className="mb-0.5 block text-[10px] font-medium text-gray-500">Field</label>
                 <select
                   value={rule.field}
                   onChange={(e) => updateRule(index, { field: e.target.value })}
-                  className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  className="w-full rounded border border-gray-200 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                 >
                   {fieldOptions.map((opt) => (
                     <option key={opt.storageKey} value={opt.storageKey}>
                       {opt.label}
                     </option>
                   ))}
-                  {fieldOptions.length === 0 && (
-                    <option value="">No other fields</option>
-                  )}
+                  {fieldOptions.length === 0 && <option value="">No other fields</option>}
                 </select>
               </div>
               <div>
-                <label className="block text-[10px] font-medium text-gray-500 mb-0.5">
+                <label className="mb-0.5 block text-[10px] font-medium text-gray-500">
                   Operator
                 </label>
                 <select
@@ -178,7 +167,7 @@ export default function FieldLogicEditor({
                       operator: e.target.value as ConditionalRule['operator'],
                     })
                   }
-                  className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  className="w-full rounded border border-gray-200 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                 >
                   {OPERATORS.map((op) => (
                     <option key={op.value} value={op.value}>
@@ -189,7 +178,7 @@ export default function FieldLogicEditor({
               </div>
               {!['isEmpty', 'isNotEmpty'].includes(rule.operator) && (
                 <div>
-                  <label className="block text-[10px] font-medium text-gray-500 mb-0.5">
+                  <label className="mb-0.5 block text-[10px] font-medium text-gray-500">
                     Value
                   </label>
                   <input
@@ -201,7 +190,7 @@ export default function FieldLogicEditor({
                       })
                     }
                     placeholder="Compare value"
-                    className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    className="w-full rounded border border-gray-200 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                   />
                 </div>
               )}
@@ -214,9 +203,9 @@ export default function FieldLogicEditor({
         type="button"
         onClick={addRule}
         disabled={fieldOptions.length === 0}
-        className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg border border-dashed border-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-indigo-200 px-3 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        <Plus className="w-4 h-4" />
+        <Plus className="h-4 w-4" />
         Add Rule
       </button>
 

@@ -20,7 +20,9 @@ function getEncryptionKey(): Buffer {
   if (!key) {
     // In development/test, use a deterministic key for local testing only
     if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
-      logger.warn('[ENCRYPTION] Using development encryption key. Set CARD_ENCRYPTION_KEY in production!');
+      logger.warn(
+        '[ENCRYPTION] Using development encryption key. Set CARD_ENCRYPTION_KEY in production!'
+      );
       // Return a deterministic 32-byte key for development
       _encryptionKey = Buffer.from('dev_encryption_key_for_testing!!'); // Exactly 32 chars
       return _encryptionKey;

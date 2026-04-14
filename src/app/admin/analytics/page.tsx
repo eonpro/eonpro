@@ -211,7 +211,12 @@ interface SubscriptionData {
   };
   trends: SubscriptionTrend[];
   pastDue: {
-    subscriptions: Array<{ id: number; patientName: string; amount: number; daysSinceStart: number }>;
+    subscriptions: Array<{
+      id: number;
+      patientName: string;
+      amount: number;
+      daysSinceStart: number;
+    }>;
     totalAmount: number;
     daysPastDue: { under7: number; under30: number; over30: number };
   };
@@ -379,9 +384,7 @@ function TabButton({
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="flex h-48 items-center justify-center text-sm text-gray-400">
-      {message}
-    </div>
+    <div className="flex h-48 items-center justify-center text-sm text-gray-400">{message}</div>
   );
 }
 
@@ -389,13 +392,7 @@ function EmptyState({ message }: { message: string }) {
 // Section Renderers
 // ---------------------------------------------------------------------------
 
-function OverviewSection({
-  data,
-  period,
-}: {
-  data: OverviewData;
-  period: Period;
-}) {
+function OverviewSection({ data, period }: { data: OverviewData; period: Period }) {
   const { kpis, revenueTrends, newPatientsTimeline, subscriptionsByPlan } = data;
 
   return (
@@ -412,11 +409,7 @@ function OverviewSection({
         />
         <KPICard label="MRR" value={kpis.mrr} icon={TrendingUp} format="currency" />
         <KPICard label="Total Patients" value={kpis.totalPatients} icon={Users} />
-        <KPICard
-          label="Active Subscriptions"
-          value={kpis.activeSubscriptions}
-          icon={CreditCard}
-        />
+        <KPICard label="Active Subscriptions" value={kpis.activeSubscriptions} icon={CreditCard} />
         <KPICard
           label="Churn Rate"
           value={kpis.churnRate}
@@ -721,7 +714,9 @@ function RevenueSection({ data }: { data: RevenueData }) {
                 width={60}
               />
               <Tooltip
-                formatter={(value?: number, name?: string) => `${name ?? ''}: ${formatCurrency(value ?? 0)}`}
+                formatter={(value?: number, name?: string) =>
+                  `${name ?? ''}: ${formatCurrency(value ?? 0)}`
+                }
                 contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb' }}
               />
               <Area
@@ -941,9 +936,7 @@ function PatientsSection({ data }: { data: PatientData }) {
                   <th className="px-3 py-2 text-left font-medium text-gray-500">Risk Score</th>
                   <th className="px-3 py-2 text-left font-medium text-gray-500">Risk Factors</th>
                   <th className="px-3 py-2 text-left font-medium text-gray-500">Last Payment</th>
-                  <th className="px-3 py-2 text-right font-medium text-gray-500">
-                    Total Revenue
-                  </th>
+                  <th className="px-3 py-2 text-right font-medium text-gray-500">Total Revenue</th>
                 </tr>
               </thead>
               <tbody>
@@ -1032,11 +1025,7 @@ function SubscriptionsSection({ data }: { data: SubscriptionData }) {
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <KPICard label="Paused" value={data.metrics.pausedSubscriptions} icon={Activity} />
-        <KPICard
-          label="Past Due"
-          value={data.metrics.pastDueSubscriptions}
-          icon={AlertTriangle}
-        />
+        <KPICard label="Past Due" value={data.metrics.pastDueSubscriptions} icon={AlertTriangle} />
         <KPICard
           label="Avg Subscription Value"
           value={data.metrics.averageSubscriptionValue}
@@ -1061,12 +1050,7 @@ function SubscriptionsSection({ data }: { data: SubscriptionData }) {
                 <YAxis tick={{ fontSize: 11 }} stroke="#9ca3af" width={40} />
                 <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb' }} />
                 <Legend />
-                <Bar
-                  dataKey="newSubscriptions"
-                  name="New"
-                  fill="#4fa77e"
-                  radius={[4, 4, 0, 0]}
-                />
+                <Bar dataKey="newSubscriptions" name="New" fill="#4fa77e" radius={[4, 4, 0, 0]} />
                 <Bar
                   dataKey="canceledSubscriptions"
                   name="Canceled"
@@ -1154,9 +1138,7 @@ function SubscriptionsSection({ data }: { data: SubscriptionData }) {
                 outerRadius={100}
                 innerRadius={50}
                 paddingAngle={2}
-                label={(props: any) =>
-                  `${props.planName ?? ''} (${props.count ?? 0})`
-                }
+                label={(props: any) => `${props.planName ?? ''} (${props.count ?? 0})`}
               >
                 {data.metrics.subscriptionsByPlan.map((_, i) => (
                   <Cell key={i} fill={COLORS[i % COLORS.length]} />
@@ -1312,8 +1294,7 @@ function OrdersSection({ data }: { data: OrderData }) {
                       <span
                         className="inline-block rounded-full px-2 py-0.5 text-xs font-medium"
                         style={{
-                          backgroundColor:
-                            (statusColors[order.status] || '#9ca3af') + '20',
+                          backgroundColor: (statusColors[order.status] || '#9ca3af') + '20',
                           color: statusColors[order.status] || '#6b7280',
                         }}
                       >
@@ -1351,48 +1332,43 @@ export default function AdminAnalyticsPage() {
   const [subscriptionData, setSubscriptionData] = useState<SubscriptionData | null>(null);
   const [orderData, setOrderData] = useState<OrderData | null>(null);
 
-  const fetchData = useCallback(
-    async (section: Section, p: Period, isRefresh = false) => {
-      if (isRefresh) setRefreshing(true);
-      else setLoading(true);
-      setError(null);
+  const fetchData = useCallback(async (section: Section, p: Period, isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
+    setError(null);
 
-      try {
-        const res = await apiFetch(
-          `/api/admin/clinic-analytics?section=${section}&period=${p}`
-        );
-        if (!res.ok) {
-          const errBody = await res.json().catch(() => ({ error: 'Request failed' }));
-          throw new Error(errBody.error || `HTTP ${res.status}`);
-        }
-        const json = await res.json();
-
-        switch (section) {
-          case 'overview':
-            setOverviewData(json.data);
-            break;
-          case 'revenue':
-            setRevenueData(json.data);
-            break;
-          case 'patients':
-            setPatientData(json.data);
-            break;
-          case 'subscriptions':
-            setSubscriptionData(json.data);
-            break;
-          case 'orders':
-            setOrderData(json.data);
-            break;
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load analytics');
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
+    try {
+      const res = await apiFetch(`/api/admin/clinic-analytics?section=${section}&period=${p}`);
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({ error: 'Request failed' }));
+        throw new Error(errBody.error || `HTTP ${res.status}`);
       }
-    },
-    []
-  );
+      const json = await res.json();
+
+      switch (section) {
+        case 'overview':
+          setOverviewData(json.data);
+          break;
+        case 'revenue':
+          setRevenueData(json.data);
+          break;
+        case 'patients':
+          setPatientData(json.data);
+          break;
+        case 'subscriptions':
+          setSubscriptionData(json.data);
+          break;
+        case 'orders':
+          setOrderData(json.data);
+          break;
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load analytics');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
 
   useEffect(() => {
     fetchData(activeTab, period);

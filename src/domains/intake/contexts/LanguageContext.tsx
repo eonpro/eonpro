@@ -62,9 +62,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <LanguageContext.Provider
-      value={{ language, setLanguage: handleSetLanguage, getText }}
-    >
+    <LanguageContext.Provider value={{ language, setLanguage: handleSetLanguage, getText }}>
       {children}
     </LanguageContext.Provider>
   );

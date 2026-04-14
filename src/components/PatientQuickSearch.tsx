@@ -36,7 +36,10 @@ export default function PatientQuickSearch({
   createPatientPath,
 }: PatientQuickSearchProps) {
   const effectiveCreatePath =
-    createPatientPath ?? (patientDetailBasePath.includes('provider') ? '/provider/patients?create=1' : '/admin/patients/new');
+    createPatientPath ??
+    (patientDetailBasePath.includes('provider')
+      ? '/provider/patients?create=1'
+      : '/admin/patients/new');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<PatientResult[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -92,7 +95,9 @@ export default function PatientQuickSearch({
             try {
               const errBody = await response.clone().json();
               errorCode = errBody.code || '';
-            } catch { /* ignore */ }
+            } catch {
+              /* ignore */
+            }
 
             const isPermission =
               errorCode === 'FORBIDDEN' ||
@@ -317,7 +322,9 @@ export default function PatientQuickSearch({
       {/* No results - offer create patient */}
       {isOpen && query.length >= 2 && !isLoading && !searchError && results.length === 0 && (
         <div className="absolute left-0 right-0 top-full z-50 mt-2 rounded-xl border border-gray-200 bg-white p-4 shadow-lg">
-          <p className="mb-3 text-center text-sm text-gray-500">No patients found for &ldquo;{query}&rdquo;</p>
+          <p className="mb-3 text-center text-sm text-gray-500">
+            No patients found for &ldquo;{query}&rdquo;
+          </p>
           <a
             href={effectiveCreatePath}
             className="flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors hover:opacity-90"

@@ -512,7 +512,9 @@ export function parseQuestText(fullText: string): QuestParsedResult {
         .trim();
       if (testName.length < 2) continue;
       const { value, valueNumeric, flag } = parseValueAndFlag(valuePart);
-      const referenceRange = normalizeReferenceRange(looksLikeReference(secondLast) ? secondLast : '');
+      const referenceRange = normalizeReferenceRange(
+        looksLikeReference(secondLast) ? secondLast : ''
+      );
       const unit = extractUnit(referenceRange);
       result.results.push({
         testName: normalizeTestName(testName),
@@ -796,7 +798,10 @@ export async function parseQuestBloodworkPdf(buffer: Buffer): Promise<QuestParse
     const msg = e instanceof Error ? e.message : 'Unknown error';
     logger.error('Quest PDF text parsing failed', { error: msg, textLength: text.length });
     throw new Error(
-      msg.includes('PDF') || msg.includes('timed out') || msg.includes('maximum size') || msg.includes('empty')
+      msg.includes('PDF') ||
+        msg.includes('timed out') ||
+        msg.includes('maximum size') ||
+        msg.includes('empty')
         ? msg
         : 'Failed to read PDF. Ensure the file is a valid Quest Diagnostics lab report (text-based PDF).'
     );

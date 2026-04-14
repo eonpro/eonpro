@@ -38,9 +38,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
     const querySalesRepId = request.nextUrl.searchParams.get('salesRepId');
 
     const clinicId = user.clinicId;
-    const salesRepId = isAdmin && querySalesRepId
-      ? parseInt(querySalesRepId, 10)
-      : user.id;
+    const salesRepId = isAdmin && querySalesRepId ? parseInt(querySalesRepId, 10) : user.id;
 
     if (!salesRepId || isNaN(salesRepId)) {
       return NextResponse.json({ error: 'Invalid salesRepId' }, { status: 400 });
@@ -108,7 +106,9 @@ async function handleGet(request: NextRequest, user: AuthUser) {
 
     const requestHost = request.headers.get('host') || request.headers.get('x-forwarded-host');
     const protocol = request.headers.get('x-forwarded-proto') || 'https';
-    const baseUrl = requestHost ? `${protocol}://${requestHost}` : process.env.NEXT_PUBLIC_APP_URL || '';
+    const baseUrl = requestHost
+      ? `${protocol}://${requestHost}`
+      : process.env.NEXT_PUBLIC_APP_URL || '';
 
     return NextResponse.json({
       baseUrl,

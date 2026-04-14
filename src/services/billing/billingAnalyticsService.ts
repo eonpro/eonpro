@@ -292,12 +292,10 @@ export const billingAnalyticsService = {
     }
 
     const totalOutstandingCents = totalInvoicedCents - totalPaidCents;
-    const collectionRate = totalInvoicedCents > 0
-      ? Math.round((totalPaidCents / totalInvoicedCents) * 10000) / 100
-      : 0;
-    const avgDaysToPayment = paidInvoiceCount > 0
-      ? Math.round(daysToPaymentSum / paidInvoiceCount)
-      : 0;
+    const collectionRate =
+      totalInvoicedCents > 0 ? Math.round((totalPaidCents / totalInvoicedCents) * 10000) / 100 : 0;
+    const avgDaysToPayment =
+      paidInvoiceCount > 0 ? Math.round(daysToPaymentSum / paidInvoiceCount) : 0;
 
     return {
       totalInvoicedCents,

@@ -21,10 +21,7 @@ export const POST = withAuth<RouteParams>(
       const { sessionId } = await params;
 
       if (!user.patientId) {
-        return NextResponse.json(
-          { error: 'Patient ID required' },
-          { status: 400 },
-        );
+        return NextResponse.json({ error: 'Patient ID required' }, { status: 400 });
       }
 
       const draft = await prisma.intakeFormDraft.findUnique({
@@ -32,24 +29,15 @@ export const POST = withAuth<RouteParams>(
       });
 
       if (!draft) {
-        return NextResponse.json(
-          { error: 'Draft not found' },
-          { status: 404 },
-        );
+        return NextResponse.json({ error: 'Draft not found' }, { status: 404 });
       }
 
       if (draft.patientId && draft.patientId !== user.patientId) {
-        return NextResponse.json(
-          { error: 'Draft belongs to another patient' },
-          { status: 403 },
-        );
+        return NextResponse.json({ error: 'Draft belongs to another patient' }, { status: 403 });
       }
 
       if (user.clinicId && draft.clinicId !== user.clinicId) {
-        return NextResponse.json(
-          { error: 'Draft belongs to a different clinic' },
-          { status: 403 },
-        );
+        return NextResponse.json({ error: 'Draft belongs to a different clinic' }, { status: 403 });
       }
 
       await prisma.intakeFormDraft.update({
@@ -68,5 +56,5 @@ export const POST = withAuth<RouteParams>(
         context: { route: 'POST /api/intake-forms/drafts/[sessionId]/link' },
       });
     }
-  },
+  }
 );

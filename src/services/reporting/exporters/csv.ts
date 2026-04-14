@@ -1,6 +1,10 @@
 import type { ReportResult, ColumnDef } from '../types';
 
-export function exportToCsv(result: ReportResult, columns: ColumnDef[], reportName: string): string {
+export function exportToCsv(
+  result: ReportResult,
+  columns: ColumnDef[],
+  reportName: string
+): string {
   const fmtVal = (val: any, col: ColumnDef): string => {
     if (val === null || val === undefined) return '';
     if (col.type === 'currency') return `$${(Number(val) / 100).toFixed(2)}`;
@@ -23,7 +27,11 @@ export function exportToCsv(result: ReportResult, columns: ColumnDef[], reportNa
     csv += `=== SUMMARY ===\n`;
     for (const [key, val] of Object.entries(result.summary)) {
       const label = key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase());
-      const isCurrency = key.toLowerCase().includes('revenue') || key.toLowerCase().includes('commission') || key.toLowerCase().includes('amount') || key.toLowerCase().includes('mrr');
+      const isCurrency =
+        key.toLowerCase().includes('revenue') ||
+        key.toLowerCase().includes('commission') ||
+        key.toLowerCase().includes('amount') ||
+        key.toLowerCase().includes('mrr');
       csv += `${label},${isCurrency ? '$' + (Number(val) / 100).toFixed(2) : val}\n`;
     }
     csv += '\n';

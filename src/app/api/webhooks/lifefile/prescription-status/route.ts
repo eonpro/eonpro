@@ -98,7 +98,10 @@ async function findClinicByCredentials(authHeader: string | null): Promise<{
           `[LIFEFILE PRESCRIPTION] Decrypted password for ${clinic.name}: length=${decryptedPassword?.length}`
         );
       } catch (e: unknown) {
-        logger.error(`[LIFEFILE PRESCRIPTION] Decryption failed for ${clinic.name}:`, (e as any).message);
+        logger.error(
+          `[LIFEFILE PRESCRIPTION] Decryption failed for ${clinic.name}:`,
+          (e as any).message
+        );
         // Continue to try other clinics
         continue;
       }
@@ -141,7 +144,10 @@ export async function POST(req: NextRequest) {
         webhookLogData.statusCode = 413;
         webhookLogData.errorMessage = 'Payload too large';
         await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
-          logger.warn('[LifeFile RxStatus] Failed to persist webhook log for oversized content-length', { error: err instanceof Error ? err.message : String(err) });
+          logger.warn(
+            '[LifeFile RxStatus] Failed to persist webhook log for oversized content-length',
+            { error: err instanceof Error ? err.message : String(err) }
+          );
         });
         return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
       }
@@ -152,7 +158,9 @@ export async function POST(req: NextRequest) {
       webhookLogData.statusCode = 413;
       webhookLogData.errorMessage = 'Payload too large';
       await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
-        logger.warn('[LifeFile RxStatus] Failed to persist webhook log for oversized payload', { error: err instanceof Error ? err.message : String(err) });
+        logger.warn('[LifeFile RxStatus] Failed to persist webhook log for oversized payload', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       });
       return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
     }
@@ -178,7 +186,9 @@ export async function POST(req: NextRequest) {
         ? 'Clinic not found for username'
         : 'Invalid password';
       await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
-        logger.warn('[LifeFile RxStatus] Failed to persist webhook log for auth failure', { error: err instanceof Error ? err.message : String(err) });
+        logger.warn('[LifeFile RxStatus] Failed to persist webhook log for auth failure', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       });
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -194,7 +204,9 @@ export async function POST(req: NextRequest) {
       webhookLogData.statusCode = 400;
       webhookLogData.errorMessage = 'Invalid JSON or payload must be an object';
       await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
-        logger.warn('[LifeFile RxStatus] Failed to persist webhook log for invalid JSON', { error: err instanceof Error ? err.message : String(err) });
+        logger.warn('[LifeFile RxStatus] Failed to persist webhook log for invalid JSON', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       });
       return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
     }
@@ -240,7 +252,10 @@ export async function POST(req: NextRequest) {
       webhookLogData.statusCode = 400;
       webhookLogData.errorMessage = 'Missing orderId or referenceId';
       await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
-        logger.warn('[LifeFile RxStatus] Failed to persist webhook log for missing order identifiers', { error: err instanceof Error ? err.message : String(err) });
+        logger.warn(
+          '[LifeFile RxStatus] Failed to persist webhook log for missing order identifiers',
+          { error: err instanceof Error ? err.message : String(err) }
+        );
       });
       return NextResponse.json(
         { error: 'Missing orderId or referenceId in payload' },
@@ -269,7 +284,9 @@ export async function POST(req: NextRequest) {
       webhookLogData.statusCode = 202;
       webhookLogData.responseData = { processed: false, reason: 'Order not found' };
       await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
-        logger.warn('[LifeFile RxStatus] Failed to persist webhook log for order not found', { error: err instanceof Error ? err.message : String(err) });
+        logger.warn('[LifeFile RxStatus] Failed to persist webhook log for order not found', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       });
 
       return NextResponse.json(
@@ -341,7 +358,9 @@ export async function POST(req: NextRequest) {
     webhookLogData.processingTimeMs = processingTime;
 
     await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
-      logger.warn('[LifeFile RxStatus] Failed to persist webhook log', { error: err instanceof Error ? err.message : String(err) });
+      logger.warn('[LifeFile RxStatus] Failed to persist webhook log', {
+        error: err instanceof Error ? err.message : String(err),
+      });
     });
 
     logger.info(`[LIFEFILE PRESCRIPTION] Processed in ${processingTime}ms`);
@@ -356,7 +375,12 @@ export async function POST(req: NextRequest) {
       processingTime: `${processingTime}ms`,
     });
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? (error instanceof Error ? error.message : String(error)) : 'Unknown error';
+    const errorMessage =
+      error instanceof Error
+        ? error instanceof Error
+          ? error.message
+          : String(error)
+        : 'Unknown error';
     logger.error('[LIFEFILE PRESCRIPTION] Error', {
       message: errorMessage,
       name: error instanceof Error ? (error instanceof Error ? error.name : 'Error') : undefined,
@@ -368,7 +392,9 @@ export async function POST(req: NextRequest) {
     webhookLogData.processingTimeMs = Date.now() - startTime;
 
     await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
-      logger.warn('[LifeFile RxStatus] Failed to persist webhook log for processing error', { error: err instanceof Error ? err.message : String(err) });
+      logger.warn('[LifeFile RxStatus] Failed to persist webhook log for processing error', {
+        error: err instanceof Error ? err.message : String(err),
+      });
     });
 
     return NextResponse.json(

@@ -86,7 +86,10 @@ export const GET = withSuperAdminAuth(
     } catch (error: unknown) {
       logger.error('[SUPER-ADMIN/INVITE-CODES] Error listing invite codes:', error);
       return NextResponse.json(
-        { error: 'Failed to list invite codes', details: error instanceof Error ? error.message : String(error) },
+        {
+          error: 'Failed to list invite codes',
+          details: error instanceof Error ? error.message : String(error),
+        },
         { status: 500 }
       );
     }
@@ -182,7 +185,10 @@ export const POST = withSuperAdminAuth(
     } catch (error: unknown) {
       logger.error('[SUPER-ADMIN/INVITE-CODES] Error creating invite code:', error);
       return NextResponse.json(
-        { error: 'Failed to create invite code', details: error instanceof Error ? error.message : String(error) },
+        {
+          error: 'Failed to create invite code',
+          details: error instanceof Error ? error.message : String(error),
+        },
         { status: 500 }
       );
     }

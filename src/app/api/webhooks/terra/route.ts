@@ -52,12 +52,14 @@ async function resolvePatient(
 }
 
 async function updateLastSync(terraUserId: string): Promise<void> {
-  await prisma.patientDeviceConnection.update({
-    where: { terraUserId },
-    data: { lastSyncAt: new Date() },
-  }).catch((err) => {
-    logger.warn('Failed to update lastSyncAt for device', { terraUserId, error: String(err) });
-  });
+  await prisma.patientDeviceConnection
+    .update({
+      where: { terraUserId },
+      data: { lastSyncAt: new Date() },
+    })
+    .catch((err) => {
+      logger.warn('Failed to update lastSyncAt for device', { terraUserId, error: String(err) });
+    });
 }
 
 // ---- Auth event handler ----
@@ -555,9 +557,6 @@ export async function POST(req: NextRequest): Promise<Response> {
       durationMs: Date.now() - startTime,
     });
 
-    return NextResponse.json(
-      { error: 'Processing failed' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Processing failed' }, { status: 500 });
   }
 }

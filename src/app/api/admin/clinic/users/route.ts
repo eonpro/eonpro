@@ -72,7 +72,17 @@ export const GET = withAuth(
 
       // Fetch staff/providers separately from patients so admin/provider
       // users are never truncated by a row limit (patients can be numerous).
-      const staffRoles = ['SUPER_ADMIN', 'ADMIN', 'STAFF', 'SUPPORT', 'SALES_REP', 'PHARMACY_REP', 'PROVIDER', 'INFLUENCER', 'AFFILIATE'] as const;
+      const staffRoles = [
+        'SUPER_ADMIN',
+        'ADMIN',
+        'STAFF',
+        'SUPPORT',
+        'SALES_REP',
+        'PHARMACY_REP',
+        'PROVIDER',
+        'INFLUENCER',
+        'AFFILIATE',
+      ] as const;
 
       const [staffUsers, patientUsers] = await Promise.all([
         prisma.user.findMany({
@@ -121,7 +131,10 @@ export const GET = withAuth(
         AFFILIATE: 8,
         PATIENT: 9,
       };
-      const byRoleThenName = (a: (typeof formattedUsers)[number], b: (typeof formattedUsers)[number]) => {
+      const byRoleThenName = (
+        a: (typeof formattedUsers)[number],
+        b: (typeof formattedUsers)[number]
+      ) => {
         const orderA = roleOrder[a.role] ?? 9;
         const orderB = roleOrder[b.role] ?? 9;
         if (orderA !== orderB) return orderA - orderB;
@@ -430,7 +443,12 @@ export const POST = withAuth(
       });
 
       // Send welcome notification (non-blocking — user creation already committed)
-      let inviteResult: { emailSent: boolean; smsSent: boolean; emailError?: string; smsError?: string } = { emailSent: false, smsSent: false };
+      let inviteResult: {
+        emailSent: boolean;
+        smsSent: boolean;
+        emailError?: string;
+        smsError?: string;
+      } = { emailSent: false, smsSent: false };
       if (sendInvite || body.sendInviteText) {
         const clinic = await prisma.clinic.findUnique({
           where: { id: user.clinicId! },
@@ -465,7 +483,9 @@ export const POST = withAuth(
     } catch (error: unknown) {
       logger.error('Error creating clinic user:', error);
       return NextResponse.json(
-        { error: error instanceof Error ? error.message : String(error) || 'Failed to create user' },
+        {
+          error: error instanceof Error ? error.message : String(error) || 'Failed to create user',
+        },
         { status: 500 }
       );
     }

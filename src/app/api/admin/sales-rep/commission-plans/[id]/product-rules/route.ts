@@ -107,10 +107,7 @@ export const POST = withAuth(
         );
       }
       if (bonusType !== 'PERCENT' && bonusType !== 'FLAT') {
-        return NextResponse.json(
-          { error: 'bonusType must be PERCENT or FLAT' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'bonusType must be PERCENT or FLAT' }, { status: 400 });
       }
       if (bonusType === 'PERCENT') {
         const bps = percentBps != null ? Number(percentBps) : null;
@@ -144,7 +141,10 @@ export const POST = withAuth(
           prisma.productBundle.findFirst({ where: { id: pbid, clinicId } })
         );
         if (!bundle) {
-          return NextResponse.json({ error: 'Product bundle not found in this clinic' }, { status: 400 });
+          return NextResponse.json(
+            { error: 'Product bundle not found in this clinic' },
+            { status: 400 }
+          );
         }
       }
 

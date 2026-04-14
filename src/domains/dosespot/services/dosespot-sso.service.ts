@@ -25,11 +25,7 @@ export interface DoseSpotSSOService {
     userId: number
   ): Promise<SSOUrlResult>;
 
-  getPrescriberSSOUrl(
-    providerId: number,
-    clinicId: number,
-    userId: number
-  ): Promise<SSOUrlResult>;
+  getPrescriberSSOUrl(providerId: number, clinicId: number, userId: number): Promise<SSOUrlResult>;
 }
 
 export function createDoseSpotSSOService(): DoseSpotSSOService {
@@ -40,7 +36,12 @@ export function createDoseSpotSSOService(): DoseSpotSSOService {
       clinicId: number,
       userId: number
     ): Promise<SSOUrlResult> {
-      logger.info('[DOSESPOT] SSO patient flow starting', { patientId, providerId, clinicId, userId });
+      logger.info('[DOSESPOT] SSO patient flow starting', {
+        patientId,
+        providerId,
+        clinicId,
+        userId,
+      });
 
       const credentials = await getClinicDoseSpotCredentials(clinicId);
       if (!credentials) {
@@ -49,28 +50,37 @@ export function createDoseSpotSSOService(): DoseSpotSSOService {
           undefined
         );
       }
-      logger.info('[DOSESPOT] Credentials resolved', { clinicId, hasBaseUrl: !!credentials.baseUrl });
+      logger.info('[DOSESPOT] Credentials resolved', {
+        clinicId,
+        hasBaseUrl: !!credentials.baseUrl,
+      });
 
       // Provider and patient syncs are independent — run in parallel
       const [providerSync, patientSync] = await Promise.all([
         doseSpotProviderService.syncProvider(providerId, clinicId, userId).catch((err) => {
           logger.error('[DOSESPOT] Provider sync failed', {
-            providerId, clinicId,
+            providerId,
+            clinicId,
             error: err instanceof Error ? err.message : String(err),
           });
           throw err;
         }),
         doseSpotPatientService.syncPatient(patientId, clinicId, userId).catch((err) => {
           logger.error('[DOSESPOT] Patient sync failed', {
-            patientId, clinicId,
+            patientId,
+            clinicId,
             error: err instanceof Error ? err.message : String(err),
           });
           throw err;
         }),
       ]);
       logger.info('[DOSESPOT] Provider + patient synced in parallel', {
-        providerId, doseSpotClinicianId: providerSync.doseSpotClinicianId, providerAction: providerSync.action,
-        patientId, doseSpotPatientId: patientSync.doseSpotPatientId, patientAction: patientSync.action,
+        providerId,
+        doseSpotClinicianId: providerSync.doseSpotClinicianId,
+        providerAction: providerSync.action,
+        patientId,
+        doseSpotPatientId: patientSync.doseSpotPatientId,
+        patientAction: patientSync.action,
       });
 
       const prescriberUserId = String(providerSync.doseSpotClinicianId);
@@ -120,20 +130,26 @@ export function createDoseSpotSSOService(): DoseSpotSSOService {
           undefined
         );
       }
-      logger.info('[DOSESPOT] Credentials resolved', { clinicId, hasBaseUrl: !!credentials.baseUrl });
+      logger.info('[DOSESPOT] Credentials resolved', {
+        clinicId,
+        hasBaseUrl: !!credentials.baseUrl,
+      });
 
       let providerSync;
       try {
         providerSync = await doseSpotProviderService.syncProvider(providerId, clinicId, userId);
       } catch (err) {
         logger.error('[DOSESPOT] Provider sync failed', {
-          providerId, clinicId,
+          providerId,
+          clinicId,
           error: err instanceof Error ? err.message : String(err),
         });
         throw err;
       }
       logger.info('[DOSESPOT] Provider synced', {
-        providerId, doseSpotClinicianId: providerSync.doseSpotClinicianId, action: providerSync.action,
+        providerId,
+        doseSpotClinicianId: providerSync.doseSpotClinicianId,
+        action: providerSync.action,
       });
 
       const prescriberUserId = String(providerSync.doseSpotClinicianId);

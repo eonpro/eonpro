@@ -12,11 +12,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { ReactNode, useEffect, useState, useMemo } from 'react';
 import { apiFetch } from '@/lib/api/fetch';
-import {
-  AffiliateBranding,
-  BrandingProvider,
-  brandingToCssVars,
-} from './branding-context';
+import { AffiliateBranding, BrandingProvider, brandingToCssVars } from './branding-context';
 import { EONPRO_LOGO, EONPRO_ICON } from '@/lib/constants/brand-assets';
 
 interface NavItem {
@@ -162,10 +158,9 @@ export default function AffiliateDashboardLayout({ children }: { children: React
       // Strategy A: public clinic/resolve endpoint (always works, no auth needed)
       try {
         const domain = window.location.hostname;
-        const resolveRes = await fetch(
-          `/api/clinic/resolve?domain=${encodeURIComponent(domain)}`,
-          { cache: 'no-store' }
-        );
+        const resolveRes = await fetch(`/api/clinic/resolve?domain=${encodeURIComponent(domain)}`, {
+          cache: 'no-store',
+        });
         if (resolveRes.ok && !cancelled) {
           const clinic = await resolveRes.json();
           if (clinic.clinicId) {
@@ -192,7 +187,8 @@ export default function AffiliateDashboardLayout({ children }: { children: React
           }
         }
       } catch (err) {
-        process.env.NODE_ENV === 'development' && console.warn('[Affiliate Layout] clinic/resolve fallback failed:', err);
+        process.env.NODE_ENV === 'development' &&
+          console.warn('[Affiliate Layout] clinic/resolve fallback failed:', err);
       }
 
       // Strategy B: authenticated affiliate branding endpoint (richer data)
@@ -202,10 +198,12 @@ export default function AffiliateDashboardLayout({ children }: { children: React
           const data = await brandingRes.json();
           brandingData = data;
         } else {
-          process.env.NODE_ENV === 'development' && console.warn('[Affiliate Layout] /api/affiliate/branding returned', brandingRes.status);
+          process.env.NODE_ENV === 'development' &&
+            console.warn('[Affiliate Layout] /api/affiliate/branding returned', brandingRes.status);
         }
       } catch (err) {
-        process.env.NODE_ENV === 'development' && console.warn('[Affiliate Layout] /api/affiliate/branding error:', err);
+        process.env.NODE_ENV === 'development' &&
+          console.warn('[Affiliate Layout] /api/affiliate/branding error:', err);
       }
 
       // 3. Fetch default ref code for quick-copy link in sidebar
@@ -255,7 +253,9 @@ export default function AffiliateDashboardLayout({ children }: { children: React
     };
 
     init();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Compute CSS custom properties from branding
@@ -364,12 +364,32 @@ export default function AffiliateDashboardLayout({ children }: { children: React
                 style={{ backgroundColor: `${primaryColor}10`, color: primaryColor }}
               >
                 {copiedLink ? (
-                  <svg className="h-5 w-5 flex-shrink-0 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  <svg
+                    className="h-5 w-5 flex-shrink-0 text-green-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 13l4 4L19 7"
+                    />
                   </svg>
                 ) : (
-                  <svg className="h-5 w-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  <svg
+                    className="h-5 w-5 flex-shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                    />
                   </svg>
                 )}
                 <span className="truncate">{copiedLink ? 'Copied!' : 'Copy Referral Link'}</span>
@@ -393,13 +413,8 @@ export default function AffiliateDashboardLayout({ children }: { children: React
               <span>Help & Support</span>
             </a>
             {branding && (
-              <p className="mt-4 flex items-center gap-1.5 px-4 text-xs text-gray-400 whitespace-nowrap">
-                Powered by{' '}
-                <img
-                  src={EONPRO_LOGO}
-                  alt="EONPRO"
-                  className="h-[21px] w-auto"
-                />
+              <p className="mt-4 flex items-center gap-1.5 whitespace-nowrap px-4 text-xs text-gray-400">
+                Powered by <img src={EONPRO_LOGO} alt="EONPRO" className="h-[21px] w-auto" />
               </p>
             )}
           </div>
