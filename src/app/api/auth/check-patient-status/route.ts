@@ -21,9 +21,13 @@ import { z } from 'zod';
 import { basePrisma as prisma } from '@/lib/db';
 import { standardRateLimit } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
+import { decryptPHI } from '@/lib/security/phi-encryption';
 
 const schema = z.object({
-  email: z.string().email().transform((v) => v.toLowerCase().trim()),
+  email: z
+    .string()
+    .email()
+    .transform((v) => v.toLowerCase().trim()),
   clinicId: z.number().optional(),
 });
 
@@ -51,12 +55,14 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
 
     const patient = await prisma.patient.findFirst({
       where: patientWhere,
-      select: { id: true },
+      select: { id: true, firstName: true },
     });
 
     if (patient) {
+      const firstName = decryptPHI(patient.firstName) || undefined;
       return NextResponse.json({
         status: 'needs_setup',
+        firstName,
       });
     }
 

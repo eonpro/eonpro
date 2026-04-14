@@ -1,6 +1,14 @@
 'use client';
 
-import { useState, useEffect, useRef, Suspense, startTransition, useCallback, useMemo } from 'react';
+import {
+  useState,
+  useEffect,
+  useRef,
+  Suspense,
+  startTransition,
+  useCallback,
+  useMemo,
+} from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Eye, EyeOff, X, Mail, Phone, ArrowRight, RefreshCw, Building2, Check } from 'lucide-react';
 import { useAuthStore, type AuthUser, type ClinicInfo } from '@/lib/stores/authStore';
@@ -8,7 +16,15 @@ import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import { EONPRO_LOGO, EONPRO_LOGO_DARK, LOGOSRX } from '@/lib/constants/brand-assets';
 import { isBrowser } from '@/lib/utils/ssr-safe';
 
-type LoginStep = 'identifier' | 'password' | 'otp' | 'email-otp' | 'clinic' | 'forgot' | 'reset';
+type LoginStep =
+  | 'identifier'
+  | 'password'
+  | 'otp'
+  | 'email-otp'
+  | 'clinic'
+  | 'forgot'
+  | 'reset'
+  | 'needs-setup';
 type LoginMethod = 'email' | 'phone';
 
 interface Clinic {
@@ -66,13 +82,13 @@ function hexToRgb(hex: string): [number, number, number] {
 function lightenHex(hex: string, amount: number): string {
   const [r, g, b] = hexToRgb(hex);
   const lighten = (c: number) => Math.min(255, Math.round(c + (255 - c) * amount));
-  return `#${[lighten(r), lighten(g), lighten(b)].map(c => c.toString(16).padStart(2, '0')).join('')}`;
+  return `#${[lighten(r), lighten(g), lighten(b)].map((c) => c.toString(16).padStart(2, '0')).join('')}`;
 }
 
 function darkenHex(hex: string, amount: number): string {
   const [r, g, b] = hexToRgb(hex);
   const darken = (c: number) => Math.max(0, Math.round(c * (1 - amount)));
-  return `#${[darken(r), darken(g), darken(b)].map(c => c.toString(16).padStart(2, '0')).join('')}`;
+  return `#${[darken(r), darken(g), darken(b)].map((c) => c.toString(16).padStart(2, '0')).join('')}`;
 }
 
 /** Shape of /api/auth/login response (success or error). */
@@ -96,14 +112,18 @@ async function parseJsonResponse(response: Response): Promise<LoginResponseData>
   if (!text.trim())
     return {
       error:
-        response.status === 405 ? 'Login method not allowed' : response.statusText || 'Empty response',
+        response.status === 405
+          ? 'Login method not allowed'
+          : response.statusText || 'Empty response',
     };
   try {
     return JSON.parse(text) as LoginResponseData;
   } catch {
     return {
       error:
-        response.status === 500 ? 'Server error. Please try again.' : response.statusText || 'Invalid response',
+        response.status === 500
+          ? 'Server error. Please try again.'
+          : response.statusText || 'Invalid response',
     };
   }
 }
@@ -125,7 +145,14 @@ function getLoginRoleFromRedirect(
 function LoginFallback() {
   return (
     <div className="eonpro-dark-login-bg flex min-h-[100dvh] flex-col items-center justify-center p-6">
-      <img src={EONPRO_LOGO_DARK} alt="EONPRO" className="mb-8 h-10 w-auto opacity-90" width={160} height={40} style={{ maxHeight: 40, width: 'auto' }} />
+      <img
+        src={EONPRO_LOGO_DARK}
+        alt="EONPRO"
+        className="mb-8 h-10 w-auto opacity-90"
+        width={160}
+        height={40}
+        style={{ maxHeight: 40, width: 'auto' }}
+      />
       <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-white/70" />
       <p className="mt-4 text-sm text-white/40">Loading...</p>
     </div>
@@ -207,6 +234,9 @@ function LoginContent() {
   // Pre-login health: true only when /api/ready explicitly returns 503 (fail-open: timeout/error → allow login)
   const [systemUnavailable, setSystemUnavailable] = useState(false);
 
+  // First-time user setup (user exists in DB but has never logged in)
+  const [setupFirstName, setSetupFirstName] = useState('');
+
   // OTP input refs
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -217,8 +247,16 @@ function LoginContent() {
   useEffect(() => {
     if (!isBrowser) return;
     const staleCookieNames = [
-      'auth-token', 'admin-token', 'super_admin-token', 'provider-token',
-      'patient-token', 'staff-token', 'support-token', 'affiliate-token', 'pharmacy_rep-token', 'sales_rep-token',
+      'auth-token',
+      'admin-token',
+      'super_admin-token',
+      'provider-token',
+      'patient-token',
+      'staff-token',
+      'support-token',
+      'affiliate-token',
+      'pharmacy_rep-token',
+      'sales_rep-token',
     ];
     staleCookieNames.forEach((name) => {
       // Clear on current hostname (e.g. ot.eonpro.io)
@@ -261,12 +299,17 @@ function LoginContent() {
       if (!cached) {
         return;
       }
-      const parsed = JSON.parse(cached) as ClinicBranding & { clinicId?: number; _cachedAt?: number };
+      const parsed = JSON.parse(cached) as ClinicBranding & {
+        clinicId?: number;
+        _cachedAt?: number;
+      };
       if (parsed._cachedAt && Date.now() - parsed._cachedAt > 24 * 60 * 60 * 1000) return;
       setIsMainApp(false);
       setBranding(parsed);
       if (parsed.clinicId) setResolvedClinicId(parsed.clinicId);
-    } catch { /* corrupt cache — ignore, fresh fetch below will resolve */ }
+    } catch {
+      /* corrupt cache — ignore, fresh fetch below will resolve */
+    }
   }, []);
 
   // Resolve clinic from domain and load branding (non-blocking: on failure use default/main app)
@@ -311,9 +354,14 @@ function LoginContent() {
 
           // Cache branding for instant render on return visits (24h TTL)
           try {
-            localStorage.setItem('clinic-branding-cache', JSON.stringify({ ...brandingData, _cachedAt: Date.now() }));
+            localStorage.setItem(
+              'clinic-branding-cache',
+              JSON.stringify({ ...brandingData, _cachedAt: Date.now() })
+            );
             localStorage.setItem('clinic-branding-is-whitelabel', '1');
-          } catch { /* quota exceeded — non-critical */ }
+          } catch {
+            /* quota exceeded — non-critical */
+          }
 
           if (data.subdomain === 'logosrx') {
             setIsLogosRxExperience(true);
@@ -460,7 +508,7 @@ function LoginContent() {
     } else if (trimmedIdentifier.includes('@')) {
       setLoginMethod('email');
 
-      // If not already on provider login path, check if email is a provider → auto-redirect
+      // If not already on provider login path, check if email is a provider or first-time user
       const redirectParam = searchParams.get('redirect');
       const isProviderLogin =
         !!redirectParam && redirectParam.toLowerCase().split('?')[0].startsWith('/provider');
@@ -472,14 +520,22 @@ function LoginContent() {
             body: JSON.stringify({ email: trimmedIdentifier }),
           });
 
-          // 503 = service busy (pool exhausted). Skip provider check silently and continue.
-          if (res.status === 503) {
-            // Don't block the login flow; just skip provider detection
-          } else {
-            const data = (await res.json()) as { isProvider?: boolean };
+          if (res.status !== 503) {
+            const data = (await res.json()) as {
+              isProvider?: boolean;
+              needsSetup?: boolean;
+              firstName?: string;
+            };
+
             if (data.isProvider) {
               sessionStorage.setItem('login_provider_prefill', trimmedIdentifier);
               router.replace(`/login?redirect=${encodeURIComponent('/provider')}`);
+              return;
+            }
+
+            if (data.needsSetup) {
+              setSetupFirstName(data.firstName || '');
+              setStep('needs-setup');
               return;
             }
           }
@@ -577,7 +633,9 @@ function LoginContent() {
     }
 
     if (digit && index === 5 && newOtp.every((d) => d)) {
-      startTransition(() => { verifyEmailOtp(newOtp.join('')); });
+      startTransition(() => {
+        verifyEmailOtp(newOtp.join(''));
+      });
     }
   };
 
@@ -769,7 +827,9 @@ function LoginContent() {
     }
 
     if (digit && index === 5 && newOtp.every((d) => d)) {
-      startTransition(() => { verifyOtp(newOtp.join('')); });
+      startTransition(() => {
+        verifyOtp(newOtp.join(''));
+      });
     }
   };
 
@@ -874,7 +934,7 @@ function LoginContent() {
         }
         // User logged in on wrong clinic domain — show message and link to correct URL
         if (data.code === 'WRONG_CLINIC_DOMAIN') {
-          setError(data.error || "This login page is for a different clinic.");
+          setError(data.error || 'This login page is for a different clinic.');
           setWrongClinicRedirectUrl(data.correctLoginUrl ?? null);
           setWrongClinicName(data.clinicName ?? null);
           setLoading(false);
@@ -978,7 +1038,7 @@ function LoginContent() {
 
       if (!response.ok) {
         if (data.code === 'WRONG_CLINIC_DOMAIN') {
-          setError(data.error || "This login page is for a different clinic.");
+          setError(data.error || 'This login page is for a different clinic.');
           setWrongClinicRedirectUrl(data.correctLoginUrl ?? null);
           setWrongClinicName(data.clinicName ?? null);
           setLoading(false);
@@ -1053,12 +1113,18 @@ function LoginContent() {
 
     // Sync auth state into the global Zustand store so any mounted component
     // (e.g. SessionExpirationHandler) can react without reading localStorage.
-    const storeUser = { ...(data.user as Record<string, unknown>), id: 0, role: data.user?.role?.toLowerCase() ?? '' };
-    useAuthStore.getState().setAuth(
-      storeUser as AuthUser,
-      data.clinics as ClinicInfo[] | undefined,
-      data.activeClinicId ?? data.clinics?.[0]?.id ?? null,
-    );
+    const storeUser = {
+      ...(data.user as Record<string, unknown>),
+      id: 0,
+      role: data.user?.role?.toLowerCase() ?? '',
+    };
+    useAuthStore
+      .getState()
+      .setAuth(
+        storeUser as AuthUser,
+        data.clinics as ClinicInfo[] | undefined,
+        data.activeClinicId ?? data.clinics?.[0]?.id ?? null
+      );
 
     // Store role-specific tokens
     const userRole = data.user?.role?.toLowerCase();
@@ -1150,7 +1216,7 @@ function LoginContent() {
   };
 
   // Get colors from branding or use defaults
-  const primaryColor = isLogosRxExperience ? LOGOSRX_PRIMARY : (branding?.primaryColor || '#10B981');
+  const primaryColor = isLogosRxExperience ? LOGOSRX_PRIMARY : branding?.primaryColor || '#10B981';
   const buttonTextMode = branding?.buttonTextColor || 'auto';
   const buttonTextColor = isLogosRxExperience
     ? '#ffffff'
@@ -1164,9 +1230,14 @@ function LoginContent() {
   const isEonproDarkLogin = isMainApp && !isProviderLogin;
   const isProviderDarkLogin = isMainApp && isProviderLogin;
   const isClinicDarkLogin = !isMainApp && !isLogosRxExperience && !!branding;
-  const isDarkTheme = isLogosRxExperience || isEonproDarkLogin || isProviderDarkLogin || isClinicDarkLogin;
+  const isDarkTheme =
+    isLogosRxExperience || isEonproDarkLogin || isProviderDarkLogin || isClinicDarkLogin;
 
-  const themeColor = isLogosRxExperience ? LOGOSRX_PRIMARY : isProviderDarkLogin ? '#6366F1' : primaryColor;
+  const themeColor = isLogosRxExperience
+    ? LOGOSRX_PRIMARY
+    : isProviderDarkLogin
+      ? '#6366F1'
+      : primaryColor;
   const [pcR, pcG, pcB] = hexToRgb(themeColor);
   const darkAccent = lightenHex(themeColor, 0.4);
   const darkButtonGradient = `linear-gradient(135deg, ${darkenHex(themeColor, 0.25)} 0%, ${themeColor} 50%, ${lightenHex(themeColor, 0.3)} 100%)`;
@@ -1208,7 +1279,7 @@ function LoginContent() {
       className={`min-h-[100dvh] ${isDarkTheme ? 'dark-login-bg' : ''}`}
       style={{
         ...(bgColor ? { backgroundColor: bgColor } : {}),
-        ...(isDarkTheme ? loginGlowVars as React.CSSProperties : {}),
+        ...(isDarkTheme ? (loginGlowVars as React.CSSProperties) : {}),
         paddingLeft: 'env(safe-area-inset-left)',
         paddingRight: 'env(safe-area-inset-right)',
         paddingBottom: 'env(safe-area-inset-bottom)',
@@ -1222,7 +1293,9 @@ function LoginContent() {
           <button
             onClick={() => router.push('/dashboard')}
             className={`flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-full transition-colors ${
-              isDarkTheme ? 'hover:bg-white/10 active:bg-white/20' : 'hover:bg-black/5 active:bg-black/10'
+              isDarkTheme
+                ? 'hover:bg-white/10 active:bg-white/20'
+                : 'hover:bg-black/5 active:bg-black/10'
             }`}
             aria-label="Close"
           >
@@ -1252,7 +1325,10 @@ function LoginContent() {
                   onError={() => setLogoLoadError(true)}
                 />
               ) : (
-                <h1 className="text-3xl font-bold" style={{ color: isClinicDarkLogin ? '#ffffff' : primaryColor }}>
+                <h1
+                  className="text-3xl font-bold"
+                  style={{ color: isClinicDarkLogin ? '#ffffff' : primaryColor }}
+                >
                   {branding.name}
                 </h1>
               )
@@ -1268,7 +1344,7 @@ function LoginContent() {
             )}
           </div>
           {isLogosRxExperience && (
-            <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-white/80 whitespace-nowrap">
+            <p className="mt-2 flex items-center justify-center gap-1.5 whitespace-nowrap text-xs text-white/80">
               Powered by{' '}
               <img
                 src={EONPRO_LOGO_DARK}
@@ -1281,7 +1357,9 @@ function LoginContent() {
             </p>
           )}
           {!isLogosRxExperience && branding && !isMainApp && (
-            <p className={`mt-2 flex items-center justify-center gap-1.5 text-xs whitespace-nowrap ${isClinicDarkLogin ? 'text-white/50' : 'text-gray-500'}`}>
+            <p
+              className={`mt-2 flex items-center justify-center gap-1.5 whitespace-nowrap text-xs ${isClinicDarkLogin ? 'text-white/50' : 'text-gray-500'}`}
+            >
               Powered by{' '}
               <img
                 src={isClinicDarkLogin ? EONPRO_LOGO_DARK : EONPRO_LOGO}
@@ -1298,10 +1376,16 @@ function LoginContent() {
         {/* Main Content */}
         <div className="flex flex-1 flex-col items-center px-4 pt-4 sm:px-6 sm:pt-8">
           {systemUnavailable && (
-            <div className={`mb-6 w-full max-w-md rounded-2xl border p-4 text-center ${
-              isDarkTheme ? 'border-amber-500/30 bg-amber-900/30 backdrop-blur-sm' : 'border-amber-200 bg-amber-50'
-            }`}>
-              <p className={`text-sm font-medium ${isDarkTheme ? 'text-amber-300' : 'text-amber-800'}`}>
+            <div
+              className={`mb-6 w-full max-w-md rounded-2xl border p-4 text-center ${
+                isDarkTheme
+                  ? 'border-amber-500/30 bg-amber-900/30 backdrop-blur-sm'
+                  : 'border-amber-200 bg-amber-50'
+              }`}
+            >
+              <p
+                className={`text-sm font-medium ${isDarkTheme ? 'text-amber-300' : 'text-amber-800'}`}
+              >
                 System temporarily unavailable. We&apos;ll be back shortly.
               </p>
               <p className={`mt-1 text-xs ${isDarkTheme ? 'text-amber-400/70' : 'text-amber-700'}`}>
@@ -1332,28 +1416,42 @@ function LoginContent() {
                   : 'Sign in to EONPRO'}
           </p>
           {isProviderLogin && (
-            <p className={`mb-4 max-w-sm text-center text-sm sm:mb-6 ${isDarkTheme ? 'text-white/50' : 'text-gray-500'}`}>
+            <p
+              className={`mb-4 max-w-sm text-center text-sm sm:mb-6 ${isDarkTheme ? 'text-white/50' : 'text-gray-500'}`}
+            >
               Sign in to review and approve prescriptions from the queue — even on the go.
             </p>
           )}
 
           {/* Patient login redirect banner on clinic subdomains */}
-          {branding && !isMainApp && !isProviderLogin && !isLogosRxExperience && step === 'identifier' && (
-            <a
-              href="/patient-login"
-              className={`mb-8 flex w-full max-w-md items-center justify-between rounded-2xl border p-4 transition-colors ${
-                isClinicDarkLogin
-                  ? 'border-white/10 bg-white/[0.06] backdrop-blur-sm hover:bg-white/[0.1]'
-                  : 'border-gray-200 bg-white/80 hover:bg-white hover:shadow-md'
-              }`}
-            >
-              <div>
-                <p className={`text-sm font-semibold ${isClinicDarkLogin ? 'text-white' : 'text-gray-900'}`}>Are you a patient?</p>
-                <p className={`text-xs ${isClinicDarkLogin ? 'text-white/50' : 'text-gray-500'}`}>Use the Patient Portal login instead</p>
-              </div>
-              <ArrowRight className={`h-5 w-5 ${isClinicDarkLogin ? 'text-white/40' : 'text-gray-400'}`} />
-            </a>
-          )}
+          {branding &&
+            !isMainApp &&
+            !isProviderLogin &&
+            !isLogosRxExperience &&
+            step === 'identifier' && (
+              <a
+                href="/patient-login"
+                className={`mb-8 flex w-full max-w-md items-center justify-between rounded-2xl border p-4 transition-colors ${
+                  isClinicDarkLogin
+                    ? 'border-white/10 bg-white/[0.06] backdrop-blur-sm hover:bg-white/[0.1]'
+                    : 'border-gray-200 bg-white/80 hover:bg-white hover:shadow-md'
+                }`}
+              >
+                <div>
+                  <p
+                    className={`text-sm font-semibold ${isClinicDarkLogin ? 'text-white' : 'text-gray-900'}`}
+                  >
+                    Are you a patient?
+                  </p>
+                  <p className={`text-xs ${isClinicDarkLogin ? 'text-white/50' : 'text-gray-500'}`}>
+                    Use the Patient Portal login instead
+                  </p>
+                </div>
+                <ArrowRight
+                  className={`h-5 w-5 ${isClinicDarkLogin ? 'text-white/40' : 'text-gray-400'}`}
+                />
+              </a>
+            )}
 
           {/* Login Form */}
           <div className="w-full max-w-md">
@@ -1361,12 +1459,17 @@ function LoginContent() {
             {step === 'identifier' && (
               <form onSubmit={handleIdentifierSubmit} className="space-y-4">
                 {isDarkTheme && (
-                  <label htmlFor="identifier" className="block text-xs font-medium uppercase tracking-wider text-white/50">
+                  <label
+                    htmlFor="identifier"
+                    className="block text-xs font-medium uppercase tracking-wider text-white/50"
+                  >
                     Email address or phone
                   </label>
                 )}
                 <div className="relative">
-                  <div className={`pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 ${isDarkTheme ? 'text-white/30' : 'text-gray-400'} transition-opacity duration-200 ${identifier ? 'opacity-0' : 'opacity-100'}`}>
+                  <div
+                    className={`pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 ${isDarkTheme ? 'text-white/30' : 'text-gray-400'} transition-opacity duration-200 ${identifier ? 'opacity-0' : 'opacity-100'}`}
+                  >
                     {isPhoneNumber(identifier) ? (
                       <Phone className="h-5 w-5" />
                     ) : (
@@ -1383,7 +1486,12 @@ function LoginContent() {
                         ? 'border-white/12 bg-white/[0.06] text-white placeholder-white/35 backdrop-blur-sm'
                         : 'border-gray-200 bg-white text-gray-900 placeholder-gray-400'
                     }`}
-                    style={{ paddingLeft: '3.5rem', '--tw-ring-color': isDarkTheme ? darkFocusRing : primaryColor } as React.CSSProperties}
+                    style={
+                      {
+                        paddingLeft: '3.5rem',
+                        '--tw-ring-color': isDarkTheme ? darkFocusRing : primaryColor,
+                      } as React.CSSProperties
+                    }
                     placeholder="Enter email or phone number"
                     required
                     autoComplete="username"
@@ -1393,7 +1501,9 @@ function LoginContent() {
 
                 <div
                   className={`rounded-2xl border transition-all duration-150 ${
-                    sessionMessage ? `opacity-100 p-4 ${isDarkTheme ? 'border-amber-500/30 bg-amber-900/30 backdrop-blur-sm' : 'border-amber-200 bg-amber-50'}` : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                    sessionMessage
+                      ? `p-4 opacity-100 ${isDarkTheme ? 'border-amber-500/30 bg-amber-900/30 backdrop-blur-sm' : 'border-amber-200 bg-amber-50'}`
+                      : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
                   }`}
                   aria-live="polite"
                 >
@@ -1404,26 +1514,30 @@ function LoginContent() {
 
                 <div
                   className={`rounded-2xl border transition-all duration-150 ${
-                    error ? `opacity-100 p-4 ${isDarkTheme ? 'border-red-500/30 bg-red-900/30 backdrop-blur-sm' : 'border-red-200 bg-red-50'}` : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                    error
+                      ? `p-4 opacity-100 ${isDarkTheme ? 'border-red-500/30 bg-red-900/30 backdrop-blur-sm' : 'border-red-200 bg-red-50'}`
+                      : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
                   }`}
                   aria-live="polite"
                 >
-                  {error && (
-                    <p className="text-center text-sm text-red-600">{error}</p>
-                  )}
+                  {error && <p className="text-center text-sm text-red-600">{error}</p>}
                 </div>
 
                 <button
                   type="submit"
                   disabled={loading || systemUnavailable}
                   className={`flex min-h-[48px] w-full touch-manipulation items-center justify-center gap-2 rounded-2xl px-6 py-4 text-base font-semibold transition-all ${
-                    loading || systemUnavailable ? 'cursor-not-allowed opacity-50' : 'hover:opacity-90 active:scale-[0.99]'
+                    loading || systemUnavailable
+                      ? 'cursor-not-allowed opacity-50'
+                      : 'hover:opacity-90 active:scale-[0.99]'
                   }`}
                   style={{
-                    backgroundColor: (loading || systemUnavailable) ? '#9CA3AF' : primaryColor,
-                    ...(isDarkTheme && !(loading || systemUnavailable) ? {
-                      background: darkButtonGradient,
-                    } : {}),
+                    backgroundColor: loading || systemUnavailable ? '#9CA3AF' : primaryColor,
+                    ...(isDarkTheme && !(loading || systemUnavailable)
+                      ? {
+                          background: darkButtonGradient,
+                        }
+                      : {}),
                     color: buttonTextColor,
                   }}
                 >
@@ -1443,7 +1557,9 @@ function LoginContent() {
                 {!(branding && !isMainApp && !isProviderLogin) && (
                   <div className="space-y-2 pt-4">
                     {!isProviderLogin && (
-                      <p className={`text-center text-sm ${isDarkTheme ? 'text-white/60' : 'text-gray-600'}`}>
+                      <p
+                        className={`text-center text-sm ${isDarkTheme ? 'text-white/60' : 'text-gray-600'}`}
+                      >
                         Patient?{' '}
                         <a
                           href="/patient-login"
@@ -1454,7 +1570,9 @@ function LoginContent() {
                         </a>
                       </p>
                     )}
-                    <p className={`text-center text-sm ${isDarkTheme ? 'text-white/60' : 'text-gray-600'}`}>
+                    <p
+                      className={`text-center text-sm ${isDarkTheme ? 'text-white/60' : 'text-gray-600'}`}
+                    >
                       New patient?{' '}
                       <a
                         href="/register"
@@ -1472,12 +1590,22 @@ function LoginContent() {
             {/* STEP 2a: Password (for email login) */}
             {step === 'password' && (
               <form onSubmit={handlePasswordLogin} className="space-y-4">
-                <div className={`flex items-center justify-between rounded-2xl border p-4 ${
-                  isDarkTheme ? 'border-white/10 bg-white/[0.06] backdrop-blur-sm' : 'border-gray-200 bg-white'
-                }`}>
+                <div
+                  className={`flex items-center justify-between rounded-2xl border p-4 ${
+                    isDarkTheme
+                      ? 'border-white/10 bg-white/[0.06] backdrop-blur-sm'
+                      : 'border-gray-200 bg-white'
+                  }`}
+                >
                   <div>
-                    <p className={`mb-1 text-xs ${isDarkTheme ? 'text-white/50' : 'text-gray-500'}`}>Email</p>
-                    <p className={`font-medium ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>{identifier}</p>
+                    <p
+                      className={`mb-1 text-xs ${isDarkTheme ? 'text-white/50' : 'text-gray-500'}`}
+                    >
+                      Email
+                    </p>
+                    <p className={`font-medium ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>
+                      {identifier}
+                    </p>
                   </div>
                   <button
                     type="button"
@@ -1499,7 +1627,11 @@ function LoginContent() {
                         ? 'border-white/12 bg-white/[0.06] text-white placeholder-white/35 backdrop-blur-sm'
                         : 'border-gray-200 bg-white text-gray-900 placeholder-gray-400'
                     }`}
-                    style={{ '--tw-ring-color': isDarkTheme ? darkFocusRing : primaryColor } as React.CSSProperties}
+                    style={
+                      {
+                        '--tw-ring-color': isDarkTheme ? darkFocusRing : primaryColor,
+                      } as React.CSSProperties
+                    }
                     placeholder="Password"
                     required
                     autoComplete="current-password"
@@ -1509,7 +1641,9 @@ function LoginContent() {
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className={`absolute right-4 top-1/2 flex min-h-[44px] min-w-[44px] -translate-y-1/2 touch-manipulation items-center justify-center transition-colors ${
-                      isDarkTheme ? 'text-white/40 hover:text-white/70' : 'text-gray-400 hover:text-gray-600'
+                      isDarkTheme
+                        ? 'text-white/40 hover:text-white/70'
+                        : 'text-gray-400 hover:text-gray-600'
                     }`}
                   >
                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -1517,8 +1651,10 @@ function LoginContent() {
                 </div>
 
                 <div
-                  className={`rounded-2xl border transition-all duration-150 space-y-3 ${
-                    error ? `opacity-100 p-4 ${isDarkTheme ? 'border-red-500/30 bg-red-900/30 backdrop-blur-sm' : 'border-red-200 bg-red-50'}` : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                  className={`space-y-3 rounded-2xl border transition-all duration-150 ${
+                    error
+                      ? `p-4 opacity-100 ${isDarkTheme ? 'border-red-500/30 bg-red-900/30 backdrop-blur-sm' : 'border-red-200 bg-red-50'}`
+                      : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
                   }`}
                   aria-live="polite"
                 >
@@ -1526,86 +1662,92 @@ function LoginContent() {
                     <>
                       <p className="text-center text-sm text-red-600">{error}</p>
                       {error.includes('temporarily locked') && (
-                      <div className="flex justify-center">
-                        <button
-                          type="button"
-                          onClick={sendEmailOtp}
-                          disabled={loading}
-                          className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
-                        >
-                          Unlock via email code
-                        </button>
-                      </div>
-                    )}
-                    {error.includes('verify your email') && (
-                      <div className="flex justify-center">
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            try {
-                              setLoading(true);
-                              const res = await fetch('/api/auth/register', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ email: identifier, action: 'resend' }),
-                              });
-                              if (res.ok) {
-                                setError('Verification email sent! Please check your inbox and spam folder.');
-                              } else {
+                        <div className="flex justify-center">
+                          <button
+                            type="button"
+                            onClick={sendEmailOtp}
+                            disabled={loading}
+                            className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+                          >
+                            Unlock via email code
+                          </button>
+                        </div>
+                      )}
+                      {error.includes('verify your email') && (
+                        <div className="flex justify-center">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                setLoading(true);
+                                const res = await fetch('/api/auth/register', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ email: identifier, action: 'resend' }),
+                                });
+                                if (res.ok) {
+                                  setError(
+                                    'Verification email sent! Please check your inbox and spam folder.'
+                                  );
+                                } else {
+                                  setError(
+                                    'Failed to resend verification email. Please try again.'
+                                  );
+                                }
+                              } catch {
                                 setError('Failed to resend verification email. Please try again.');
+                              } finally {
+                                setLoading(false);
                               }
-                            } catch {
-                              setError('Failed to resend verification email. Please try again.');
-                            } finally {
-                              setLoading(false);
-                            }
-                          }}
-                          disabled={loading}
-                          className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors hover:opacity-90 disabled:opacity-50"
-                          style={{ backgroundColor: primaryColor, color: buttonTextColor }}
-                        >
-                          <Mail className="h-4 w-4" />
-                          Resend verification email
-                        </button>
-                      </div>
-                    )}
-                    {retryAfterCountdown > 0 && (
-                      <p className="text-center text-sm text-red-600">
-                        You can try again in {retryAfterCountdown} second{retryAfterCountdown !== 1 ? 's' : ''}.
-                      </p>
-                    )}
-                    {showRetryButton && retryAfterCountdown === 0 && (
-                      <div className="flex justify-center">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            setError('');
-                            setShowRetryButton(false);
-                            handlePasswordLogin(e, selectedClinicId ?? undefined);
-                          }}
-                          disabled={loading}
-                          className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors hover:opacity-90 disabled:opacity-50"
-                          style={{ backgroundColor: primaryColor, color: buttonTextColor }}
-                        >
-                          <RefreshCw className="h-4 w-4" />
-                          Retry
-                        </button>
-                      </div>
-                    )}
-                    {wrongClinicRedirectUrl && (
-                      <div className="text-center">
-                        <a
-                          href={wrongClinicRedirectUrl}
-                          className="inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold transition-colors hover:opacity-90"
-                          style={{
-                            backgroundColor: primaryColor,
-                            color: buttonTextColor,
-                          }}
-                        >
-                          Go to {wrongClinicName ? `${wrongClinicName} login` : "your clinic's login"}
-                        </a>
-                      </div>
-                    )}
+                            }}
+                            disabled={loading}
+                            className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors hover:opacity-90 disabled:opacity-50"
+                            style={{ backgroundColor: primaryColor, color: buttonTextColor }}
+                          >
+                            <Mail className="h-4 w-4" />
+                            Resend verification email
+                          </button>
+                        </div>
+                      )}
+                      {retryAfterCountdown > 0 && (
+                        <p className="text-center text-sm text-red-600">
+                          You can try again in {retryAfterCountdown} second
+                          {retryAfterCountdown !== 1 ? 's' : ''}.
+                        </p>
+                      )}
+                      {showRetryButton && retryAfterCountdown === 0 && (
+                        <div className="flex justify-center">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              setError('');
+                              setShowRetryButton(false);
+                              handlePasswordLogin(e, selectedClinicId ?? undefined);
+                            }}
+                            disabled={loading}
+                            className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors hover:opacity-90 disabled:opacity-50"
+                            style={{ backgroundColor: primaryColor, color: buttonTextColor }}
+                          >
+                            <RefreshCw className="h-4 w-4" />
+                            Retry
+                          </button>
+                        </div>
+                      )}
+                      {wrongClinicRedirectUrl && (
+                        <div className="text-center">
+                          <a
+                            href={wrongClinicRedirectUrl}
+                            className="inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold transition-colors hover:opacity-90"
+                            style={{
+                              backgroundColor: primaryColor,
+                              color: buttonTextColor,
+                            }}
+                          >
+                            Go to{' '}
+                            {wrongClinicName ? `${wrongClinicName} login` : "your clinic's login"}
+                          </a>
+                        </div>
+                      )}
                     </>
                   )}
                 </div>
@@ -1620,10 +1762,14 @@ function LoginContent() {
                   }`}
                   style={{
                     backgroundColor:
-                      (loading || retryAfterCountdown > 0 || systemUnavailable) ? '#9CA3AF' : primaryColor,
-                    ...(isDarkTheme && !(loading || retryAfterCountdown > 0 || systemUnavailable) ? {
-                      background: darkButtonGradient,
-                    } : {}),
+                      loading || retryAfterCountdown > 0 || systemUnavailable
+                        ? '#9CA3AF'
+                        : primaryColor,
+                    ...(isDarkTheme && !(loading || retryAfterCountdown > 0 || systemUnavailable)
+                      ? {
+                          background: darkButtonGradient,
+                        }
+                      : {}),
                     color: buttonTextColor,
                   }}
                 >
@@ -1639,7 +1785,9 @@ function LoginContent() {
 
                 <div className="flex items-center gap-4 py-2">
                   <div className={`h-px flex-1 ${isDarkTheme ? 'bg-white/15' : 'bg-gray-200'}`} />
-                  <span className={`text-sm ${isDarkTheme ? 'text-white/40' : 'text-gray-500'}`}>Or other log-in options</span>
+                  <span className={`text-sm ${isDarkTheme ? 'text-white/40' : 'text-gray-500'}`}>
+                    Or other log-in options
+                  </span>
                   <div className={`h-px flex-1 ${isDarkTheme ? 'bg-white/15' : 'bg-gray-200'}`} />
                 </div>
 
@@ -1648,7 +1796,7 @@ function LoginContent() {
                   disabled={loading}
                   className={`min-h-[48px] w-full touch-manipulation rounded-2xl border px-6 py-4 text-base font-semibold transition-colors disabled:opacity-50 ${
                     isDarkTheme
-                      ? 'border-white/15 bg-white/[0.06] text-white hover:bg-white/[0.1] active:bg-white/[0.14] backdrop-blur-sm'
+                      ? 'border-white/15 bg-white/[0.06] text-white backdrop-blur-sm hover:bg-white/[0.1] active:bg-white/[0.14]'
                       : 'border-gray-200 bg-white text-gray-900 hover:bg-gray-50 active:bg-gray-100'
                   }`}
                   onClick={sendEmailOtp}
@@ -1663,7 +1811,9 @@ function LoginContent() {
                       onClick={handleForgotPassword}
                       disabled={loading}
                       className={`text-sm underline underline-offset-2 transition-colors disabled:opacity-50 ${
-                        isDarkTheme ? 'text-white/60 hover:text-white' : 'text-gray-700 hover:text-gray-900'
+                        isDarkTheme
+                          ? 'text-white/60 hover:text-white'
+                          : 'text-gray-700 hover:text-gray-900'
                       }`}
                     >
                       Forgot password?
@@ -1673,7 +1823,9 @@ function LoginContent() {
                       type="button"
                       onClick={handleBack}
                       className={`text-sm underline underline-offset-2 transition-colors ${
-                        isDarkTheme ? 'text-white/60 hover:text-white' : 'text-gray-700 hover:text-gray-900'
+                        isDarkTheme
+                          ? 'text-white/60 hover:text-white'
+                          : 'text-gray-700 hover:text-gray-900'
                       }`}
                     >
                       Not you? Log in here
@@ -1683,7 +1835,9 @@ function LoginContent() {
                     <a
                       href="/login?redirect=/provider"
                       className={`text-sm underline underline-offset-2 transition-colors ${
-                        isDarkTheme ? 'text-white/50 hover:text-white/80' : 'text-gray-600 hover:text-gray-900'
+                        isDarkTheme
+                          ? 'text-white/50 hover:text-white/80'
+                          : 'text-gray-600 hover:text-gray-900'
                       }`}
                     >
                       Provider? Log in as provider
@@ -1693,15 +1847,150 @@ function LoginContent() {
               </form>
             )}
 
+            {/* STEP: Needs Setup (user exists but has never logged in) */}
+            {step === 'needs-setup' && (
+              <div className="space-y-6">
+                <div className="text-center">
+                  <div
+                    className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full"
+                    style={{ backgroundColor: `rgba(${pcR},${pcG},${pcB},0.15)` }}
+                  >
+                    <Mail
+                      className="h-8 w-8"
+                      style={{ color: isDarkTheme ? darkAccent : primaryColor }}
+                    />
+                  </div>
+                  <h2
+                    className={`mb-2 text-xl font-semibold ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}
+                  >
+                    {setupFirstName ? `Welcome, ${setupFirstName}!` : 'Welcome!'}
+                  </h2>
+                  <p className={isDarkTheme ? 'text-white/70' : 'text-gray-600'}>
+                    Your account has been created but you haven&apos;t set a password yet.
+                    We&apos;ll send a setup link to <strong>{identifier}</strong> so you can create
+                    your password.
+                  </p>
+                </div>
+
+                {sessionMessage && (
+                  <div
+                    className={`rounded-2xl border p-4 text-center text-sm ${
+                      isDarkTheme
+                        ? 'border-emerald-500/30 bg-emerald-900/30 text-emerald-300 backdrop-blur-sm'
+                        : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                    }`}
+                  >
+                    {sessionMessage}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={async () => {
+                    setLoading(true);
+                    setError('');
+                    setSessionMessage('');
+                    try {
+                      await fetch('/api/auth/resend-setup-email', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email: identifier }),
+                      });
+                      setSessionMessage(
+                        'Setup email sent! Check your inbox for a link to create your password.'
+                      );
+                    } catch {
+                      setError('Failed to send setup email. Please try again.');
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                  className={`flex min-h-[48px] w-full touch-manipulation items-center justify-center gap-2 rounded-2xl px-6 py-4 text-base font-semibold transition-all ${
+                    loading
+                      ? 'cursor-not-allowed opacity-50'
+                      : 'hover:opacity-90 active:scale-[0.99]'
+                  }`}
+                  style={{
+                    ...(isDarkTheme
+                      ? { background: darkButtonGradient, color: '#ffffff' }
+                      : { backgroundColor: primaryColor, color: buttonTextColor }),
+                  }}
+                >
+                  {loading ? (
+                    <>
+                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="h-5 w-5" />
+                      Send me a setup link
+                    </>
+                  )}
+                </button>
+
+                <div
+                  className={`rounded-2xl border transition-all duration-150 ${
+                    error
+                      ? `p-4 opacity-100 ${isDarkTheme ? 'border-red-500/30 bg-red-900/30 backdrop-blur-sm' : 'border-red-200 bg-red-50'}`
+                      : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                  }`}
+                  aria-live="polite"
+                >
+                  {error && <p className="text-center text-sm text-red-600">{error}</p>}
+                </div>
+
+                <div className="flex flex-col items-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStep('password');
+                      setSessionMessage('');
+                      setError('');
+                    }}
+                    className={`text-sm underline underline-offset-2 transition-colors ${
+                      isDarkTheme
+                        ? 'text-white/60 hover:text-white'
+                        : 'text-gray-700 hover:text-gray-900'
+                    }`}
+                  >
+                    I already have a password
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleBack}
+                    className={`text-sm underline underline-offset-2 transition-colors ${
+                      isDarkTheme
+                        ? 'text-white/60 hover:text-white'
+                        : 'text-gray-700 hover:text-gray-900'
+                    }`}
+                  >
+                    Use a different email
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* STEP 2b: OTP (for phone login) */}
             {step === 'otp' && (
               <div className="space-y-6">
-                <div className={`flex items-center justify-between rounded-2xl border p-4 ${
-                  isDarkTheme ? 'border-white/10 bg-white/[0.06] backdrop-blur-sm' : 'border-gray-200 bg-white'
-                }`}>
+                <div
+                  className={`flex items-center justify-between rounded-2xl border p-4 ${
+                    isDarkTheme
+                      ? 'border-white/10 bg-white/[0.06] backdrop-blur-sm'
+                      : 'border-gray-200 bg-white'
+                  }`}
+                >
                   <div>
-                    <p className={`mb-1 text-xs ${isDarkTheme ? 'text-white/50' : 'text-gray-500'}`}>Phone number</p>
-                    <p className={`font-medium ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>{formatPhoneDisplay(identifier)}</p>
+                    <p
+                      className={`mb-1 text-xs ${isDarkTheme ? 'text-white/50' : 'text-gray-500'}`}
+                    >
+                      Phone number
+                    </p>
+                    <p className={`font-medium ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>
+                      {formatPhoneDisplay(identifier)}
+                    </p>
                   </div>
                   <button
                     type="button"
@@ -1713,7 +2002,9 @@ function LoginContent() {
                 </div>
 
                 <div className="text-center">
-                  <p className={isDarkTheme ? 'text-white/70' : 'text-gray-600'}>Enter the 6-digit code sent to your phone</p>
+                  <p className={isDarkTheme ? 'text-white/70' : 'text-gray-600'}>
+                    Enter the 6-digit code sent to your phone
+                  </p>
                 </div>
 
                 <div className="flex justify-center gap-3">
@@ -1735,7 +2026,11 @@ function LoginContent() {
                           ? 'border-white/15 bg-white/[0.06] text-white backdrop-blur-sm'
                           : 'border-gray-200 bg-white'
                       }`}
-                      style={{ '--tw-ring-color': isDarkTheme ? darkFocusRing : primaryColor } as React.CSSProperties}
+                      style={
+                        {
+                          '--tw-ring-color': isDarkTheme ? darkFocusRing : primaryColor,
+                        } as React.CSSProperties
+                      }
                       autoFocus={index === 0}
                     />
                   ))}
@@ -1743,13 +2038,13 @@ function LoginContent() {
 
                 <div
                   className={`rounded-2xl border transition-all duration-150 ${
-                    error ? `opacity-100 p-4 ${isDarkTheme ? 'border-red-500/30 bg-red-900/30 backdrop-blur-sm' : 'border-red-200 bg-red-50'}` : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                    error
+                      ? `p-4 opacity-100 ${isDarkTheme ? 'border-red-500/30 bg-red-900/30 backdrop-blur-sm' : 'border-red-200 bg-red-50'}`
+                      : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
                   }`}
                   aria-live="polite"
                 >
-                  {error && (
-                    <p className="text-center text-sm text-red-600">{error}</p>
-                  )}
+                  {error && <p className="text-center text-sm text-red-600">{error}</p>}
                 </div>
 
                 {loading && (
@@ -1775,12 +2070,17 @@ function LoginContent() {
                       Resend code
                     </button>
                   ) : otpCountdown > 0 ? (
-                    <p className={`text-sm ${isDarkTheme ? 'text-white/40' : 'text-gray-500'}`}>Resend code in {otpCountdown}s</p>
+                    <p className={`text-sm ${isDarkTheme ? 'text-white/40' : 'text-gray-500'}`}>
+                      Resend code in {otpCountdown}s
+                    </p>
                   ) : null}
                 </div>
 
-                <p className={`text-center text-xs ${isDarkTheme ? 'text-white/40' : 'text-gray-500'}`}>
-                  Didn&apos;t receive it? Check that you have an account registered with this number, then try resending.
+                <p
+                  className={`text-center text-xs ${isDarkTheme ? 'text-white/40' : 'text-gray-500'}`}
+                >
+                  Didn&apos;t receive it? Check that you have an account registered with this
+                  number, then try resending.
                 </p>
 
                 <div className="flex items-center justify-center gap-4 pt-4">
@@ -1788,7 +2088,9 @@ function LoginContent() {
                     type="button"
                     onClick={handleBack}
                     className={`text-sm underline underline-offset-2 transition-colors ${
-                      isDarkTheme ? 'text-white/60 hover:text-white' : 'text-gray-700 hover:text-gray-900'
+                      isDarkTheme
+                        ? 'text-white/60 hover:text-white'
+                        : 'text-gray-700 hover:text-gray-900'
                     }`}
                   >
                     Use a different number
@@ -1800,12 +2102,22 @@ function LoginContent() {
             {/* STEP 2c: Email OTP (passwordless email login) */}
             {step === 'email-otp' && (
               <div className="space-y-6">
-                <div className={`flex items-center justify-between rounded-2xl border p-4 ${
-                  isDarkTheme ? 'border-white/10 bg-white/[0.06] backdrop-blur-sm' : 'border-gray-200 bg-white'
-                }`}>
+                <div
+                  className={`flex items-center justify-between rounded-2xl border p-4 ${
+                    isDarkTheme
+                      ? 'border-white/10 bg-white/[0.06] backdrop-blur-sm'
+                      : 'border-gray-200 bg-white'
+                  }`}
+                >
                   <div>
-                    <p className={`mb-1 text-xs ${isDarkTheme ? 'text-white/50' : 'text-gray-500'}`}>Login code sent to</p>
-                    <p className={`font-medium ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>{identifier}</p>
+                    <p
+                      className={`mb-1 text-xs ${isDarkTheme ? 'text-white/50' : 'text-gray-500'}`}
+                    >
+                      Login code sent to
+                    </p>
+                    <p className={`font-medium ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>
+                      {identifier}
+                    </p>
                   </div>
                   <button
                     type="button"
@@ -1817,8 +2129,15 @@ function LoginContent() {
                 </div>
 
                 <div className="text-center">
-                  <Mail className="mx-auto mb-4 h-12 w-12" style={{ color: isDarkTheme ? darkAccent : primaryColor }} />
-                  <h2 className={`mb-2 text-xl font-semibold ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>Check your email</h2>
+                  <Mail
+                    className="mx-auto mb-4 h-12 w-12"
+                    style={{ color: isDarkTheme ? darkAccent : primaryColor }}
+                  />
+                  <h2
+                    className={`mb-2 text-xl font-semibold ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}
+                  >
+                    Check your email
+                  </h2>
                   <p className={isDarkTheme ? 'text-white/70' : 'text-gray-600'}>
                     Enter the 6-digit code we sent to log in
                   </p>
@@ -1843,7 +2162,11 @@ function LoginContent() {
                           ? 'border-white/15 bg-white/[0.06] text-white backdrop-blur-sm'
                           : 'border-gray-200 bg-white'
                       }`}
-                      style={{ '--tw-ring-color': isDarkTheme ? darkFocusRing : primaryColor } as React.CSSProperties}
+                      style={
+                        {
+                          '--tw-ring-color': isDarkTheme ? darkFocusRing : primaryColor,
+                        } as React.CSSProperties
+                      }
                       autoFocus={index === 0}
                     />
                   ))}
@@ -1851,13 +2174,13 @@ function LoginContent() {
 
                 <div
                   className={`rounded-2xl border transition-all duration-150 ${
-                    error ? `opacity-100 p-4 ${isDarkTheme ? 'border-red-500/30 bg-red-900/30 backdrop-blur-sm' : 'border-red-200 bg-red-50'}` : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                    error
+                      ? `p-4 opacity-100 ${isDarkTheme ? 'border-red-500/30 bg-red-900/30 backdrop-blur-sm' : 'border-red-200 bg-red-50'}`
+                      : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
                   }`}
                   aria-live="polite"
                 >
-                  {error && (
-                    <p className="text-center text-sm text-red-600">{error}</p>
-                  )}
+                  {error && <p className="text-center text-sm text-red-600">{error}</p>}
                 </div>
 
                 {loading && (
@@ -1883,12 +2206,17 @@ function LoginContent() {
                       Resend code
                     </button>
                   ) : emailOtpCountdown > 0 ? (
-                    <p className={`text-sm ${isDarkTheme ? 'text-white/40' : 'text-gray-500'}`}>Resend code in {emailOtpCountdown}s</p>
+                    <p className={`text-sm ${isDarkTheme ? 'text-white/40' : 'text-gray-500'}`}>
+                      Resend code in {emailOtpCountdown}s
+                    </p>
                   ) : null}
                 </div>
 
-                <p className={`text-center text-xs ${isDarkTheme ? 'text-white/40' : 'text-gray-500'}`}>
-                  Didn&apos;t receive it? Check your spam/junk folder. Make sure you have an account with this email.
+                <p
+                  className={`text-center text-xs ${isDarkTheme ? 'text-white/40' : 'text-gray-500'}`}
+                >
+                  Didn&apos;t receive it? Check your spam/junk folder. Make sure you have an account
+                  with this email.
                 </p>
 
                 <div className="flex flex-col items-center gap-3 pt-4">
@@ -1900,7 +2228,9 @@ function LoginContent() {
                       setError('');
                     }}
                     className={`text-sm underline underline-offset-2 transition-colors ${
-                      isDarkTheme ? 'text-white/60 hover:text-white' : 'text-gray-700 hover:text-gray-900'
+                      isDarkTheme
+                        ? 'text-white/60 hover:text-white'
+                        : 'text-gray-700 hover:text-gray-900'
                     }`}
                   >
                     Use password instead
@@ -1909,7 +2239,9 @@ function LoginContent() {
                     type="button"
                     onClick={handleBack}
                     className={`text-sm underline underline-offset-2 transition-colors ${
-                      isDarkTheme ? 'text-white/60 hover:text-white' : 'text-gray-700 hover:text-gray-900'
+                      isDarkTheme
+                        ? 'text-white/60 hover:text-white'
+                        : 'text-gray-700 hover:text-gray-900'
                     }`}
                   >
                     Use a different email
@@ -1921,12 +2253,22 @@ function LoginContent() {
             {/* STEP: Forgot Password - Enter Code */}
             {step === 'forgot' && (
               <div className="space-y-6">
-                <div className={`flex items-center justify-between rounded-2xl border p-4 ${
-                  isDarkTheme ? 'border-white/10 bg-white/[0.06] backdrop-blur-sm' : 'border-gray-200 bg-white'
-                }`}>
+                <div
+                  className={`flex items-center justify-between rounded-2xl border p-4 ${
+                    isDarkTheme
+                      ? 'border-white/10 bg-white/[0.06] backdrop-blur-sm'
+                      : 'border-gray-200 bg-white'
+                  }`}
+                >
                   <div>
-                    <p className={`mb-1 text-xs ${isDarkTheme ? 'text-white/50' : 'text-gray-500'}`}>Reset code sent to</p>
-                    <p className={`font-medium ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>{identifier}</p>
+                    <p
+                      className={`mb-1 text-xs ${isDarkTheme ? 'text-white/50' : 'text-gray-500'}`}
+                    >
+                      Reset code sent to
+                    </p>
+                    <p className={`font-medium ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>
+                      {identifier}
+                    </p>
                   </div>
                   <button
                     type="button"
@@ -1942,8 +2284,15 @@ function LoginContent() {
                 </div>
 
                 <div className="text-center">
-                  <Mail className="mx-auto mb-4 h-12 w-12" style={{ color: isDarkTheme ? darkAccent : primaryColor }} />
-                  <h2 className={`mb-2 text-xl font-semibold ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>Check your email</h2>
+                  <Mail
+                    className="mx-auto mb-4 h-12 w-12"
+                    style={{ color: isDarkTheme ? darkAccent : primaryColor }}
+                  />
+                  <h2
+                    className={`mb-2 text-xl font-semibold ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}
+                  >
+                    Check your email
+                  </h2>
                   <p className={isDarkTheme ? 'text-white/70' : 'text-gray-600'}>
                     Enter the 6-digit code we sent to reset your password
                   </p>
@@ -1968,7 +2317,11 @@ function LoginContent() {
                           ? 'border-white/15 bg-white/[0.06] text-white backdrop-blur-sm'
                           : 'border-gray-200 bg-white'
                       }`}
-                      style={{ '--tw-ring-color': isDarkTheme ? darkFocusRing : primaryColor } as React.CSSProperties}
+                      style={
+                        {
+                          '--tw-ring-color': isDarkTheme ? darkFocusRing : primaryColor,
+                        } as React.CSSProperties
+                      }
                       autoFocus={index === 0}
                     />
                   ))}
@@ -1976,13 +2329,13 @@ function LoginContent() {
 
                 <div
                   className={`rounded-2xl border transition-all duration-150 ${
-                    error ? `opacity-100 p-4 ${isDarkTheme ? 'border-red-500/30 bg-red-900/30 backdrop-blur-sm' : 'border-red-200 bg-red-50'}` : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                    error
+                      ? `p-4 opacity-100 ${isDarkTheme ? 'border-red-500/30 bg-red-900/30 backdrop-blur-sm' : 'border-red-200 bg-red-50'}`
+                      : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
                   }`}
                   aria-live="polite"
                 >
-                  {error && (
-                    <p className="text-center text-sm text-red-600">{error}</p>
-                  )}
+                  {error && <p className="text-center text-sm text-red-600">{error}</p>}
                 </div>
 
                 <div className="text-center">
@@ -1997,7 +2350,9 @@ function LoginContent() {
                       Resend code
                     </button>
                   ) : resetCountdown > 0 ? (
-                    <p className={`text-sm ${isDarkTheme ? 'text-white/40' : 'text-gray-500'}`}>Resend code in {resetCountdown}s</p>
+                    <p className={`text-sm ${isDarkTheme ? 'text-white/40' : 'text-gray-500'}`}>
+                      Resend code in {resetCountdown}s
+                    </p>
                   ) : null}
                 </div>
 
@@ -2011,7 +2366,9 @@ function LoginContent() {
                       setError('');
                     }}
                     className={`text-sm underline underline-offset-2 transition-colors ${
-                      isDarkTheme ? 'text-white/60 hover:text-white' : 'text-gray-700 hover:text-gray-900'
+                      isDarkTheme
+                        ? 'text-white/60 hover:text-white'
+                        : 'text-gray-700 hover:text-gray-900'
                     }`}
                   >
                     Back to login
@@ -2023,18 +2380,34 @@ function LoginContent() {
             {/* STEP: Reset Password - Enter New Password */}
             {step === 'reset' && (
               <form onSubmit={handleResetPassword} className="space-y-6">
-                <div className={`flex items-center justify-between rounded-2xl border p-4 ${
-                  isDarkTheme ? 'border-white/10 bg-white/[0.06] backdrop-blur-sm' : 'border-gray-200 bg-white'
-                }`}>
+                <div
+                  className={`flex items-center justify-between rounded-2xl border p-4 ${
+                    isDarkTheme
+                      ? 'border-white/10 bg-white/[0.06] backdrop-blur-sm'
+                      : 'border-gray-200 bg-white'
+                  }`}
+                >
                   <div>
-                    <p className={`mb-1 text-xs ${isDarkTheme ? 'text-white/50' : 'text-gray-500'}`}>Resetting password for</p>
-                    <p className={`font-medium ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>{identifier}</p>
+                    <p
+                      className={`mb-1 text-xs ${isDarkTheme ? 'text-white/50' : 'text-gray-500'}`}
+                    >
+                      Resetting password for
+                    </p>
+                    <p className={`font-medium ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>
+                      {identifier}
+                    </p>
                   </div>
                 </div>
 
                 <div className="text-center">
-                  <h2 className={`mb-2 text-xl font-semibold ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>Create new password</h2>
-                  <p className={isDarkTheme ? 'text-white/70' : 'text-gray-600'}>Enter your new password below</p>
+                  <h2
+                    className={`mb-2 text-xl font-semibold ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}
+                  >
+                    Create new password
+                  </h2>
+                  <p className={isDarkTheme ? 'text-white/70' : 'text-gray-600'}>
+                    Enter your new password below
+                  </p>
                 </div>
 
                 <div className="relative">
@@ -2047,7 +2420,11 @@ function LoginContent() {
                         ? 'border-white/12 bg-white/[0.06] text-white placeholder-white/35 backdrop-blur-sm'
                         : 'border-gray-200 bg-white'
                     }`}
-                    style={{ '--tw-ring-color': isDarkTheme ? darkFocusRing : primaryColor } as React.CSSProperties}
+                    style={
+                      {
+                        '--tw-ring-color': isDarkTheme ? darkFocusRing : primaryColor,
+                      } as React.CSSProperties
+                    }
                     placeholder="New password"
                     required
                     minLength={8}
@@ -2057,7 +2434,9 @@ function LoginContent() {
                     type="button"
                     onClick={() => setShowNewPassword(!showNewPassword)}
                     className={`absolute right-4 top-1/2 -translate-y-1/2 transition-colors ${
-                      isDarkTheme ? 'text-white/40 hover:text-white/70' : 'text-gray-400 hover:text-gray-600'
+                      isDarkTheme
+                        ? 'text-white/40 hover:text-white/70'
+                        : 'text-gray-400 hover:text-gray-600'
                     }`}
                   >
                     {showNewPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -2074,26 +2453,32 @@ function LoginContent() {
                         ? `${confirmNewPassword && newPassword !== confirmNewPassword ? 'border-red-400/60' : 'border-white/12'} bg-white/[0.06] text-white placeholder-white/35 backdrop-blur-sm`
                         : `${confirmNewPassword && newPassword !== confirmNewPassword ? 'border-red-300' : 'border-gray-200'} bg-white`
                     }`}
-                    style={{ '--tw-ring-color': isDarkTheme ? darkFocusRing : primaryColor } as React.CSSProperties}
+                    style={
+                      {
+                        '--tw-ring-color': isDarkTheme ? darkFocusRing : primaryColor,
+                      } as React.CSSProperties
+                    }
                     placeholder="Confirm new password"
                     required
                     minLength={8}
                   />
                 </div>
 
-                <p className={`text-center text-xs ${isDarkTheme ? 'text-white/40' : 'text-gray-500'}`}>
+                <p
+                  className={`text-center text-xs ${isDarkTheme ? 'text-white/40' : 'text-gray-500'}`}
+                >
                   Password must be at least 8 characters
                 </p>
 
                 <div
                   className={`rounded-2xl border transition-all duration-150 ${
-                    error ? `opacity-100 p-4 ${isDarkTheme ? 'border-red-500/30 bg-red-900/30 backdrop-blur-sm' : 'border-red-200 bg-red-50'}` : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                    error
+                      ? `p-4 opacity-100 ${isDarkTheme ? 'border-red-500/30 bg-red-900/30 backdrop-blur-sm' : 'border-red-200 bg-red-50'}`
+                      : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
                   }`}
                   aria-live="polite"
                 >
-                  {error && (
-                    <p className="text-center text-sm text-red-600">{error}</p>
-                  )}
+                  {error && <p className="text-center text-sm text-red-600">{error}</p>}
                 </div>
 
                 <button
@@ -2106,9 +2491,11 @@ function LoginContent() {
                   }`}
                   style={{
                     backgroundColor: primaryColor,
-                    ...(isDarkTheme && !(loading || !newPassword || !confirmNewPassword) ? {
-                      background: darkButtonGradient,
-                    } : {}),
+                    ...(isDarkTheme && !(loading || !newPassword || !confirmNewPassword)
+                      ? {
+                          background: darkButtonGradient,
+                        }
+                      : {}),
                     color: buttonTextColor,
                   }}
                 >
@@ -2130,7 +2517,9 @@ function LoginContent() {
                       setError('');
                     }}
                     className={`text-sm underline underline-offset-2 transition-colors ${
-                      isDarkTheme ? 'text-white/60 hover:text-white' : 'text-gray-700 hover:text-gray-900'
+                      isDarkTheme
+                        ? 'text-white/60 hover:text-white'
+                        : 'text-gray-700 hover:text-gray-900'
                     }`}
                   >
                     Re-enter code
@@ -2142,12 +2531,22 @@ function LoginContent() {
             {/* STEP 3: Clinic Selection (for multi-clinic users) */}
             {step === 'clinic' && (
               <div className="space-y-6">
-                <div className={`flex items-center justify-between rounded-2xl border p-4 ${
-                  isDarkTheme ? 'border-white/10 bg-white/[0.06] backdrop-blur-sm' : 'border-gray-200 bg-white'
-                }`}>
+                <div
+                  className={`flex items-center justify-between rounded-2xl border p-4 ${
+                    isDarkTheme
+                      ? 'border-white/10 bg-white/[0.06] backdrop-blur-sm'
+                      : 'border-gray-200 bg-white'
+                  }`}
+                >
                   <div>
-                    <p className={`mb-1 text-xs ${isDarkTheme ? 'text-white/50' : 'text-gray-500'}`}>Logged in as</p>
-                    <p className={`font-medium ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>{identifier}</p>
+                    <p
+                      className={`mb-1 text-xs ${isDarkTheme ? 'text-white/50' : 'text-gray-500'}`}
+                    >
+                      Logged in as
+                    </p>
+                    <p className={`font-medium ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>
+                      {identifier}
+                    </p>
                   </div>
                   <button
                     type="button"
@@ -2159,10 +2558,22 @@ function LoginContent() {
                 </div>
 
                 <div className="text-center">
-                  <div className="mx-auto mb-4 flex h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: isDarkTheme ? `${darkAccent}18` : `${primaryColor}15` }}>
-                    <Building2 className="h-5 w-5" style={{ color: isDarkTheme ? darkAccent : primaryColor }} />
+                  <div
+                    className="mx-auto mb-4 flex h-10 w-10 items-center justify-center rounded-xl"
+                    style={{
+                      backgroundColor: isDarkTheme ? `${darkAccent}18` : `${primaryColor}15`,
+                    }}
+                  >
+                    <Building2
+                      className="h-5 w-5"
+                      style={{ color: isDarkTheme ? darkAccent : primaryColor }}
+                    />
                   </div>
-                  <h2 className={`mb-2 text-xl font-semibold ${isDarkTheme ? 'text-white' : 'text-gray-800'}`}>Select a Clinic</h2>
+                  <h2
+                    className={`mb-2 text-xl font-semibold ${isDarkTheme ? 'text-white' : 'text-gray-800'}`}
+                  >
+                    Select a Clinic
+                  </h2>
                   <p className={isDarkTheme ? 'text-white/70' : 'text-gray-600'}>
                     You have access to multiple clinics. Choose which one to access now.
                   </p>
@@ -2181,12 +2592,22 @@ function LoginContent() {
                           : ''
                       } ${isDarkTheme ? 'backdrop-blur-sm' : ''}`}
                       style={{
-                        borderColor: selectedClinicId === clinic.id
-                          ? (isDarkTheme ? darkAccent : primaryColor)
-                          : (isDarkTheme ? 'rgba(255,255,255,0.1)' : '#e5e7eb'),
-                        backgroundColor: selectedClinicId === clinic.id
-                          ? (isDarkTheme ? 'rgba(16,185,129,0.12)' : `${primaryColor}10`)
-                          : (isDarkTheme ? 'rgba(255,255,255,0.04)' : 'white'),
+                        borderColor:
+                          selectedClinicId === clinic.id
+                            ? isDarkTheme
+                              ? darkAccent
+                              : primaryColor
+                            : isDarkTheme
+                              ? 'rgba(255,255,255,0.1)'
+                              : '#e5e7eb',
+                        backgroundColor:
+                          selectedClinicId === clinic.id
+                            ? isDarkTheme
+                              ? 'rgba(16,185,129,0.12)'
+                              : `${primaryColor}10`
+                            : isDarkTheme
+                              ? 'rgba(255,255,255,0.04)'
+                              : 'white',
                       }}
                     >
                       <div className="flex items-center justify-between">
@@ -2201,7 +2622,8 @@ function LoginContent() {
                               loading="lazy"
                               onError={(e) => {
                                 e.currentTarget.style.display = 'none';
-                                const fallback = e.currentTarget.nextElementSibling as HTMLElement | null;
+                                const fallback = e.currentTarget
+                                  .nextElementSibling as HTMLElement | null;
                                 if (fallback) fallback.style.display = '';
                               }}
                             />
@@ -2210,27 +2632,43 @@ function LoginContent() {
                             className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg"
                             style={{
                               backgroundColor: `${primaryColor}20`,
-                              display: clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl ? 'none' : '',
+                              display:
+                                clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl ? 'none' : '',
                             }}
                           >
                             <Building2 className="h-5 w-5" style={{ color: primaryColor }} />
                           </div>
                           <div>
-                            <p className={`font-medium ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>{clinic.name}</p>
-                            <p className={`text-sm ${isDarkTheme ? 'text-white/50' : 'text-gray-500'}`}>{clinic.role.charAt(0).toUpperCase() + clinic.role.slice(1).toLowerCase()}</p>
+                            <p
+                              className={`font-medium ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}
+                            >
+                              {clinic.name}
+                            </p>
+                            <p
+                              className={`text-sm ${isDarkTheme ? 'text-white/50' : 'text-gray-500'}`}
+                            >
+                              {clinic.role.charAt(0).toUpperCase() +
+                                clinic.role.slice(1).toLowerCase()}
+                            </p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
                           {clinic.isPrimary && (
                             <span
                               className="rounded-full px-2 py-1 text-xs"
-                              style={{ backgroundColor: `${primaryColor}20`, color: isDarkTheme ? darkAccent : primaryColor }}
+                              style={{
+                                backgroundColor: `${primaryColor}20`,
+                                color: isDarkTheme ? darkAccent : primaryColor,
+                              }}
                             >
                               Primary
                             </span>
                           )}
                           {selectedClinicId === clinic.id && (
-                            <Check className="h-5 w-5" style={{ color: isDarkTheme ? darkAccent : primaryColor }} />
+                            <Check
+                              className="h-5 w-5"
+                              style={{ color: isDarkTheme ? darkAccent : primaryColor }}
+                            />
                           )}
                         </div>
                       </div>
@@ -2239,8 +2677,10 @@ function LoginContent() {
                 </div>
 
                 <div
-                  className={`rounded-2xl border transition-all duration-150 space-y-3 ${
-                    error ? `opacity-100 p-4 ${isDarkTheme ? 'border-red-500/30 bg-red-900/30 backdrop-blur-sm' : 'border-red-200 bg-red-50'}` : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                  className={`space-y-3 rounded-2xl border transition-all duration-150 ${
+                    error
+                      ? `p-4 opacity-100 ${isDarkTheme ? 'border-red-500/30 bg-red-900/30 backdrop-blur-sm' : 'border-red-200 bg-red-50'}`
+                      : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
                   }`}
                   aria-live="polite"
                 >
@@ -2248,28 +2688,29 @@ function LoginContent() {
                     <>
                       <p className="text-center text-sm text-red-600">{error}</p>
                       {retryAfterCountdown > 0 && (
-                      <p className="text-center text-sm text-red-600">
-                        You can try again in {retryAfterCountdown} second{retryAfterCountdown !== 1 ? 's' : ''}.
-                      </p>
-                    )}
-                    {showRetryButton && retryAfterCountdown === 0 && selectedClinicId && (
-                      <div className="flex justify-center">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setError('');
-                            setShowRetryButton(false);
-                            handleClinicSelect(selectedClinicId);
-                          }}
-                          disabled={loading}
-                          className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors hover:opacity-90 disabled:opacity-50"
-                          style={{ backgroundColor: primaryColor, color: buttonTextColor }}
-                        >
-                          <RefreshCw className="h-4 w-4" />
-                          Retry
-                        </button>
-                      </div>
-                    )}
+                        <p className="text-center text-sm text-red-600">
+                          You can try again in {retryAfterCountdown} second
+                          {retryAfterCountdown !== 1 ? 's' : ''}.
+                        </p>
+                      )}
+                      {showRetryButton && retryAfterCountdown === 0 && selectedClinicId && (
+                        <div className="flex justify-center">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setError('');
+                              setShowRetryButton(false);
+                              handleClinicSelect(selectedClinicId);
+                            }}
+                            disabled={loading}
+                            className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors hover:opacity-90 disabled:opacity-50"
+                            style={{ backgroundColor: primaryColor, color: buttonTextColor }}
+                          >
+                            <RefreshCw className="h-4 w-4" />
+                            Retry
+                          </button>
+                        </div>
+                      )}
                     </>
                   )}
                 </div>
@@ -2285,7 +2726,9 @@ function LoginContent() {
                   </div>
                 )}
 
-                <p className={`text-center text-xs ${isDarkTheme ? 'text-white/40' : 'text-gray-500'}`}>
+                <p
+                  className={`text-center text-xs ${isDarkTheme ? 'text-white/40' : 'text-gray-500'}`}
+                >
                   You can switch clinics anytime from your dashboard
                 </p>
               </div>
@@ -2294,17 +2737,45 @@ function LoginContent() {
         </div>
 
         <div className="mt-auto p-6 text-center">
-          <div className={`mb-3 flex items-center justify-center gap-6 ${isDarkTheme ? 'text-white/35' : 'text-gray-400'}`}>
+          <div
+            className={`mb-3 flex items-center justify-center gap-6 ${isDarkTheme ? 'text-white/35' : 'text-gray-400'}`}
+          >
             <span className="flex items-center gap-1.5 text-xs">
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+              <svg
+                className="h-3.5 w-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <rect x="3" y="11" width="18" height="11" rx="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
               Encrypted
             </span>
             <span className="flex items-center gap-1.5 text-xs">
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
+              <svg
+                className="h-3.5 w-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              </svg>
               HIPAA Compliant
             </span>
             <span className="flex items-center gap-1.5 text-xs">
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+              <svg
+                className="h-3.5 w-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                <polyline points="22 4 12 14.01 9 11.01" />
+              </svg>
               SOC 2
             </span>
           </div>
