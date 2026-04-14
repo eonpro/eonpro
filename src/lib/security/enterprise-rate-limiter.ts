@@ -177,7 +177,7 @@ async function getEntry(key: string): Promise<RateLimitEntry | null> {
   const data = await cache.withClient<RateLimitEntry | string | null>(
     'enterpriseRateLimit:getEntry',
     null,
-    async (redis) => (await redis.get<RateLimitEntry | string>(key)) ?? null,
+    async (redis) => (await redis.get<RateLimitEntry | string>(key)) ?? null
   );
 
   if (data) {
@@ -201,7 +201,7 @@ async function setEntry(key: string, entry: RateLimitEntry, ttlSeconds: number):
     async (redis) => {
       await redis.setex(key, ttlSeconds, JSON.stringify(entry));
       return true;
-    },
+    }
   );
 
   if (wroteToRedis) {
@@ -212,13 +212,9 @@ async function setEntry(key: string, entry: RateLimitEntry, ttlSeconds: number):
 }
 
 async function deleteEntry(key: string): Promise<void> {
-  await cache.withClient<void>(
-    'enterpriseRateLimit:deleteEntry',
-    undefined,
-    async (redis) => {
-      await redis.del(key);
-    },
-  );
+  await cache.withClient<void>('enterpriseRateLimit:deleteEntry', undefined, async (redis) => {
+    await redis.del(key);
+  });
 
   memoryCache.delete(key);
 }
@@ -510,6 +506,10 @@ export class EnterpriseRateLimiter {
       });
     }
 
+    const resetInSeconds = !allowed
+      ? this.config.blockDurationSeconds
+      : 3600 - (now - ipEntry.firstAttempt);
+
     return {
       allowed,
       attempts: effectiveAttempts,
@@ -519,7 +519,7 @@ export class EnterpriseRateLimiter {
       requiresEmailVerification,
       isLocked,
       unlockMethods,
-      resetInSeconds: 3600 - (now - ipEntry.firstAttempt),
+      resetInSeconds,
       message,
       securityLevel,
       ipAttempts: ipEntry.attempts,
@@ -694,10 +694,7 @@ export class EnterpriseRateLimiter {
 // ============================================================================
 
 /** Lockout after N failed attempts. Override via AUTH_LOCKOUT_AFTER_ATTEMPTS env var. */
-const AUTH_LOCKOUT_ATTEMPTS = parseInt(
-  process.env.AUTH_LOCKOUT_AFTER_ATTEMPTS || '10',
-  10
-);
+const AUTH_LOCKOUT_ATTEMPTS = parseInt(process.env.AUTH_LOCKOUT_AFTER_ATTEMPTS || '10', 10);
 
 /**
  * Authentication rate limiter (login, password reset, etc.)
@@ -778,7 +775,10 @@ export async function emergencyFlushAllAuthRateLimits(): Promise<{ cleared: numb
       let redisDeleted = 0;
       let cursor: string | number = 0;
       do {
-        const result: [string | number, string[]] = await redis.scan(cursor, { match: 'auth:*', count: 200 });
+        const result: [string | number, string[]] = await redis.scan(cursor, {
+          match: 'auth:*',
+          count: 200,
+        });
         cursor = result[0];
         const keys = result[1] as string[];
         if (keys.length > 0) {
@@ -788,7 +788,7 @@ export async function emergencyFlushAllAuthRateLimits(): Promise<{ cleared: numb
         // Upstash returns cursor as string; `"0" !== 0` would never terminate.
       } while (String(cursor) !== '0');
       return redisDeleted;
-    },
+    }
   );
   cleared += redisCleared;
 
