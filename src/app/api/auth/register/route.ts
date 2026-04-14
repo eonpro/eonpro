@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
-import { strictRateLimit } from '@/lib/rateLimit';
+import { rateLimit } from '@/lib/rateLimit';
 import {
   registerPatient,
   registerWithInviteToken,
@@ -159,10 +159,18 @@ async function handler(req: NextRequest): Promise<Response> {
       message: result.message,
     });
   } catch (error: unknown) {
-    logger.error('Registration endpoint error', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('Registration endpoint error', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json({ error: 'An error occurred. Please try again.' }, { status: 500 });
   }
 }
 
-// Apply rate limiting (5 requests per minute per IP)
-export const POST = strictRateLimit(handler);
+const registrationRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  message: 'Too many registration requests. Please try again in 15 minutes.',
+  skipSuccessfulRequests: true,
+});
+
+export const POST = registrationRateLimit(handler);
