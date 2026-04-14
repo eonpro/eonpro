@@ -9,7 +9,11 @@ import { BookAppointmentStep } from '@/domains/intake/components/form-engine/ste
 import { useIntakeStore } from '@/domains/intake/store/intakeStore';
 import { LanguageProvider, useLanguage } from '@/domains/intake/contexts/LanguageContext';
 import { trackIntakeEvent } from '@/domains/intake/lib/analytics';
-import type { FormConfig, FormStep as FormStepType, FormBranding } from '@/domains/intake/types/form-engine';
+import type {
+  FormConfig,
+  FormStep as FormStepType,
+  FormBranding,
+} from '@/domains/intake/types/form-engine';
 
 function IntakeStepContent() {
   const params = useParams();
@@ -109,7 +113,11 @@ function IntakeStepContent() {
     async function loadConfig() {
       try {
         const res = await fetch(`/api/intake-forms/config/${clinicSlug}/${templateSlug}`);
-        if (!res.ok) { setError('Form not found'); setLoading(false); return; }
+        if (!res.ok) {
+          setError('Form not found');
+          setLoading(false);
+          return;
+        }
         const data = await res.json();
         if (!cancelled) {
           setFormConfig(data.config);
@@ -118,11 +126,16 @@ function IntakeStepContent() {
           setLoading(false);
         }
       } catch {
-        if (!cancelled) { setError('Failed to load form'); setLoading(false); }
+        if (!cancelled) {
+          setError('Failed to load form');
+          setLoading(false);
+        }
       }
     }
     loadConfig();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [clinicSlug, templateSlug, initSession]);
 
   const stepConfig = useMemo<FormStepType | undefined>(() => {
@@ -137,7 +150,7 @@ function IntakeStepContent() {
       store.getState().setCurrentStep(nextStepId);
       router.push(`${basePath}/${nextStepId}`);
     },
-    [basePath, router, store],
+    [basePath, router, store]
   );
 
   const handleBack = useCallback(() => {
@@ -148,29 +161,43 @@ function IntakeStepContent() {
   }, [stepConfig, basePath, router, store]);
 
   const handleSetResponse = useCallback(
-    (key: string, value: unknown) => { store.getState().setResponse(key, value); },
-    [store],
+    (key: string, value: unknown) => {
+      store.getState().setResponse(key, value);
+    },
+    [store]
   );
 
   const handleSetResponses = useCallback(
-    (newResponses: Record<string, unknown>) => { store.getState().setResponses(newResponses); },
-    [store],
+    (newResponses: Record<string, unknown>) => {
+      store.getState().setResponses(newResponses);
+    },
+    [store]
   );
 
   const handleMarkCompleted = useCallback(
-    (sid: string) => { store.getState().markStepCompleted(sid); },
-    [store],
+    (sid: string) => {
+      store.getState().markStepCompleted(sid);
+    },
+    [store]
   );
 
   if (loading) {
-    return <div className="min-h-screen" style={{ backgroundColor: clinicSlug === 'wellmedr' ? '#F7F7F9' : '#ffffff' }} />;
+    return (
+      <div
+        className="min-h-screen"
+        style={{ backgroundColor: clinicSlug === 'wellmedr' ? '#F7F7F9' : '#ffffff' }}
+      />
+    );
   }
 
   if (error || !formConfig || !stepConfig) return notFound();
 
-  const intakeBrand: IntakeBrand = clinicSlug === 'wellmedr' ? 'wellmedr'
-    : (clinicSlug === 'ot' || clinicSlug === 'otmens') ? 'otmens'
-    : 'eonmeds';
+  const intakeBrand: IntakeBrand =
+    clinicSlug === 'wellmedr'
+      ? 'wellmedr'
+      : clinicSlug === 'ot' || clinicSlug === 'otmens'
+        ? 'otmens'
+        : 'eonmeds';
 
   if (stepId === 'wellmedr-checkout-redirect') {
     const sessionId = store.getState().sessionId || crypto.randomUUID();
@@ -189,9 +216,68 @@ function IntakeStepContent() {
       ...(r.dob ? { dob: String(r.dob) } : {}),
     });
     if (typeof window !== 'undefined') {
-      window.location.href = `/wellmedr-checkout?${params.toString()}`;
+      // Submit intake to wellmedr-intake webhook (creates patient in EONPRO)
+      // and do final Airtable sync — both fire-and-forget before redirect
+      const webhookPayload = {
+        'submission-id': sessionId,
+        'first-name': r.firstName || '',
+        'last-name': r.lastName || '',
+        email: r.email || '',
+        phone: r.phone || '',
+        state: r.state || '',
+        dob: r.dob || '',
+        sex: r.sex || '',
+        feet: r.height_feet || r.heightFeet || '',
+        inches: r.height_inches || r.heightInches || '',
+        weight: r.current_weight || r.currentWeight || '',
+        'goal-weight': r.ideal_weight || r.idealWeight || '',
+        'health-conditions': Array.isArray(r.health_conditions) ? r.health_conditions.join(', ') : (r.health_conditions || ''),
+        'glp1-last-30': r.glp1_history_recent || '',
+        'glp1-last-30-medication-type': r.glp1_type || '',
+        'current-meds': r.current_medications || '',
+        'current-meds-details': r.current_medications_detail || '',
+        'avg-blood-pressure-range': r.blood_pressure || '',
+        'avg-resting-heart-rate': r.heart_rate || '',
+        opioids: r.opioid_use || '',
+        'additional-info': r.anything_else || '',
+        'additional-info-details': r.anything_else_detail || '',
+        'Checkout Completed': false,
+      };
+
+      Promise.all([
+        fetch('/api/wellmedr/submit-intake', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(webhookPayload),
+        }).catch((err) => console.error('[intake-redirect] Submit failed:', err)),
+        fetch('/api/wellmedr/airtable-sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId,
+            recordId: typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('wm_airtable_record_id') : null,
+            responses: r,
+          }),
+        }).catch(() => {}),
+      ]).finally(() => {
+        window.location.href = `/wellmedr-checkout?${params.toString()}`;
+      });
+
+      // Show spinner while submitting
+      return (
+        <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: '#F7F7F9' }}>
+          <div className="flex flex-col items-center gap-4">
+            <div className="h-12 w-12 animate-spin rounded-full border-4 border-[#c3b29e] border-t-transparent" />
+            <p className="text-sm" style={{ color: '#7B95A9' }}>Preparing your results...</p>
+          </div>
+        </div>
+      );
     }
-    return <div className="min-h-screen bg-white flex items-center justify-center"><div className="w-12 h-12 border-4 border-[#7b95a9] border-t-transparent rounded-full animate-spin" /></div>;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-white">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-[#7b95a9] border-t-transparent" />
+      </div>
+    );
   }
 
   if (stepId === 'intro' && intakeBrand !== 'wellmedr') {
@@ -212,11 +298,13 @@ function IntakeStepContent() {
     return (
       <div
         className={transitionClass}
-        style={{
-          '--intake-primary': branding?.primaryColor ?? '#413d3d',
-          '--intake-accent': branding?.accentColor ?? '#cab172',
-          '--intake-secondary': branding?.secondaryColor ?? '#f5ecd8',
-        } as React.CSSProperties}
+        style={
+          {
+            '--intake-primary': branding?.primaryColor ?? '#413d3d',
+            '--intake-accent': branding?.accentColor ?? '#cab172',
+            '--intake-secondary': branding?.secondaryColor ?? '#f5ecd8',
+          } as React.CSSProperties
+        }
       >
         <BookAppointmentStep
           basePath={basePath}
@@ -230,7 +318,9 @@ function IntakeStepContent() {
 
   if (stepId === 'checkout') {
     const r = responses;
-    const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+    const searchParams = new URLSearchParams(
+      typeof window !== 'undefined' ? window.location.search : ''
+    );
     const medication = searchParams.get('medication') || '';
     const redirectParams = new URLSearchParams({
       ...(medication ? { medication } : {}),
@@ -250,33 +340,49 @@ function IntakeStepContent() {
     if (typeof window !== 'undefined') {
       window.location.href = `/eonmeds-checkout?${redirectParams.toString()}`;
     }
-    return <div className="min-h-screen bg-white flex items-center justify-center"><div className="w-12 h-12 border-4 border-[#13a97b] border-t-transparent rounded-full animate-spin" /></div>;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-white">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-[#13a97b] border-t-transparent" />
+      </div>
+    );
   }
 
   const isWellmedr = intakeBrand === 'wellmedr';
 
   const logoElement = branding?.logo ? (
-    <div className={`px-6 lg:px-8 mx-auto w-full ${isWellmedr ? 'max-w-[600px] pt-6' : 'max-w-[480px] lg:max-w-[560px] pt-4'}`}>
+    <div
+      className={`mx-auto w-full px-6 lg:px-8 ${isWellmedr ? 'max-w-[600px] pt-6' : 'max-w-[480px] pt-4 lg:max-w-[560px]'}`}
+    >
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={branding.logo} alt="Clinic logo" className={isWellmedr ? 'h-7 sm:h-8' : 'h-8 object-contain'} />
+      <img
+        src={branding.logo}
+        alt="Clinic logo"
+        className={isWellmedr ? 'h-7 sm:h-8' : 'h-8 object-contain'}
+      />
     </div>
   ) : null;
 
   return (
     <div
       className={transitionClass}
-      style={{
-        '--intake-primary': branding?.primaryColor ?? (isWellmedr ? '#0C2631' : '#10b981'),
-        '--intake-accent': isWellmedr ? '#c3b29e' : (branding?.accentColor ?? '#f0feab'),
-        '--intake-secondary': branding?.secondaryColor ?? (isWellmedr ? '#F7F7F9' : '#4fa87f'),
-        '--intake-text': isWellmedr ? '#0C2631' : '#1f2937',
-        '--intake-text-secondary': isWellmedr ? '#7B95A9' : '#6b7280',
-        '--intake-border': isWellmedr ? '#e5eaee' : '#e5e7eb',
-        '--intake-selected-bg': isWellmedr ? '#f5f0e8' : (intakeBrand === 'otmens' ? '#f5ecd8' : '#f0feab'),
-        '--intake-button-bg': intakeBrand === 'otmens' ? '#cab172' : undefined,
-        '--intake-button-text': intakeBrand === 'otmens' ? '#413d3d' : undefined,
-        '--intake-bg': isWellmedr ? '#F7F7F9' : '#ffffff',
-      } as React.CSSProperties}
+      style={
+        {
+          '--intake-primary': branding?.primaryColor ?? (isWellmedr ? '#0C2631' : '#10b981'),
+          '--intake-accent': isWellmedr ? '#c3b29e' : (branding?.accentColor ?? '#f0feab'),
+          '--intake-secondary': branding?.secondaryColor ?? (isWellmedr ? '#F7F7F9' : '#4fa87f'),
+          '--intake-text': isWellmedr ? '#0C2631' : '#1f2937',
+          '--intake-text-secondary': isWellmedr ? '#7B95A9' : '#6b7280',
+          '--intake-border': isWellmedr ? '#e5eaee' : '#e5e7eb',
+          '--intake-selected-bg': isWellmedr
+            ? '#f5f0e8'
+            : intakeBrand === 'otmens'
+              ? '#f5ecd8'
+              : '#f0feab',
+          '--intake-button-bg': intakeBrand === 'otmens' ? '#cab172' : undefined,
+          '--intake-button-text': intakeBrand === 'otmens' ? '#413d3d' : undefined,
+          '--intake-bg': isWellmedr ? '#F7F7F9' : '#ffffff',
+        } as React.CSSProperties
+      }
     >
       <FormStep
         config={stepConfig}
