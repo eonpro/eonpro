@@ -153,9 +153,9 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
         const portalSettings = settings?.patientPortal as Record<string, unknown> | null;
 
         const branding: FormBranding =
-          isOtPeptides || isOtTRT
+          isOtPeptides || isOtTRT || isOtMens
             ? {
-                logo: otMensPeptideIntakeConfig.branding?.logo ?? undefined,
+                logo: otMensIntakeConfig.branding?.logo ?? undefined,
                 primaryColor: '#413d3d',
                 accentColor: '#cab172',
                 secondaryColor: '#f5ecd8',

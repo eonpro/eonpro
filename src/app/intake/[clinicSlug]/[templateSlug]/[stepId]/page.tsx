@@ -385,8 +385,12 @@ function IntakeStepContent() {
       style={
         {
           '--intake-primary': branding?.primaryColor ?? (isWellmedr ? '#0C2631' : '#10b981'),
-          '--intake-accent': isWellmedr ? '#c3b29e' : (branding?.accentColor ?? '#f0feab'),
-          '--intake-secondary': branding?.secondaryColor ?? (isWellmedr ? '#F7F7F9' : '#4fa87f'),
+          '--intake-accent': isWellmedr
+            ? '#c3b29e'
+            : intakeBrand === 'otmens'
+              ? (branding?.accentColor ?? '#cab172')
+              : (branding?.accentColor ?? '#f0feab'),
+          '--intake-secondary': branding?.secondaryColor ?? (isWellmedr ? '#F7F7F9' : intakeBrand === 'otmens' ? '#f5ecd8' : '#4fa87f'),
           '--intake-text': isWellmedr ? '#0C2631' : '#1f2937',
           '--intake-text-secondary': isWellmedr ? '#7B95A9' : '#6b7280',
           '--intake-border': isWellmedr ? '#e5eaee' : '#e5e7eb',

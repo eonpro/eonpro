@@ -27,7 +27,40 @@ async function handler(req: NextRequest) {
       });
     }
 
-    const { promoCode, productName, medicationType, planType } = parsed.data;
+    const { promoCode, productName, planType } = parsed.data;
+
+    // Hardcoded coupon-to-plan restrictions (server-side enforcement)
+    const COUPON_PLAN_RESTRICTIONS: Record<string, string[]> = {
+      'GOAL10': ['monthly', 'quarterly', 'sixMonth', 'annual'],
+      '50OFF': ['quarterly'],
+      '200OFF': ['quarterly'],
+      '100OFF': ['sixMonth'],
+      '250OFF': ['sixMonth'],
+      '150OFF': ['annual'],
+      '300OFF': ['annual'],
+      '500OFF': ['annual'],
+    };
+
+    const codeUpper = promoCode.trim().toUpperCase();
+    const effectivePlan = planType || 'monthly';
+    const allowedPlans = COUPON_PLAN_RESTRICTIONS[codeUpper];
+
+    if (allowedPlans && !allowedPlans.includes(effectivePlan)) {
+      return NextResponse.json({
+        success: false,
+        data: { message: 'This promo code is not valid for the selected plan' },
+      });
+    }
+
+    if (effectivePlan === 'monthly' && !allowedPlans?.includes('monthly')) {
+      const hasRestrictions = COUPON_PLAN_RESTRICTIONS[codeUpper];
+      if (hasRestrictions) {
+        return NextResponse.json({
+          success: false,
+          data: { message: 'Coupons are not available for monthly plans' },
+        });
+      }
+    }
 
     const stripe = getWellMedrConnectStripe();
     const connectOpts = getWellMedrConnectOpts();

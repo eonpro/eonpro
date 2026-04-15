@@ -104,7 +104,7 @@ async function handler(req: NextRequest) {
         {
           name: customerName,
           ...(shippingData ? { shipping: shippingData } : {}),
-          metadata: { submissionId, productName, medicationType, planType },
+          metadata: { submissionId: submissionId || '', productName: productName || '', medicationType: medicationType || '', planType: planType || '' },
         },
         connectOpts
       )) as Stripe.Customer;
@@ -114,7 +114,7 @@ async function handler(req: NextRequest) {
           email: customerEmail,
           name: customerName,
           ...(shippingData ? { shipping: shippingData } : {}),
-          metadata: { submissionId, productName, medicationType, planType },
+          metadata: { submissionId: submissionId || '', productName: productName || '', medicationType: medicationType || '', planType: planType || '' },
         },
         connectOpts
       );
@@ -140,13 +140,13 @@ async function handler(req: NextRequest) {
         ...(getPaymentConfigId() ? { payment_method_configuration: getPaymentConfigId() } : {}),
       },
       metadata: {
-        submissionId,
-        productName,
-        medicationType,
-        planType,
+        submissionId: submissionId || '',
+        productName: productName || '',
+        medicationType: medicationType || '',
+        planType: planType || '',
         cardholderName: cardholderName || customerName,
-        shippingAddress: JSON.stringify(shippingAddress),
-        billingAddress: JSON.stringify(billingAddress),
+        shippingAddress: JSON.stringify(shippingAddress || {}),
+        billingAddress: JSON.stringify(billingAddress || {}),
         ...(addons.length > 0 ? { selectedAddons: JSON.stringify(addons) } : {}),
       },
       expand: ['latest_invoice'],
@@ -168,13 +168,13 @@ async function handler(req: NextRequest) {
 
     if (subscription.status === 'active') {
       createOrder({
-        submissionId,
+        submissionId: submissionId || '',
         subscriptionId: subscription.id,
         customerId: customer.id,
         customerEmail,
-        productName,
-        medicationType,
-        planType,
+        productName: productName || '',
+        medicationType: medicationType || '',
+        planType: planType || '',
         priceId,
         amount: 0,
         shippingAddress: shippingAddress || {},
@@ -211,13 +211,13 @@ async function handler(req: NextRequest) {
     const amount = latestInvoice?.amount_due ? latestInvoice.amount_due / 100 : 0;
 
     createOrder({
-      submissionId,
+      submissionId: submissionId || '',
       subscriptionId: subscription.id,
       customerId: customer.id,
       customerEmail,
-      productName,
-      medicationType,
-      planType,
+      productName: productName || '',
+      medicationType: medicationType || '',
+      planType: planType || '',
       priceId,
       amount,
       shippingAddress: shippingAddress || {},
@@ -254,7 +254,6 @@ async function handler(req: NextRequest) {
     const msg = error instanceof Error ? error.message : 'Internal error';
     Sentry.captureException(error, {
       tags: { module: 'wellmedr-checkout', route: 'create-subscription' },
-      extra: { priceId, submissionId: parsed.data.submissionId },
     });
     return NextResponse.json({ error: msg }, { status: 500 });
   }

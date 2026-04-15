@@ -1,11 +1,13 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { Suspense } from 'react';
+import { Suspense, useState, useEffect, useRef } from 'react';
 import Header from '../components/ui/Header';
+import UpsellModal from './components/UpsellModal';
 
 function ThankYouContent() {
   const searchParams = useSearchParams();
+  const uid = searchParams.get('uid') || '';
 
   // Read PII from sessionStorage, not URL params (HIPAA compliance)
   let firstName = '';
@@ -21,9 +23,90 @@ function ThankYouContent() {
     }
   }
 
+  const [customerId, setCustomerId] = useState<string | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<{ brand: string; last4: string } | undefined>();
+  const [showUpsell, setShowUpsell] = useState(false);
+  const [glp1Details, setGlp1Details] = useState('');
+  const [glp1Status, setGlp1Status] = useState<'idle' | 'submitting' | 'submitted'>('idle');
+  const verifiedRef = useRef(false);
+
+  // Verify payment and check for upsell eligibility
+  useEffect(() => {
+    if (verifiedRef.current) return;
+    verifiedRef.current = true;
+
+    const subscriptionId =
+      typeof sessionStorage !== 'undefined'
+        ? sessionStorage.getItem('wellmedr_subscription_id')
+        : null;
+
+    if (!subscriptionId) return;
+
+    const verifySession = async () => {
+      try {
+        const res = await fetch(
+          `/api/wellmedr/verify-session?subscription_id=${encodeURIComponent(subscriptionId)}`
+        );
+        const data = await res.json();
+
+        if (data.success && data.customerId) {
+          setCustomerId(data.customerId);
+          if (data.paymentMethod) setPaymentMethod(data.paymentMethod);
+
+          const completed = localStorage.getItem(`upsell_completed_${subscriptionId}`);
+          const stepDone = localStorage.getItem(`upsell_step_${subscriptionId}`) === 'done';
+          if (!completed && !stepDone) {
+            setShowUpsell(true);
+          }
+        }
+      } catch {
+        /* non-critical */
+      }
+    };
+
+    verifySession();
+  }, []);
+
+  const handleGlp1Submit = async () => {
+    if (!glp1Details.trim()) return;
+
+    const airtableRecordId =
+      typeof sessionStorage !== 'undefined'
+        ? sessionStorage.getItem('wm_airtable_record_id')
+        : null;
+    if (!airtableRecordId) return;
+
+    setGlp1Status('submitting');
+    try {
+      const res = await fetch('/api/wellmedr/update-glp1-details', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ airtableRecordId, details: glp1Details.trim() }),
+      });
+      if (res.ok) setGlp1Status('submitted');
+      else setGlp1Status('idle');
+    } catch {
+      setGlp1Status('idle');
+    }
+  };
+
   return (
     <div className="wellmedr-checkout min-h-screen">
       <Header />
+
+      {showUpsell && customerId && (
+        <UpsellModal
+          customerId={customerId}
+          subscriptionId={
+            (typeof sessionStorage !== 'undefined'
+              ? sessionStorage.getItem('wellmedr_subscription_id')
+              : null) || customerId
+          }
+          paymentMethod={paymentMethod}
+          onClose={() => setShowUpsell(false)}
+        />
+      )}
+
       <main className="relative flex min-h-[60svh] w-full flex-col items-center justify-center px-6 pt-12 sm:px-8">
         <div className="flex max-w-lg flex-col items-center gap-6 text-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-[20px] border border-[#d6d6d6] bg-white">
@@ -45,6 +128,39 @@ function ThankYouContent() {
               best every day!
             </p>
           </div>
+
+          {/* GLP-1 Dosage Capture */}
+          {glp1Status !== 'submitted' && (
+            <div className="w-full rounded-xl bg-[#f0f4f7] p-5 text-left">
+              <p className="mb-3 text-sm text-gray-600">
+                Please specify your current GLP-1 dosage below. A licensed clinician will review
+                your information and determine the appropriate dosage.
+              </p>
+              <textarea
+                value={glp1Details}
+                onChange={(e) => setGlp1Details(e.target.value)}
+                placeholder="e.g. Ozempic 0.5mg for 3 months"
+                className="w-full resize-none rounded-lg border border-gray-300 p-3 text-sm text-gray-700 placeholder-gray-400 outline-none focus:ring-2 focus:ring-[#7b95a9]"
+                rows={3}
+                maxLength={1000}
+              />
+              <button
+                onClick={handleGlp1Submit}
+                disabled={glp1Status === 'submitting' || !glp1Details.trim()}
+                className="mt-3 w-full rounded-full py-2 text-sm font-semibold text-white transition-colors disabled:opacity-50"
+                style={{ backgroundColor: '#0c2631' }}
+              >
+                {glp1Status === 'submitting' ? 'Submitting...' : 'Submit'}
+              </button>
+            </div>
+          )}
+          {glp1Status === 'submitted' && (
+            <div className="w-full rounded-xl bg-green-50 p-4 text-center">
+              <p className="text-sm font-medium text-green-600">
+                Previous GLP-1 details submitted. Thank you!
+              </p>
+            </div>
+          )}
 
           <a
             href="https://www.wellmedr.com"

@@ -15,6 +15,7 @@ import {
   getWellMedrConnectOpts,
   getWellMedrConnectWebhookSecret,
 } from '@/app/wellmedr-checkout/lib/stripe-connect';
+import { sendPurchaseEvent } from '@/lib/wellmedr/attentive';
 
 /** Stripe SDK v20 types omit `subscription` on Invoice; runtime webhook payloads still include it. */
 function getInvoiceSubscriptionId(invoice: Stripe.Invoice): string | undefined {
@@ -22,6 +23,8 @@ function getInvoiceSubscriptionId(invoice: Stripe.Invoice): string | undefined {
     .subscription;
   return typeof sub === 'string' ? sub : sub?.id;
 }
+
+const processedEvents = new Set<string>();
 
 export async function POST(req: NextRequest) {
   const body = await req.text();
@@ -39,8 +42,21 @@ export async function POST(req: NextRequest) {
     event = stripe.webhooks.constructEvent(body, sig, getWellMedrConnectWebhookSecret());
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Webhook verification failed';
-    console.error('[wellmedr/webhooks/stripe]', msg);
+    Sentry.captureException(err, {
+      tags: { module: 'wellmedr-checkout', route: 'webhooks-stripe' },
+    });
     return NextResponse.json({ error: msg }, { status: 400 });
+  }
+
+  // In-process idempotency guard: skip duplicate event IDs within this instance
+  if (processedEvents.has(event.id)) {
+    return NextResponse.json({ received: true, duplicate: true });
+  }
+  processedEvents.add(event.id);
+  // Cap the set size to prevent memory leaks
+  if (processedEvents.size > 10_000) {
+    const first = processedEvents.values().next().value;
+    if (first) processedEvents.delete(first);
   }
 
   try {
@@ -114,6 +130,31 @@ export async function POST(req: NextRequest) {
                 cardLast4: pm.card?.last4,
               });
             }
+          }
+
+          // Fire Attentive purchase event (non-blocking)
+          const customerEmail =
+            pi.receipt_email ||
+            pi.metadata?.email ||
+            (customerId
+              ? ((await stripe.customers.retrieve(customerId, {}, connectOpts as any)) as Stripe.Customer)
+                  .email
+              : null);
+
+          if (customerEmail) {
+            sendPurchaseEvent({
+              email: customerEmail,
+              phone: pi.shipping?.phone || '',
+              productId: pi.metadata?.productId || '',
+              productName: pi.metadata?.productName || 'WellMedR Product',
+              productPrice: pi.amount / 100,
+              currency: pi.currency?.toUpperCase() || 'USD',
+              orderId: pi.id,
+            }).catch((err) =>
+              Sentry.captureException(err, {
+                tags: { module: 'wellmedr-checkout', route: 'webhooks-stripe-attentive' },
+              })
+            );
           }
         }
         break;
