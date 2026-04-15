@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useLanguage } from '../../../contexts/LanguageContext';
-import { useIntakeActions } from '../../../store/intakeStore';
+import { useIntakeStore, useIntakeActions } from '../../../store/intakeStore';
 
 interface TestimonialsStepProps {
   basePath: string;
@@ -22,6 +22,8 @@ export default function TestimonialsStep({
   const router = useRouter();
   const { language } = useLanguage();
   const isSpanish = language === 'es';
+  const clinicSlug = useIntakeStore((s) => s.clinicSlug);
+  const isOt = clinicSlug === 'ot' || clinicSlug === 'otmens';
   const { markStepCompleted, setCurrentStep } = useIntakeActions();
 
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -166,7 +168,11 @@ export default function TestimonialsStep({
                 key={index}
                 onClick={() => setCurrentSlide(index)}
                 className={`h-2 w-2 rounded-full transition-all duration-300 ${
-                  currentSlide === index ? 'w-4 bg-[#4fa87f]' : 'bg-gray-300 hover:bg-gray-400'
+                  currentSlide === index
+                    ? isOt
+                      ? 'w-4 bg-[#cab172]'
+                      : 'w-4 bg-[#4fa87f]'
+                    : 'bg-gray-300 hover:bg-gray-400'
                 }`}
               />
             ))}

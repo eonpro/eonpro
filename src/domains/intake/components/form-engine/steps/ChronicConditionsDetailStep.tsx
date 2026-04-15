@@ -64,6 +64,8 @@ export function ChronicConditionsDetailStep({
   const router = useRouter();
   const { language } = useLanguage();
   const responses = useIntakeStore((state) => state.responses);
+  const clinicSlug = useIntakeStore((s) => s.clinicSlug);
+  const isOt = clinicSlug === 'ot' || clinicSlug === 'otmens';
   const { setResponse } = useIntakeActions();
   const isSpanish = language === 'es';
   const [mounted, setMounted] = useState(false);
@@ -147,7 +149,9 @@ export function ChronicConditionsDetailStep({
               onClick={() => toggleCondition(option.id)}
               className={`w-full rounded-xl border-2 p-4 text-left transition-all ${
                 selectedConditions.includes(option.id)
-                  ? 'border-[#4fa87f] bg-[#f0feab]'
+                  ? isOt
+                    ? 'border-[#cab172] bg-[#f5ecd8]'
+                    : 'border-[#4fa87f] bg-[#f0feab]'
                   : 'border-gray-200 bg-white hover:border-gray-300'
               }`}
             >
@@ -188,7 +192,7 @@ export function ChronicConditionsDetailStep({
               value={otherText}
               onChange={(e) => setOtherText(e.target.value)}
               placeholder={isSpanish ? 'Por favor especifica...' : 'Please specify...'}
-              className="w-full rounded-xl border-2 border-gray-200 p-4 text-[15px] focus:border-[var(--intake-accent,#4fa87f)] focus:outline-none"
+              className="w-full rounded-xl border-2 border-gray-200 p-4 text-[15px] focus:border-[var(--intake-accent,#cab172)] focus:outline-none"
             />
           </div>
         )}

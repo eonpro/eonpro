@@ -433,6 +433,118 @@ export default function QualifiedStep({ basePath, prevStep }: QualifiedStepProps
     );
   }
 
+  if (isOt) {
+    return (
+      <div className="relative flex min-h-screen flex-col overflow-hidden bg-white">
+        <div className="h-1 w-full bg-gray-200">
+          <div className="h-full w-full bg-[var(--intake-accent,#cab172)] transition-all duration-300" />
+        </div>
+
+        {prevStep && (
+          <div className="mx-auto w-full max-w-md px-6 pt-6 lg:max-w-2xl lg:px-8">
+            <button
+              onClick={handleBack}
+              className="-ml-2 inline-block rounded-lg p-2 hover:bg-gray-100"
+            >
+              <svg
+                className="h-6 w-6 text-[#413d3d]"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M15 19l-7-7 7-7"
+                />
+              </svg>
+            </button>
+          </div>
+        )}
+
+        <div className="mx-auto flex w-full max-w-md flex-1 flex-col px-6 py-8 lg:max-w-2xl lg:px-8">
+          <div className="mb-6 h-32 w-32 overflow-hidden rounded-2xl border-2 border-[#cab172]/20">
+            <img
+              src="https://static.wixstatic.com/media/c49a9b_0e0d844da3914972855d63bc78725d99~mv2.png"
+              alt="Provider"
+              className="h-full w-full object-cover"
+            />
+          </div>
+
+          <div className="mb-8 space-y-4">
+            <h1 className="text-2xl font-bold leading-tight lg:text-3xl">
+              <span className="text-gray-400">
+                {isSpanish ? 'Felicidades' : 'Congratulations'}{' '}
+              </span>
+              <span>🥳</span>
+              <span className="text-gray-400"> — </span>
+              <br />
+              <span className="text-gray-400">
+                {isSpanish ? 'calificas para una' : 'you qualify for a'}
+              </span>
+              <br />
+              <span className="text-[#413d3d]">
+                {isSpanish
+                  ? 'consulta de Pérdida de Peso.'
+                  : 'Weight Loss consultation.'}
+              </span>
+            </h1>
+            <p className="text-base text-gray-400">
+              {isSpanish
+                ? 'Reserva una consulta y nuestro equipo podrá explicarte el tratamiento y ayudarte a comenzar.'
+                : 'Book a consultation and our team will be able to explain the treatment and help you get started!'}
+            </p>
+          </div>
+
+          <div
+            className={`transition-all duration-700 ease-out ${showPhase2 ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}
+          >
+            <div className="flex items-center gap-4 rounded-2xl bg-[#f5ecd8] p-5">
+              <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-full">
+                <img
+                  src="https://static.wixstatic.com/media/c49a9b_69f9d06860b246988ff7df8096e170fb~mv2.png"
+                  alt="Provider"
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <div className="flex-1">
+                <h3 className="mb-2 font-semibold text-[#413d3d]">
+                  {isSpanish ? 'Reserva una consulta' : 'Book a consultation'}
+                </h3>
+                <a
+                  href={BOOKING_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:shadow-lg"
+                  style={{ backgroundColor: '#cab172' }}
+                >
+                  {isSpanish ? 'Reservar Consulta' : 'Book a Consult'}
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M14 5l7 7m0 0l-7 7m7-7H3"
+                    />
+                  </svg>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mx-auto w-full max-w-md px-6 pb-8 lg:max-w-2xl lg:px-8">
+          <p className="copyright-text text-center">
+            Copyright © 2025 Overtime Mens Health All Rights Reserved
+            <br />
+            powered by EONPro, LLC. Exclusive and protected process.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="relative flex min-h-screen flex-col overflow-hidden bg-white">
       <div className="h-1 w-full bg-gray-200">

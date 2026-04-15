@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { z } from 'zod';
+import * as Sentry from '@sentry/nextjs';
 import { createOrder } from '@/app/wellmedr-checkout/lib/order-store';
 import { updateCheckoutFields } from '@/lib/wellmedr/airtableSync';
 import {
@@ -9,30 +11,57 @@ import {
 } from '@/app/wellmedr-checkout/lib/stripe-connect';
 import { getAddonStripePriceId } from '@/app/wellmedr-checkout/data/stripe-price-ids';
 import type { AddonId } from '@/app/wellmedr-checkout/types/checkout';
+import { rateLimit } from '@/lib/rateLimit';
 
-const RATE_LIMIT_WINDOW = 60 * 1000;
-const RATE_LIMIT_MAX = process.env.NODE_ENV === 'production' ? 5 : 100;
-const requestCounts = new Map<string, { count: number; resetAt: number }>();
+const createSubscriptionSchema = z.object({
+  priceId: z.string().min(1, 'Price ID is required').max(200),
+  customerEmail: z.string().email('Valid email is required').max(254),
+  customerName: z.string().min(1).max(200),
+  cardholderName: z.string().max(200).optional(),
+  shippingAddress: z.object({
+    firstName: z.string().min(1).max(100),
+    lastName: z.string().min(1).max(100),
+    address: z.string().min(1).max(500),
+    apt: z.string().max(100).optional(),
+    city: z.string().min(1).max(100),
+    state: z.string().min(2).max(2),
+    zipCode: z.string().regex(/^\d{5}(-\d{4})?$/),
+    billingAddressSameAsShipment: z.boolean().optional(),
+  }).optional(),
+  billingAddress: z.object({
+    firstName: z.string().max(100).optional(),
+    lastName: z.string().max(100).optional(),
+    address: z.string().max(500).optional(),
+    apt: z.string().max(100).optional(),
+    city: z.string().max(100).optional(),
+    state: z.string().max(2).optional(),
+    zipCode: z.string().max(10).optional(),
+  }).optional(),
+  submissionId: z.string().max(200).optional(),
+  productName: z.string().max(100).optional(),
+  medicationType: z.string().max(50).optional(),
+  planType: z.string().max(50).optional(),
+  promotionCodeId: z.string().max(200).optional(),
+  selectedAddons: z.array(z.enum(['nad_plus', 'sermorelin', 'b12', 'elite_bundle'])).default([]),
+  airtableRecordId: z.string().max(200).optional(),
+});
 
 function getPaymentConfigId(): string | undefined {
   return process.env.WELLMEDR_STRIPE_PAYMENT_CONFIG_ID || process.env.STRIPE_PAYMENT_CONFIG_ID;
 }
 
-export async function POST(req: NextRequest) {
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-  const now = Date.now();
-  const entry = requestCounts.get(ip);
-  if (entry && now < entry.resetAt) {
-    entry.count++;
-    if (entry.count > RATE_LIMIT_MAX) {
-      return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
-    }
-  } else {
-    requestCounts.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW });
-  }
-
+async function handler(req: NextRequest) {
   try {
-    const body = await req.json();
+    const rawBody = await req.json();
+    const parsed = createSubscriptionSchema.safeParse(rawBody);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: parsed.error.flatten().fieldErrors },
+        { status: 400 }
+      );
+    }
+
     const {
       priceId,
       customerEmail,
@@ -45,14 +74,9 @@ export async function POST(req: NextRequest) {
       medicationType,
       planType,
       promotionCodeId,
-      selectedAddons,
-    } = body;
-
-    const addons: AddonId[] = Array.isArray(selectedAddons) ? selectedAddons : [];
-
-    if (!priceId || !customerEmail) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-    }
+      selectedAddons: addons,
+      airtableRecordId,
+    } = parsed.data;
 
     const stripe = getWellMedrConnectStripe();
     const connectOpts = getWellMedrConnectOpts();
@@ -201,8 +225,6 @@ export async function POST(req: NextRequest) {
       selectedAddons: addons,
     }).catch(() => {});
 
-    // Sync checkout data to Airtable (fire-and-forget)
-    const airtableRecordId = body.airtableRecordId;
     if (airtableRecordId) {
       updateCheckoutFields(airtableRecordId, {
         stripeCustomerId: customer.id,
@@ -230,7 +252,12 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Internal error';
-    console.error('[wellmedr/create-subscription]', msg);
+    Sentry.captureException(error, {
+      tags: { module: 'wellmedr-checkout', route: 'create-subscription' },
+      extra: { priceId, submissionId: parsed.data.submissionId },
+    });
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
+
+export const POST = rateLimit({ max: 10, windowMs: 60_000 })(handler);

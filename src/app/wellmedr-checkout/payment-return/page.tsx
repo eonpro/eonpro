@@ -49,7 +49,7 @@ function PaymentReturnContent() {
           clearSubscriptionId();
           setStatus('success');
           setTimeout(() => {
-            router.push(`/wellmedr-checkout/thank-you?uid=${uid}`);
+            router.push(`/wellmedr-checkout/thank-you?uid=${encodeURIComponent(uid)}`);
           }, 1000);
           return;
         }
@@ -64,14 +64,14 @@ function PaymentReturnContent() {
         }
 
         setTimeout(() => {
-          router.push(`/wellmedr-checkout?uid=${uid}&payment_error=true`);
+          router.push(`/wellmedr-checkout?uid=${encodeURIComponent(uid)}&payment_error=true`);
         }, 2500);
       } catch {
         setStatus('error');
         setErrorMessage('Failed to verify payment status.');
         const uid = searchParams.get('uid');
         setTimeout(() => {
-          router.push(uid ? `/wellmedr-checkout?uid=${uid}&payment_error=true` : '/');
+          router.push(uid ? `/wellmedr-checkout?uid=${encodeURIComponent(uid)}&payment_error=true` : '/');
         }, 2500);
       }
     };

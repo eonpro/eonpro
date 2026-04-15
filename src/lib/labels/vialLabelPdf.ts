@@ -476,14 +476,10 @@ function drawLabel({
     color: COLOR_TEXT,
   });
 
-  const subcutaneousText = 'FOR SUBCUTANEOUS USE ONLY';
-  const subcutaneousSize = 4.6;
-  const subcutaneousLength = fonts.robotoCondensed.widthOfTextAtSize(subcutaneousText, subcutaneousSize);
-
   const bits = getCode128Bits(batchNumber);
-  const barsWidth = Math.min(subcutaneousLength, contentHeight * 0.92);
-  const barsHeight = contentHeight * 0.88;
-  const barsX = warningX - barsWidth - 4;
+  const barsWidth = (barcodeWidth - 2) * 0.85;
+  const barsHeight = contentHeight;
+  const barsX = barcodeX + (barcodeWidth - barsWidth) / 2 + 2;
   const barsY = contentBottom + (contentHeight - barsHeight) / 2;
   drawBarcodeBars(page, bits, barsX, barsY, barsWidth, barsHeight);
   let lgSize = 6.75;
@@ -493,7 +489,7 @@ function drawLabel({
     lgSize = (lgSize * lgMaxHeight) / lgLineLength;
   }
   const lgWidth = fonts.typewriter.widthOfTextAtSize(batchNumber, lgSize);
-  const lgX = barsX - lgSize - 4;
+  const lgX = barsX + barsWidth + 8;
   page.drawText(batchNumber, {
     x: lgX,
     y: barsY + (barsHeight - lgWidth) / 2,
@@ -504,7 +500,7 @@ function drawLabel({
   });
 
   const warningLines = [
-    { text: subcutaneousText, size: subcutaneousSize, color: COLOR_BLUE },
+    { text: 'FOR SUBCUTANEOUS USE ONLY', size: 4.6, color: COLOR_BLUE },
     { text: 'Refrigerate 2 C to 8 C (36 F to 46 F)', size: 3.9, color: COLOR_TEXT },
     { text: 'Protect from light. Compounded Drug', size: 3.9, color: COLOR_TEXT },
     { text: 'Do Not Freeze. Not for Resale.', size: 3.9, color: COLOR_TEXT },
@@ -724,7 +720,7 @@ function drawTemplateLabel({
 
   const brandWidth = 27;
   const warningWidth = 54;
-  const barcodeWidth = 29;
+  const barcodeWidth = 26;
   const contentWidth = fullWidth - brandWidth - warningWidth - barcodeWidth - 8;
   const contentX = x + brandWidth + 3;
   const barcodeX = contentX + contentWidth + 3;
@@ -752,14 +748,10 @@ function drawTemplateLabel({
     color: yearRgb,
   });
 
-  const subcutaneousText = 'FOR SUBCUTANEOUS USE ONLY';
-  const subcutaneousSize = 4.6;
-  const subcutaneousLength = fonts.robotoCondensed.widthOfTextAtSize(subcutaneousText, subcutaneousSize);
-
   const bits = getCode128Bits(batchNumber);
-  const barsWidth = Math.min(subcutaneousLength, contentHeight * 0.92);
-  const barsHeight = contentHeight * 0.88;
-  const barsX = warningX - barsWidth - 4;
+  const barsWidth = (barcodeWidth - 2) * 0.85;
+  const barsHeight = contentHeight;
+  const barsX = barcodeX + (barcodeWidth - barsWidth) / 2 + 2;
   const barsY = contentBottom + (contentHeight - barsHeight) / 2;
   drawBarcodeBars(page, bits, barsX, barsY, barsWidth, barsHeight);
 
@@ -770,7 +762,7 @@ function drawTemplateLabel({
     lgSize = (lgSize * lgMaxHeight) / lgLineLength;
   }
   const lgWidth = fonts.typewriter.widthOfTextAtSize(batchNumber, lgSize);
-  const lgX = barsX - lgSize - 4;
+  const lgX = barsX + barsWidth + 8;
   page.drawText(batchNumber, {
     x: lgX,
     y: barsY + (barsHeight - lgWidth) / 2,

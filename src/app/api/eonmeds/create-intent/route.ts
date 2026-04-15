@@ -226,8 +226,11 @@ export async function POST(req: NextRequest) {
     const nameParts = (customer_name || '').trim().split(/\s+/);
     const normalizedLeadId = !lead_id || lead_id.startsWith('@') ? meta_event_id || '' : lead_id;
 
+    const eonmedsClinicId = process.env.DEFAULT_CLINIC_ID || '3';
+
     const orderMetadata: Record<string, string> = {
       ...metadata,
+      clinicId: eonmedsClinicId,
       customer_email: String(customer_email || ''),
       customer_first_name: nameParts[0] || '',
       customer_last_name: nameParts.slice(1).join(' ') || '',

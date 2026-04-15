@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import * as Sentry from '@sentry/nextjs';
 import {
   findOrderBySubscriptionId,
   findOrderByCustomerId,
@@ -128,7 +129,10 @@ export async function POST(req: NextRequest) {
       }
     }
   } catch (error) {
-    console.error('[wellmedr/webhooks/stripe] Processing error:', error);
+    Sentry.captureException(error, {
+      tags: { module: 'wellmedr-checkout', route: 'webhooks-stripe' },
+      extra: { eventType: event.type, eventId: event.id },
+    });
   }
 
   return NextResponse.json({ received: true });

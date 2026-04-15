@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '../../../contexts/LanguageContext';
+import { useIntakeStore } from '../../../store/intakeStore';
 
 interface GLP1DataStepProps {
   basePath: string;
@@ -14,6 +15,8 @@ interface GLP1DataStepProps {
 export function GLP1DataStep({ basePath, nextStep, prevStep, progressPercent }: GLP1DataStepProps) {
   const router = useRouter();
   const { language } = useLanguage();
+  const clinicSlug = useIntakeStore((s) => s.clinicSlug);
+  const isOt = clinicSlug === 'ot' || clinicSlug === 'otmens';
   const isSpanish = language === 'es';
   const [mounted, setMounted] = useState(false);
 
@@ -48,7 +51,7 @@ export function GLP1DataStep({ basePath, nextStep, prevStep, progressPercent }: 
             : 'Clinical data* indicates that personalized GLP-1 dosing can help reduce side effects without compromising results.'}
         </h1>
 
-        <div className="space-y-4 rounded-2xl bg-[#f0feab] p-6">
+        <div className={`space-y-4 rounded-2xl ${isOt ? 'bg-[#f5ecd8]' : 'bg-[#f0feab]'} p-6`}>
           <div className="text-center">
             <span className="text-5xl font-bold text-[#413d3d]">83%</span>
             <p className="mt-2 text-[15px] text-[#413d3d]">
@@ -58,7 +61,7 @@ export function GLP1DataStep({ basePath, nextStep, prevStep, progressPercent }: 
             </p>
           </div>
 
-          <div className="border-t border-[#d4e8a0] pt-4 text-center">
+          <div className={`border-t ${isOt ? 'border-[#cab172]/30' : 'border-[#d4e8a0]'} pt-4 text-center`}>
             <span className="text-5xl font-bold text-[#413d3d]">91%</span>
             <p className="mt-2 text-[15px] text-[#413d3d]">
               {isSpanish

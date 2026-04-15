@@ -202,19 +202,26 @@ function IntakeStepContent() {
   if (stepId === 'wellmedr-checkout-redirect') {
     const sessionId = store.getState().sessionId || crypto.randomUUID();
     const r = responses;
-    const params = new URLSearchParams({
-      uid: sessionId,
-      ...(r.firstName ? { firstName: String(r.firstName) } : {}),
-      ...(r.lastName ? { lastName: String(r.lastName) } : {}),
-      ...(r.email ? { email: String(r.email) } : {}),
-      ...(r.state ? { state: String(r.state) } : {}),
-      ...(r.sex ? { sex: String(r.sex) } : {}),
-      ...(r.current_weight ? { weight: String(r.current_weight) } : {}),
-      ...(r.ideal_weight ? { goalWeight: String(r.ideal_weight) } : {}),
-      ...(r.height_feet ? { heightFeet: String(r.height_feet) } : {}),
-      ...(r.height_inches ? { heightInches: String(r.height_inches) } : {}),
-      ...(r.dob ? { dob: String(r.dob) } : {}),
-    });
+
+    // Store patient data in sessionStorage instead of URL params (HIPAA: no PII in URLs)
+    if (typeof sessionStorage !== 'undefined') {
+      const patientData = {
+        firstName: r.firstName ? String(r.firstName) : '',
+        lastName: r.lastName ? String(r.lastName) : '',
+        email: r.email ? String(r.email) : '',
+        state: r.state ? String(r.state) : '',
+        sex: r.sex ? String(r.sex) : '',
+        weight: r.current_weight ? Number(r.current_weight) : 0,
+        goalWeight: r.ideal_weight ? Number(r.ideal_weight) : 0,
+        heightFeet: r.height_feet ? String(r.height_feet) : '',
+        heightInches: r.height_inches ? String(r.height_inches) : '0',
+        dob: r.dob ? String(r.dob) : '',
+      };
+      sessionStorage.setItem('wellmedr_patient_data', JSON.stringify(patientData));
+    }
+
+    // Only non-PII identifiers go in the URL
+    const params = new URLSearchParams({ uid: sessionId });
     if (typeof window !== 'undefined') {
       // Submit intake to wellmedr-intake webhook (creates patient in EONPRO)
       // and do final Airtable sync — both fire-and-forget before redirect

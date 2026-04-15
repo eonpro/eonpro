@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '../../../contexts/LanguageContext';
+import { useIntakeStore } from '../../../store/intakeStore';
 
 interface TypewriterStepProps {
   basePath: string;
@@ -27,6 +28,8 @@ export default function TypewriterStep({
 }: TypewriterStepProps) {
   const router = useRouter();
   const { language } = useLanguage();
+  const clinicSlug = useIntakeStore((s) => s.clinicSlug);
+  const isOt = clinicSlug === 'ot' || clinicSlug === 'otmens';
   const [displayedText, setDisplayedText] = useState('');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isTypingComplete, setIsTypingComplete] = useState(false);
@@ -116,7 +119,7 @@ export default function TypewriterStep({
       <div className="mx-auto flex w-full max-w-md flex-1 flex-col px-6 pt-8 lg:max-w-2xl lg:px-8 lg:pt-12">
         <p className="text-[26px] font-semibold leading-tight text-[#413d3d] md:text-[32px]">
           {displayedText}
-          {!isTypingComplete && <span className="animate-pulse text-[#4fa87f]">|</span>}
+          {!isTypingComplete && <span className={`animate-pulse ${isOt ? 'text-[#cab172]' : 'text-[#4fa87f]'}`}>|</span>}
         </p>
       </div>
 

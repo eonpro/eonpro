@@ -1,17 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { z } from 'zod';
+import * as Sentry from '@sentry/nextjs';
 import {
   getWellMedrConnectStripe,
   getWellMedrConnectOpts,
 } from '@/app/wellmedr-checkout/lib/stripe-connect';
+import { rateLimit } from '@/lib/rateLimit';
 
-export async function POST(req: NextRequest) {
+const promoCodeSchema = z.object({
+  promoCode: z.string().min(1, 'Promo code is required').max(100),
+  productName: z.string().max(100).optional(),
+  medicationType: z.string().max(50).optional(),
+  planType: z.string().max(50).optional(),
+});
+
+async function handler(req: NextRequest) {
   try {
-    const { promoCode, productName, medicationType, planType } = await req.json();
+    const rawBody = await req.json();
+    const parsed = promoCodeSchema.safeParse(rawBody);
 
-    if (!promoCode) {
-      return NextResponse.json({ success: false, data: { message: 'Promo code is required' } });
+    if (!parsed.success) {
+      return NextResponse.json({
+        success: false,
+        data: { message: parsed.error.issues[0]?.message || 'Invalid input' },
+      });
     }
+
+    const { promoCode, productName, medicationType, planType } = parsed.data;
 
     const stripe = getWellMedrConnectStripe();
     const connectOpts = getWellMedrConnectOpts();
@@ -100,10 +116,14 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('[wellmedr/promo-code/check]', error);
+    Sentry.captureException(error, {
+      tags: { module: 'wellmedr-checkout', route: 'promo-code-check' },
+    });
     return NextResponse.json(
       { success: false, data: { message: 'Failed to validate promo code' } },
       { status: 500 }
     );
   }
 }
+
+export const POST = rateLimit({ max: 20, windowMs: 60_000 })(handler);

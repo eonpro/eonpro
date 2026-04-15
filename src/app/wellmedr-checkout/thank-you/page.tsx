@@ -6,7 +6,20 @@ import Header from '../components/ui/Header';
 
 function ThankYouContent() {
   const searchParams = useSearchParams();
-  const firstName = searchParams.get('firstName') || '';
+
+  // Read PII from sessionStorage, not URL params (HIPAA compliance)
+  let firstName = '';
+  if (typeof sessionStorage !== 'undefined') {
+    try {
+      const raw = sessionStorage.getItem('wellmedr_patient_data');
+      if (raw) {
+        const data = JSON.parse(raw);
+        firstName = data.firstName || '';
+      }
+    } catch {
+      /* ignore */
+    }
+  }
 
   return (
     <div className="wellmedr-checkout min-h-screen">

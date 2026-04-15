@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '../../../contexts/LanguageContext';
-import { useIntakeActions } from '../../../store/intakeStore';
+import { useIntakeStore, useIntakeActions } from '../../../store/intakeStore';
 
 interface PersonalizedTreatmentStepProps {
   basePath: string;
@@ -22,6 +22,8 @@ export default function PersonalizedTreatmentStep({
   const { language } = useLanguage();
   const isSpanish = language === 'es';
   const { markStepCompleted, setCurrentStep, setResponse } = useIntakeActions();
+  const clinicSlug = useIntakeStore((s) => s.clinicSlug);
+  const isOt = clinicSlug === 'ot' || clinicSlug === 'otmens';
   const [selected, setSelected] = useState('');
 
   const handleSelect = (value: string) => {
@@ -79,7 +81,7 @@ export default function PersonalizedTreatmentStep({
             {isSpanish ? (
               <>
                 ¿Te interesaría que tu proveedor considere un plan de{' '}
-                <span style={{ backgroundColor: '#f2fdb4', padding: '0 2px', borderRadius: '2px' }}>
+                <span style={{ backgroundColor: isOt ? '#f5ecd8' : '#f2fdb4', padding: '0 2px', borderRadius: '2px' }}>
                   tratamiento personalizado sin costo adicional
                 </span>{' '}
                 para ayudarte a manejar cualquier efecto secundario?
@@ -87,7 +89,7 @@ export default function PersonalizedTreatmentStep({
             ) : (
               <>
                 Would you be interested in having your provider consider a{' '}
-                <span style={{ backgroundColor: '#f2fdb4', padding: '0 2px', borderRadius: '2px' }}>
+                <span style={{ backgroundColor: isOt ? '#f5ecd8' : '#f2fdb4', padding: '0 2px', borderRadius: '2px' }}>
                   personalized treatment plan at no extra cost
                 </span>{' '}
                 to help you manage any side effects?
@@ -100,7 +102,9 @@ export default function PersonalizedTreatmentStep({
               onClick={() => handleSelect('yes')}
               className={`flex w-full items-center rounded-2xl p-4 text-left transition-all ${
                 selected === 'yes'
-                  ? 'border border-[#4fa87f] bg-[#f0feab]'
+                  ? isOt
+                    ? 'border border-[#cab172] bg-[#f5ecd8]'
+                    : 'border border-[#4fa87f] bg-[#f0feab]'
                   : 'border border-gray-200 bg-white'
               }`}
             >
@@ -128,7 +132,9 @@ export default function PersonalizedTreatmentStep({
               onClick={() => handleSelect('no')}
               className={`flex w-full items-center rounded-2xl p-4 text-left transition-all ${
                 selected === 'no'
-                  ? 'border border-[#4fa87f] bg-[#f0feab]'
+                  ? isOt
+                    ? 'border border-[#cab172] bg-[#f5ecd8]'
+                    : 'border border-[#4fa87f] bg-[#f0feab]'
                   : 'border border-gray-200 bg-white'
               }`}
             >

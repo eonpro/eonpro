@@ -16,10 +16,21 @@ function CheckoutContent() {
   const searchParams = useSearchParams();
 
   const patientData: PatientData = useMemo(() => {
-    const weight = Number(searchParams.get('weight')) || 190;
-    const goalWeight = Number(searchParams.get('goalWeight')) || 150;
-    const heightFeet = searchParams.get('heightFeet') || '';
-    const heightInches = searchParams.get('heightInches') || '0';
+    // Read PII from sessionStorage (never from URL params — HIPAA compliance)
+    let stored: Record<string, string | number> = {};
+    if (typeof sessionStorage !== 'undefined') {
+      try {
+        const raw = sessionStorage.getItem('wellmedr_patient_data');
+        if (raw) stored = JSON.parse(raw);
+      } catch {
+        /* ignore parse errors */
+      }
+    }
+
+    const weight = Number(stored.weight) || 190;
+    const goalWeight = Number(stored.goalWeight) || 150;
+    const heightFeet = String(stored.heightFeet || '');
+    const heightInches = String(stored.heightInches || '0');
 
     let bmi: number | undefined;
     if (heightFeet && weight) {
@@ -32,15 +43,15 @@ function CheckoutContent() {
     return {
       weight,
       goalWeight,
-      firstName: searchParams.get('firstName') || '',
-      lastName: searchParams.get('lastName') || '',
-      email: searchParams.get('email') || '',
-      state: searchParams.get('state') || '',
-      sex: searchParams.get('sex') || '',
-      dob: searchParams.get('dob') || undefined,
+      firstName: String(stored.firstName || ''),
+      lastName: String(stored.lastName || ''),
+      email: String(stored.email || ''),
+      state: String(stored.state || ''),
+      sex: String(stored.sex || ''),
+      dob: stored.dob ? String(stored.dob) : undefined,
       bmi,
     };
-  }, [searchParams]);
+  }, []);
 
   const uid = searchParams.get('uid') || '';
 
