@@ -157,7 +157,7 @@ const steps: FormStep[] = [
       question: 'Do you experience any of the following?',
       storageKey: 'health_effects',
       columns: 2,
-      mode: 'multi',
+      mode: 'single',
       cards: [
         { id: 'low_libido', label: 'Low libido', iconId: 'low_libido' },
         { id: 'hair_loss', label: 'Hair loss', iconId: 'hair_loss' },
