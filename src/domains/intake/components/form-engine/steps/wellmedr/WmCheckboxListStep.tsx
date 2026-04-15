@@ -59,7 +59,14 @@ export default function WmCheckboxListStep({
   const handleToggle = (id: string) => {
     navigator.vibrate?.(10);
     if (id === noneOptionId) {
-      setSelected(selected.includes(noneOptionId) ? [] : [noneOptionId]);
+      if (selected.includes(noneOptionId)) {
+        setSelected([]);
+      } else {
+        setSelected([noneOptionId]);
+        setResponse(storageKey, [noneOptionId]);
+        markStepCompleted(storageKey);
+        setTimeout(() => { setCurrentStep(nextStep); router.push(`${basePath}/${nextStep}`); }, 300);
+      }
       return;
     }
     const withoutNone = selected.filter((s) => s !== noneOptionId);
