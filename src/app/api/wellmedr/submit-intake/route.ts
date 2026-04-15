@@ -23,8 +23,7 @@ export async function POST(request: Request) {
     const protocol = host.includes('localhost') ? 'http' : 'https';
     const webhookUrl = `${protocol}://${host}/api/webhooks/wellmedr-intake`;
 
-    console.log('[submit-intake] Forwarding intake to webhook:', webhookUrl);
-    console.log('[submit-intake] Patient:', body['first-name'], body['last-name'], body.email);
+    console.log('[submit-intake] Forwarding intake to webhook, sessionId:', body['submission-id']);
 
     const res = await fetch(webhookUrl, {
       method: 'POST',
@@ -36,7 +35,7 @@ export async function POST(request: Request) {
     });
 
     const responseText = await res.text();
-    console.log('[submit-intake] Webhook response:', res.status, responseText.substring(0, 200));
+    console.log('[submit-intake] Webhook response status:', res.status);
 
     if (!res.ok) {
       return NextResponse.json({ error: 'Webhook failed', status: res.status }, { status: 502 });

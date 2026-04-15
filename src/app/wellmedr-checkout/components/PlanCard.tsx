@@ -7,7 +7,6 @@ interface PlanCardProps {
   plan: Plan;
   handlePlanSelect: (planId: PlanOptions) => void;
   selectedPlan: PlanOptions;
-  features?: string[];
 }
 
 const planFeatures: Record<string, string[]> = {

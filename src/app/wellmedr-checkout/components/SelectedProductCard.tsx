@@ -35,7 +35,6 @@ const SelectedProductCard = () => {
           width={300}
           height={300}
           className="object-cover object-center"
-          placeholder="blur"
         />
         <div className="hidden sm:block">
           <p className="text-sm sm:text-lg">Everything you need</p>

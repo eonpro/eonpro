@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useIntakeActions, useIntakeStore } from '../../../../store/intakeStore';
 
@@ -19,14 +19,6 @@ export default function WmBmiCalcStep({ basePath, nextStep, progressPercent }: W
   useEffect(() => {
     requestAnimationFrame(() => setMounted(true));
   }, []);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Enter' && !e.shiftKey) handleContinue();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  });
 
   const [feet, setFeet] = useState(String(responses.height_feet || responses.heightFeet || ''));
   const [inches, setInches] = useState(
@@ -49,7 +41,16 @@ export default function WmBmiCalcStep({ basePath, nextStep, progressPercent }: W
     router.push(`${basePath}/${nextStep}`);
   };
 
-  // Input styles handled via CSS class .wm-input below
+  const handleContinueRef = useRef(handleContinue);
+  handleContinueRef.current = handleContinue;
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && !e.shiftKey) handleContinueRef.current();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   return (
     <div className="flex min-h-[100dvh] flex-col" style={{ backgroundColor: '#F7F7F9' }}>

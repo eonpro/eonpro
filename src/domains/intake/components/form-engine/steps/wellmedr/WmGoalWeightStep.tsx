@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useIntakeActions, useIntakeStore } from '../../../../store/intakeStore';
 
@@ -25,14 +25,6 @@ export default function WmGoalWeightStep({
     String(responses.ideal_weight || responses.idealWeight || '')
   );
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Enter' && !e.shiftKey) handleContinue();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  });
-
   const w = Number(responses.current_weight || responses.currentWeight) || 0;
   const ft = Number(responses.height_feet || responses.heightFeet) || 5;
   const inc = Number(responses.height_inches ?? responses.heightInches ?? 4);
@@ -47,6 +39,17 @@ export default function WmGoalWeightStep({
     setCurrentStep(nextStep);
     router.push(`${basePath}/${nextStep}`);
   };
+
+  const handleContinueRef = useRef(handleContinue);
+  handleContinueRef.current = handleContinue;
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && !e.shiftKey) handleContinueRef.current();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const handleBack = () => {
     if (prevStep) {

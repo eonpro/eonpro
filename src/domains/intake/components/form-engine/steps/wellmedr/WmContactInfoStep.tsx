@@ -1,7 +1,7 @@
 'use client';
 
 import type { CSSProperties } from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useIntakeActions, useIntakeStore } from '../../../../store/intakeStore';
 
@@ -66,13 +66,16 @@ export default function WmContactInfoStep({
     router.push(`${basePath}/${resolvedNextStep}`);
   };
 
+  const handleContinueRef = useRef(handleContinue);
+  handleContinueRef.current = handleContinue;
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Enter' && !e.shiftKey) handleContinue();
+      if (e.key === 'Enter' && !e.shiftKey) handleContinueRef.current();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  });
+  }, []);
 
   return (
     <div className="flex min-h-[100dvh] flex-col" style={{ backgroundColor: '#F7F7F9' }}>

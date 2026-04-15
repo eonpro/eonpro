@@ -57,19 +57,24 @@ export default function WmAnimatedWeightChartStep({
     };
   }, []);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Enter' && animComplete) handleContinue();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  });
-
   const handleContinue = () => {
     markStepCompleted('weight-chart');
     setCurrentStep(nextStep);
     router.push(`${basePath}/${nextStep}`);
   };
+
+  const handleContinueRef = useRef(handleContinue);
+  handleContinueRef.current = handleContinue;
+  const animCompleteRef = useRef(animComplete);
+  animCompleteRef.current = animComplete;
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && animCompleteRef.current) handleContinueRef.current();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const handleBack = () => {
     if (prevStep) {

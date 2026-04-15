@@ -8,7 +8,7 @@ const CheckoutProgressHeader = ({ currentStep }: { currentStep: StepNames }) => 
       {/* Step 1: Select Product */}
       <div className="flex items-center gap-2">
         <div
-          className={`flex h-6 w-6 items-center justify-center rounded-full ${isCheckoutPhase ? 'bg-green-500' : 'bg-green-500'}`}
+          className={`flex h-6 w-6 items-center justify-center rounded-full ${isCheckoutPhase ? 'bg-green-500' : 'border-2 border-green-500 bg-white'}`}
         >
           {isCheckoutPhase ? (
             <svg

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useIntakeActions } from '../../../../store/intakeStore';
 
@@ -45,13 +45,16 @@ export default function WmTestimonialStep({
     router.push(`${basePath}/${nextStep}`);
   };
 
+  const handleContinueRef = useRef(handleContinue);
+  handleContinueRef.current = handleContinue;
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Enter' && !e.shiftKey) handleContinue();
+      if (e.key === 'Enter' && !e.shiftKey) handleContinueRef.current();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  });
+  }, []);
 
   const handleBack = () => {
     if (prevStep) {

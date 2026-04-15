@@ -240,7 +240,7 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
     }
 
     logger.log('[CLIENT] Calling /api/create-subscription...');
-    const response = await fetch('/api/create-subscription', {
+    const response = await fetch('/api/wellmedr/create-subscription', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -378,7 +378,7 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
         if (subscriptionData.status === 'active' && subscriptionData.success) {
           clearSubscriptionId();
           setPaymentCompleted(true);
-          router.push(`/thank-you?uid=${submissionId}`);
+          router.push(`/wellmedr-checkout/thank-you?uid=${submissionId}`);
           return;
         }
 
@@ -391,7 +391,7 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
           elements,
           clientSecret: subscriptionData.clientSecret,
           confirmParams: {
-            return_url: `${window.location.origin}/payment-return?uid=${submissionId}`,
+            return_url: `${window.location.origin}/wellmedr-checkout/payment-return?uid=${submissionId}`,
           },
         });
 
@@ -437,7 +437,8 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
     }
 
     if (!formData.email) {
-      router.push('/error/missing-email');
+      console.error('[PaymentSection] Missing email — cannot proceed');
+      return;
       return;
     }
 
@@ -490,7 +491,7 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
       if (subscriptionData.status === 'active' && subscriptionData.success) {
         clearSubscriptionId();
         setPaymentCompleted(true);
-        router.push(`/thank-you?uid=${submissionId}`);
+        router.push(`/wellmedr-checkout/thank-you?uid=${submissionId}`);
         return;
       }
 
@@ -577,7 +578,7 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
 
         clearSubscriptionId();
         setPaymentCompleted(true);
-        router.push(`/thank-you?uid=${submissionId}`);
+        router.push(`/wellmedr-checkout/thank-you?uid=${submissionId}`);
         return;
       } else if (paymentIntent.status === 'requires_payment_method') {
         throw new Error('Your card was declined. Please try a different payment method.');

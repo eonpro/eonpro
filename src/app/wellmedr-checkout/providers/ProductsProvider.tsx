@@ -7,6 +7,7 @@ import {
   ProductType,
 } from '@/app/wellmedr-checkout/types/checkout';
 import { products as fallbackProducts } from '@/app/wellmedr-checkout/data/products';
+import { getStripePriceId as getFallbackPriceId } from '@/app/wellmedr-checkout/data/stripe-price-ids';
 
 type PriceIdsMap = Record<ProductNameType, Record<MedicationType, Record<string, string>>>;
 
@@ -46,7 +47,7 @@ export function ProductsProvider({
       if (priceId) return priceId;
     }
 
-    return `price_${productName}_${medicationType}_${planType}`;
+    return getFallbackPriceId(productName, medicationType, planType);
   };
 
   return (

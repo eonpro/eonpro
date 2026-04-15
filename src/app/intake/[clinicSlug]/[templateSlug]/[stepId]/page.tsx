@@ -1,7 +1,7 @@
 'use client';
 
 import { useParams, useRouter, useSearchParams, notFound } from 'next/navigation';
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { FormStep } from '@/domains/intake/components/form-engine';
 import IntakeLandingStep from '@/domains/intake/components/IntakeLandingStep';
 import type { IntakeBrand } from '@/domains/intake/components/IntakeLandingStep';
@@ -412,10 +412,43 @@ function IntakeStepContent() {
   );
 }
 
+class IntakeErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(error: Error) {
+    console.error('[IntakeErrorBoundary]', error.message);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center p-8" style={{ backgroundColor: '#F7F7F9' }}>
+          <h2 className="text-xl font-bold mb-2">Something went wrong</h2>
+          <p className="text-gray-500 mb-4 text-center">We hit an unexpected issue. Please try again.</p>
+          <button
+            onClick={() => { this.setState({ hasError: false }); window.location.reload(); }}
+            className="px-6 py-3 bg-[#0C2631] text-white rounded-full font-medium"
+          >
+            Reload
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function IntakeStepPage() {
   return (
-    <LanguageProvider>
-      <IntakeStepContent />
-    </LanguageProvider>
+    <IntakeErrorBoundary>
+      <LanguageProvider>
+        <IntakeStepContent />
+      </LanguageProvider>
+    </IntakeErrorBoundary>
   );
 }

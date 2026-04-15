@@ -8,7 +8,7 @@ import { useCheckout } from '@/app/wellmedr-checkout/hooks/useCheckout';
 const Plans = () => {
   const { plans, selectedPlan, handlePlanSelect } = useCheckout();
 
-  const handlePlanSelectWithScroll = (planId: any) => {
+  const handlePlanSelectWithScroll = (planId: string) => {
     handlePlanSelect(planId);
 
     setTimeout(() => {

@@ -126,12 +126,6 @@ export async function createAirtableRecord(
   }
 
   const payload = { fields };
-  console.log(
-    '[WellMedR-Airtable] Creating record with',
-    Object.keys(fields).length,
-    'fields:',
-    Object.keys(fields).join(', ')
-  );
 
   try {
     const res = await fetch(AIRTABLE_API_URL, {
@@ -151,7 +145,6 @@ export async function createAirtableRecord(
     }
 
     const data = JSON.parse(responseText);
-    console.log('[WellMedR-Airtable] Record created:', data.id);
     return data.id || null;
   } catch (err) {
     console.error('[WellMedR-Airtable] Create error:', err);
