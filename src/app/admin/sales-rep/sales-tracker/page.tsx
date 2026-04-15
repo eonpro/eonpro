@@ -50,6 +50,13 @@ interface PaymentItem {
     commissionEventId: number;
     commissionType: 'NEW' | 'RECURRING';
     commissionAmountCents: number;
+    planName: string | null;
+    breakdown: {
+      base: number;
+      volumeTier: number;
+      product: number;
+      multiItem: number;
+    };
     salesRep: SalesRep;
   } | null;
 }
@@ -496,19 +503,24 @@ export default function SalesTrackerPage() {
                       {/* Commission Type */}
                       <td className="px-4 py-3">
                         {isDispositioned ? (
-                          <span
-                            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
-                              p.disposition!.commissionType === 'NEW'
-                                ? 'bg-emerald-100 text-emerald-700'
-                                : 'bg-blue-100 text-blue-700'
-                            }`}
-                          >
-                            {p.disposition!.commissionType === 'NEW'
-                              ? 'New (8%)'
-                              : 'Recurring (1%)'}
-                            {' — '}
-                            {formatCents(p.disposition!.commissionAmountCents)}
-                          </span>
+                          <div>
+                            <span
+                              className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
+                                p.disposition!.commissionType === 'NEW'
+                                  ? 'bg-emerald-100 text-emerald-700'
+                                  : 'bg-blue-100 text-blue-700'
+                              }`}
+                            >
+                              {p.disposition!.commissionType === 'NEW' ? 'New' : 'Recurring'}
+                              {' — '}
+                              {formatCents(p.disposition!.commissionAmountCents)}
+                            </span>
+                            {p.disposition!.planName && (
+                              <p className="mt-1 text-[10px] text-gray-400">
+                                {p.disposition!.planName}
+                              </p>
+                            )}
+                          </div>
                         ) : (
                           <select
                             value={state.commissionType}
@@ -519,8 +531,8 @@ export default function SalesTrackerPage() {
                             }
                             className="rounded-lg border border-gray-300 px-2 py-1.5 text-xs focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                           >
-                            <option value="NEW">New Sale (8%)</option>
-                            <option value="RECURRING">Recurring (1%)</option>
+                            <option value="NEW">New Sale</option>
+                            <option value="RECURRING">Recurring / Existing</option>
                           </select>
                         )}
                       </td>
@@ -605,22 +617,28 @@ export default function SalesTrackerPage() {
         </div>
       )}
 
-      {/* Commission Rate Legend */}
+      {/* Info Legend */}
       <div className="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
         <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
-          Commission Rates
+          How Commissions Work
         </h3>
         <div className="flex flex-wrap gap-6 text-sm">
           <div className="flex items-center gap-2">
             <span className="inline-block h-3 w-3 rounded-full bg-emerald-500" />
             <span className="text-gray-700">
-              <strong>New Sale:</strong> 8% of payment amount
+              <strong>New Sale:</strong> Uses the rep&apos;s initial commission rate from their plan
             </span>
           </div>
           <div className="flex items-center gap-2">
             <span className="inline-block h-3 w-3 rounded-full bg-blue-500" />
             <span className="text-gray-700">
-              <strong>Recurring / Existing:</strong> 1% of payment amount
+              <strong>Recurring:</strong> Uses the rep&apos;s recurring rate from their plan
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="inline-block h-3 w-3 rounded-full bg-gray-400" />
+            <span className="text-gray-700">
+              Volume tiers, product bonuses, and overrides apply automatically
             </span>
           </div>
         </div>

@@ -1138,3 +1138,219 @@ export async function checkIfFirstPaymentForSalesRep(
   });
   return priorPayments === 0;
 }
+
+// ============================================================================
+// Manual Commission from Sales Tracker (uses rep's actual plan)
+// ============================================================================
+
+export interface ManualSalesTrackerInput {
+  clinicId: number;
+  salesRepId: number;
+  patientId: number;
+  paymentId: number;
+  eventAmountCents: number;
+  occurredAt: Date;
+  isRecurring: boolean;
+  createdByUserId: number;
+  notes?: string;
+  itemCount?: number;
+  productId?: number;
+  productBundleId?: number;
+}
+
+export interface ManualSalesTrackerResult {
+  success: boolean;
+  commissionEventId?: number;
+  commissionAmountCents?: number;
+  breakdown?: {
+    base: number;
+    volumeTier: number;
+    product: number;
+    multiItem: number;
+  };
+  planName?: string;
+  error?: string;
+  noPlan?: boolean;
+}
+
+/**
+ * Creates a commission event using the rep's active commission plan.
+ * Called by the Sales Tracker when an admin dispositions a payment.
+ * Uses the full plan logic: initial/recurring rates, volume tiers, product bonuses, etc.
+ */
+export async function createSalesTrackerCommission(
+  input: ManualSalesTrackerInput
+): Promise<ManualSalesTrackerResult> {
+  const {
+    clinicId,
+    salesRepId,
+    patientId,
+    paymentId,
+    eventAmountCents,
+    occurredAt,
+    isRecurring,
+    createdByUserId,
+    notes,
+    itemCount,
+    productId,
+    productBundleId,
+  } = input;
+
+  try {
+    // Get the rep's effective commission plan
+    const plan = await getEffectiveSalesRepPlan(salesRepId, clinicId, occurredAt);
+
+    if (!plan || !plan.isActive) {
+      return { success: false, noPlan: true, error: 'No active commission plan for this rep' };
+    }
+
+    // Check recurring eligibility
+    if (isRecurring && !plan.recurringEnabled) {
+      return { success: false, error: 'Recurring commissions not enabled on this plan' };
+    }
+
+    const breakdown = await calculateFullCommission(
+      salesRepId,
+      clinicId,
+      {
+        id: plan.id,
+        planType: plan.planType,
+        flatAmountCents: plan.flatAmountCents,
+        percentBps: plan.percentBps,
+        initialPercentBps: plan.initialPercentBps,
+        initialFlatAmountCents: plan.initialFlatAmountCents,
+        recurringPercentBps: plan.recurringPercentBps,
+        recurringFlatAmountCents: plan.recurringFlatAmountCents,
+        recurringEnabled: plan.recurringEnabled,
+        volumeTierEnabled: plan.volumeTierEnabled,
+        volumeTierWindow: plan.volumeTierWindow,
+        volumeTierRetroactive: plan.volumeTierRetroactive,
+        volumeTierBasis: plan.volumeTierBasis || VOLUME_TIER_BASIS_SALE_COUNT,
+        multiItemBonusEnabled: plan.multiItemBonusEnabled,
+        multiItemBonusType: plan.multiItemBonusType,
+        multiItemBonusPercentBps: plan.multiItemBonusPercentBps,
+        multiItemBonusFlatCents: plan.multiItemBonusFlatCents,
+        multiItemMinQuantity: plan.multiItemMinQuantity,
+      },
+      eventAmountCents,
+      {
+        isFirstPayment: !isRecurring,
+        isRecurring,
+        itemCount,
+        productId,
+        productBundleId,
+      }
+    );
+
+    if (breakdown.totalCommissionCents <= 0) {
+      return { success: false, error: 'Zero commission calculated from plan rules' };
+    }
+
+    const holdUntil =
+      plan.holdDays > 0 ? new Date(occurredAt.getTime() + plan.holdDays * 86400000) : null;
+
+    const commissionEvent = await prisma.$transaction(
+      async (tx) => {
+        const event = await tx.salesRepCommissionEvent.create({
+          data: {
+            clinicId,
+            salesRepId,
+            eventAmountCents,
+            commissionAmountCents: breakdown.totalCommissionCents,
+            baseCommissionCents: breakdown.baseCommissionCents,
+            volumeTierBonusCents: breakdown.volumeTierBonusCents,
+            productBonusCents: breakdown.productBonusCents,
+            multiItemBonusCents: breakdown.multiItemBonusCents,
+            commissionPlanId: plan.id,
+            patientId,
+            isRecurring,
+            status: holdUntil ? 'PENDING' : 'APPROVED',
+            occurredAt,
+            holdUntil,
+            approvedAt: holdUntil ? null : new Date(),
+            isManual: true,
+            notes: notes || null,
+            metadata: {
+              source: 'sales_tracker',
+              paymentId,
+              planName: plan.name,
+              planType: plan.planType,
+              createdBy: createdByUserId,
+            },
+          },
+        });
+
+        // Retroactive tier update if crossing into a higher tier
+        if (
+          plan.volumeTierEnabled &&
+          plan.volumeTierRetroactive &&
+          breakdown.volumeTierResult?.crossedNewTier
+        ) {
+          await applyRetroactiveTierUpdate(
+            tx,
+            salesRepId,
+            clinicId,
+            breakdown.volumeTierResult,
+            event.id
+          );
+        }
+
+        return event;
+      },
+      { timeout: 15000 }
+    );
+
+    // Process override commissions for any manager reps above this rep
+    await processOverrideCommissions(
+      salesRepId,
+      clinicId,
+      {
+        amountCents: eventAmountCents,
+        stripeEventId: `manual_st_${paymentId}`,
+        patientId,
+        occurredAt,
+        holdUntil,
+      },
+      commissionEvent.id
+    );
+
+    logger.info('[SalesTracker] Commission created via plan', {
+      commissionEventId: commissionEvent.id,
+      salesRepId,
+      clinicId,
+      planId: plan.id,
+      planName: plan.name,
+      commissionAmountCents: breakdown.totalCommissionCents,
+      breakdown: {
+        base: breakdown.baseCommissionCents,
+        volumeTier: breakdown.volumeTierBonusCents,
+        product: breakdown.productBonusCents,
+        multiItem: breakdown.multiItemBonusCents,
+      },
+      paymentId,
+      createdBy: createdByUserId,
+    });
+
+    return {
+      success: true,
+      commissionEventId: commissionEvent.id,
+      commissionAmountCents: breakdown.totalCommissionCents,
+      breakdown: {
+        base: breakdown.baseCommissionCents,
+        volumeTier: breakdown.volumeTierBonusCents,
+        product: breakdown.productBonusCents,
+        multiItem: breakdown.multiItemBonusCents,
+      },
+      planName: plan.name,
+    };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('[SalesTracker] Error creating plan-based commission', {
+      error: msg,
+      salesRepId,
+      clinicId,
+      paymentId,
+    });
+    return { success: false, error: msg };
+  }
+}

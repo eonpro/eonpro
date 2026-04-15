@@ -75,6 +75,10 @@ async function handler(req: NextRequest) {
 
     const paymentStatus = isActive ? 'succeeded' : 'pending';
 
+    // Only return addresses for incomplete subscriptions (form recovery).
+    // Active/paid subscriptions don't need PII re-exposed.
+    const isRecovery = !isActive;
+
     return NextResponse.json({
       exists: true,
       order: {
@@ -82,9 +86,7 @@ async function handler(req: NextRequest) {
         paymentStatus,
         subscriptionStatus: subscription.status,
         orderStatus: isActive ? 'processing' : 'created',
-        customerEmail: typeof customer !== 'string' ? customer?.email : null,
-        shippingAddress,
-        billingAddress,
+        ...(isRecovery ? { shippingAddress, billingAddress } : {}),
       },
     });
   } catch (error: any) {

@@ -1,12 +1,20 @@
 /**
- * Order store — replaces Airtable with platform DB.
- * For now, uses a simple in-memory + session approach.
- * In production, integrate with prisma.order or a dedicated WellMedR orders table.
+ * Order store — Redis-backed ephemeral order tracking.
+ *
+ * Stores checkout order records in Redis (via Upstash REST) with a 24-hour TTL.
+ * Falls back gracefully to no-op when Redis is unavailable (same behavior as
+ * the platform cache module).
+ *
+ * Primary key: `sub:{subscriptionId}`. Secondary index: `cust:{customerId}`.
  */
 
+import cache from '@/lib/cache/redis';
 import { logger } from '@/lib/logger';
 
-interface OrderRecord {
+const NS = 'wm-orders';
+const TTL = 86_400; // 24 hours
+
+export interface OrderRecord {
   id: string;
   submissionId: string;
   subscriptionId: string;
@@ -23,10 +31,8 @@ interface OrderRecord {
   paymentStatus: string;
   subscriptionStatus: string;
   orderStatus: string;
-  createdAt: Date;
+  createdAt: string;
 }
-
-const orders = new Map<string, OrderRecord>();
 
 export async function createOrder(params: {
   submissionId: string;
@@ -49,9 +55,12 @@ export async function createOrder(params: {
     paymentStatus: 'pending',
     subscriptionStatus: 'incomplete',
     orderStatus: 'created',
-    createdAt: new Date(),
+    createdAt: new Date().toISOString(),
   };
-  orders.set(record.subscriptionId, record);
+
+  await cache.set(`sub:${record.subscriptionId}`, record, { namespace: NS, ttl: TTL });
+  await cache.set(`cust:${record.customerId}`, record.subscriptionId, { namespace: NS, ttl: TTL });
+
   logger.info('[wellmedr-order] Created order', {
     orderId: record.id,
     subscriptionId: record.subscriptionId,
@@ -62,63 +71,53 @@ export async function createOrder(params: {
 export async function findOrderBySubscriptionId(
   subscriptionId: string
 ): Promise<OrderRecord | null> {
-  return orders.get(subscriptionId) || null;
+  return cache.get<OrderRecord>(`sub:${subscriptionId}`, { namespace: NS });
 }
 
 export async function findOrderByCustomerId(customerId: string): Promise<OrderRecord | null> {
-  for (const order of orders.values()) {
-    if (order.customerId === customerId) return order;
-  }
-  return null;
+  const subscriptionId = await cache.get<string>(`cust:${customerId}`, { namespace: NS });
+  if (!subscriptionId) return null;
+  return cache.get<OrderRecord>(`sub:${subscriptionId}`, { namespace: NS });
 }
 
-export async function updateOrderPaymentStatus(orderId: string, status: string): Promise<void> {
-  for (const order of orders.values()) {
-    if (order.id === orderId) {
-      order.paymentStatus = status;
-      return;
-    }
-  }
+async function patchOrder(
+  subscriptionId: string,
+  patch: Partial<OrderRecord>
+): Promise<void> {
+  const order = await cache.get<OrderRecord>(`sub:${subscriptionId}`, { namespace: NS });
+  if (!order) return;
+  const updated = { ...order, ...patch };
+  await cache.set(`sub:${subscriptionId}`, updated, { namespace: NS, ttl: TTL });
+}
+
+export async function updateOrderPaymentStatus(
+  subscriptionId: string,
+  status: string
+): Promise<void> {
+  await patchOrder(subscriptionId, { paymentStatus: status });
 }
 
 export async function updateOrderSubscriptionStatus(
-  orderId: string,
+  subscriptionId: string,
   status: string
 ): Promise<void> {
-  for (const order of orders.values()) {
-    if (order.id === orderId) {
-      order.subscriptionStatus = status;
-      return;
-    }
-  }
+  await patchOrder(subscriptionId, { subscriptionStatus: status });
 }
 
-export async function updateOrderStatus(orderId: string, status: string): Promise<void> {
-  for (const order of orders.values()) {
-    if (order.id === orderId) {
-      order.orderStatus = status;
-      return;
-    }
-  }
+export async function updateOrderStatus(subscriptionId: string, status: string): Promise<void> {
+  await patchOrder(subscriptionId, { orderStatus: status });
 }
 
 export async function updateOrderPaymentDetails(
-  orderId: string,
+  subscriptionId: string,
   details: Record<string, unknown>
 ): Promise<void> {
-  for (const order of orders.values()) {
-    if (order.id === orderId) {
-      Object.assign(order, details);
-      return;
-    }
-  }
+  await patchOrder(subscriptionId, details as Partial<OrderRecord>);
 }
 
-export async function updateOrderAddonMetadata(orderId: string, addons: string[]): Promise<void> {
-  for (const order of orders.values()) {
-    if (order.id === orderId) {
-      order.selectedAddons = addons;
-      return;
-    }
-  }
+export async function updateOrderAddonMetadata(
+  subscriptionId: string,
+  addons: string[]
+): Promise<void> {
+  await patchOrder(subscriptionId, { selectedAddons: addons });
 }

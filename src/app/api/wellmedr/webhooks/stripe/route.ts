@@ -18,6 +18,10 @@ import {
 import { sendPurchaseEvent } from '@/lib/wellmedr/attentive';
 import { runWithClinicContext } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import cache from '@/lib/cache/redis';
+
+const IDEMPOTENCY_NS = 'wh-idem';
+const IDEMPOTENCY_TTL = 86_400; // 24 hours
 
 /** Stripe SDK v20 types omit `subscription` on Invoice; runtime webhook payloads still include it. */
 function getInvoiceSubscriptionId(invoice: Stripe.Invoice): string | undefined {
@@ -25,8 +29,6 @@ function getInvoiceSubscriptionId(invoice: Stripe.Invoice): string | undefined {
     .subscription;
   return typeof sub === 'string' ? sub : sub?.id;
 }
-
-const processedEvents = new Set<string>();
 
 export async function POST(req: NextRequest) {
   const body = await req.text();
@@ -50,16 +52,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: msg }, { status: 400 });
   }
 
-  // In-process idempotency guard: skip duplicate event IDs within this instance
-  if (processedEvents.has(event.id)) {
+  // Durable idempotency guard via Redis (survives restarts + multi-instance deploys)
+  const alreadyProcessed = await cache.exists(`evt:${event.id}`, { namespace: IDEMPOTENCY_NS });
+  if (alreadyProcessed) {
     return NextResponse.json({ received: true, duplicate: true });
   }
-  processedEvents.add(event.id);
-  // Cap the set size to prevent memory leaks
-  if (processedEvents.size > 10_000) {
-    const first = processedEvents.values().next().value;
-    if (first) processedEvents.delete(first);
-  }
+  await cache.set(`evt:${event.id}`, 1, { namespace: IDEMPOTENCY_NS, ttl: IDEMPOTENCY_TTL });
 
   try {
     switch (event.type) {
@@ -240,15 +238,15 @@ export async function POST(req: NextRequest) {
               }
             });
           } catch (processErr) {
-            // Non-blocking: order-store and Airtable are fallback records
             Sentry.captureException(processErr, {
               tags: { module: 'wellmedr-checkout', route: 'webhooks-stripe-processPayment' },
               extra: { paymentIntentId: pi.id, customerId },
             });
-            logger.error('[wellmedr/webhook] processStripePayment error (non-blocking)', {
+            logger.error('[wellmedr/webhook] processStripePayment error — will return 500 for retry', {
               error: processErr instanceof Error ? processErr.message : 'Unknown',
               paymentIntentId: pi.id,
             });
+            throw processErr;
           }
         }
         break;
@@ -268,6 +266,14 @@ export async function POST(req: NextRequest) {
       tags: { module: 'wellmedr-checkout', route: 'webhooks-stripe' },
       extra: { eventType: event.type, eventId: event.id },
     });
+
+    const critical = event.type === 'payment_intent.succeeded';
+    if (critical) {
+      return NextResponse.json(
+        { error: 'Webhook handler failed' },
+        { status: 500 }
+      );
+    }
   }
 
   return NextResponse.json({ received: true });

@@ -4,11 +4,21 @@
  * Fires product view, add-to-cart, checkout-started, and purchase events
  * via the Attentive REST API. All calls are non-blocking (fire-and-forget).
  *
- * Requires: ATTENTIVE_API_KEY env var.
+ * HIPAA: Attentive receives raw email/phone. The ATTENTIVE_HIPAA_BAA_CONFIRMED
+ * env var must be set to "true" to confirm a BAA is in place before any data
+ * is sent. Without it, all events are silently skipped.
+ *
+ * Requires: ATTENTIVE_API_KEY, ATTENTIVE_HIPAA_BAA_CONFIRMED env vars.
  */
+
+import { logger } from '@/lib/logger';
 
 const BASE_URL = 'https://api.attentivemobile.com/v1';
 const CUSTOM_EVENTS_ENDPOINT = `${BASE_URL}/events/custom`;
+
+function isBaaConfirmed(): boolean {
+  return process.env.ATTENTIVE_HIPAA_BAA_CONFIRMED === 'true';
+}
 
 function getApiKey(): string {
   return process.env.ATTENTIVE_API_KEY || '';
@@ -42,6 +52,11 @@ interface AttentivePurchaseParams extends AttentiveProductParams {
 }
 
 async function restRequest(path: string, body: Record<string, unknown>): Promise<void> {
+  if (!isBaaConfirmed()) {
+    logger.warn('[Attentive] Skipping event — ATTENTIVE_HIPAA_BAA_CONFIRMED is not set to "true"');
+    return;
+  }
+
   const apiKey = getApiKey();
   if (!apiKey) return;
 
@@ -82,7 +97,9 @@ export async function sendProductViewEvent(params: AttentiveProductParams): Prom
       user: eventUser(params.email, params.phone),
     });
   } catch (err) {
-    console.error('[Attentive] Failed to send product view event:', err);
+    logger.error('[Attentive] Failed to send product view event', {
+      error: err instanceof Error ? err.message : 'Unknown',
+    });
   }
 }
 
@@ -93,11 +110,18 @@ export async function sendAddToCartEvent(params: AttentiveProductParams): Promis
       user: eventUser(params.email, params.phone),
     });
   } catch (err) {
-    console.error('[Attentive] Failed to send add to cart event:', err);
+    logger.error('[Attentive] Failed to send add to cart event', {
+      error: err instanceof Error ? err.message : 'Unknown',
+    });
   }
 }
 
 export async function sendCheckoutStartedEvent(params: AttentiveProductParams): Promise<void> {
+  if (!isBaaConfirmed()) {
+    logger.warn('[Attentive] Skipping checkout-started — ATTENTIVE_HIPAA_BAA_CONFIRMED is not set');
+    return;
+  }
+
   const apiKey = getApiKey();
   if (!apiKey) return;
 
@@ -125,7 +149,9 @@ export async function sendCheckoutStartedEvent(params: AttentiveProductParams): 
       throw new Error(`Attentive Custom Event error ${res.status}: ${text}`);
     }
   } catch (err) {
-    console.error('[Attentive] Failed to send checkout started event:', err);
+    logger.error('[Attentive] Failed to send checkout started event', {
+      error: err instanceof Error ? err.message : 'Unknown',
+    });
   }
 }
 
@@ -136,6 +162,8 @@ export async function sendPurchaseEvent(params: AttentivePurchaseParams): Promis
       user: eventUser(params.email, params.phone),
     });
   } catch (err) {
-    console.error('[Attentive] Failed to send purchase event:', err);
+    logger.error('[Attentive] Failed to send purchase event', {
+      error: err instanceof Error ? err.message : 'Unknown',
+    });
   }
 }

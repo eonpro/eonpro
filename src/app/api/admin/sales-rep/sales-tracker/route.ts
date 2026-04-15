@@ -3,8 +3,9 @@
  *
  * GET  — List all succeeded payments with their commission disposition status.
  *        Admins use this to see every sale (new + rebill) and decide commission rates.
- * POST — Disposition a payment: mark as NEW (8%) or RECURRING (1%), assign a sales rep,
- *        create commission event, and assign patient to the rep.
+ * POST — Disposition a payment: mark as NEW or RECURRING, assign a sales rep,
+ *        calculate commission using the rep's active plan, and assign patient to the rep.
+ *        Commission events count towards volume tiers, payroll reports, and override commissions.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -15,13 +16,9 @@ import { handleApiError } from '@/domains/shared/errors';
 import { logger } from '@/lib/logger';
 import { COMMISSION_ELIGIBLE_ROLES } from '@/lib/constants/commission-eligible-roles';
 import { decryptPatientPHI } from '@/lib/security/phi-encryption';
+import { createSalesTrackerCommission } from '@/services/sales-rep/salesRepCommissionService';
 
 export const dynamic = 'force-dynamic';
-
-const COMMISSION_RATES = {
-  NEW: 800, // 8% in basis points
-  RECURRING: 100, // 1% in basis points
-} as const;
 
 const dispositionSchema = z.object({
   paymentId: z.number().positive(),
@@ -128,8 +125,13 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           metadata: true,
           salesRepId: true,
           commissionAmountCents: true,
+          baseCommissionCents: true,
+          volumeTierBonusCents: true,
+          productBonusCents: true,
+          multiItemBonusCents: true,
           eventAmountCents: true,
           isRecurring: true,
+          commissionPlanId: true,
           salesRep: { select: { id: true, firstName: true, lastName: true } },
         },
       });
@@ -188,6 +190,14 @@ async function handleGet(req: NextRequest, user: AuthUser) {
                 commissionEventId: commission.id,
                 commissionType: commission.isRecurring ? 'RECURRING' : 'NEW',
                 commissionAmountCents: commission.commissionAmountCents,
+                planName:
+                  (commission.metadata as Record<string, any> | null)?.planName || null,
+                breakdown: {
+                  base: commission.baseCommissionCents,
+                  volumeTier: commission.volumeTierBonusCents,
+                  product: commission.productBonusCents,
+                  multiItem: commission.multiItemBonusCents,
+                },
                 salesRep: {
                   id: commission.salesRep.id,
                   firstName: commission.salesRep.firstName,
@@ -349,37 +359,29 @@ async function handlePost(req: NextRequest, user: AuthUser) {
         return NextResponse.json({ error: 'Unable to determine clinic' }, { status: 400 });
       }
 
-      // Calculate commission
-      const rateBps = COMMISSION_RATES[commissionType];
-      const commissionAmountCents = Math.round((payment.amount * rateBps) / 10000);
       const isRecurring = commissionType === 'RECURRING';
 
-      // Create commission event + patient assignment in a transaction
-      const result = await prisma.$transaction(
-        async (tx) => {
-          const commissionEvent = await tx.salesRepCommissionEvent.create({
-            data: {
-              clinicId: targetClinicId,
-              salesRepId,
-              eventAmountCents: payment.amount,
-              commissionAmountCents,
-              baseCommissionCents: commissionAmountCents,
-              occurredAt: payment.paidAt || new Date(),
-              status: 'APPROVED',
-              isManual: true,
-              isRecurring,
-              patientId: payment.patientId,
-              notes: notes || null,
-              metadata: {
-                source: 'sales_tracker',
-                paymentId: payment.id,
-                commissionType,
-                rateBps,
-                createdBy: user.id,
-              },
-            },
-          });
+      // Create commission using the rep's active commission plan
+      const commissionResult = await createSalesTrackerCommission({
+        clinicId: targetClinicId,
+        salesRepId,
+        patientId: payment.patientId,
+        paymentId: payment.id,
+        eventAmountCents: payment.amount,
+        occurredAt: payment.paidAt || new Date(),
+        isRecurring,
+        createdByUserId: user.id,
+        notes,
+      });
 
+      if (!commissionResult.success) {
+        const status = commissionResult.noPlan ? 422 : 400;
+        return NextResponse.json({ error: commissionResult.error }, { status });
+      }
+
+      // Handle patient ↔ rep assignment (separate from commission creation)
+      await prisma.$transaction(
+        async (tx) => {
           // Deactivate existing assignments for this patient (if reassigning)
           await tx.patientSalesRepAssignment.updateMany({
             where: {
@@ -396,7 +398,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
             },
           });
 
-          // Create or reactivate assignment
+          // Create assignment if not already active
           const existingAssignment = await tx.patientSalesRepAssignment.findFirst({
             where: {
               patientId: payment.patientId,
@@ -406,9 +408,8 @@ async function handlePost(req: NextRequest, user: AuthUser) {
             },
           });
 
-          let assignment = existingAssignment;
           if (!existingAssignment) {
-            assignment = await tx.patientSalesRepAssignment.create({
+            await tx.patientSalesRepAssignment.create({
               data: {
                 patientId: payment.patientId,
                 salesRepId,
@@ -418,33 +419,20 @@ async function handlePost(req: NextRequest, user: AuthUser) {
               },
             });
           }
-
-          return { commissionEvent, assignment };
         },
-        { timeout: 15000 }
+        { timeout: 10000 }
       );
-
-      logger.info('[SalesTracker] Payment dispositioned', {
-        paymentId,
-        commissionEventId: result.commissionEvent.id,
-        salesRepId,
-        commissionType,
-        commissionAmountCents,
-        clinicId: targetClinicId,
-        dispositionedBy: user.id,
-      });
 
       return NextResponse.json({
         success: true,
         commissionEvent: {
-          id: result.commissionEvent.id,
-          commissionAmountCents,
+          id: commissionResult.commissionEventId,
+          commissionAmountCents: commissionResult.commissionAmountCents,
           commissionType,
+          planName: commissionResult.planName,
+          breakdown: commissionResult.breakdown,
           salesRep: { id: rep.id, firstName: rep.firstName, lastName: rep.lastName },
         },
-        assignment: result.assignment
-          ? { id: result.assignment.id, salesRepId }
-          : null,
       });
     };
 
