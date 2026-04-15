@@ -603,24 +603,9 @@ const steps: FormStep[] = [
     fields: [],
     autoAdvance: false,
     showContinueButton: true,
-    nextStep: 'testimonials',
+    nextStep: 'medical-history-overview',
     prevStep: 'current-weight',
     progressPercent: 32,
-  },
-
-  // ===== SECTION 4: TESTIMONIALS =====
-  {
-    id: 'testimonials',
-    path: 'testimonials',
-    title: { en: 'Real patients, real results.', es: 'Pacientes reales, resultados reales.' },
-    type: 'custom',
-    component: 'TestimonialsStep',
-    fields: [],
-    autoAdvance: false,
-    showContinueButton: true,
-    nextStep: 'medical-history-overview',
-    prevStep: 'bmi-result',
-    progressPercent: 34,
   },
 
   // ===== SECTION 5: MEDICAL HISTORY =====
@@ -646,7 +631,7 @@ const steps: FormStep[] = [
         target: 'activity-level',
       },
     ],
-    prevStep: 'testimonials',
+    prevStep: 'bmi-result',
     progressPercent: 36,
   },
   {
