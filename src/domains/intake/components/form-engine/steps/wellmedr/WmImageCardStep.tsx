@@ -16,7 +16,7 @@ const iconFilter =
 
 function CardIcon({ iconId }: { iconId: string }) {
   const imgStyle = { width: 64, height: 64, objectFit: 'contain' as const, filter: iconFilter };
-  const silStyle = { width: 80, height: 140, objectFit: 'contain' as const, filter: iconFilter };
+  const silStyle = { width: 100, height: 180, objectFit: 'contain' as const, filter: iconFilter };
   switch (iconId) {
     case 'male':
       /* eslint-disable-next-line @next/next/no-img-element */
@@ -318,8 +318,8 @@ export default function WmImageCardStep({
                 onClick={() => handleSelect(card.id)}
                 className="relative flex flex-col items-center justify-center overflow-hidden rounded-[20px]"
                 style={{
-                  minHeight: isSilhouette ? '200px' : '110px',
-                  padding: isSilhouette ? '24px 16px' : '14px 12px',
+                  minHeight: isSilhouette ? '160px' : '110px',
+                  padding: isSilhouette ? '16px 12px' : '14px 12px',
                   backgroundColor: sel ? '#f5f0e8' : '#ffffff',
                   border: `2px solid ${sel ? '#c3b29e' : 'rgba(0,0,0,0.06)'}`,
                   boxShadow: sel
