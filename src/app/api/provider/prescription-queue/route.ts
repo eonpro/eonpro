@@ -1106,6 +1106,66 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       }
     }
 
+    // ─── Phase 2e: Batch-load addon invoices for patients missing selectedAddons ───
+    // When the wellmedr-invoice webhook couldn't look up selectedAddons from Stripe,
+    // we fall back to reading addon data from the separate addon invoices created by
+    // the Stripe webhook or cron job.
+    const patientAddonMap = new Map<number, string[]>();
+    {
+      const invoicesNeedingAddonEnrichment = (invoices as any[]).filter((inv: any) => {
+        const meta = inv.metadata as Record<string, unknown> | null;
+        const source = meta?.source;
+        if (source === 'stripe-connect-addon' || source === 'stripe-connect-addon-cron') return false;
+        return !Array.isArray(meta?.selectedAddons) || (meta.selectedAddons as unknown[]).length === 0;
+      });
+      const patientIdsForAddonLookup = [...new Set(invoicesNeedingAddonEnrichment.map((inv: any) => inv.patient.id as number))];
+
+      if (patientIdsForAddonLookup.length > 0) {
+        try {
+          const addonInvoices = await prisma.invoice.findMany({
+            where: {
+              patientId: { in: patientIdsForAddonLookup },
+              clinicId: { in: clinicIds },
+              prescriptionProcessed: false,
+              status: 'PAID',
+              OR: [
+                { metadata: { path: ['source'], equals: 'stripe-connect-addon' } },
+                { metadata: { path: ['source'], equals: 'stripe-connect-addon-cron' } },
+              ],
+            },
+            select: { patientId: true, metadata: true },
+          });
+
+          for (const addonInv of addonInvoices) {
+            const addonMeta = addonInv.metadata as Record<string, unknown> | null;
+            const addons = patientAddonMap.get(addonInv.patientId) || [];
+
+            if (Array.isArray(addonMeta?.selectedAddons)) {
+              for (const a of addonMeta.selectedAddons as string[]) {
+                if (!addons.includes(a)) addons.push(a);
+              }
+            }
+            const product = String(addonMeta?.product || '').toLowerCase();
+            if (product.includes('elite bundle') || product.includes('elite package')) {
+              if (!addons.includes('elite_bundle')) addons.push('elite_bundle');
+            } else if (product.includes('nad') && !addons.includes('nad_plus')) {
+              addons.push('nad_plus');
+            } else if (product.includes('sermorelin') && !addons.includes('sermorelin')) {
+              addons.push('sermorelin');
+            } else if ((product.includes('b12') || product.includes('cyanocobalamin')) && !addons.includes('b12')) {
+              addons.push('b12');
+            }
+
+            patientAddonMap.set(addonInv.patientId, addons);
+          }
+        } catch (addonErr) {
+          logger.warn('[PRESCRIPTION-QUEUE] Failed to batch-load addon invoices (non-fatal)', {
+            error: addonErr instanceof Error ? addonErr.message : String(addonErr),
+          });
+        }
+      }
+    }
+
     // Transform invoice data for frontend
     const invoiceItems = (invoices as any[]).map((invoice: any) => {
       // CRITICAL: Validate clinic consistency between invoice and patient
@@ -1331,15 +1391,24 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
       // Append add-on names to treatment display so provider sees them at a glance
       const addonNames: string[] = [];
+      let resolvedAddons: string[] | undefined;
       const invoiceAddons = (metadata as Record<string, unknown> | null)?.selectedAddons;
-      if (Array.isArray(invoiceAddons)) {
+      if (Array.isArray(invoiceAddons) && invoiceAddons.length > 0) {
+        resolvedAddons = invoiceAddons as string[];
+      } else {
+        const fromAddonInvoices = patientAddonMap.get(invoice.patient.id);
+        if (fromAddonInvoices && fromAddonInvoices.length > 0) {
+          resolvedAddons = fromAddonInvoices;
+        }
+      }
+      if (resolvedAddons) {
         const ADDON_LABELS: Record<string, string> = {
           nad_plus: 'NAD+',
           sermorelin: 'Sermorelin',
           b12: 'B12',
           elite_bundle: 'Elite Bundle',
         };
-        for (const a of invoiceAddons) {
+        for (const a of resolvedAddons) {
           if (typeof a === 'string' && ADDON_LABELS[a]) addonNames.push(ADDON_LABELS[a]);
         }
       }

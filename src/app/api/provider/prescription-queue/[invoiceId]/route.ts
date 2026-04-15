@@ -761,6 +761,65 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
       });
     }
 
+    // Enrich metadata with selectedAddons from related addon invoices when
+    // the main invoice doesn't already have them (subscription lookup may have
+    // failed when the wellmedr-invoice webhook created this record).
+    let enrichedMetadata = invoice.metadata as Record<string, unknown> | null;
+    if (!Array.isArray(enrichedMetadata?.selectedAddons) || (enrichedMetadata.selectedAddons as unknown[]).length === 0) {
+      try {
+        const relatedAddonInvoices = await prisma.invoice.findMany({
+          where: {
+            patientId: invoice.patient.id,
+            clinicId,
+            prescriptionProcessed: false,
+            status: 'PAID',
+            createdAt: { gte: new Date(invoice.createdAt.getTime() - 48 * 60 * 60 * 1000) },
+            OR: [
+              { metadata: { path: ['source'], equals: 'stripe-connect-addon' } },
+              { metadata: { path: ['source'], equals: 'stripe-connect-addon-cron' } },
+            ],
+          },
+          select: { metadata: true },
+        });
+
+        if (relatedAddonInvoices.length > 0) {
+          const mergedAddons = new Set<string>();
+          for (const addonInv of relatedAddonInvoices) {
+            const addonMeta = addonInv.metadata as Record<string, unknown> | null;
+            if (Array.isArray(addonMeta?.selectedAddons)) {
+              for (const a of addonMeta.selectedAddons as string[]) mergedAddons.add(a);
+            }
+            // Fallback: infer from the product name in the addon invoice
+            const product = String(addonMeta?.product || '').toLowerCase();
+            if (product.includes('elite bundle') || product.includes('elite package')) {
+              mergedAddons.add('elite_bundle');
+            } else if (product.includes('nad')) {
+              mergedAddons.add('nad_plus');
+            } else if (product.includes('sermorelin')) {
+              mergedAddons.add('sermorelin');
+            } else if (product.includes('b12') || product.includes('cyanocobalamin')) {
+              mergedAddons.add('b12');
+            }
+          }
+
+          if (mergedAddons.size > 0) {
+            enrichedMetadata = { ...(enrichedMetadata || {}), selectedAddons: [...mergedAddons] };
+            logger.info('[PRESCRIPTION-QUEUE] Enriched invoice metadata with addons from related addon invoices', {
+              invoiceId: invoice.id,
+              patientId: invoice.patient.id,
+              addons: [...mergedAddons],
+              addonInvoiceCount: relatedAddonInvoices.length,
+            });
+          }
+        }
+      } catch (enrichErr) {
+        logger.warn('[PRESCRIPTION-QUEUE] Failed to enrich addon metadata (non-fatal)', {
+          invoiceId: invoice.id,
+          error: enrichErr instanceof Error ? enrichErr.message : String(enrichErr),
+        });
+      }
+    }
+
     // Build response with decrypted patient PHI
     const response = {
       invoice: {
@@ -770,7 +829,7 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
         amountFormatted: `$${((invoice.amount || 0) / 100).toFixed(2)}`,
         paidAt: invoice.paidAt,
         prescriptionProcessed: invoice.prescriptionProcessed,
-        metadata: invoice.metadata,
+        metadata: enrichedMetadata,
         lineItems: invoice.lineItems,
       },
       patient: (() => {
