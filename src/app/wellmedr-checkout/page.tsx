@@ -46,6 +46,7 @@ function CheckoutContent() {
       firstName: String(stored.firstName || ''),
       lastName: String(stored.lastName || ''),
       email: String(stored.email || ''),
+      phone: String(stored.phone || ''),
       state: String(stored.state || ''),
       sex: String(stored.sex || ''),
       dob: stored.dob ? String(stored.dob) : undefined,

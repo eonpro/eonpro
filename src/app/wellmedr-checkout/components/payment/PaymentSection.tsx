@@ -239,6 +239,12 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
       throw new Error('Shipping address is required.');
     }
 
+    // Read Airtable record ID from sessionStorage so checkout data syncs back
+    let airtableRecordId: string | undefined;
+    if (typeof sessionStorage !== 'undefined') {
+      airtableRecordId = sessionStorage.getItem('wm_airtable_record_id') || undefined;
+    }
+
     logger.log('[CLIENT] Calling /api/create-subscription...');
     const response = await fetch('/api/wellmedr/create-subscription', {
       method: 'POST',
@@ -246,6 +252,7 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
       body: JSON.stringify({
         priceId: formData.planDetails.id,
         customerEmail: formData.email,
+        customerPhone: formData.phone || '',
         customerName: `${formData.shippingAddress.firstName} ${formData.shippingAddress.lastName}`,
         cardholderName:
           formData.cardholderName ||
@@ -260,6 +267,7 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
         planType: formData.planDetails.plan_type,
         selectedAddons: formData.selectedAddons || [],
         promotionCodeId: formData.promotionCodeId,
+        airtableRecordId,
       }),
     });
     logger.log(

@@ -85,12 +85,18 @@ export const baseAdminNavConfig: AdminNavItemConfig[] = [
     groupKey: 'reporting',
   },
   {
+    path: '/admin/sales-rep/sales-tracker',
+    label: 'Sales Tracker',
+    iconKey: 'TrendingUp',
+    groupKey: 'sales',
+    groupLabel: 'Sales',
+    groupIconKey: 'DollarSign',
+  },
+  {
     path: '/admin/sales-rep/commission-plans',
     label: 'Sales Rep Commissions',
     iconKey: 'DollarSign',
     groupKey: 'sales',
-    groupLabel: 'Sales',
-    groupIconKey: 'DollarSign',
   },
   { path: '/admin/sales-rep/links', label: 'Intake Links', iconKey: 'Link', groupKey: 'sales' },
   {

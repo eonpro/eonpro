@@ -678,25 +678,7 @@ export default function FormStep({
         />
       </div>
 
-      {/* Back button - ghost style */}
-      {config.prevStep && (
-        <div className={`${contentPadding} pt-6 ${contentMaxWidth} mx-auto w-full`}>
-          <button
-            onClick={handleBack}
-            className="-ml-2 inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900"
-            aria-label={isSpanish ? 'Volver' : 'Go back'}
-          >
-            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
-          </button>
-        </div>
-      )}
+      {/* Back button removed — intake is a forward-only flow */}
 
       {/* Logo */}
       {logoElement}

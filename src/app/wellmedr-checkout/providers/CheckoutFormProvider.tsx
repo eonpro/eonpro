@@ -107,6 +107,7 @@ export default function CheckoutFormProvider({ children, patientData }: Checkout
       selectedAddons: storedData?.selectedAddons || [],
       cardholderName: '',
       email: storedData?.email || patientData?.email || '',
+      phone: storedData?.phone || patientData?.phone || '',
     },
     mode: 'onChange',
   });
@@ -121,20 +122,20 @@ export default function CheckoutFormProvider({ children, patientData }: Checkout
     return () => subscription.unsubscribe();
   }, [methods]);
 
-  // Fetch order data from Airtable if subscription ID exists in sessionStorage
-  // This allows recovering shipping/billing data from a previous order attempt
+  // Recover order data from Stripe if a subscription ID exists in sessionStorage.
+  // This handles page refresh / redirect-back scenarios by querying Stripe Connect
+  // directly (not Airtable or in-memory store). Stripe is the source of truth.
   useEffect(() => {
     const fetchOrderData = async () => {
       const subscriptionId = getStoredSubscriptionId();
       if (!subscriptionId) return;
 
-      // Skip if we already have shipping address data in sessionStorage
       const storedData = getStoredFormData();
       if (storedData?.shippingAddress?.address) return;
 
       try {
         const response = await fetch(
-          `/api/get-order?subscriptionId=${encodeURIComponent(subscriptionId)}`
+          `/api/wellmedr/get-order?subscriptionId=${encodeURIComponent(subscriptionId)}`
         );
         const data = await response.json();
 
@@ -147,19 +148,16 @@ export default function CheckoutFormProvider({ children, patientData }: Checkout
             paymentStatus,
           } = data.order;
 
-          // If subscription is already active/successful, clear storage and redirect to thank-you
           if (subscriptionStatus === 'active' && paymentStatus === 'succeeded') {
             clearSubscriptionId();
-            // Get uid from URL params
             const urlParams = new URLSearchParams(window.location.search);
             const uid = urlParams.get('uid');
             if (uid) {
-              window.location.href = `/thank-you?uid=${uid}`;
+              window.location.href = `/wellmedr-checkout/thank-you?uid=${encodeURIComponent(uid)}`;
               return;
             }
           }
 
-          // Update form with order data if available
           if (shippingAddress) {
             methods.setValue('shippingAddress', {
               firstName: shippingAddress.firstName || patientData?.firstName || '',
@@ -188,11 +186,9 @@ export default function CheckoutFormProvider({ children, patientData }: Checkout
           if (customerEmail && !methods.getValues('email')) {
             methods.setValue('email', customerEmail);
           }
-
-          console.log('Form initialized with order data from Airtable');
         }
       } catch (e) {
-        logger.error('Failed to fetch order data:', e);
+        logger.error('Failed to fetch order data from Stripe:', e);
       }
     };
 

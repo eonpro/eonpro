@@ -209,6 +209,7 @@ function IntakeStepContent() {
         firstName: r.firstName ? String(r.firstName) : '',
         lastName: r.lastName ? String(r.lastName) : '',
         email: r.email ? String(r.email) : '',
+        phone: r.phone ? String(r.phone) : '',
         state: r.state ? String(r.state) : '',
         sex: r.sex ? String(r.sex) : '',
         weight: r.current_weight ? Number(r.current_weight) : 0,

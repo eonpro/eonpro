@@ -17,6 +17,7 @@ const createSubscriptionSchema = z.object({
   priceId: z.string().min(1, 'Price ID is required').max(200),
   customerEmail: z.string().email('Valid email is required').max(254),
   customerName: z.string().min(1).max(200),
+  customerPhone: z.string().max(20).optional(),
   cardholderName: z.string().max(200).optional(),
   shippingAddress: z.object({
     firstName: z.string().min(1).max(100),
@@ -65,6 +66,7 @@ async function handler(req: NextRequest) {
     const {
       priceId,
       customerEmail,
+      customerPhone,
       customerName,
       cardholderName,
       shippingAddress,
@@ -104,7 +106,8 @@ async function handler(req: NextRequest) {
         {
           name: customerName,
           ...(shippingData ? { shipping: shippingData } : {}),
-          metadata: { submissionId: submissionId || '', productName: productName || '', medicationType: medicationType || '', planType: planType || '' },
+          metadata: { submissionId: submissionId || '', productName: productName || '', medicationType: medicationType || '', planType: planType || '', phone: customerPhone || '' },
+          ...(customerPhone ? { phone: customerPhone } : {}),
         },
         connectOpts
       )) as Stripe.Customer;
@@ -113,8 +116,9 @@ async function handler(req: NextRequest) {
         {
           email: customerEmail,
           name: customerName,
+          ...(customerPhone ? { phone: customerPhone } : {}),
           ...(shippingData ? { shipping: shippingData } : {}),
-          metadata: { submissionId: submissionId || '', productName: productName || '', medicationType: medicationType || '', planType: planType || '' },
+          metadata: { submissionId: submissionId || '', productName: productName || '', medicationType: medicationType || '', planType: planType || '', phone: customerPhone || '' },
         },
         connectOpts
       );
@@ -145,6 +149,9 @@ async function handler(req: NextRequest) {
         medicationType: medicationType || '',
         planType: planType || '',
         cardholderName: cardholderName || customerName,
+        phone: customerPhone || '',
+        email: customerEmail,
+        clinicId: process.env.WELLMEDR_CLINIC_ID || '7',
         shippingAddress: JSON.stringify(shippingAddress || {}),
         billingAddress: JSON.stringify(billingAddress || {}),
         ...(addons.length > 0 ? { selectedAddons: JSON.stringify(addons) } : {}),
