@@ -44,12 +44,10 @@ async function handler(req: NextRequest) {
       success: boolean;
       status?: string;
       customerId?: string;
-      email?: string;
       amount?: number;
       currency?: string;
       transactionId?: string;
       paymentMethod?: { brand: string; last4: string };
-      metadata?: Record<string, string>;
     };
 
     if (subscriptionId) {
@@ -71,8 +69,6 @@ async function handler(req: NextRequest) {
         success,
         status: success ? 'succeeded' : subscription.status,
         customerId: typeof customer === 'string' ? customer : customer?.id,
-        email: typeof customer === 'string' ? undefined : customer?.email,
-        metadata: (subscription.metadata || {}) as Record<string, string>,
         paymentMethod,
         transactionId: subscriptionId,
       };
@@ -89,11 +85,9 @@ async function handler(req: NextRequest) {
         success,
         status: paymentIntent.status,
         customerId: typeof customer === 'string' ? customer : customer?.id,
-        email: paymentIntent.receipt_email || (customer && typeof customer !== 'string' ? customer.email : undefined),
         amount: paymentIntent.amount ? paymentIntent.amount / 100 : undefined,
         currency: paymentIntent.currency?.toUpperCase(),
         transactionId: paymentIntentId,
-        metadata: (paymentIntent.metadata || {}) as Record<string, string>,
       };
     } else {
       return NextResponse.json({ error: 'Missing identifier' }, { status: 400 });

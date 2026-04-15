@@ -1,24 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { z } from 'zod';
+import * as Sentry from '@sentry/nextjs';
 import {
   getWellMedrConnectStripe,
   getWellMedrConnectOpts,
 } from '@/app/wellmedr-checkout/lib/stripe-connect';
+import { rateLimit } from '@/lib/rateLimit';
+import { logger } from '@/lib/logger';
 
-export async function POST(req: NextRequest) {
+const applyPromoSchema = z.object({
+  subscriptionId: z.string().min(1).max(200).startsWith('sub_'),
+  promotionCodeId: z.string().max(200).optional(),
+});
+
+async function handler(req: NextRequest) {
   try {
-    const { subscriptionId, promotionCodeId } = await req.json();
+    const body = await req.json();
+    const parsed = applyPromoSchema.safeParse(body);
 
-    if (!subscriptionId) {
-      return NextResponse.json({ error: 'Subscription ID is required' }, { status: 400 });
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: parsed.error.flatten().fieldErrors },
+        { status: 400 }
+      );
     }
+
+    const { subscriptionId, promotionCodeId } = parsed.data;
 
     const stripe = getWellMedrConnectStripe();
     const connectOpts = getWellMedrConnectOpts();
     const subscription = await stripe.subscriptions.retrieve(
       subscriptionId,
       {},
-      connectOpts as any
+      connectOpts
     );
 
     if (subscription.status !== 'incomplete') {
@@ -57,7 +72,7 @@ export async function POST(req: NextRequest) {
         if (paymentRecord.payment?.type === 'payment_intent') {
           const piId = (paymentRecord.payment as { type: 'payment_intent'; payment_intent: string })
             .payment_intent;
-          const pi = await stripe.paymentIntents.retrieve(piId, {}, connectOpts as any);
+          const pi = await stripe.paymentIntents.retrieve(piId, {}, connectOpts);
           clientSecret = pi.client_secret;
         }
       }
@@ -91,8 +106,12 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error) {
-    const msg = error instanceof Error ? error.message : 'Internal error';
-    console.error('[wellmedr/apply-promo-code]', msg);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    Sentry.captureException(error, {
+      tags: { module: 'wellmedr-checkout', route: 'apply-promo-code' },
+    });
+    logger.error('[apply-promo-code] Error', error instanceof Error ? error : undefined);
+    return NextResponse.json({ error: 'Failed to apply promo code' }, { status: 500 });
   }
 }
+
+export const POST = rateLimit({ max: 10, windowMs: 60_000 })(handler);

@@ -5,15 +5,6 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { loadStripe } from '@stripe/stripe-js';
 import Header from '../components/ui/Header';
 
-const SUBSCRIPTION_STORAGE_KEY = 'wellmedr_subscription_id';
-
-function clearSubscriptionId() {
-  if (typeof window === 'undefined') return;
-  try {
-    sessionStorage.removeItem(SUBSCRIPTION_STORAGE_KEY);
-  } catch {}
-}
-
 function PaymentReturnContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -46,7 +37,6 @@ function PaymentReturnContent() {
         const { paymentIntent: pi } = await stripe.retrievePaymentIntent(paymentIntentClientSecret);
 
         if (pi?.status === 'succeeded' || pi?.status === 'processing') {
-          clearSubscriptionId();
           setStatus('success');
           setTimeout(() => {
             router.push(`/wellmedr-checkout/thank-you?uid=${encodeURIComponent(uid)}`);

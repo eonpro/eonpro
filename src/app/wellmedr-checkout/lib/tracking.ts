@@ -76,8 +76,7 @@ async function buildHashedUserData(raw: UserData): Promise<Record<string, string
     if (raw.zipCode) result.zp = await sha256(raw.zipCode.trim());
     if (raw.externalId) result.external_id = await sha256(raw.externalId);
   } catch {
-    if (raw.email) result.em = raw.email.trim().toLowerCase();
-    if (raw.phone) result.ph = normalizePhone(raw.phone);
+    // Never fall back to raw PII — omit fields on hashing failure
   }
   return result;
 }

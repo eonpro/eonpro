@@ -18,28 +18,11 @@ type PersistedFormData = Omit<CheckoutFormData, 'cardholderName'>;
 function getStoredSubscriptionId(): string | null {
   if (typeof window === 'undefined') return null;
   try {
-    const id = sessionStorage.getItem(SUBSCRIPTION_STORAGE_KEY);
-    if (id) {
-      console.log('[Subscription Storage] Retrieved subscription ID:', id);
-    }
-    return id;
+    return sessionStorage.getItem(SUBSCRIPTION_STORAGE_KEY);
   } catch (e) {
-    console.error('Failed to get subscription ID:', e);
+    logger.error('Failed to get subscription ID');
   }
   return null;
-}
-
-function clearSubscriptionId() {
-  if (typeof window === 'undefined') return;
-  try {
-    const existingId = sessionStorage.getItem(SUBSCRIPTION_STORAGE_KEY);
-    sessionStorage.removeItem(SUBSCRIPTION_STORAGE_KEY);
-    if (existingId) {
-      console.log('[Subscription Storage] Cleared subscription ID from form provider:', existingId);
-    }
-  } catch (e) {
-    console.error('Failed to clear subscription ID:', e);
-  }
 }
 
 function getStoredFormData(): Partial<PersistedFormData> | null {
@@ -149,7 +132,6 @@ export default function CheckoutFormProvider({ children, patientData }: Checkout
           } = data.order;
 
           if (subscriptionStatus === 'active' && paymentStatus === 'succeeded') {
-            clearSubscriptionId();
             const urlParams = new URLSearchParams(window.location.search);
             const uid = urlParams.get('uid');
             if (uid) {

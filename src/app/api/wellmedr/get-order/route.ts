@@ -18,7 +18,7 @@ import { rateLimit } from '@/lib/rateLimit';
 async function handler(req: NextRequest) {
   try {
     const subscriptionId = req.nextUrl.searchParams.get('subscriptionId');
-    if (!subscriptionId || subscriptionId.length > 200) {
+    if (!subscriptionId || subscriptionId.length > 200 || !subscriptionId.startsWith('sub_')) {
       return NextResponse.json({ exists: false });
     }
 
@@ -45,12 +45,16 @@ async function handler(req: NextRequest) {
     if (subscription.metadata?.shippingAddress) {
       try {
         shippingAddress = JSON.parse(subscription.metadata.shippingAddress);
-      } catch { /* ignore */ }
+      } catch {
+        Sentry.captureMessage('get-order: Failed to parse shippingAddress metadata', 'warning');
+      }
     }
     if (subscription.metadata?.billingAddress) {
       try {
         billingAddress = JSON.parse(subscription.metadata.billingAddress);
-      } catch { /* ignore */ }
+      } catch {
+        Sentry.captureMessage('get-order: Failed to parse billingAddress metadata', 'warning');
+      }
     }
 
     // Fallback: recover shipping from Stripe customer object

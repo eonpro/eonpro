@@ -100,8 +100,8 @@ export async function POST(req: NextRequest) {
               if (Array.isArray(addons)) {
                 await updateOrderAddonMetadata(order.id, addons);
               }
-            } catch {
-              /* ignore parse errors */
+            } catch (parseErr) {
+              Sentry.captureMessage('webhook: Failed to parse selectedAddons metadata', 'warning');
             }
           }
         }
@@ -161,7 +161,7 @@ export async function POST(req: NextRequest) {
               email: resolvedEmail,
               phone: pi.shipping?.phone || pi.metadata?.phone || '',
               productId: pi.metadata?.productId || '',
-              productName: pi.metadata?.productName || pi.metadata?.productName || 'WellMedR Product',
+              productName: pi.metadata?.productName || 'WellMedR Product',
               productPrice: pi.amount / 100,
               currency: pi.currency?.toUpperCase() || 'USD',
               orderId: pi.id,

@@ -187,7 +187,11 @@ async function handler(req: NextRequest) {
         shippingAddress: shippingAddress || {},
         billingAddress: billingAddress || {},
         selectedAddons: addons,
-      }).catch(() => {});
+      }).catch((err) =>
+        Sentry.captureException(err, {
+          tags: { module: 'wellmedr-checkout', route: 'create-subscription', step: 'createOrder' },
+        })
+      );
 
       return NextResponse.json({
         success: true,
@@ -230,7 +234,11 @@ async function handler(req: NextRequest) {
       shippingAddress: shippingAddress || {},
       billingAddress: billingAddress || {},
       selectedAddons: addons,
-    }).catch(() => {});
+    }).catch((err) =>
+        Sentry.captureException(err, {
+          tags: { module: 'wellmedr-checkout', route: 'create-subscription', step: 'createOrder' },
+        })
+      );
 
     if (airtableRecordId) {
       updateCheckoutFields(airtableRecordId, {
@@ -248,7 +256,11 @@ async function handler(req: NextRequest) {
         billingAddress: billingAddress ? JSON.stringify(billingAddress) : undefined,
         paymentStatus: 'pending',
         orderStatus: 'created',
-      }).catch((err) => console.error('[wellmedr/create-subscription] Airtable sync error:', err));
+      }).catch((err) =>
+        Sentry.captureException(err, {
+          tags: { module: 'wellmedr-checkout', route: 'create-subscription', step: 'airtable-sync' },
+        })
+      );
     }
 
     return NextResponse.json({

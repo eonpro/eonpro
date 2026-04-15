@@ -14,6 +14,7 @@ import { withAuth, type AuthUser } from '@/lib/auth/middleware';
 import { handleApiError } from '@/domains/shared/errors';
 import { logger } from '@/lib/logger';
 import { COMMISSION_ELIGIBLE_ROLES } from '@/lib/constants/commission-eligible-roles';
+import { decryptPatientPHI } from '@/lib/security/phi-encryption';
 
 export const dynamic = 'force-dynamic';
 
@@ -148,6 +149,22 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         const currentRep = p.patient?.salesRepAssignments?.[0] || null;
         const isRebill = !!p.subscriptionId;
 
+        // Decrypt patient PHI fields
+        let patientData = null;
+        if (p.patient) {
+          const decrypted = decryptPatientPHI(p.patient, [
+            'firstName',
+            'lastName',
+            'email',
+          ]);
+          patientData = {
+            id: p.patient.id,
+            firstName: decrypted.firstName || '[Encrypted]',
+            lastName: decrypted.lastName || '[Encrypted]',
+            email: decrypted.email || '[Encrypted]',
+          };
+        }
+
         return {
           id: p.id,
           paidAt: p.paidAt,
@@ -158,14 +175,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           stripeInvoiceNumber: p.invoice?.stripeInvoiceNumber || null,
           invoiceItems: p.invoice?.items || [],
           isRebill,
-          patient: p.patient
-            ? {
-                id: p.patient.id,
-                firstName: p.patient.firstName,
-                lastName: p.patient.lastName,
-                email: p.patient.email,
-              }
-            : null,
+          patient: patientData,
           currentSalesRep: currentRep
             ? {
                 id: currentRep.salesRep.id,

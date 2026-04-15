@@ -1165,7 +1165,9 @@ async function getHandler(req: NextRequest, user: AuthUser) {
     const clinicId = isGlobalScope(url) ? undefined : resolveRequestClinicId(user);
 
     const where: Record<string, unknown> = {};
-    if (clinicId) {
+    // When querying by assignedClinicId, skip the origin clinicId filter —
+    // assigned packages were created by the pharmacy, not the destination clinic.
+    if (clinicId && !assignedClinicId) {
       where.clinicId = clinicId;
     }
 

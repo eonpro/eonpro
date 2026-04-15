@@ -21,10 +21,10 @@ async function handler(req: NextRequest) {
     const parsed = promoCodeSchema.safeParse(rawBody);
 
     if (!parsed.success) {
-      return NextResponse.json({
-        success: false,
-        data: { message: parsed.error.issues[0]?.message || 'Invalid input' },
-      });
+      return NextResponse.json(
+        { success: false, data: { message: parsed.error.issues[0]?.message || 'Invalid input' } },
+        { status: 400 }
+      );
     }
 
     const { promoCode, productName, planType } = parsed.data;

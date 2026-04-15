@@ -3,6 +3,7 @@ import { z } from 'zod';
 import * as Sentry from '@sentry/nextjs';
 import { updateAirtableRecord } from '@/lib/wellmedr/airtableSync';
 import { rateLimit } from '@/lib/rateLimit';
+import { isValidUpsellSession } from '@/lib/wellmedr/upsell-auth';
 
 const glp1DetailsSchema = z.object({
   airtableRecordId: z.string().min(1).max(200),
@@ -11,6 +12,11 @@ const glp1DetailsSchema = z.object({
 
 async function handler(req: NextRequest) {
   try {
+    const authToken = req.cookies.get('wellmedr_upsell_auth')?.value;
+    if (!authToken || !isValidUpsellSession(authToken)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const rawBody = await req.json();
     const parsed = glp1DetailsSchema.safeParse(rawBody);
 

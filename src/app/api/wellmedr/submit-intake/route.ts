@@ -1,29 +1,40 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+import * as Sentry from '@sentry/nextjs';
+import { rateLimit } from '@/lib/rateLimit';
+import { logger } from '@/lib/logger';
 
-/**
- * POST /api/wellmedr/submit-intake
- *
- * Internal endpoint called when a patient completes the hosted WellMedR
- * intake form and is about to redirect to checkout.
- *
- * Forwards the intake data to the wellmedr-intake webhook with the
- * correct secret so the patient gets created in EONPRO.
- */
-export async function POST(request: Request) {
+const submitIntakeSchema = z
+  .object({
+    'submission-id': z.string().min(1).max(200),
+  })
+  .passthrough();
+
+async function handler(req: NextRequest) {
   try {
-    const body = await request.json();
+    const body = await req.json();
+    const parsed = submitIntakeSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: parsed.error.flatten().fieldErrors },
+        { status: 400 }
+      );
+    }
 
     const secret = process.env.WELLMEDR_INTAKE_WEBHOOK_SECRET;
     if (!secret) {
-      console.error('[submit-intake] WELLMEDR_INTAKE_WEBHOOK_SECRET not configured');
-      return NextResponse.json({ error: 'Secret not configured' }, { status: 500 });
+      logger.error('[submit-intake] WELLMEDR_INTAKE_WEBHOOK_SECRET not configured');
+      return NextResponse.json({ error: 'Server misconfiguration' }, { status: 500 });
     }
 
-    const host = request.headers.get('host') || 'localhost:3000';
+    const host = req.headers.get('host') || 'localhost:3000';
     const protocol = host.includes('localhost') ? 'http' : 'https';
     const webhookUrl = `${protocol}://${host}/api/webhooks/wellmedr-intake`;
 
-    console.log('[submit-intake] Forwarding intake to webhook, sessionId:', body['submission-id']);
+    logger.info('[submit-intake] Forwarding intake to webhook', {
+      sessionId: parsed.data['submission-id'],
+    });
 
     const res = await fetch(webhookUrl, {
       method: 'POST',
@@ -34,18 +45,16 @@ export async function POST(request: Request) {
       body: JSON.stringify(body),
     });
 
-    const responseText = await res.text();
-    console.log('[submit-intake] Webhook response status:', res.status);
-
     if (!res.ok) {
+      logger.error('[submit-intake] Webhook returned error', { status: res.status });
       return NextResponse.json({ error: 'Webhook failed', status: res.status }, { status: 502 });
     }
 
     let data;
     try {
-      data = JSON.parse(responseText);
+      data = await res.json();
     } catch {
-      data = { raw: responseText };
+      data = {};
     }
 
     return NextResponse.json({
@@ -53,7 +62,12 @@ export async function POST(request: Request) {
       patientId: data.eonproPatientId || data.patientId || null,
     });
   } catch (err) {
-    console.error('[submit-intake] Error:', err);
+    Sentry.captureException(err, {
+      tags: { module: 'wellmedr-checkout', route: 'submit-intake' },
+    });
+    logger.error('[submit-intake] Error', err instanceof Error ? err : undefined);
     return NextResponse.json({ error: 'Failed to submit intake' }, { status: 500 });
   }
 }
+
+export const POST = rateLimit({ max: 5, windowMs: 60_000 })(handler);

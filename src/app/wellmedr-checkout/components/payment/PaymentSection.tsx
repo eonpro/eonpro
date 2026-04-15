@@ -47,22 +47,12 @@ function storeSubscriptionId(subscriptionId: string) {
   if (typeof window === 'undefined') return;
   try {
     sessionStorage.setItem(SUBSCRIPTION_STORAGE_KEY, subscriptionId);
-    console.log('[Subscription Storage] Stored subscription ID:', subscriptionId);
+    logger.log('[Subscription Storage] Stored subscription ID');
   } catch (e) {
-    console.error('Failed to store subscription ID:', e);
+    logger.error('Failed to store subscription ID');
   }
 }
 
-function clearSubscriptionId() {
-  if (typeof window === 'undefined') return;
-  try {
-    const existingId = sessionStorage.getItem(SUBSCRIPTION_STORAGE_KEY);
-    sessionStorage.removeItem(SUBSCRIPTION_STORAGE_KEY);
-    console.log('[Subscription Storage] Cleared subscription ID:', existingId);
-  } catch (e) {
-    console.error('Failed to clear subscription ID:', e);
-  }
-}
 
 // Load stripe once at module level to prevent recreation on re-renders.
 // For direct charges via Connect, pass the connected account ID so Stripe.js
@@ -384,7 +374,6 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
 
         // If subscription is already active (100% discount), redirect to thank you
         if (subscriptionData.status === 'active' && subscriptionData.success) {
-          clearSubscriptionId();
           setPaymentCompleted(true);
           router.push(`/wellmedr-checkout/thank-you?uid=${submissionId}`);
           return;
@@ -445,8 +434,7 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
     }
 
     if (!formData.email) {
-      console.error('[PaymentSection] Missing email — cannot proceed');
-      return;
+      setError('Email is required to complete your order.');
       return;
     }
 
@@ -497,7 +485,6 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
 
       // If subscription is already active (100% discount), redirect to thank you
       if (subscriptionData.status === 'active' && subscriptionData.success) {
-        clearSubscriptionId();
         setPaymentCompleted(true);
         router.push(`/wellmedr-checkout/thank-you?uid=${submissionId}`);
         return;
@@ -584,7 +571,6 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
           transaction_id: transactionId,
         });
 
-        clearSubscriptionId();
         setPaymentCompleted(true);
         router.push(`/wellmedr-checkout/thank-you?uid=${submissionId}`);
         return;
