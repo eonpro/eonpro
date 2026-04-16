@@ -38,9 +38,17 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
   // Google Maps API key is optional - only needed for address autocomplete feature
   const mapsKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+  // Detect custom domains (join.otmens.com, intake.otmens.com) so client components
+  // can suppress platform chrome (header, session handlers) during SSR and hydration.
+  const { headers: getHeaders } = await import('next/headers');
+  const headersList = await getHeaders();
+  const requestHost = (headersList.get('x-forwarded-host') || headersList.get('host') || '').split(':')[0].toLowerCase();
+  const CUSTOM_DOMAINS = ['join.otmens.com', 'intake.otmens.com'];
+  const isCustomDomain = CUSTOM_DOMAINS.includes(requestHost);
 
   return (
     <html lang="en" className={sofiaPro.variable} suppressHydrationWarning>
@@ -50,7 +58,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
         <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
       </head>
-      <body className={sofiaPro.className} suppressHydrationWarning>
+      <body className={sofiaPro.className} data-custom-domain={isCustomDomain ? 'true' : undefined} suppressHydrationWarning>
         <ErrorBoundary>
           <ClientProviders>
             <QueryProvider>
@@ -62,8 +70,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 <ClientTimeZoneBootstrap />
                 <GlobalFetchInterceptor />
                 <SessionExpirationHandler />
-                <ConditionalHeader />
-                <ConditionalLayout>{children}</ConditionalLayout>
+                {!isCustomDomain && <ConditionalHeader />}
+                {isCustomDomain ? children : <ConditionalLayout>{children}</ConditionalLayout>}
                 {/* Becca AI v2 — disabled for now */}
               </ToastProvider>
             </QueryProvider>

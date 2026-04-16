@@ -121,6 +121,7 @@ export default function ConditionalHeader() {
       '/platform',
     ];
     if (pathname === '/' || noHeaderPrefixes.some((p) => pathname?.startsWith(p))) return true;
+    if (typeof document !== 'undefined' && document.body?.dataset?.customDomain === 'true') return true;
     if (typeof window !== 'undefined') {
       const host = window.location.hostname;
       const CUSTOM_DOMAINS = ['join.otmens.com', 'intake.otmens.com'];
