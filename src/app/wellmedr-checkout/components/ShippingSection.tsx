@@ -19,7 +19,10 @@ export default function ShippingSection() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h3 className="text-center">Shipping Address</h3>
+      <div>
+        <h3 className="text-2xl font-bold" style={{ color: '#101010' }}>Shipping Address</h3>
+        <p className="mt-1 text-sm" style={{ color: '#666' }}>Where should we send your order?</p>
+      </div>
 
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
@@ -29,8 +32,8 @@ export default function ShippingSection() {
 
         <AddressAutocompleteField
           fieldPrefix="shippingAddress"
-          label="Address"
-          placeholder="Start typing your address..."
+          label="Start typing your address"
+          placeholder="Enter your street address"
           onPlaceSelected={handlePlaceSelected}
         />
 

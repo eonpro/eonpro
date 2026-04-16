@@ -76,7 +76,7 @@ export default function CTA({ id }: { id: string }) {
         </p>
       </div>
 
-      <Button onClick={goToNextStep} text="Continue to Shipping" className="mx-auto max-w-sm" />
+      <Button onClick={goToNextStep} text="Continue to Payment" className="mx-auto max-w-sm" />
     </div>
   );
 }

@@ -11,35 +11,35 @@ interface CheckoutStepContextValue {
   goToPreviousStep: () => void;
 }
 
-const STEP_ORDER: CheckoutStep[] = ['approval', 'shipping', 'payment'];
+const STEP_ORDER: CheckoutStep[] = ['shipping', 'approval', 'payment'];
 const STEP_STORAGE_KEY = 'wellmedr_checkout_step';
 
 // Virtual page paths for GTM tracking
 const STEP_PATHS: Record<CheckoutStep, string> = {
-  approval: '/checkout/product-selection',
   shipping: '/checkout/shipping',
+  approval: '/checkout/product-selection',
   payment: '/checkout/payment',
 };
 
 function getStoredStep(): CheckoutStep {
-  if (typeof window === 'undefined') return 'approval';
+  if (typeof window === 'undefined') return 'shipping';
   const stored = sessionStorage.getItem(STEP_STORAGE_KEY);
   if (stored && STEP_ORDER.includes(stored as CheckoutStep)) {
     return stored as CheckoutStep;
   }
-  return 'approval';
+  return 'shipping';
 }
 
 const CheckoutStepContext = createContext<CheckoutStepContextValue | null>(null);
 
 export function CheckoutStepProvider({ children }: { children: ReactNode }) {
-  const [currentStep, setCurrentStep] = useState<CheckoutStep>('approval');
+  const [currentStep, setCurrentStep] = useState<CheckoutStep>('shipping');
   const isInitialMount = useRef(true);
 
   // Restore step from sessionStorage on mount
   useEffect(() => {
     const storedStep = getStoredStep();
-    if (storedStep !== 'approval') {
+    if (storedStep !== 'shipping') {
       setCurrentStep(storedStep);
     }
   }, []);

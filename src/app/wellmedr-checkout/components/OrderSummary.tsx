@@ -176,35 +176,49 @@ export default function OrderSummary() {
       </div>
 
       {/* Benefits */}
-      <div className="rounded-xl border border-green-200 bg-green-50 p-4">
-        <p className="mb-3 text-center text-sm font-bold" style={{ color: '#101010' }}>
-          Your all-inclusive plan includes upgraded benefits:
-        </p>
-        <div className="space-y-3">
+      <div
+        className="rounded-xl p-4"
+        style={{ backgroundColor: '#fef9ef', border: '1px solid rgba(195,178,158,0.2)' }}
+      >
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-sm font-bold" style={{ color: '#101010' }}>
+            Your all-inclusive plan includes upgraded benefits:
+          </p>
+          <button className="text-gray-400 hover:text-gray-600" aria-label="Dismiss">
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="space-y-0 divide-y divide-gray-200/60">
           {[
-            { text: 'Unlimited Video Calls With Clinicians', price: '$69' },
-            { text: 'Always On Medical Assistance via Phone', price: '$69' },
-            { text: '100% U.S. Based Care Agents', price: '$69' },
-            { text: 'On-Time Refills Guaranteed', price: '$49' },
-            { text: 'Access the WellMedR Member Community', price: '$29' },
-            { text: 'WellMedR Weight Loss Warranty', price: null },
+            { text: 'Unlimited Video Calls With Clinicians', price: '$129', img: '/assets/images/whats-included/consult.webp' },
+            { text: 'Always On Medical Assistance via Phone', price: '$89', img: '/assets/images/whats-included/care.webp' },
+            { text: '100% U.S. Based Care Agents', price: '$69', img: '/assets/images/products/commun.webp' },
+            { text: 'On-Time Refills Guaranteed', price: '$49', img: '/assets/images/products/wellmedrtruck.webp' },
+            { text: 'Access the WellMedr Member Community', price: '$29', img: '/assets/images/whats-included/commun.webp' },
+            { text: 'WellMedr Weight Loss Warranty', price: null, img: '/assets/images/whats-included/warranty-badge.webp' },
           ].map((b, i) => (
-            <div key={i} className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-sm">
-                  🎁
-                </div>
-                <span className="text-sm" style={{ color: '#101010' }}>
+            <div key={i} className="flex items-center justify-between py-3">
+              <div className="flex items-center gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={b.img}
+                  alt=""
+                  className="h-12 w-12 rounded-lg bg-white object-contain p-1"
+                  style={{ border: '1px solid rgba(0,0,0,0.06)' }}
+                />
+                <span className="text-sm font-medium" style={{ color: '#101010' }}>
                   {b.text}
                 </span>
               </div>
               {b.price ? (
-                <div className="text-right">
-                  <span className="mr-1 text-xs text-gray-400 line-through">{b.price}</span>
+                <div className="shrink-0 text-right">
+                  <span className="block text-xs text-gray-400 line-through">{b.price}</span>
                   <span className="text-xs font-bold text-green-600">FREE</span>
                 </div>
               ) : (
-                <span className="text-xs font-medium text-green-600">Activated</span>
+                <span className="shrink-0 text-xs font-bold text-green-600">Activated</span>
               )}
             </div>
           ))}

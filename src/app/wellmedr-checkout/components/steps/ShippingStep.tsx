@@ -48,27 +48,25 @@ export default function ShippingStep({ uid: _uid }: ShippingStepProps) {
     }
 
     if (isShippingValid && isBillingValid) {
-      // GTM add_shipping_info event (GA4 standard ecommerce)
+      // GTM add_shipping_info event (GA4 standard ecommerce) — only if plan already selected
       const formData = getValues();
-      if (formData.planDetails && formData.selectedProduct) {
-        if (typeof window !== 'undefined' && window.dataLayer) {
-          window.dataLayer.push({
-            event: 'add_shipping_info',
-            ecommerce: {
-              currency: 'USD',
-              value: formData.planDetails.totalPayToday,
-              shipping_tier: 'standard',
-              items: [
-                {
-                  item_id: formData.planDetails.id,
-                  item_name: `${formData.selectedProduct.name} - ${formData.selectedProduct.medicationType}`,
-                  price: formData.planDetails.totalPayToday,
-                  quantity: 1,
-                },
-              ],
-            },
-          });
-        }
+      if (formData.planDetails && formData.selectedProduct && typeof window !== 'undefined' && window.dataLayer) {
+        window.dataLayer.push({
+          event: 'add_shipping_info',
+          ecommerce: {
+            currency: 'USD',
+            value: formData.planDetails.totalPayToday,
+            shipping_tier: 'standard',
+            items: [
+              {
+                item_id: formData.planDetails.id,
+                item_name: `${formData.selectedProduct.name} - ${formData.selectedProduct.medicationType}`,
+                price: formData.planDetails.totalPayToday,
+                quantity: 1,
+              },
+            ],
+          },
+        });
       }
       goToNextStep();
     }
@@ -92,7 +90,7 @@ export default function ShippingStep({ uid: _uid }: ShippingStepProps) {
       </div>
       <BillingSection />
       <div className="sticky bottom-0 z-10 -mx-4 bg-white px-4 pb-[env(safe-area-inset-bottom)] pt-3 sm:static sm:mx-0 sm:bg-transparent sm:px-0 sm:pb-0 sm:pt-0">
-        <Button onClick={handleContinue} text="Continue to Payment" />
+        <Button onClick={handleContinue} text="Continue" />
       </div>
     </form>
   );

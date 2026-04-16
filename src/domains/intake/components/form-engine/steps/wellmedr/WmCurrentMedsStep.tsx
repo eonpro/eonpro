@@ -3,9 +3,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useIntakeActions, useIntakeStore } from '../../../../store/intakeStore';
-import { MEDS } from '@/lib/medications';
-import { normalizedIncludes } from '@/lib/utils/search';
-
 interface WmCurrentMedsStepProps {
   basePath: string;
   nextStep: string;
@@ -13,12 +10,20 @@ interface WmCurrentMedsStepProps {
   progressPercent: number;
 }
 
-const medsList = Object.values(MEDS).map((m) => {
-  const display = m.strength
-    ? `${m.name} ${m.strength}${m.formLabel ? ` (${m.formLabel})` : ''}`
-    : m.name;
-  return { id: String(m.id), display, name: m.name };
-});
+const COMMON_MEDS = [
+  'Semaglutide',
+  'Tirzepatide',
+  'Ozempic',
+  'Wegovy',
+  'Zepbound',
+  'Mounjaro',
+];
+
+const medsList = COMMON_MEDS.map((name) => ({
+  id: name.toLowerCase(),
+  display: name,
+  name,
+}));
 
 export default function WmCurrentMedsStep({
   basePath,
@@ -68,10 +73,10 @@ export default function WmCurrentMedsStep({
   }, [showDropdown]);
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return [];
-    return medsList
-      .filter((m) => normalizedIncludes(m.display, search) && !selectedMeds.includes(m.display))
-      .slice(0, 8);
+    const available = medsList.filter((m) => !selectedMeds.includes(m.display));
+    if (!search.trim()) return available;
+    const q = search.trim().toLowerCase();
+    return available.filter((m) => m.display.toLowerCase().includes(q));
   }, [search, selectedMeds]);
 
   const handleSelect = (opt: string) => {
@@ -304,20 +309,18 @@ export default function WmCurrentMedsStep({
                 ref={inputRef}
                 type="text"
                 className="wm-input"
-                placeholder="Search medications..."
+                placeholder="Select or type a medication..."
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value);
                   setShowDropdown(true);
                 }}
-                onFocus={() => {
-                  if (search.trim()) setShowDropdown(true);
-                }}
+                onFocus={() => setShowDropdown(true)}
                 onKeyDown={handleKeyDown}
               />
 
               {/* Dropdown */}
-              {showDropdown && search.trim().length > 0 && (
+              {showDropdown && (filtered.length > 0 || search.trim()) && (
                 <div
                   ref={dropdownRef}
                   className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-2xl border bg-white shadow-lg"
@@ -332,18 +335,13 @@ export default function WmCurrentMedsStep({
                         key={med.id}
                         type="button"
                         onClick={() => addMed(med.display)}
-                        className="w-full border-b px-5 py-3.5 text-left text-base transition-colors hover:bg-gray-50"
+                        className="w-full border-b px-5 py-3.5 text-left text-base font-medium transition-colors hover:bg-gray-50"
                         style={{ borderColor: 'rgba(0,0,0,0.04)', color: '#101010' }}
                       >
-                        <span className="font-medium">{med.name}</span>
-                        {med.display !== med.name && (
-                          <span className="ml-1 text-sm" style={{ color: '#7B95A9' }}>
-                            {med.display.replace(med.name, '').trim()}
-                          </span>
-                        )}
+                        {med.name}
                       </button>
                     ))}
-                    {filtered.length === 0 && (
+                    {filtered.length === 0 && search.trim() && (
                       <button
                         type="button"
                         onClick={() => addMed(search.trim())}
@@ -352,7 +350,7 @@ export default function WmCurrentMedsStep({
                       >
                         <span className="font-medium">Add &ldquo;{search.trim()}&rdquo;</span>
                         <span className="ml-1 text-sm" style={{ color: '#7B95A9' }}>
-                          (custom)
+                          (other)
                         </span>
                       </button>
                     )}
@@ -362,7 +360,7 @@ export default function WmCurrentMedsStep({
             </div>
 
             <p className="mt-2 text-xs" style={{ color: '#999' }}>
-              Search and add each medication. Type a name and press Enter if not found.
+              Select a medication from the list. Type a name and press Enter to add one not listed.
             </p>
           </div>
         )}
