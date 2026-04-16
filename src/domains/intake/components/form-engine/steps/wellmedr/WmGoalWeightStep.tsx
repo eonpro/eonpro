@@ -51,12 +51,6 @@ export default function WmGoalWeightStep({
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const handleBack = () => {
-    if (prevStep) {
-      setCurrentStep(prevStep);
-      router.push(`${basePath}/${prevStep}`);
-    }
-  };
 
   return (
     <div className="flex min-h-[100dvh] flex-col" style={{ backgroundColor: '#F7F7F9' }}>
@@ -101,30 +95,7 @@ export default function WmGoalWeightStep({
 
       {/* Back + Logo */}
       <div className="mx-auto grid w-full max-w-[48rem] grid-cols-3 items-center px-6 pt-4">
-        <div>
-          {prevStep && (
-            <button
-              onClick={handleBack}
-              className="rounded-lg p-2.5 transition-all hover:bg-black/5 active:scale-95"
-              aria-label="Go back"
-            >
-              <svg
-                className="h-5 w-5"
-                style={{ color: '#101010' }}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M15 19l-7-7 7-7"
-                />
-              </svg>
-            </button>
-          )}
-        </div>
+        <div />
         <div className="flex justify-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-6 sm:h-7" />
