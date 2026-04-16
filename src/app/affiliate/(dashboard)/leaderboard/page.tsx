@@ -144,6 +144,7 @@ export default function LeaderboardPage() {
     upcoming: [],
   });
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedMetric, setSelectedMetric] = useState('CONVERSIONS');
   const [selectedPeriod, setSelectedPeriod] = useState('month');
   const [showMetricDropdown, setShowMetricDropdown] = useState(false);
@@ -153,6 +154,7 @@ export default function LeaderboardPage() {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
+      setLoadError(null);
       try {
         const [leaderboardRes, competitionsRes] = await Promise.all([
           apiFetch(`/api/affiliate/leaderboard?metric=${selectedMetric}&period=${selectedPeriod}`),
@@ -172,9 +174,8 @@ export default function LeaderboardPage() {
             upcoming: data.upcoming || [],
           });
         }
-      } catch (error) {
-        process.env.NODE_ENV === 'development' &&
-          console.error('Failed to fetch leaderboard:', error);
+      } catch {
+        setLoadError('Failed to load leaderboard. Please try again.');
       } finally {
         setLoading(false);
       }
@@ -191,6 +192,25 @@ export default function LeaderboardPage() {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-gray-900" />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex min-h-screen items-center justify-center px-6">
+        <div className="max-w-sm text-center">
+          <Trophy className="mx-auto mb-4 h-12 w-12 text-gray-300" />
+          <h2 className="mb-2 text-lg font-semibold text-gray-900">Unable to load leaderboard</h2>
+          <p className="mb-6 text-sm text-gray-500">{loadError}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="rounded-xl px-6 py-3 font-medium text-white transition-opacity hover:opacity-90"
+            style={{ backgroundColor: 'var(--brand-primary)' }}
+          >
+            Try Again
+          </button>
+        </div>
       </div>
     );
   }

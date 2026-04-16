@@ -48,6 +48,7 @@ export default function WithdrawPage() {
   const [amount, setAmount] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [payoutRef, setPayoutRef] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -56,10 +57,11 @@ export default function WithdrawPage() {
         if (res.ok) {
           const withdrawData = await res.json();
           setData(withdrawData);
+        } else {
+          setError('Failed to load withdrawal data. Please try again.');
         }
-      } catch (error) {
-        process.env.NODE_ENV === 'development' &&
-          console.error('Failed to fetch withdraw data:', error);
+      } catch {
+        setError('Failed to connect to server. Please check your connection.');
       } finally {
         setIsLoading(false);
       }
@@ -118,6 +120,8 @@ export default function WithdrawPage() {
       });
 
       if (res.ok) {
+        const result = await res.json().catch(() => ({}));
+        setPayoutRef(result.payoutId || result.referenceId || null);
         setStep('success');
       } else {
         const data = await res.json();
@@ -136,6 +140,39 @@ export default function WithdrawPage() {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <span className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-gray-900" />
+      </div>
+    );
+  }
+
+  if (error && !data) {
+    return (
+      <div className="min-h-screen">
+        <header className="sticky top-0 z-10 border-b border-gray-100 bg-white px-6 py-4">
+          <div className="mx-auto flex max-w-3xl items-center gap-4">
+            <Link href="/affiliate" className="text-gray-400 hover:text-gray-600">
+              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </Link>
+            <h1 className="text-xl font-semibold text-gray-900">Withdraw</h1>
+          </div>
+        </header>
+        <div className="mx-auto max-w-3xl px-6 py-12 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-50">
+            <svg className="h-8 w-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <h2 className="mb-2 text-xl font-semibold text-gray-900">Something went wrong</h2>
+          <p className="mb-6 text-gray-500">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="inline-block rounded-xl px-6 py-3 font-medium text-white transition-opacity hover:opacity-90"
+            style={{ backgroundColor: 'var(--brand-primary)' }}
+          >
+            Try Again
+          </button>
+        </div>
       </div>
     );
   }
@@ -248,6 +285,7 @@ export default function WithdrawPage() {
         <div className="mx-auto flex max-w-3xl items-center gap-4">
           <button
             onClick={() => (step === 'confirm' ? setStep('amount') : router.back())}
+            aria-label="Go back"
             className="text-gray-400 hover:text-gray-600"
           >
             <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -466,11 +504,17 @@ export default function WithdrawPage() {
               </motion.div>
 
               <h2 className="mb-2 text-2xl font-semibold text-gray-900">Withdrawal requested</h2>
-              <p className="mb-8 text-gray-500">
+              <p className="mb-4 text-gray-500">
                 {formatCurrency(amountCents)} is on its way to your account.
                 <br />
                 Expected arrival: 2-3 business days.
               </p>
+              {payoutRef && (
+                <p className="mb-8 rounded-lg bg-gray-50 px-4 py-2 text-center font-mono text-xs text-gray-500">
+                  Reference: {payoutRef}
+                </p>
+              )}
+              {!payoutRef && <div className="mb-8" />}
 
               <div className="space-y-3">
                 <Link

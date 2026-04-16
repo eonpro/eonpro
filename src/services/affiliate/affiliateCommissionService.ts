@@ -728,6 +728,7 @@ export async function processPaymentForCommission(
     }
 
     // Fraud detection: check before creating commission
+    // Enrich with IP and metadata when available from payment event
     let fraudRiskLevel: string = 'LOW';
     try {
       const fraudRequest: FraudCheckRequest = {
@@ -735,6 +736,8 @@ export async function processPaymentForCommission(
         affiliateId,
         patientId,
         eventAmountCents: amountCents,
+        ipAddress: data.metadata?.ipAddress as string | undefined,
+        patientEmail: data.metadata?.patientEmail as string | undefined,
       };
       const fraudResult = await performFraudCheck(fraudRequest);
 
@@ -771,10 +774,14 @@ export async function processPaymentForCommission(
       });
     }
 
-    // Calculate hold until date
+    // Calculate hold until date — extend hold for HIGH risk commissions to allow manual review
+    const effectiveHoldDays =
+      fraudRiskLevel === 'HIGH'
+        ? Math.max(commissionPlan.holdDays, 30)
+        : commissionPlan.holdDays;
     const holdUntil =
-      commissionPlan.holdDays > 0
-        ? new Date(occurredAt.getTime() + commissionPlan.holdDays * 24 * 60 * 60 * 1000)
+      effectiveHoldDays > 0
+        ? new Date(occurredAt.getTime() + effectiveHoldDays * 24 * 60 * 60 * 1000)
         : null;
 
     // Create commission event + update lifetime stats in a single transaction.
@@ -802,7 +809,7 @@ export async function processPaymentForCommission(
               isRecurring: isRecurring || false,
               recurringMonth: recurringMonth || null,
               attributionModel: 'STORED', // From patient attribution
-              status: fraudRiskLevel === 'HIGH' ? 'PENDING' : 'PENDING', // HIGH risk stays PENDING for manual review
+              status: 'PENDING',
               occurredAt,
               holdUntil,
               metadata: {
@@ -813,7 +820,7 @@ export async function processPaymentForCommission(
                 promotionName: breakdown.promotionName,
                 appliedProductRule: breakdown.appliedProductRule,
                 recurringMultiplier: breakdown.recurringMultiplier,
-                fraudCheck: { riskLevel: fraudRiskLevel },
+                fraudCheck: { riskLevel: fraudRiskLevel, requiresReview: fraudRiskLevel === 'HIGH' },
                 // HIPAA: Do NOT store patient name, email, or any identifiers
               },
             },

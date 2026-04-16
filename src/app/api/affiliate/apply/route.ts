@@ -185,7 +185,14 @@ async function handlePost(request: NextRequest) {
       email: data.email,
     });
 
-    // TODO: Send notification email to admin
+    // Notify clinic admins of new application (fire-and-forget)
+    notifyAdminsOfApplication(clinic.id, clinic.name, application.id, data.fullName).catch(
+      (err) =>
+        logger.error('[AffiliateApply] Failed to send admin notification', {
+          error: err instanceof Error ? err.message : 'Unknown',
+          applicationId: application.id,
+        })
+    );
 
     return NextResponse.json({
       success: true,
@@ -212,6 +219,47 @@ async function handlePost(request: NextRequest) {
 /**
  * Resolve clinic from domain string
  */
+/**
+ * Notify clinic admins about a new affiliate application
+ */
+async function notifyAdminsOfApplication(
+  clinicId: number,
+  clinicName: string,
+  applicationId: number,
+  applicantName: string
+) {
+  const admins = await prisma.user.findMany({
+    where: {
+      OR: [
+        { userClinics: { some: { clinicId, isActive: true } } },
+        { clinicId },
+      ],
+      role: { in: ['ADMIN', 'SUPER_ADMIN'] },
+      status: 'ACTIVE',
+    },
+    select: { id: true },
+  });
+
+  const { default: notificationService } = await import(
+    '@/services/notification/notificationService'
+  );
+
+  for (const admin of admins) {
+    await notificationService.createNotification({
+      userId: admin.id,
+      clinicId,
+      category: 'SYSTEM',
+      priority: 'NORMAL',
+      title: 'New Affiliate Application',
+      message: `${applicantName} submitted an affiliate application for ${clinicName}.`,
+      actionUrl: '/admin/affiliates/applications',
+      metadata: { applicationId },
+      sourceType: 'affiliate_application',
+      sourceId: String(applicationId),
+    });
+  }
+}
+
 // Wrap with Redis-backed rate limiter for serverless compatibility
 export const POST = applicationRateLimiter(handlePost);
 

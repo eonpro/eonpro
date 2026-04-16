@@ -266,7 +266,7 @@ export default function EarningsPage() {
             </div>
           </div>
 
-          {displayData.summary.availableBalance >= 5000 && (
+          {displayData.summary.availableBalance >= 5000 ? (
             <Link
               href="/affiliate/withdraw"
               className="mt-6 block w-full rounded-xl py-3 text-center font-medium text-white transition-opacity hover:opacity-90"
@@ -274,6 +274,18 @@ export default function EarningsPage() {
             >
               Withdraw Funds
             </Link>
+          ) : (
+            <div className="mt-6">
+              <button
+                disabled
+                className="block w-full cursor-not-allowed rounded-xl bg-gray-200 py-3 text-center font-medium text-gray-400"
+              >
+                Withdraw Funds
+              </button>
+              <p className="mt-2 text-center text-xs text-gray-400">
+                Minimum $50 balance required to withdraw
+              </p>
+            </div>
           )}
 
           {displayData.nextPayout && (

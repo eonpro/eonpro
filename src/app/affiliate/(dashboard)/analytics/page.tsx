@@ -221,6 +221,7 @@ export default function AffiliateAnalyticsPage() {
   // State
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [partialFailure, setPartialFailure] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState(2); // 30 days default
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [trends, setTrends] = useState<TrendData[]>([]);
@@ -260,6 +261,7 @@ export default function AffiliateAnalyticsPage() {
     const fetchData = async () => {
       setIsLoading(true);
       setError(null);
+      setPartialFailure(false);
 
       try {
         const [trendsRes, summaryRes, dashboardRes, refCodeStatsRes, trafficRes] =
@@ -302,6 +304,14 @@ export default function AffiliateAnalyticsPage() {
         if (trafficRes?.ok) {
           const data = await trafficRes.json();
           setTrafficSources(data.sources || []);
+        }
+
+        const allResponses = [trendsRes, summaryRes, dashboardRes, refCodeStatsRes, trafficRes];
+        const failedCount = allResponses.filter((r) => !r?.ok).length;
+        if (failedCount > 0 && failedCount < allResponses.length) {
+          setPartialFailure(true);
+        } else if (failedCount === allResponses.length) {
+          setError('Failed to load analytics data');
         }
       } catch (err) {
         process.env.NODE_ENV === 'development' && console.error('Failed to fetch analytics:', err);
@@ -408,6 +418,13 @@ export default function AffiliateAnalyticsPage() {
       <div className="mx-auto max-w-6xl space-y-4 px-4 py-4 sm:space-y-6 sm:px-6 sm:py-6">
         {error && (
           <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+        )}
+
+        {partialFailure && !error && (
+          <div className="flex items-center gap-2 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+            <svg className="h-4 w-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01" /></svg>
+            Some data may be incomplete. Pull to refresh for the latest numbers.
+          </div>
         )}
 
         {/* Stats Overview */}

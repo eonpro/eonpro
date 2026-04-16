@@ -14,6 +14,13 @@ import { AffiliateDashboardSkeleton } from '@/components/dashboards/AffiliateDas
 import { apiFetch } from '@/lib/api/fetch';
 import { useBranding } from './branding-context';
 
+interface OnboardingStatus {
+  hasPayoutMethod: boolean;
+  hasTaxInfo: boolean;
+  hasRefCodes: boolean;
+  hasClicks: boolean;
+}
+
 interface DashboardData {
   affiliate: {
     displayName: string;
@@ -96,6 +103,8 @@ export default function AffiliateDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [greeting, setGreeting] = useState('');
+  const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null);
+  const [dismissedOnboarding, setDismissedOnboarding] = useState(false);
 
   useEffect(() => {
     const hour = new Date().getHours();
@@ -122,10 +131,51 @@ export default function AffiliateDashboard() {
       }
     };
     fetchDashboard();
+
+    const fetchOnboarding = async () => {
+      try {
+        const [accountRes, refCodesRes] = await Promise.all([
+          apiFetch('/api/affiliate/account').catch(() => null),
+          apiFetch('/api/affiliate/ref-codes').catch(() => null),
+        ]);
+        const acct = accountRes?.ok ? await accountRes.json() : null;
+        const refs = refCodesRes?.ok ? await refCodesRes.json() : null;
+        setOnboarding({
+          hasPayoutMethod: !!(acct?.payoutMethod && acct.payoutMethod.type !== 'none'),
+          hasTaxInfo: !!acct?.taxStatus?.hasValidW9,
+          hasRefCodes: (refs?.refCodes?.length || 0) > 0,
+          hasClicks: false,
+        });
+      } catch { /* non-critical */ }
+    };
+    fetchOnboarding();
   }, []);
 
   if (isLoading) {
     return <AffiliateDashboardSkeleton />;
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-screen items-center justify-center px-6">
+        <div className="max-w-sm text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-50">
+            <svg className="h-8 w-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <h2 className="mb-2 text-lg font-semibold text-gray-900">Unable to load dashboard</h2>
+          <p className="mb-6 text-sm text-gray-500">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="rounded-xl px-6 py-3 font-medium text-white transition-opacity hover:opacity-90"
+            style={{ backgroundColor: 'var(--brand-primary)' }}
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
   }
 
   // Default data for affiliates with no activity yet
@@ -208,6 +258,54 @@ export default function AffiliateDashboard() {
           )}
         </motion.div>
 
+        {/* Onboarding Checklist */}
+        {onboarding && !dismissedOnboarding && (() => {
+          const hasClicks = (displayData.performance.clicks || 0) > 0;
+          const steps = [
+            { done: onboarding.hasRefCodes, label: 'Copy your referral link', href: '/affiliate/links' },
+            { done: onboarding.hasPayoutMethod, label: 'Set up payout method', href: '/affiliate/account/payout-method' },
+            { done: onboarding.hasTaxInfo, label: 'Submit tax information (W-9)', href: '/affiliate/account/tax' },
+            { done: hasClicks, label: 'Get your first click', href: '/affiliate/links' },
+          ];
+          const completedCount = steps.filter((s) => s.done).length;
+          if (completedCount === steps.length) return null;
+          return (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.05 }}
+              className="rounded-2xl bg-white p-5 sm:p-6"
+            >
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-semibold text-gray-900 sm:text-base">Get started</h2>
+                  <p className="text-xs text-gray-500">{completedCount} of {steps.length} complete</p>
+                </div>
+                <button onClick={() => setDismissedOnboarding(true)} className="text-xs text-gray-400 hover:text-gray-600" aria-label="Dismiss checklist">Dismiss</button>
+              </div>
+              <div className="mb-3 h-1.5 rounded-full bg-gray-100">
+                <div className="h-1.5 rounded-full transition-all duration-500" style={{ width: `${(completedCount / steps.length) * 100}%`, backgroundColor: 'var(--brand-primary)' }} />
+              </div>
+              <div className="space-y-2">
+                {steps.map((step) => (
+                  <a
+                    key={step.label}
+                    href={step.href}
+                    className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors ${step.done ? 'text-gray-400' : 'text-gray-900 hover:bg-gray-50'}`}
+                  >
+                    {step.done ? (
+                      <svg className="h-5 w-5 flex-shrink-0 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                    ) : (
+                      <div className="h-5 w-5 flex-shrink-0 rounded-full border-2 border-gray-300" />
+                    )}
+                    <span className={step.done ? 'line-through' : 'font-medium'}>{step.label}</span>
+                  </a>
+                ))}
+              </div>
+            </motion.div>
+          );
+        })()}
+
         {/* Quick Stats */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -236,20 +334,16 @@ export default function AffiliateDashboard() {
         </motion.div>
 
         {/* Performance Overview */}
+        <Link href="/affiliate/analytics" className="block">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="rounded-2xl bg-white p-5 sm:p-6"
+          className="rounded-2xl bg-white p-5 transition-shadow hover:shadow-sm sm:p-6"
         >
           <div className="mb-4 flex items-center justify-between sm:mb-6">
             <h2 className="text-sm font-semibold text-gray-900 sm:text-base">This Month</h2>
-            <Link
-              href="/affiliate/analytics"
-              className="text-xs text-gray-500 hover:text-gray-700 sm:text-sm"
-            >
-              View all
-            </Link>
+            <span className="text-xs text-gray-500 sm:text-sm">View all &rarr;</span>
           </div>
 
           <div className="grid grid-cols-3 gap-3 sm:gap-6">
@@ -273,6 +367,7 @@ export default function AffiliateDashboard() {
             </div>
           </div>
         </motion.div>
+        </Link>
 
         {/* Quick Actions */}
         <motion.div

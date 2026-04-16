@@ -93,7 +93,29 @@ export const POST = withAuthParams(
         applicantEmail: application.email,
       });
 
-      // TODO: Send rejection email/SMS to applicant (optionally with reason)
+      // Send rejection email to applicant (fire-and-forget)
+      if (application.email) {
+        import('@/lib/email')
+          .then(({ sendTemplatedEmail }) =>
+            sendTemplatedEmail({
+              to: application.email,
+              template: 'GENERIC' as any,
+              subject: 'Application Update',
+              data: {
+                heading: 'Application Update',
+                body: reason
+                  ? `Thank you for your interest in our affiliate program. Unfortunately, we are unable to approve your application at this time. Reason: ${reason}`
+                  : 'Thank you for your interest in our affiliate program. Unfortunately, we are unable to approve your application at this time. You are welcome to reapply in the future.',
+              },
+            })
+          )
+          .catch((err) =>
+            logger.error('[Admin Applications] Failed to send rejection email', {
+              error: err instanceof Error ? err.message : 'Unknown',
+              applicationId,
+            })
+          );
+      }
 
       return NextResponse.json({
         success: true,

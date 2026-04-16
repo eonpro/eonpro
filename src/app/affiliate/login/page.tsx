@@ -242,9 +242,8 @@ export default function AffiliateLoginPage() {
 
       setStep('success');
 
-      // Brief success state before redirect
       setTimeout(() => {
-        router.push(redirectTo);
+        window.location.href = redirectTo;
       }, 1000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invalid email or password');
@@ -481,6 +480,7 @@ export default function AffiliateLoginPage() {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
                       className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600"
                     >
                       {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}

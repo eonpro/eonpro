@@ -13,6 +13,7 @@ import { motion } from 'framer-motion';
 import { ReactNode, useEffect, useState, useMemo } from 'react';
 import { apiFetch } from '@/lib/api/fetch';
 import { AffiliateBranding, BrandingProvider, brandingToCssVars } from './branding-context';
+import { AffiliateToastProvider } from './toast-context';
 import { EONPRO_LOGO, EONPRO_ICON } from '@/lib/constants/brand-assets';
 
 interface NavItem {
@@ -130,6 +131,7 @@ export default function AffiliateDashboardLayout({ children }: { children: React
   const [branding, setBranding] = useState<AffiliateBranding | null>(null);
   const [refLink, setRefLink] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedLinkLabel, setCopiedLinkLabel] = useState('Copy Referral Link');
 
   useEffect(() => {
     let cancelled = false;
@@ -143,12 +145,12 @@ export default function AffiliateDashboardLayout({ children }: { children: React
           credentials: 'include',
         });
         if (!res.ok) {
-          router.push(`/affiliate/login?redirect=${encodeURIComponent(pathname)}`);
+          window.location.href = `/affiliate/login?redirect=${encodeURIComponent(pathname)}`;
           return;
         }
         if (!cancelled) setIsAuthed(true);
       } catch {
-        router.push('/affiliate/login');
+        window.location.href = '/affiliate/login';
         return;
       }
 
@@ -316,6 +318,7 @@ export default function AffiliateDashboardLayout({ children }: { children: React
 
   return (
     <BrandingProvider branding={branding}>
+      <AffiliateToastProvider>
       <div
         className="min-h-screen pb-20 md:pb-0 md:pl-64"
         style={{ backgroundColor: 'var(--brand-bg)', ...cssVars } as React.CSSProperties}
@@ -343,6 +346,7 @@ export default function AffiliateDashboardLayout({ children }: { children: React
                 <a
                   key={item.href}
                   href={item.href}
+                  aria-current={active ? 'page' : undefined}
                   className={`flex items-center gap-3 rounded-xl px-4 py-3 transition-all duration-200 ${
                     active ? 'text-white' : 'text-gray-600 hover:bg-gray-50'
                   }`}
@@ -429,6 +433,7 @@ export default function AffiliateDashboardLayout({ children }: { children: React
                 <a
                   key={item.href}
                   href={item.href}
+                  aria-current={active ? 'page' : undefined}
                   className="relative flex flex-1 flex-col items-center justify-center py-2"
                 >
                   <span
@@ -457,9 +462,23 @@ export default function AffiliateDashboardLayout({ children }: { children: React
           </div>
         </nav>
 
+        {/* Mobile Help FAB */}
+        {!pathname.includes('/help') && (
+          <a
+            href="/affiliate/help"
+            className="fixed bottom-20 right-4 z-40 flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-lg ring-1 ring-gray-200 transition-shadow hover:shadow-xl md:hidden"
+            aria-label="Help & Support"
+          >
+            <svg className="h-5 w-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </a>
+        )}
+
         {/* Page Content */}
         <main className="min-h-screen">{children}</main>
       </div>
+      </AffiliateToastProvider>
     </BrandingProvider>
   );
 }

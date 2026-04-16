@@ -10,11 +10,39 @@ import { useState, useEffect } from 'react';
 import { apiFetch } from '@/lib/api/fetch';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { Eye, EyeOff } from 'lucide-react';
 
 interface TaxStatus {
   hasValidW9: boolean;
   yearToDateEarnings: number;
   threshold: number;
+}
+
+function TaxIdInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="relative">
+      <input
+        type={show ? 'text' : 'password'}
+        inputMode="numeric"
+        autoComplete="off"
+        value={value}
+        onChange={(e) => onChange(e.target.value.replace(/\D/g, '').slice(0, 9))}
+        className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-12 focus:border-gray-900 focus:ring-0"
+        placeholder={placeholder}
+        maxLength={9}
+        required
+      />
+      <button
+        type="button"
+        onClick={() => setShow(!show)}
+        aria-label={show ? 'Hide tax ID' : 'Show tax ID'}
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+      >
+        {show ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+      </button>
+    </div>
+  );
 }
 
 const formatCurrency = (cents: number) => {
@@ -329,19 +357,10 @@ export default function TaxInfoPage() {
                         EIN
                       </button>
                     </div>
-                    <input
-                      type="text"
+                    <TaxIdInput
                       value={w9Form.taxId}
-                      onChange={(e) =>
-                        setW9Form({
-                          ...w9Form,
-                          taxId: e.target.value.replace(/\D/g, '').slice(0, 9),
-                        })
-                      }
-                      className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:border-gray-900 focus:ring-0"
+                      onChange={(val) => setW9Form({ ...w9Form, taxId: val })}
                       placeholder={w9Form.taxIdType === 'ssn' ? 'XXX-XX-XXXX' : 'XX-XXXXXXX'}
-                      maxLength={9}
-                      required
                     />
                   </div>
 

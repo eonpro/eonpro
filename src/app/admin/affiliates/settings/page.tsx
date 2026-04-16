@@ -63,6 +63,8 @@ export default function AffiliateSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'attribution' | 'commission' | 'payout' | 'fraud'>(
     'attribution'
   );
@@ -78,8 +80,8 @@ export default function AffiliateSettingsPage() {
             setSettings((s) => ({ ...s, ...data.settings }));
           }
         }
-      } catch (error) {
-        console.error('Failed to fetch settings:', error);
+      } catch {
+        setLoadError('Failed to load settings. Please refresh the page.');
       } finally {
         setLoading(false);
       }
@@ -89,6 +91,7 @@ export default function AffiliateSettingsPage() {
 
   const handleSave = async () => {
     setSaving(true);
+    setSaveError(null);
 
     try {
       const response = await apiFetch('/api/admin/affiliate-settings', {
@@ -99,9 +102,12 @@ export default function AffiliateSettingsPage() {
       if (response.ok) {
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);
+      } else {
+        const data = await response.json().catch(() => ({}));
+        setSaveError(data.error || 'Failed to save settings. Please try again.');
       }
-    } catch (error) {
-      console.error('Failed to save settings:', error);
+    } catch {
+      setSaveError('Failed to save settings. Please check your connection.');
     } finally {
       setSaving(false);
     }
@@ -141,6 +147,21 @@ export default function AffiliateSettingsPage() {
           )}
         </button>
       </div>
+
+      {/* Error banners */}
+      {loadError && (
+        <div className="mb-6 flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
+          <AlertTriangle className="h-5 w-5 flex-shrink-0 text-red-600" />
+          <p className="text-sm text-red-700">{loadError}</p>
+        </div>
+      )}
+      {saveError && (
+        <div className="mb-6 flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
+          <AlertTriangle className="h-5 w-5 flex-shrink-0 text-red-600" />
+          <p className="text-sm text-red-700">{saveError}</p>
+          <button onClick={() => setSaveError(null)} className="ml-auto text-sm font-medium text-red-600 hover:text-red-800">&times;</button>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="mb-6 border-b border-gray-200">

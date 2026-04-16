@@ -16,7 +16,7 @@ const faqs = [
   {
     question: 'How do I get paid?',
     answer:
-      'Earnings are paid out monthly via direct deposit or PayPal once you reach the minimum threshold of $50. You can set up your payout preferences in the Account section.',
+      'Earnings are paid out on a regular schedule (varies by program) via direct deposit or PayPal once you reach the minimum threshold of $50. You can view your payout schedule and set up your preferences in the Account section.',
   },
   {
     question: 'How long is the cookie duration?',
@@ -81,6 +81,7 @@ export default function AffiliateHelpPage() {
               <div key={index}>
                 <button
                   onClick={() => setOpenFaq(openFaq === index ? null : index)}
+                  aria-expanded={openFaq === index}
                   className="flex w-full items-center justify-between px-6 py-4 text-left transition-colors hover:bg-gray-50"
                 >
                   <span className="font-medium text-gray-900">{faq.question}</span>
@@ -132,15 +133,15 @@ export default function AffiliateHelpPage() {
             </a>
 
             <a
-              href="#"
+              href={`mailto:${supportEmail}?subject=Partner%20Portal%20Support`}
               className="flex items-center gap-4 rounded-xl border border-gray-200 p-4 transition-colors hover:border-gray-300 hover:bg-gray-50"
             >
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-50">
                 <MessageCircle className="h-5 w-5 text-green-600" />
               </div>
               <div>
-                <p className="font-medium text-gray-900">Live Chat</p>
-                <p className="text-sm text-gray-500">Available 9am-5pm EST</p>
+                <p className="font-medium text-gray-900">Quick Question?</p>
+                <p className="text-sm text-gray-500">Email us — we typically reply within 24h</p>
               </div>
             </a>
           </div>

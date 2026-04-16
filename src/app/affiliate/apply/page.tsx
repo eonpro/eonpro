@@ -951,11 +951,11 @@ export default function AffiliateApplyPage() {
                 </div>
 
                 <Link
-                  href="/"
+                  href="/affiliate/login"
                   className="inline-block rounded-xl px-6 py-3 font-semibold transition-all hover:opacity-90"
                   style={{ backgroundColor: primaryColor, color: buttonTextColor }}
                 >
-                  Return Home
+                  Go to Login
                 </Link>
               </motion.div>
             )}
