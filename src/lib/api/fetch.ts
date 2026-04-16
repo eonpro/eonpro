@@ -248,9 +248,13 @@ const PUBLIC_REDIRECT_PREFIXES = [
 /**
  * Returns true when the current page is public and must never be redirected to login.
  */
+const CUSTOM_PUBLIC_DOMAINS = ['join.otmens.com', 'intake.otmens.com'];
+
 export function isPublicRoute(pathname?: string): boolean {
   const p = pathname ?? (typeof window !== 'undefined' ? window.location.pathname : '');
-  return p === '/' || PUBLIC_REDIRECT_PREFIXES.some((prefix) => p.startsWith(prefix));
+  if (p === '/' || PUBLIC_REDIRECT_PREFIXES.some((prefix) => p.startsWith(prefix))) return true;
+  if (typeof window !== 'undefined' && CUSTOM_PUBLIC_DOMAINS.includes(window.location.hostname)) return true;
+  return false;
 }
 
 /**

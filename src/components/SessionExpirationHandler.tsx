@@ -37,10 +37,14 @@ export default function SessionExpirationHandler() {
   // Skip all session logic on public-facing pages (including marketing homepage).
   // Treat null/empty pathname (hydration) as public to prevent premature session
   // checks on pages like /intake that never require authentication.
+  // Also skip on custom domains (join.otmens.com, intake.otmens.com) where all
+  // pages are either public or handle their own auth via the dashboard layout.
   const isPublicPage =
     !pathname ||
     pathname === '/' ||
-    PUBLIC_ROUTE_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+    PUBLIC_ROUTE_PREFIXES.some((prefix) => pathname.startsWith(prefix)) ||
+    (typeof window !== 'undefined' &&
+      ['join.otmens.com', 'intake.otmens.com'].includes(window.location.hostname));
 
   const handleLogout = useCallback(() => {
     clearAuthTokens();

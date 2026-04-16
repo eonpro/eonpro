@@ -82,10 +82,14 @@ export default function GlobalFetchInterceptor() {
   const pathname = usePathname();
   // Treat null/empty pathname (hydration) as public to prevent session interception
   // on pages like /intake that never require authentication.
+  // Also skip on custom domains (join.otmens.com, intake.otmens.com) where pages
+  // are public-facing or handle their own auth independently.
   const isPublicPage =
     !pathname ||
     pathname === '/' ||
-    PUBLIC_ROUTE_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+    PUBLIC_ROUTE_PREFIXES.some((prefix) => pathname.startsWith(prefix)) ||
+    (typeof window !== 'undefined' &&
+      ['join.otmens.com', 'intake.otmens.com'].includes(window.location.hostname));
   const cookieCleanupDone = useRef(false);
   // Deduplicate: only one session-expiration flow runs at a time
   const sessionExpirationInProgress = useRef(false);
