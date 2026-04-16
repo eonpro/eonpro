@@ -436,10 +436,10 @@ class IntakeErrorBoundary extends React.Component<
     this.state = { hasError: false };
   }
   static getDerivedStateFromError() { return { hasError: true }; }
-  componentDidCatch(error: Error) {
+  override componentDidCatch(error: Error) {
     console.error('[IntakeErrorBoundary]', error.message);
   }
-  render() {
+  override render() {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex flex-col items-center justify-center p-8" style={{ backgroundColor: '#F7F7F9' }}>
