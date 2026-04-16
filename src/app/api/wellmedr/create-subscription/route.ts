@@ -40,6 +40,7 @@ const createSubscriptionSchema = z.object({
   promotionCodeId: z.string().max(200).optional(),
   selectedAddons: z.array(z.enum(['nad_plus', 'sermorelin', 'b12', 'elite_bundle'])).optional(),
   airtableRecordId: z.string().max(200).startsWith('rec').optional(),
+  patientId: z.string().max(50).optional(),
 });
 
 function getPaymentConfigId(): string | undefined {
@@ -72,6 +73,7 @@ async function handler(req: NextRequest) {
       promotionCodeId,
       selectedAddons,
       airtableRecordId,
+      patientId,
     } = parsed.data;
 
     const addons: AddonId[] = selectedAddons || [];
@@ -145,6 +147,7 @@ async function handler(req: NextRequest) {
         shippingAddress: JSON.stringify(shippingAddress || {}),
         billingAddress: JSON.stringify(billingAddress || {}),
         ...(addons.length > 0 ? { selectedAddons: JSON.stringify(addons) } : {}),
+        ...(patientId ? { patientId } : {}),
       },
       expand: ['latest_invoice'],
     };

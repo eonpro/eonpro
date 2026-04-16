@@ -1,6 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import { useFormContext } from 'react-hook-form';
+import * as Sentry from '@sentry/nextjs';
 import ShippingSection from '../ShippingSection';
 import BillingSection from '../BillingSection';
 import CheckboxField from '@/app/wellmedr-checkout/components/ui/CheckboxField';
@@ -12,14 +14,88 @@ interface ShippingStepProps {
   uid: string;
 }
 
+function readSessionJSON<T = unknown>(key: string): T | null {
+  try {
+    const raw = sessionStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+interface PatientSessionData {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  dob?: string;
+  sex?: string;
+  weight?: string | number;
+  goalWeight?: string | number;
+}
+
+interface IntakeResponses {
+  allergies?: string[];
+  medications?: string[];
+  healthConditions?: string[];
+  glp1Type?: string;
+  contraindications?: string[];
+  [key: string]: unknown;
+}
+
+async function createPatientProfile(formData: CheckoutFormData): Promise<string | null> {
+  const patientData = readSessionJSON<PatientSessionData>('wellmedr_patient_data');
+  const intakeResponses = readSessionJSON<IntakeResponses>('wm_intake_responses');
+
+  if (!patientData?.email) return null;
+
+  const payload = {
+    firstName: formData.shippingAddress?.firstName || patientData.firstName || '',
+    lastName: formData.shippingAddress?.lastName || patientData.lastName || '',
+    email: patientData.email,
+    phone: patientData.phone || '',
+    dob: patientData.dob || '',
+    sex: patientData.sex || 'unknown',
+    shippingAddress: {
+      address: formData.shippingAddress?.address || '',
+      apt: formData.shippingAddress?.apt || '',
+      city: formData.shippingAddress?.city || '',
+      state: formData.shippingAddress?.state || '',
+      zipCode: formData.shippingAddress?.zipCode || '',
+    },
+    weight: patientData.weight,
+    goalWeight: patientData.goalWeight,
+    intakeSummary: intakeResponses
+      ? {
+          healthConditions: intakeResponses.healthConditions ?? [],
+          allergies: intakeResponses.allergies ?? [],
+          medications: intakeResponses.medications ?? [],
+          glp1Type: intakeResponses.glp1Type ?? '',
+          contraindications: intakeResponses.contraindications ?? [],
+        }
+      : undefined,
+  };
+
+  const res = await fetch('/api/wellmedr/create-patient-profile', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) throw new Error(`Profile creation failed: ${res.status}`);
+
+  const result = await res.json();
+  return result.patientId ? String(result.patientId) : null;
+}
+
 export default function ShippingStep({ uid: _uid }: ShippingStepProps) {
   const { trigger, watch, getValues } = useFormContext<CheckoutFormData>();
   const { goToNextStep } = useCheckoutStep();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isBillingSameAsShipping = watch('shippingAddress.billingAddressSameAsShipment');
 
   const handleContinue = async () => {
-    // Fields to validate
     const shippingFields = [
       'shippingAddress.firstName',
       'shippingAddress.lastName',
@@ -38,18 +114,31 @@ export default function ShippingStep({ uid: _uid }: ShippingStepProps) {
       'billingAddress.zipCode',
     ] as const;
 
-    // Validate shipping fields first
     const isShippingValid = await trigger([...shippingFields]);
 
-    // If billing is different from shipping, validate billing fields too
     let isBillingValid = true;
     if (!isBillingSameAsShipping) {
       isBillingValid = await trigger([...billingFields]);
     }
 
     if (isShippingValid && isBillingValid) {
-      // GTM add_shipping_info event (GA4 standard ecommerce) — only if plan already selected
       const formData = getValues();
+
+      // Create patient profile (non-blocking — proceed even if it fails)
+      setIsSubmitting(true);
+      try {
+        const patientId = await createPatientProfile(formData);
+        if (patientId) {
+          sessionStorage.setItem('wellmedr_patient_id', patientId);
+        }
+      } catch (err) {
+        Sentry.captureException(err, {
+          tags: { module: 'wellmedr-checkout', op: 'create-patient-profile' },
+        });
+      } finally {
+        setIsSubmitting(false);
+      }
+
       if (formData.planDetails && formData.selectedProduct && typeof window !== 'undefined' && window.dataLayer) {
         window.dataLayer.push({
           event: 'add_shipping_info',
@@ -90,7 +179,7 @@ export default function ShippingStep({ uid: _uid }: ShippingStepProps) {
       </div>
       <BillingSection />
       <div className="sticky bottom-0 z-10 -mx-4 bg-white px-4 pb-[env(safe-area-inset-bottom)] pt-3 sm:static sm:mx-0 sm:bg-transparent sm:px-0 sm:pb-0 sm:pt-0">
-        <Button onClick={handleContinue} text="Continue" />
+        <Button onClick={handleContinue} text={isSubmitting ? 'Saving...' : 'Continue'} />
       </div>
     </form>
   );

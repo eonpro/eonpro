@@ -1549,8 +1549,25 @@ export async function processStripePayment(
         };
       }
 
-      patient = await createPatientFromStripePayment(enhancedPaymentData, targetClinicId);
-      patientCreated = true;
+      // Check if a patient was pre-created during checkout (LEAD profile)
+      const metaPatientId = enhancedPaymentData.metadata.patientId;
+      if (metaPatientId) {
+        const leadPatient = await prisma.patient.findUnique({
+          where: { id: parseInt(metaPatientId, 10) },
+        });
+        if (leadPatient) {
+          patient = leadPatient;
+          logger.info('[PaymentMatching] Found pre-created LEAD patient from metadata', {
+            patientId: leadPatient.id,
+            profileStatus: leadPatient.profileStatus,
+          });
+        }
+      }
+
+      if (!patient) {
+        patient = await createPatientFromStripePayment(enhancedPaymentData, targetClinicId);
+        patientCreated = true;
+      }
     } else {
       // Update stripeCustomerId if not set and we have one
       if (!patient.stripeCustomerId && enhancedPaymentData.customerId) {
@@ -1563,6 +1580,24 @@ export async function processStripePayment(
           stripeCustomerId: enhancedPaymentData.customerId,
         });
       }
+    }
+
+    // Promote LEAD or PENDING_COMPLETION patients to ACTIVE on successful payment
+    if (patient && (patient.profileStatus === 'LEAD' || patient.profileStatus === 'PENDING_COMPLETION')) {
+      const updateData: Record<string, unknown> = {
+        profileStatus: 'ACTIVE',
+      };
+      if (!patient.stripeCustomerId && enhancedPaymentData.customerId) {
+        updateData.stripeCustomerId = enhancedPaymentData.customerId;
+      }
+      patient = await prisma.patient.update({
+        where: { id: patient.id },
+        data: updateData,
+      });
+      logger.info('[PaymentMatching] Promoted patient to ACTIVE on payment', {
+        patientId: patient.id,
+        previousStatus: 'LEAD',
+      });
     }
 
     // Create paid invoice (prescriptionProcessed defaults to false → appears in provider queue)

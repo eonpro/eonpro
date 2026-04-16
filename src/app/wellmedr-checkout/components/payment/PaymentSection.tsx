@@ -281,6 +281,10 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
       throw new Error('Shipping address is required.');
     }
 
+    const storedPatientId = typeof window !== 'undefined'
+      ? sessionStorage.getItem('wellmedr_patient_id')
+      : null;
+
     logger.log('[CLIENT] Calling /api/create-subscription...');
     const response = await fetch('/api/wellmedr/create-subscription', {
       method: 'POST',
@@ -302,6 +306,7 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
         planType: formData.planDetails.plan_type,
         selectedAddons: formData.selectedAddons || [],
         promotionCodeId: formData.promotionCodeId,
+        ...(storedPatientId ? { patientId: storedPatientId } : {}),
       }),
     });
     logger.log(

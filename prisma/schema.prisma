@@ -544,6 +544,7 @@ enum ReconciliationStatus {
 // Used to track patients that need additional information or merging
 enum ProfileStatus {
   ACTIVE // Complete profile, normal patient
+  LEAD // Created from intake/checkout before payment is confirmed
   PENDING_COMPLETION // Auto-created from payment with incomplete info (missing email/name)
   MERGED // Profile was merged into another patient (retained for audit)
   ARCHIVED // Soft deleted or archived
