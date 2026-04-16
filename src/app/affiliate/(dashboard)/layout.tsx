@@ -217,7 +217,8 @@ export default function AffiliateDashboardLayout({ children }: { children: React
             refData.refCodes?.find((c: { isDefault: boolean }) => c.isDefault) ||
             refData.refCodes?.[0];
           if (defaultCode && refData.baseUrl) {
-            setRefLink(`${refData.baseUrl}/affiliate/${defaultCode.code}`);
+            const prefix = refData.linkPrefix ?? '/affiliate';
+            setRefLink(`${refData.baseUrl}${prefix}/${defaultCode.code}`);
           }
         }
       } catch {

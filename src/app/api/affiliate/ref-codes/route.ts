@@ -18,6 +18,8 @@ import { standardRateLimiter } from '@/lib/security/rate-limiter-redis';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+const AFFILIATE_CUSTOM_DOMAINS = new Set(['join.otmens.com']);
+
 const createRefCodeSchema = z.object({
   name: z
     .string()
@@ -119,21 +121,37 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       })
     );
 
-    // Determine base URL - use the request origin (where the affiliate is logged in)
-    // This ensures the referral link matches the domain serving the affiliate landing pages
-    const requestHost = request.headers.get('host') || request.headers.get('x-forwarded-host');
+    // Determine base URL and link prefix.
+    // On affiliate custom domains (join.otmens.com), links are /CODE (no /affiliate prefix).
+    // On standard domains (ot.eonpro.io), links are /affiliate/CODE.
+    const requestHost = (
+      request.headers.get('x-forwarded-host')?.split(',')[0]?.trim() ||
+      request.headers.get('host') ||
+      ''
+    ).split(':')[0].toLowerCase();
     const protocol = request.headers.get('x-forwarded-proto') || 'https';
+    const isAffiliateDomainHost = request.headers.get('x-affiliate-domain') === 'true';
+
     let baseUrl: string;
-    if (requestHost) {
+    let linkPrefix: string;
+
+    if (isAffiliateDomainHost || AFFILIATE_CUSTOM_DOMAINS.has(requestHost)) {
       baseUrl = `${protocol}://${requestHost}`;
+      linkPrefix = '';
+    } else if (requestHost) {
+      baseUrl = `${protocol}://${requestHost}`;
+      linkPrefix = '/affiliate';
     } else if (affiliate.clinic.subdomain) {
       baseUrl = `https://${affiliate.clinic.subdomain}.eonpro.io`;
+      linkPrefix = '/affiliate';
     } else {
       baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.eonpro.io';
+      linkPrefix = '/affiliate';
     }
 
     return NextResponse.json({
       baseUrl,
+      linkPrefix,
       refCodes: refCodeStats,
       canCreateMore: refCodes.length < MAX_REF_CODES,
       maxCodes: MAX_REF_CODES,

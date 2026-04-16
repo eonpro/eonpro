@@ -273,7 +273,33 @@ async function resolveClinicFromDomain(domain: string) {
     return null;
   }
 
-  // First, try to match custom domain exactly
+  // Try affiliate custom domain (stored in clinic settings JSON)
+  // e.g. join.otmens.com -> clinic with settings.affiliateCustomDomain = "join.otmens.com"
+  const affiliateDomainClinic = await basePrisma.clinic.findFirst({
+    where: {
+      status: 'ACTIVE',
+      settings: { path: ['affiliateCustomDomain'], equals: normalizedDomain },
+    },
+    select: {
+      id: true,
+      name: true,
+      subdomain: true,
+      customDomain: true,
+      logoUrl: true,
+      iconUrl: true,
+      faviconUrl: true,
+      primaryColor: true,
+      secondaryColor: true,
+      accentColor: true,
+      supportEmail: true,
+      phone: true,
+      buttonTextColor: true,
+      backgroundColor: true,
+    },
+  });
+  if (affiliateDomainClinic) return affiliateDomainClinic;
+
+  // Try to match custom domain exactly
   // Using basePrisma since this is a public endpoint (no auth/clinic context)
   let clinic = await basePrisma.clinic.findFirst({
     where: {

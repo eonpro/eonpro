@@ -28,6 +28,7 @@ interface RefCode {
 
 interface LinksData {
   baseUrl: string;
+  linkPrefix: string;
   refCodes: RefCode[];
   canCreateMore: boolean;
   maxCodes: number;
@@ -108,10 +109,15 @@ export default function LinksPage() {
     return '';
   }, [data?.baseUrl]);
 
+  const getLinkPrefix = useCallback(() => {
+    if (data?.linkPrefix !== undefined) return data.linkPrefix;
+    return '/affiliate';
+  }, [data?.linkPrefix]);
+
   const renderQR = useCallback(async (refCodeId: string, code: string) => {
     const canvas = qrCanvasRefs.current.get(refCodeId);
     if (!canvas) return;
-    const url = `${getBaseUrl()}/affiliate/${code}`;
+    const url = `${getBaseUrl()}${getLinkPrefix()}/${code}`;
     try {
       await QRCode.toCanvas(canvas, url, {
         width: 160,
@@ -124,7 +130,7 @@ export default function LinksPage() {
   }, [getBaseUrl]);
 
   const downloadQR = useCallback(async (code: string, name: string) => {
-    const url = `${getBaseUrl()}/affiliate/${code}`;
+    const url = `${getBaseUrl()}${getLinkPrefix()}/${code}`;
     try {
       const dataUrl = await QRCode.toDataURL(url, { width: 400, margin: 2 });
       const link = document.createElement('a');
@@ -139,7 +145,7 @@ export default function LinksPage() {
   }, [getBaseUrl]);
 
   const copyLink = async (code: string, id: string) => {
-    const url = `${getBaseUrl()}/affiliate/${code}`;
+    const url = `${getBaseUrl()}${getLinkPrefix()}/${code}`;
     try {
       await navigator.clipboard.writeText(url);
       setCopiedId(id);
@@ -163,7 +169,7 @@ export default function LinksPage() {
   };
 
   const shareLink = async (code: string, id: string) => {
-    const url = `${getBaseUrl()}/affiliate/${code}`;
+    const url = `${getBaseUrl()}${getLinkPrefix()}/${code}`;
 
     if (navigator.share) {
       try {
@@ -217,6 +223,7 @@ export default function LinksPage() {
 
   const displayData: LinksData = data || {
     baseUrl: getBaseUrl(),
+    linkPrefix: getLinkPrefix(),
     refCodes: [],
     canCreateMore: true,
     maxCodes: 10,
@@ -323,7 +330,7 @@ export default function LinksPage() {
             <p className="mb-3 text-sm text-gray-400">Your main link</p>
             <div className="mb-4 flex items-center gap-3 rounded-xl bg-white/10 p-4">
               <span className="flex-1 truncate font-mono text-sm">
-                {displayData.baseUrl}/affiliate/
+                {displayData.baseUrl}{getLinkPrefix()}/
                 {displayData.refCodes.find((c) => c.isDefault)?.code ||
                   displayData.refCodes[0]?.code}
               </span>
@@ -437,7 +444,7 @@ export default function LinksPage() {
                         </div>
                       )}
                       <p className="mt-1 font-mono text-sm text-gray-500">
-                        /affiliate/{refCode.code}
+                        {getLinkPrefix()}/{refCode.code}
                       </p>
                     </div>
                     <div className="flex gap-2">

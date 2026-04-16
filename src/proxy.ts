@@ -77,6 +77,24 @@ function getPatientPortalBasePath(): string {
 }
 
 /**
+ * Dedicated affiliate domains — requests to these hosts are rewritten
+ * so that join.otmens.com/julian becomes /affiliate/julian internally.
+ * The user never sees "/affiliate" in their browser URL.
+ */
+const AFFILIATE_CUSTOM_DOMAINS = new Set([
+  'join.otmens.com',
+]);
+
+function isAffiliateDomain(request: NextRequest): boolean {
+  const host = (
+    request.headers.get('x-forwarded-host')?.split(',')[0]?.trim() ||
+    request.headers.get('host') ||
+    ''
+  ).split(':')[0].toLowerCase();
+  return AFFILIATE_CUSTOM_DOMAINS.has(host);
+}
+
+/**
  * Known affiliate dashboard sub-paths that require authentication.
  * Landing pages (/affiliate/[code]) and public pages (login, apply, etc.) are excluded.
  */
@@ -128,6 +146,19 @@ function isValidJwtFormat(token: string): boolean {
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // ── Affiliate custom domain rewrite ────────────────────────────────
+  // join.otmens.com/julian  →  internally serve /affiliate/julian
+  // join.otmens.com/login   →  internally serve /affiliate/login
+  // join.otmens.com/        →  internally serve /affiliate (dashboard home)
+  // API routes and static assets pass through unchanged.
+  if (isAffiliateDomain(request) && !isStaticAsset(pathname) && !isApiRoute(pathname)) {
+    const rewriteUrl = request.nextUrl.clone();
+    rewriteUrl.pathname = `/affiliate${pathname === '/' ? '' : pathname}`;
+    const response = NextResponse.rewrite(rewriteUrl);
+    response.headers.set('x-affiliate-domain', 'true');
+    return addSecurityHeaders(response, rewriteUrl.pathname);
+  }
 
   // ── Stale affiliate session detection for root page ──────────────────
   // When visiting '/dashboard' (admin dashboard), if only the affiliate_session cookie
@@ -261,6 +292,7 @@ export async function proxy(request: NextRequest) {
     const isAllowed =
       allowedOrigins.includes(origin) ||
       /^https:\/\/[a-z0-9-]+\.eonpro\.io$/.test(origin) ||
+      /^https:\/\/[a-z0-9-]+\.otmens\.com$/.test(origin) ||
       (process.env.NODE_ENV === 'development' && origin.startsWith('http://localhost'));
     if (isAllowed) {
       response.headers.set('Access-Control-Allow-Origin', origin);
