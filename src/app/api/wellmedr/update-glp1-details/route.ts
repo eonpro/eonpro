@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import * as Sentry from '@sentry/nextjs';
-import { updateAirtableRecord } from '@/lib/wellmedr/airtableSync';
+import { getAirtableRecord, updateAirtableRecord } from '@/lib/wellmedr/airtableSync';
 import { rateLimit } from '@/lib/rateLimit';
 import { extractCustomerIdFromToken } from '@/lib/wellmedr/upsell-auth';
 import { logger } from '@/lib/logger';
@@ -31,6 +31,20 @@ async function handler(req: NextRequest) {
     }
 
     const { airtableRecordId, details } = parsed.data;
+
+    // Verify record ownership: if already bound to a customer, it must match the caller
+    const existingRecord = await getAirtableRecord(airtableRecordId);
+    if (!existingRecord) {
+      return NextResponse.json({ error: 'Record not found' }, { status: 404 });
+    }
+    const boundCustomer = existingRecord.fields?.['stripe_customer_id'] as string | undefined;
+    if (boundCustomer && boundCustomer !== customerId) {
+      logger.warn('[wellmedr/glp1-details] Customer mismatch on record', {
+        airtableRecordId,
+        expectedCustomer: customerId,
+      });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
 
     logger.info('[wellmedr/glp1-details] Updating record', {
       customerId,

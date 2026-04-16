@@ -211,13 +211,14 @@ export default function WmYesNoDetailStep({
             style={{ backgroundColor: '#eef2f5', animation: 'wmSlideDown 0.3s ease-out' }}
           >
             <style>{`@keyframes wmSlideDown { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }`}</style>
-            <label className="mb-2 block text-sm font-medium" style={{ color: '#666' }}>
+            <label htmlFor={`detail-${storageKey}`} className="mb-2 block text-sm font-medium" style={{ color: '#666' }}>
               {detailPrompt}
               <span className="ml-1" style={{ color: '#c3b29e' }}>
                 *
               </span>
             </label>
             <textarea
+              id={`detail-${storageKey}`}
               value={detail}
               onChange={(e) => {
                 setDetail(e.target.value);

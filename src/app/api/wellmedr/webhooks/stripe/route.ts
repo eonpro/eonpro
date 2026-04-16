@@ -44,19 +44,26 @@ export async function POST(req: NextRequest) {
   try {
     event = stripe.webhooks.constructEvent(body, sig, getWellMedrConnectWebhookSecret());
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Webhook verification failed';
     Sentry.captureException(err, {
       tags: { module: 'wellmedr-checkout', route: 'webhooks-stripe' },
     });
-    return NextResponse.json({ error: msg }, { status: 400 });
+    return NextResponse.json({ error: 'Webhook verification failed' }, { status: 400 });
   }
 
-  // Durable idempotency guard via Redis (survives restarts + multi-instance deploys)
-  const alreadyProcessed = await cache.exists(`evt:${event.id}`, { namespace: IDEMPOTENCY_NS });
+  // Durable idempotency: check if already fully processed
+  const processedKey = `evt:${event.id}`;
+  const lockKey = `lock:${event.id}`;
+  const alreadyProcessed = await cache.exists(processedKey, { namespace: IDEMPOTENCY_NS });
   if (alreadyProcessed) {
     return NextResponse.json({ received: true, duplicate: true });
   }
-  await cache.set(`evt:${event.id}`, 1, { namespace: IDEMPOTENCY_NS, ttl: IDEMPOTENCY_TTL });
+
+  // Acquire short-TTL lock to prevent parallel processing from Stripe retries
+  const lockHeld = await cache.get(lockKey, { namespace: IDEMPOTENCY_NS });
+  if (lockHeld) {
+    return NextResponse.json({ received: true, processing: true });
+  }
+  await cache.set(lockKey, 1, { namespace: IDEMPOTENCY_NS, ttl: 300 });
 
   try {
     switch (event.type) {
@@ -254,6 +261,9 @@ export async function POST(req: NextRequest) {
       }
     }
   } catch (error) {
+    // Release lock so Stripe can retry this event
+    await cache.delete(lockKey, { namespace: IDEMPOTENCY_NS }).catch(() => {});
+
     Sentry.captureException(error, {
       tags: { module: 'wellmedr-checkout', route: 'webhooks-stripe' },
       extra: { eventType: event.type, eventId: event.id },
@@ -267,6 +277,10 @@ export async function POST(req: NextRequest) {
       );
     }
   }
+
+  // Mark fully processed only after success — allows retries on failure
+  await cache.set(processedKey, 1, { namespace: IDEMPOTENCY_NS, ttl: IDEMPOTENCY_TTL });
+  await cache.delete(lockKey, { namespace: IDEMPOTENCY_NS }).catch(() => {});
 
   return NextResponse.json({ received: true });
 }

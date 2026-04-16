@@ -12,6 +12,7 @@ import { logger } from '@/lib/logger';
 const applyPromoSchema = z.object({
   subscriptionId: z.string().min(1).max(200).startsWith('sub_'),
   promotionCodeId: z.string().max(200).optional(),
+  customerEmail: z.string().email().max(254),
 });
 
 async function handler(req: NextRequest) {
@@ -26,15 +27,28 @@ async function handler(req: NextRequest) {
       );
     }
 
-    const { subscriptionId, promotionCodeId } = parsed.data;
+    const { subscriptionId, promotionCodeId, customerEmail } = parsed.data;
 
     const stripe = getWellMedrConnectStripe();
     const connectOpts = getWellMedrConnectOpts();
     const subscription = await stripe.subscriptions.retrieve(
       subscriptionId,
-      {},
+      { expand: ['customer'] },
       connectOpts
     );
+
+    // Verify caller owns this subscription
+    const subCustomer = subscription.customer;
+    const customerObj = typeof subCustomer === 'string'
+      ? await stripe.customers.retrieve(subCustomer, {}, connectOpts)
+      : subCustomer;
+    if (
+      !customerObj ||
+      (customerObj as Stripe.DeletedCustomer).deleted ||
+      (customerObj as Stripe.Customer).email?.toLowerCase() !== customerEmail.toLowerCase()
+    ) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
 
     if (subscription.status !== 'incomplete') {
       return NextResponse.json(

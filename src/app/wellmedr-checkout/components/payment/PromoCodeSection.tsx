@@ -108,9 +108,11 @@ const PromoCodeSection = ({ subscriptionId, onPromoApplied }: PromoCodeSectionPr
         // If we have an existing subscription, apply the promo code to it
         if (subscriptionId) {
           try {
+            const email = getValues('email') || '';
             const applyResponse = await api.post('apply-promo-code', {
               subscriptionId,
               promotionCodeId: validDiscount.promotionCodeId,
+              customerEmail: email,
             });
 
             if (applyResponse.success) {
@@ -230,12 +232,13 @@ const PromoCodeSection = ({ subscriptionId, onPromoApplied }: PromoCodeSectionPr
       <div className="flex w-full items-end gap-3">
         <div className="flex-1">
           <div className="flex w-full max-w-2xl flex-col gap-2">
-            <label className="form-label">Promo code</label>
+            <label htmlFor="promo-code-input" className="form-label">Promo code</label>
             <div className="relative">
               <div className="text-foreground absolute left-4 top-1/2 z-10 h-5 w-5 -translate-y-1/2 transform sm:left-6">
                 <PromoCodeIcon className="h-full w-full" />
               </div>
               <input
+                id="promo-code-input"
                 type="text"
                 placeholder="Enter promo code"
                 value={promoCode}
@@ -282,7 +285,7 @@ const PromoCodeSection = ({ subscriptionId, onPromoApplied }: PromoCodeSectionPr
         </div>
       </div>
 
-      {error && <div className="mt-2 flex items-center gap-2 text-sm text-red-500">{error}</div>}
+      {error && <div className="mt-2 flex items-center gap-2 text-sm text-red-500" role="alert">{error}</div>}
     </div>
   );
 };

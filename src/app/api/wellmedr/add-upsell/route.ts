@@ -42,18 +42,20 @@ async function handler(req: NextRequest) {
     }
 
     const allowedIds = getAllowedProductIds();
-    if (allowedIds.size > 0) {
-      const disallowed = upsellProductIds.filter((id) => !allowedIds.has(id));
-      if (disallowed.length > 0) {
-        logger.warn('[add-upsell] Rejected disallowed product IDs', {
-          customerId,
-          disallowed,
-        });
-        return NextResponse.json(
-          { error: 'One or more products are not available for upsell.' },
-          { status: 400 }
-        );
-      }
+    if (allowedIds.size === 0) {
+      logger.error('[add-upsell] WELLMEDR_UPSELL_ALLOWED_PRODUCT_IDS is not configured');
+      return NextResponse.json({ error: 'Upsell not available.' }, { status: 503 });
+    }
+    const disallowed = upsellProductIds.filter((id) => !allowedIds.has(id));
+    if (disallowed.length > 0) {
+      logger.warn('[add-upsell] Rejected disallowed product IDs', {
+        customerId,
+        disallowed,
+      });
+      return NextResponse.json(
+        { error: 'One or more products are not available for upsell.' },
+        { status: 400 }
+      );
     }
 
     const stripe = getWellMedrConnectStripe();

@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import * as Sentry from '@sentry/nextjs';
 import {
   getWellMedrConnectStripe,
   getWellMedrConnectOpts,
 } from '@/app/wellmedr-checkout/lib/stripe-connect';
 import { rateLimit } from '@/lib/rateLimit';
+
+const getOrderSchema = z.object({
+  subscriptionId: z.string().min(1).max(200).startsWith('sub_'),
+});
 
 /**
  * GET /api/wellmedr/get-order?subscriptionId=sub_xxx
@@ -17,10 +22,13 @@ import { rateLimit } from '@/lib/rateLimit';
  */
 async function handler(req: NextRequest) {
   try {
-    const subscriptionId = req.nextUrl.searchParams.get('subscriptionId');
-    if (!subscriptionId || subscriptionId.length > 200 || !subscriptionId.startsWith('sub_')) {
+    const parsed = getOrderSchema.safeParse({
+      subscriptionId: req.nextUrl.searchParams.get('subscriptionId') ?? '',
+    });
+    if (!parsed.success) {
       return NextResponse.json({ exists: false });
     }
+    const { subscriptionId } = parsed.data;
 
     const stripe = getWellMedrConnectStripe();
     const connectOpts = getWellMedrConnectOpts();

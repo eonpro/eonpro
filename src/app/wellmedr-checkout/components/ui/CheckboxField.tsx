@@ -56,7 +56,7 @@ export default function CheckboxField({ name, label, className }: CheckboxFieldP
           </label>
         )}
       />
-      {error && <span className="block text-sm text-red-500">{error}</span>}
+      {error && <span className="block text-sm text-red-500" role="alert">{error}</span>}
     </div>
   );
 }

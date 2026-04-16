@@ -100,7 +100,7 @@ export default function WellmedrPaymentReturnPage() {
   return (
     <div className="wellmedr-checkout min-h-screen">
       <Header />
-      <main className="flex min-h-[60vh] flex-col items-center justify-center px-6">
+      <main className="flex min-h-[60vh] flex-col items-center justify-center px-6 pb-[env(safe-area-inset-bottom)]">
         <Suspense
           fallback={
             <div className="flex flex-col items-center gap-4">

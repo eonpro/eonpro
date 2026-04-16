@@ -130,6 +130,8 @@ function IntakeStepContent() {
             sessionStorage.removeItem('wellmedr_checkout_step');
             sessionStorage.removeItem('wellmedr_subscription_id');
             sessionStorage.removeItem('wellmedr_patient_data');
+            sessionStorage.removeItem('wm_intake_responses');
+            sessionStorage.removeItem('wm_airtable_record_id');
           }
 
           setLoading(false);

@@ -155,6 +155,28 @@ export async function createAirtableRecord(
 }
 
 /**
+ * Retrieve an existing Airtable record by ID.
+ */
+export async function getAirtableRecord(
+  recordId: string
+): Promise<{ id: string; fields: Record<string, unknown> } | null> {
+  const apiKey = getApiKey();
+  if (!apiKey) return null;
+
+  try {
+    const res = await fetch(`${AIRTABLE_API_URL}/${recordId}`, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Update an existing Airtable record by ID.
  */
 export async function updateAirtableRecord(
