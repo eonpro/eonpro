@@ -120,7 +120,13 @@ export default function ConditionalHeader() {
       '/request-demo',
       '/platform',
     ];
-    return pathname === '/' || noHeaderPrefixes.some((p) => pathname?.startsWith(p));
+    if (pathname === '/' || noHeaderPrefixes.some((p) => pathname?.startsWith(p))) return true;
+    if (typeof window !== 'undefined') {
+      const host = window.location.hostname;
+      const AFFILIATE_DOMAINS = ['join.otmens.com'];
+      if (AFFILIATE_DOMAINS.includes(host)) return true;
+    }
+    return false;
   }, [pathname]);
   const multiClinicEnabled = process.env.NEXT_PUBLIC_ENABLE_MULTI_CLINIC === 'true';
 

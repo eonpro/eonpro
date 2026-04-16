@@ -42,7 +42,13 @@ export default function ConditionalLayout({ children }: ConditionalLayoutProps) 
       '/request-demo',
       '/platform',
     ];
-    return pathname === '/' || fullWidthPrefixes.some((p) => pathname?.startsWith(p));
+    if (pathname === '/' || fullWidthPrefixes.some((p) => pathname?.startsWith(p))) return true;
+    if (typeof window !== 'undefined') {
+      const host = window.location.hostname;
+      const AFFILIATE_DOMAINS = ['join.otmens.com'];
+      if (AFFILIATE_DOMAINS.includes(host)) return true;
+    }
+    return false;
   }, [pathname]);
 
   if (isFullWidthPage) {
