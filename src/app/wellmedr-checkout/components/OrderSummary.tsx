@@ -93,8 +93,8 @@ export default function OrderSummary() {
 
       {/* Line items */}
       <div className="space-y-2 border-t pt-4 text-sm">
-        <div className="flex justify-between">
-          <div>
+        <div className="flex justify-between gap-3">
+          <div className="min-w-0 flex-1">
             <p className="font-medium">
               {months > 1 ? `${months}-Month` : 'Monthly'} Treatment Package
               {planDetails.isBestValue ? ' (Best Value)' : ''}
@@ -103,7 +103,7 @@ export default function OrderSummary() {
               One-time payment · Covers {months > 1 ? `${months} months` : '1 month'} of medication
             </p>
           </div>
-          <div className="text-right">
+          <div className="shrink-0 text-right">
             {planDetails.originalPrice && (
               <span className="mr-1 text-xs text-gray-400 line-through">
                 ${planDetails.originalPrice * months}
@@ -113,14 +113,14 @@ export default function OrderSummary() {
           </div>
         </div>
 
-        <div className="flex justify-between">
-          <div>
+        <div className="flex justify-between gap-3">
+          <div className="min-w-0 flex-1">
             <p className="font-medium">Care Coordination Fee</p>
             <p className="text-xs text-gray-500">
               Priority clinician review, injection supplies, and direct access to our care team
             </p>
           </div>
-          <span className="font-medium">${careCoordFee}</span>
+          <span className="shrink-0 font-medium">${careCoordFee}</span>
         </div>
 
         <div className="flex justify-between text-green-600">

@@ -9,14 +9,14 @@ const FAQItem = ({ question, answer }: { question: string; answer: string }) => 
   return (
     <div className="rounded-smoothest border-border overflow-hidden border bg-white p-6 sm:p-10">
       <button
-        className="flex w-full items-center justify-between gap-10 text-left sm:gap-40 lg:gap-56"
+        className="flex w-full items-center justify-between gap-4 text-left sm:gap-10 lg:gap-16"
         onClick={() => setIsOpen((prev) => !prev)}
         aria-expanded={isOpen}
         type="button"
       >
         <h4 className="text-[1.125rem] font-medium sm:text-[1.5rem]">{question}</h4>
         <div
-          className={`bg-foreground rounded-full p-1 text-white transition-transform duration-500 ${
+          className={`bg-foreground flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-white transition-transform duration-500 ${
             isOpen ? 'rotate-45' : 'rotate-0'
           }`}
         >

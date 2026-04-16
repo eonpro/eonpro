@@ -80,6 +80,7 @@ export default function ShippingStep({ uid: _uid }: ShippingStepProps) {
         e.preventDefault();
         handleContinue();
       }}
+      autoComplete="off"
       className="mx-auto flex w-full max-w-3xl flex-col gap-8 pb-6 pt-2 sm:pt-8"
     >
       <ShippingSection />
@@ -90,7 +91,9 @@ export default function ShippingStep({ uid: _uid }: ShippingStepProps) {
         />
       </div>
       <BillingSection />
-      <Button onClick={handleContinue} text="Continue to Payment" />
+      <div className="sticky bottom-0 z-10 -mx-4 bg-white px-4 pb-[env(safe-area-inset-bottom)] pt-3 sm:static sm:mx-0 sm:bg-transparent sm:px-0 sm:pb-0 sm:pt-0">
+        <Button onClick={handleContinue} text="Continue to Payment" />
+      </div>
     </form>
   );
 }

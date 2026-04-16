@@ -261,7 +261,7 @@ const PromoCodeSection = ({ subscriptionId, onPromoApplied }: PromoCodeSectionPr
               />
               {discountLabel && (
                 <div className="absolute bottom-2 right-4 z-0 transform sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2">
-                  <div className="rounded-full bg-green-100 px-3 py-1 text-[0.625rem] font-medium uppercase text-green-700 sm:text-xs">
+                  <div className="rounded-full bg-green-100 px-3 py-1 text-xs font-medium uppercase text-green-700">
                     {discountLabel}
                   </div>
                 </div>

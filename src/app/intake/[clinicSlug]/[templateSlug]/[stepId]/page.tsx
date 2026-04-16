@@ -123,6 +123,15 @@ function IntakeStepContent() {
           setFormConfig(data.config);
           setBranding(data.branding);
           initSession(data.config.id, clinicSlug, data.config.startStep);
+
+          // Clear stale checkout state when starting a fresh intake
+          if (stepId === data.config.startStep && typeof sessionStorage !== 'undefined') {
+            sessionStorage.removeItem('wellmedr_checkout_form');
+            sessionStorage.removeItem('wellmedr_checkout_step');
+            sessionStorage.removeItem('wellmedr_subscription_id');
+            sessionStorage.removeItem('wellmedr_patient_data');
+          }
+
           setLoading(false);
         }
       } catch {
@@ -202,22 +211,22 @@ function IntakeStepContent() {
   if (stepId === 'wellmedr-checkout-redirect') {
     const sessionId = store.getState().sessionId || crypto.randomUUID();
     const r = responses;
-    const params = new URLSearchParams({
-      uid: sessionId,
-      ...(r.firstName ? { firstName: String(r.firstName) } : {}),
-      ...(r.lastName ? { lastName: String(r.lastName) } : {}),
-      ...(r.email ? { email: String(r.email) } : {}),
-      ...(r.state ? { state: String(r.state) } : {}),
-      ...(r.sex ? { sex: String(r.sex) } : {}),
-      ...(r.current_weight ? { weight: String(r.current_weight) } : {}),
-      ...(r.ideal_weight ? { goalWeight: String(r.ideal_weight) } : {}),
-      ...(r.height_feet ? { heightFeet: String(r.height_feet) } : {}),
-      ...(r.height_inches ? { heightInches: String(r.height_inches) } : {}),
-      ...(r.dob ? { dob: String(r.dob) } : {}),
-    });
     if (typeof window !== 'undefined') {
-      // Submit intake to wellmedr-intake webhook (creates patient in EONPRO)
-      // and do final Airtable sync — both fire-and-forget before redirect
+      // Persist patient data in sessionStorage for checkout (HIPAA: no PII in URL)
+      sessionStorage.setItem('wellmedr_patient_data', JSON.stringify({
+        firstName: r.firstName || '',
+        lastName: r.lastName || '',
+        email: r.email || '',
+        phone: r.phone || '',
+        state: r.state || '',
+        sex: r.sex || '',
+        weight: r.current_weight || '',
+        goalWeight: r.ideal_weight || '',
+        heightFeet: r.height_feet || '',
+        heightInches: r.height_inches || '0',
+        dob: r.dob || '',
+      }));
+
       const webhookPayload = {
         'submission-id': sessionId,
         'first-name': r.firstName || '',
@@ -246,6 +255,8 @@ function IntakeStepContent() {
         'Checkout Completed': false,
       };
 
+      const existingRecordId = sessionStorage.getItem('wm_airtable_record_id');
+
       Promise.all([
         fetch('/api/wellmedr/submit-intake', {
           method: 'POST',
@@ -257,15 +268,19 @@ function IntakeStepContent() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             sessionId,
-            recordId:
-              typeof sessionStorage !== 'undefined'
-                ? sessionStorage.getItem('wm_airtable_record_id')
-                : null,
+            recordId: existingRecordId || null,
             responses: r,
           }),
-        }).catch(() => {}),
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            if (data?.recordId) {
+              sessionStorage.setItem('wm_airtable_record_id', data.recordId);
+            }
+          })
+          .catch(() => {}),
       ]).finally(() => {
-        window.location.href = `/wellmedr-checkout?${params.toString()}`;
+        window.location.href = `/wellmedr-checkout?uid=${encodeURIComponent(sessionId)}`;
       });
 
       // Show spinner while submitting

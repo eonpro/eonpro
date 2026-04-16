@@ -20,7 +20,7 @@ const TestimonialCard = ({ testimonial }: { testimonial: TestimonialType }) => {
     <div className="card flex flex-1 flex-col justify-between gap-8 p-6 drop-shadow-md">
       <div className="flex flex-col gap-8">
         <div className="flex gap-2">
-          <div className="rounded-smooth relative min-h-[246px] w-full flex-1">
+          <div className="rounded-smooth relative min-h-[180px] w-full flex-1 sm:min-h-[246px]">
             <Image
               src={beforeImg}
               alt="Testimonial"
@@ -31,14 +31,14 @@ const TestimonialCard = ({ testimonial }: { testimonial: TestimonialType }) => {
               loading="lazy"
             />
 
-            <div className="5 absolute bottom-0 left-0 right-0 flex items-center justify-center py-2">
+            <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center py-2">
               <p className="inline-flex min-w-fit whitespace-nowrap rounded-full border border-white/40 bg-black/20 px-3 py-2.5 text-sm text-white backdrop-blur-sm">
                 Month 0
               </p>
             </div>
           </div>
 
-          <div className="rounded-smooth relative min-h-[246px] w-full flex-1">
+          <div className="rounded-smooth relative min-h-[180px] w-full flex-1 sm:min-h-[246px]">
             <Image
               src={afterImg}
               alt="Testimonial"
@@ -49,7 +49,7 @@ const TestimonialCard = ({ testimonial }: { testimonial: TestimonialType }) => {
               loading="lazy"
             />
 
-            <div className="5 absolute bottom-0 left-0 right-0 flex items-center justify-center py-2">
+            <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center py-2">
               <p className="inline-flex min-w-fit whitespace-nowrap rounded-full border border-white/40 bg-black/20 px-3 py-2.5 text-sm text-white backdrop-blur-sm">
                 Month {progressInMonths}
               </p>

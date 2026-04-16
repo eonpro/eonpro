@@ -9,10 +9,14 @@ interface InputFieldProps {
   label?: string;
   placeholder?: string;
   type?: string;
+  inputMode?: 'none' | 'text' | 'tel' | 'url' | 'email' | 'numeric' | 'decimal' | 'search';
+  pattern?: string;
   icon?: string;
   className?: string;
   mask?: (value: string) => string;
   id?: string;
+  autoComplete?: string;
+  readOnly?: boolean;
 }
 
 export default function InputField({
@@ -21,9 +25,13 @@ export default function InputField({
   label,
   placeholder,
   type = 'text',
+  inputMode,
+  pattern,
   icon,
   className,
   mask,
+  autoComplete,
+  readOnly,
 }: InputFieldProps) {
   const {
     register,
@@ -63,12 +71,17 @@ export default function InputField({
           {...register(name)}
           id={fieldId}
           type={type}
+          inputMode={inputMode}
+          pattern={pattern}
           placeholder={placeholder}
+          autoComplete={autoComplete}
+          readOnly={readOnly}
           aria-invalid={!!error}
           className={cn(
             'form-input w-full',
             icon ? 'pl-14 sm:pl-20' : '',
-            error ? 'border-red-500' : ''
+            error ? 'border-red-500' : '',
+            readOnly ? 'bg-gray-50 text-gray-600' : ''
           )}
           onChange={handleInputChange}
           onBlur={handleBlur}

@@ -46,6 +46,7 @@ export default function WmYesNoDetailStep({
 
   const [answer, setAnswer] = useState<string>(String(responses[storageKey] || ''));
   const [detail, setDetail] = useState<string>(String(responses[detailStorageKey] || ''));
+  const [detailError, setDetailError] = useState(false);
 
   const handleSelect = (opt: string) => {
     navigator.vibrate?.(10);
@@ -62,8 +63,13 @@ export default function WmYesNoDetailStep({
 
   const handleContinue = () => {
     if (!answer) return;
+    if (answer === 'yes' && !detail.trim()) {
+      setDetailError(true);
+      return;
+    }
+    setDetailError(false);
     setResponse(storageKey, answer);
-    if (answer === 'yes' && detail) setResponse(detailStorageKey, detail);
+    if (answer === 'yes') setResponse(detailStorageKey, detail.trim());
     markStepCompleted(storageKey);
     setCurrentStep(nextStep);
     router.push(`${basePath}/${nextStep}`);
@@ -213,20 +219,39 @@ export default function WmYesNoDetailStep({
             </label>
             <textarea
               value={detail}
-              onChange={(e) => setDetail(e.target.value)}
+              onChange={(e) => {
+                setDetail(e.target.value);
+                if (e.target.value.trim()) setDetailError(false);
+              }}
               placeholder="Enter your answer"
               rows={4}
+              aria-invalid={detailError}
+              aria-required="true"
               className="w-full resize-y rounded-xl border bg-white p-4 text-base focus:outline-none"
-              style={{ borderColor: 'rgba(0,0,0,0.08)', transition: 'border-color 0.2s' }}
+              style={{
+                borderColor: detailError ? '#ef4444' : 'rgba(0,0,0,0.08)',
+                transition: 'border-color 0.2s',
+              }}
               onFocus={(e) => {
-                e.target.style.borderColor = '#c3b29e';
-                e.target.style.boxShadow = '0 0 0 3px rgba(195,178,158,0.15)';
+                if (!detailError) {
+                  e.target.style.borderColor = '#c3b29e';
+                }
+                e.target.style.boxShadow = detailError
+                  ? '0 0 0 3px rgba(239,68,68,0.15)'
+                  : '0 0 0 3px rgba(195,178,158,0.15)';
               }}
               onBlur={(e) => {
-                e.target.style.borderColor = 'rgba(0,0,0,0.08)';
+                if (!detailError) {
+                  e.target.style.borderColor = 'rgba(0,0,0,0.08)';
+                }
                 e.target.style.boxShadow = 'none';
               }}
             />
+            {detailError && (
+              <p className="mt-1 text-sm font-medium" style={{ color: '#ef4444' }} role="alert">
+                This field is required. Please provide details before continuing.
+              </p>
+            )}
           </div>
         )}
       </div>

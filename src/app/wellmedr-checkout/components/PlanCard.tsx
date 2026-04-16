@@ -106,14 +106,14 @@ export default function PlanCard({ plan, handlePlanSelect, selectedPlan }: PlanC
       </div>
 
       {months === 1 && (
-        <p className="mb-4 text-[11px] italic text-gray-400">
+        <p className="mb-4 text-xs italic text-gray-500">
           No surprises. No step-ups. No dosage-based pricing.
         </p>
       )}
 
       {plan.isBestValue && (
         <>
-          <p className="mb-2 text-[11px] italic text-gray-400">
+          <p className="mb-2 text-xs italic text-gray-500">
             Lowest monthly cost · Highest success rate
           </p>
           <p className="mb-4 flex items-center gap-1 text-xs font-medium text-amber-600">

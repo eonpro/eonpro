@@ -35,6 +35,7 @@ export const metadata = {
 /** White browser chrome (status bar + URL bar) on mobile for patient portal and app. */
 export const viewport: Viewport = {
   themeColor: '#ffffff',
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

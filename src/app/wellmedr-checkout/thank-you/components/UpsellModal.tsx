@@ -220,7 +220,7 @@ export default function UpsellModal({
           </div>
         </div>
 
-        <div className="flex-shrink-0 border-t border-gray-100 py-4">
+        <div className="flex-shrink-0 border-t border-gray-100 pb-[env(safe-area-inset-bottom)] pt-4">
           <div className="mx-auto max-w-md px-6">
             {paymentMethod && (
               <div className="mb-2 flex items-center justify-center gap-2 text-sm text-gray-500">
@@ -237,7 +237,7 @@ export default function UpsellModal({
             </button>
             <button
               onClick={handleDecline}
-              className="mt-2 w-full py-2 text-sm text-gray-400 transition-colors hover:text-gray-600"
+              className="mt-2 w-full py-3 text-sm text-gray-400 transition-colors hover:text-gray-600"
             >
               No thanks — skip
             </button>
@@ -284,7 +284,7 @@ export default function UpsellModal({
         </div>
       </div>
 
-      <div className="flex-shrink-0 border-t border-gray-100 py-4">
+      <div className="flex-shrink-0 border-t border-gray-100 pb-[env(safe-area-inset-bottom)] pt-4">
         <div className="mx-auto max-w-md px-6">
           {paymentMethod && (
             <div className="mb-2 flex items-center justify-center gap-2 text-sm text-gray-500">
@@ -301,7 +301,7 @@ export default function UpsellModal({
           </button>
           <button
             onClick={handleDecline}
-            className="mt-2 w-full py-2 text-sm text-gray-400 transition-colors hover:text-gray-600"
+            className="mt-2 w-full py-3 text-sm text-gray-400 transition-colors hover:text-gray-600"
           >
             No thanks — skip
           </button>

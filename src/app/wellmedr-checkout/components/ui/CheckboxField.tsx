@@ -23,7 +23,7 @@ export default function CheckboxField({ name, label, className }: CheckboxFieldP
         name={name}
         control={control}
         render={({ field: { value, onChange } }) => (
-          <label className="flex cursor-pointer gap-4 transition-all">
+          <label className="flex min-h-[44px] cursor-pointer items-center gap-4 transition-all">
             <div
               className={cn(
                 'flex h-6 w-6 items-center justify-center rounded border-2',

@@ -107,7 +107,7 @@ function ThankYouContent() {
         />
       )}
 
-      <main className="relative flex min-h-[60svh] w-full flex-col items-center justify-center px-6 pt-12 sm:px-8">
+      <main className="relative flex min-h-[60svh] w-full flex-col items-center justify-center px-6 pb-[env(safe-area-inset-bottom)] pt-12 sm:px-8">
         <div className="flex max-w-lg flex-col items-center gap-6 text-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-[20px] border border-[#d6d6d6] bg-white">
             <svg className="h-7 w-7 text-[#7b95a9]" fill="currentColor" viewBox="0 0 24 24">
@@ -149,7 +149,7 @@ function ThankYouContent() {
               <button
                 onClick={handleGlp1Submit}
                 disabled={glp1Status === 'submitting' || !glp1Details.trim()}
-                className="mt-3 w-full rounded-full py-2 text-sm font-semibold text-white transition-colors disabled:opacity-50"
+                className="mt-3 w-full rounded-full py-3.5 text-sm font-semibold text-white transition-colors disabled:opacity-50"
                 style={{ backgroundColor: '#0c2631' }}
               >
                 {glp1Status === 'submitting' ? 'Submitting...' : 'Submit'}

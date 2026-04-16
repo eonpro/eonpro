@@ -28,7 +28,7 @@ export default function ApprovalStep({ patientData }: ApprovalStepProps) {
         >
           WHAT HAPPENS NEXT?
         </h2>
-        <div className="flex items-center justify-center gap-2 sm:gap-4">
+        <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4">
           {[
             { icon: '📋', title: 'Clinician Review', sub: 'Within 24 hours' },
             { icon: '📦', title: 'Medication Ships', sub: 'Free delivery' },
@@ -57,7 +57,7 @@ export default function ApprovalStep({ patientData }: ApprovalStepProps) {
                 <p className="text-xs font-bold sm:text-sm" style={{ color: '#101010' }}>
                   {step.title}
                 </p>
-                <p className="text-[10px] sm:text-xs" style={{ color: '#999' }}>
+                <p className="text-xs" style={{ color: '#767676' }}>
                   {step.sub}
                 </p>
               </div>

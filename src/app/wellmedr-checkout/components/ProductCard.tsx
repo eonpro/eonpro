@@ -32,7 +32,7 @@ const ProductCard = ({ productName, productInfo, onSelect, selectedProduct }: Pr
 
   return (
     <div
-      className={`min-w-[280px] flex-1 rounded-2xl border-2 bg-white p-5 transition-all sm:p-6 ${isSelected ? 'border-green-500 shadow-lg' : 'border-gray-200'}`}
+      className={`min-w-0 w-full flex-1 rounded-2xl border-2 bg-white p-5 transition-all sm:p-6 ${isSelected ? 'border-green-500 shadow-lg' : 'border-gray-200'}`}
     >
       {/* Product image */}
       <div className="mb-2 flex items-center justify-center py-4">

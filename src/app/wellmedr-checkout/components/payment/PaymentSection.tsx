@@ -757,8 +757,7 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
         {/* Promo Code */}
         <PromoCodeSection />
 
-        <div className="flex flex-col">
-          {/* Place Order Button */}
+        <div className="sticky bottom-0 z-10 -mx-4 flex flex-col bg-white px-4 pb-[env(safe-area-inset-bottom)] pt-3 sm:static sm:mx-0 sm:bg-transparent sm:px-0 sm:pb-0 sm:pt-0">
           <Button
             onClick={handleCardSubmit}
             text={processingMethod === 'card' ? 'Processing...' : 'Place my order'}
@@ -766,9 +765,8 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
             suffix={processingMethod === 'card' ? null : undefined}
           />
 
-          {/* Error Display */}
           {error && (
-            <div className="mt-2 flex items-center gap-2 text-sm text-red-500">{error}</div>
+            <div role="alert" className="mt-2 flex items-center gap-2 text-sm text-red-500">{error}</div>
           )}
         </div>
 

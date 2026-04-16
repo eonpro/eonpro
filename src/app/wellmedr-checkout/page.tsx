@@ -17,7 +17,7 @@ function CheckoutContent() {
   const paymentError = searchParams.get('payment_error') === 'true';
 
   const patientData: PatientData = useMemo(() => {
-    // Read PII from sessionStorage (never from URL params — HIPAA compliance)
+    // Primary source: sessionStorage (populated by intake redirect, HIPAA-safe)
     let stored: Record<string, string | number> = {};
     if (typeof sessionStorage !== 'undefined') {
       try {
@@ -25,6 +25,20 @@ function CheckoutContent() {
         if (raw) stored = JSON.parse(raw);
       } catch {
         /* ignore parse errors */
+      }
+    }
+
+    // Fallback: read from URL params if sessionStorage is empty (e.g. shared link)
+    const hasStoredData = Object.keys(stored).length > 0;
+    if (!hasStoredData) {
+      const fallbackKeys = ['firstName', 'lastName', 'email', 'phone', 'state', 'sex', 'weight', 'goalWeight', 'heightFeet', 'heightInches', 'dob'] as const;
+      for (const key of fallbackKeys) {
+        const val = searchParams.get(key);
+        if (val) stored[key] = val;
+      }
+      // Persist to sessionStorage so subsequent navigations don't rely on URL
+      if (Object.keys(stored).length > 0 && typeof sessionStorage !== 'undefined') {
+        sessionStorage.setItem('wellmedr_patient_data', JSON.stringify(stored));
       }
     }
 
@@ -53,7 +67,7 @@ function CheckoutContent() {
       dob: stored.dob ? String(stored.dob) : undefined,
       bmi,
     };
-  }, []);
+  }, [searchParams]);
 
   const uid = searchParams.get('uid') || '';
 

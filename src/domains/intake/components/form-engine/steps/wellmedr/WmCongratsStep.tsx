@@ -243,7 +243,7 @@ export default function WmCongratsStep({
       <div className="mx-auto flex w-full max-w-[600px] flex-1 flex-col px-6 pb-6 pt-6 sm:px-8">
         {/* Hero heading */}
         <h1 className="mb-2 w-full text-left text-[2rem] font-bold leading-tight sm:text-[2.5rem]">
-          <span style={{ color: GOLD }}>Congrats,</span>{' '}
+          <span style={{ color: '#2E7D32' }}>Congrats,</span>{' '}
           <span style={{ color: '#101010' }}>you&apos;re in!</span>
         </h1>
 
@@ -323,7 +323,7 @@ export default function WmCongratsStep({
                 <p className="text-[10px] uppercase tracking-wide" style={{ color: '#9ca3af' }}>
                   Weight
                 </p>
-                <p className="text-base font-bold sm:text-lg" style={{ color: '#101010' }}>
+                <p className="text-base font-bold sm:text-lg" style={{ color: '#2E7D32' }}>
                   {goalWeight} Lbs
                 </p>
               </div>
@@ -331,7 +331,7 @@ export default function WmCongratsStep({
                 <p className="text-[10px] uppercase tracking-wide" style={{ color: '#9ca3af' }}>
                   BMI
                 </p>
-                <p className="text-base font-bold sm:text-lg" style={{ color: '#101010' }}>
+                <p className="text-base font-bold sm:text-lg" style={{ color: '#2E7D32' }}>
                   {projectedBmi}
                 </p>
               </div>
@@ -339,7 +339,7 @@ export default function WmCongratsStep({
                 <p className="text-[10px] uppercase tracking-wide" style={{ color: '#9ca3af' }}>
                   Cravings
                 </p>
-                <p className="text-base font-bold sm:text-lg" style={{ color: '#101010' }}>
+                <p className="text-base font-bold sm:text-lg" style={{ color: '#2E7D32' }}>
                   Reduced
                 </p>
               </div>

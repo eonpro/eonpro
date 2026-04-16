@@ -17,6 +17,7 @@ interface SelectFieldProps {
   placeholder?: string;
   required?: boolean;
   className?: string;
+  disabled?: boolean;
 }
 
 export default function SelectField({
@@ -26,6 +27,7 @@ export default function SelectField({
   placeholder = 'Select an option',
   required = false,
   className = '',
+  disabled = false,
 }: SelectFieldProps) {
   const {
     control,
@@ -90,6 +92,7 @@ export default function SelectField({
           };
 
           const toggleOpen = () => {
+            if (disabled) return;
             if (isOpen) {
               handleClose();
             } else {
@@ -108,10 +111,12 @@ export default function SelectField({
                 aria-controls={listboxId}
                 aria-haspopup="listbox"
                 aria-invalid={!!error}
+                aria-disabled={disabled}
                 onClick={toggleOpen}
                 className={cn(
                   'form-input relative flex w-full items-center justify-between',
-                  error ? 'border-red-500' : 'border-border'
+                  error ? 'border-red-500' : 'border-border',
+                  disabled ? 'cursor-not-allowed bg-gray-50 text-gray-600' : ''
                 )}
               >
                 <span className={value ? '' : 'opacity-30'}>
