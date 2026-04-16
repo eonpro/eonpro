@@ -148,16 +148,30 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // ── Affiliate custom domain rewrite ────────────────────────────────
-  // join.otmens.com/julian  →  internally serve /affiliate/julian
-  // join.otmens.com/login   →  internally serve /affiliate/login
-  // join.otmens.com/        →  internally serve /affiliate (dashboard home)
+  // join.otmens.com/julian    →  internally serve /affiliate/julian  (public landing)
+  // join.otmens.com/login     →  internally serve /affiliate/login   (public)
+  // join.otmens.com/earnings  →  internally serve /affiliate/earnings (auth required)
+  // join.otmens.com/          →  internally serve /affiliate          (auth required)
   // API routes and static assets pass through unchanged.
   if (isAffiliateDomain(request) && !isStaticAsset(pathname) && !isApiRoute(pathname)) {
+    const rewrittenPath = `/affiliate${pathname === '/' ? '' : pathname}`;
+
+    // Auth check: if the rewritten path is a dashboard route, require session
+    if (isAffiliateDashboardRoute(rewrittenPath)) {
+      const token =
+        request.cookies.get('affiliate_session')?.value || request.cookies.get('auth-token')?.value;
+      if (!token || !isValidJwtFormat(token)) {
+        const loginUrl = new URL('/login', request.url);
+        loginUrl.searchParams.set('redirect', pathname);
+        return NextResponse.redirect(loginUrl);
+      }
+    }
+
     const rewriteUrl = request.nextUrl.clone();
-    rewriteUrl.pathname = `/affiliate${pathname === '/' ? '' : pathname}`;
+    rewriteUrl.pathname = rewrittenPath;
     const response = NextResponse.rewrite(rewriteUrl);
     response.headers.set('x-affiliate-domain', 'true');
-    return addSecurityHeaders(response, rewriteUrl.pathname);
+    return addSecurityHeaders(response, rewrittenPath);
   }
 
   // ── Stale affiliate session detection for root page ──────────────────

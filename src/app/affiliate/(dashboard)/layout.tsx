@@ -16,6 +16,8 @@ import { AffiliateBranding, BrandingProvider, brandingToCssVars } from './brandi
 import { AffiliateToastProvider } from './toast-context';
 import { EONPRO_LOGO, EONPRO_LOGO_DARK, EONPRO_ICON } from '@/lib/constants/brand-assets';
 
+const AFFILIATE_CUSTOM_DOMAINS = new Set(['join.otmens.com']);
+
 interface NavItem {
   href: string;
   label: string;
@@ -145,12 +147,15 @@ export default function AffiliateDashboardLayout({ children }: { children: React
           credentials: 'include',
         });
         if (!res.ok) {
-          window.location.href = `/affiliate/login?redirect=${encodeURIComponent(pathname)}`;
+          const isAffDomain = AFFILIATE_CUSTOM_DOMAINS.has(window.location.hostname);
+          const loginPath = isAffDomain ? '/login' : '/affiliate/login';
+          window.location.href = `${loginPath}?redirect=${encodeURIComponent(pathname)}`;
           return;
         }
         if (!cancelled) setIsAuthed(true);
       } catch {
-        window.location.href = '/affiliate/login';
+        const isAffDomain = AFFILIATE_CUSTOM_DOMAINS.has(window.location.hostname);
+        window.location.href = isAffDomain ? '/login' : '/affiliate/login';
         return;
       }
 
