@@ -7,6 +7,9 @@ import {
   getStripePublishableKey,
   getStripeConnectedAccountId,
 } from '@/app/wellmedr-checkout/lib/stripe-config';
+import { pushPurchase } from '@/app/wellmedr-checkout/lib/tracking';
+import { event as trackMetaEvent } from '@/app/wellmedr-checkout/lib/fpixel';
+import { trackCheckoutCompleted } from '@/app/wellmedr-checkout/lib/posthog-events';
 import Header from '../components/ui/Header';
 
 function PaymentReturnContent() {
@@ -38,6 +41,61 @@ function PaymentReturnContent() {
 
         if (pi?.status === 'succeeded' || pi?.status === 'processing') {
           setStatus('success');
+
+          // Fire purchase events for express checkout redirect path
+          const transactionId = pi.id;
+          const purchaseKey = `purchase_${transactionId}`;
+          if (!localStorage.getItem(purchaseKey)) {
+            try {
+              const storedForm = sessionStorage.getItem('wellmedr_checkout_form');
+              const formData = storedForm ? JSON.parse(storedForm) : null;
+              const planDetails = formData?.planDetails;
+              const selectedProduct = formData?.selectedProduct;
+
+              if (planDetails && selectedProduct) {
+                trackCheckoutCompleted({
+                  order_id: transactionId,
+                  amount: planDetails.totalPayToday,
+                  currency: 'USD',
+                  plan_id: planDetails.id,
+                  payment_method: 'express',
+                });
+
+                await pushPurchase({
+                  transactionId,
+                  value: planDetails.totalPayToday,
+                  product: {
+                    productId: planDetails.id,
+                    productName: `${selectedProduct.name} - ${selectedProduct.medicationType}`,
+                    price: planDetails.totalPayToday,
+                    planType: planDetails.plan_type,
+                  },
+                  coupon: formData.promoCode || undefined,
+                  userData: {
+                    email: formData.email,
+                    firstName: formData.shippingAddress?.firstName,
+                    lastName: formData.shippingAddress?.lastName,
+                    city: formData.shippingAddress?.city,
+                    state: formData.shippingAddress?.state,
+                    zipCode: formData.shippingAddress?.zipCode,
+                  },
+                });
+
+                trackMetaEvent('Purchase', {
+                  content_ids: [planDetails.id],
+                  content_type: 'product',
+                  value: planDetails.totalPayToday,
+                  currency: 'USD',
+                  transaction_id: transactionId,
+                });
+
+                localStorage.setItem(purchaseKey, 'true');
+              }
+            } catch {
+              /* non-critical — tracking should not block redirect */
+            }
+          }
+
           setTimeout(() => {
             router.push(`/wellmedr-checkout/thank-you?uid=${encodeURIComponent(uid)}`);
           }, 1000);

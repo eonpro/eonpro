@@ -124,6 +124,19 @@ export function pushAddToCart(product: ProductInfo) {
   });
 }
 
+export function pushBeginCheckout(product: ProductInfo, coupon?: string) {
+  clearEcommerce();
+  push({
+    event: 'begin_checkout',
+    ecommerce: {
+      currency: 'USD',
+      value: product.price,
+      ...(coupon ? { coupon } : {}),
+      items: [buildItem(product)],
+    },
+  });
+}
+
 interface PurchaseData {
   transactionId: string;
   value: number;

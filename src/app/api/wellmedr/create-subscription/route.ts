@@ -13,6 +13,7 @@ import { getAddonStripePriceId } from '@/app/wellmedr-checkout/data/stripe-price
 import type { AddonId } from '@/app/wellmedr-checkout/types/checkout';
 import { rateLimit } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
+import { sendCheckoutStartedEvent } from '@/lib/wellmedr/attentive';
 
 const addressSchema = z.object({
   firstName: z.string().max(100).optional(),
@@ -251,6 +252,18 @@ async function handler(req: NextRequest) {
         });
       });
     }
+
+    // Fire Attentive checkout-started event (non-blocking)
+    sendCheckoutStartedEvent({
+      email: customerEmail,
+      productId: priceId,
+      productName: productName || 'WellMedR Product',
+      productPrice: amount,
+    }).catch((err) =>
+      Sentry.captureException(err, {
+        tags: { module: 'wellmedr-checkout', route: 'create-subscription', op: 'attentive' },
+      })
+    );
 
     return NextResponse.json({
       subscriptionId: subscription.id,

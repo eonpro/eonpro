@@ -40,6 +40,62 @@ import {
 } from '@/app/wellmedr-checkout/lib/stripe-config';
 import { getAddonTotal } from '@/app/wellmedr-checkout/data/addons';
 import { logger } from '@/app/wellmedr-checkout/utils/logger';
+import { pushBeginCheckout, pushPurchase } from '@/app/wellmedr-checkout/lib/tracking';
+
+/**
+ * Fire purchase events across all platforms (GTM/GA4, Meta, PostHog).
+ * Deduplicates via localStorage to prevent double-counting on page reloads.
+ */
+async function firePurchaseEvents(
+  transactionId: string,
+  formData: CheckoutFormData,
+  paymentMethod: string
+) {
+  const purchaseKey = `purchase_${transactionId}`;
+  if (typeof window === 'undefined' || localStorage.getItem(purchaseKey)) return;
+
+  const planDetails = formData.planDetails;
+  const selectedProduct = formData.selectedProduct;
+  if (!planDetails || !selectedProduct) return;
+
+  trackCheckoutCompleted({
+    order_id: transactionId,
+    amount: planDetails.totalPayToday,
+    currency: 'USD',
+    plan_id: planDetails.id,
+    payment_method: paymentMethod,
+  });
+
+  await pushPurchase({
+    transactionId,
+    value: planDetails.totalPayToday,
+    product: {
+      productId: planDetails.id,
+      productName: `${selectedProduct.name} - ${selectedProduct.medicationType}`,
+      price: planDetails.totalPayToday,
+      planType: planDetails.plan_type,
+    },
+    coupon: formData.promoCode || undefined,
+    userData: {
+      email: formData.email,
+      firstName: formData.shippingAddress?.firstName,
+      lastName: formData.shippingAddress?.lastName,
+      city: formData.shippingAddress?.city,
+      state: formData.shippingAddress?.state,
+      zipCode: formData.shippingAddress?.zipCode,
+    },
+  });
+
+  trackMetaEvent('Purchase', {
+    content_ids: [planDetails.id],
+    content_type: 'product',
+    value: planDetails.totalPayToday,
+    currency: 'USD',
+    transaction_id: transactionId,
+  });
+
+  localStorage.setItem(purchaseKey, 'true');
+}
 
 const SUBSCRIPTION_STORAGE_KEY = 'wellmedr_subscription_id';
 
@@ -177,7 +233,6 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
     if (planDetails && selectedProduct && !checkoutStartedRef.current) {
       checkoutStartedRef.current = true;
 
-      // PostHog tracking
       trackCheckoutStarted({
         plan_id: planDetails.id,
         amount: planDetails.totalPayToday,
@@ -186,26 +241,13 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
         medication_type: selectedProduct.medicationType,
       });
 
-      // GTM begin_checkout event (GA4 standard ecommerce)
-      if (typeof window !== 'undefined' && window.dataLayer) {
-        window.dataLayer.push({
-          event: 'begin_checkout',
-          ecommerce: {
-            currency: 'USD',
-            value: planDetails.totalPayToday,
-            items: [
-              {
-                item_id: planDetails.id,
-                item_name: `${selectedProduct.name} - ${selectedProduct.medicationType}`,
-                price: planDetails.totalPayToday,
-                quantity: 1,
-              },
-            ],
-          },
-        });
-      }
+      pushBeginCheckout({
+        productId: planDetails.id,
+        productName: `${selectedProduct.name} - ${selectedProduct.medicationType}`,
+        price: planDetails.totalPayToday,
+        planType: planDetails.plan_type,
+      });
 
-      // Meta Pixel InitiateCheckout
       trackMetaEvent('InitiateCheckout', {
         content_ids: [planDetails.id],
         content_type: 'product',
@@ -376,6 +418,8 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
 
         // If subscription is already active (100% discount), redirect to thank you
         if (subscriptionData.status === 'active' && subscriptionData.success) {
+          const formData = getValues();
+          await firePurchaseEvents(subscriptionData.subscriptionId || submissionId, formData, 'express_free');
           clearSubscriptionId();
           setPaymentCompleted(true);
           router.push(`/wellmedr-checkout/thank-you?uid=${submissionId}`);
@@ -439,7 +483,6 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
     if (!formData.email) {
       console.error('[PaymentSection] Missing email — cannot proceed');
       return;
-      return;
     }
 
     setIsProcessing(true);
@@ -489,6 +532,7 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
 
       // If subscription is already active (100% discount), redirect to thank you
       if (subscriptionData.status === 'active' && subscriptionData.success) {
+        await firePurchaseEvents(subscriptionData.subscriptionId || submissionId, formData, 'card_free');
         clearSubscriptionId();
         setPaymentCompleted(true);
         router.push(`/wellmedr-checkout/thank-you?uid=${submissionId}`);
@@ -531,50 +575,7 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
 
       if (paymentIntent.status === 'succeeded') {
         const transactionId = subscriptionData.subscriptionId || paymentIntent.id;
-
-        // Track checkout completed (PostHog)
-        trackCheckoutCompleted({
-          order_id: transactionId,
-          amount: formData.planDetails.totalPayToday,
-          currency: 'USD',
-          plan_id: formData.planDetails.id,
-          payment_method: 'card',
-        });
-
-        // GTM purchase event with deduplication
-        const purchaseKey = `purchase_${transactionId}`;
-        if (
-          typeof window !== 'undefined' &&
-          window.dataLayer &&
-          !localStorage.getItem(purchaseKey)
-        ) {
-          window.dataLayer.push({
-            event: 'purchase',
-            ecommerce: {
-              transaction_id: transactionId,
-              currency: 'USD',
-              value: formData.planDetails.totalPayToday,
-              items: [
-                {
-                  item_id: formData.planDetails.id,
-                  item_name: `${formData.selectedProduct.name} - ${formData.selectedProduct.medicationType}`,
-                  price: formData.planDetails.totalPayToday,
-                  quantity: 1,
-                },
-              ],
-            },
-          });
-          localStorage.setItem(purchaseKey, 'true');
-        }
-
-        // Meta Pixel Purchase
-        trackMetaEvent('Purchase', {
-          content_ids: [formData.planDetails.id],
-          content_type: 'product',
-          value: formData.planDetails.totalPayToday,
-          currency: 'USD',
-          transaction_id: transactionId,
-        });
+        await firePurchaseEvents(transactionId, formData, 'card');
 
         clearSubscriptionId();
         setPaymentCompleted(true);
