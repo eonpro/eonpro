@@ -45,8 +45,8 @@ export default function ConditionalLayout({ children }: ConditionalLayoutProps) 
     if (pathname === '/' || fullWidthPrefixes.some((p) => pathname?.startsWith(p))) return true;
     if (typeof window !== 'undefined') {
       const host = window.location.hostname;
-      const AFFILIATE_DOMAINS = ['join.otmens.com'];
-      if (AFFILIATE_DOMAINS.includes(host)) return true;
+      const CUSTOM_DOMAINS = ['join.otmens.com', 'intake.otmens.com'];
+      if (CUSTOM_DOMAINS.includes(host)) return true;
     }
     return false;
   }, [pathname]);

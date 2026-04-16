@@ -83,15 +83,30 @@ function getPatientPortalBasePath(): string {
  */
 const AFFILIATE_CUSTOM_DOMAINS = new Set(['join.otmens.com']);
 
-function isAffiliateDomain(request: NextRequest): boolean {
-  const host = (
+/**
+ * Intake custom domains — maps hostname to the clinic slug used in /intake/{slug}/...
+ * e.g. intake.otmens.com/weight-loss -> /intake/ot/weight-loss
+ */
+const INTAKE_CUSTOM_DOMAINS: Record<string, string> = {
+  'intake.otmens.com': 'ot',
+};
+
+function getHostFromRequest(request: NextRequest): string {
+  return (
     request.headers.get('x-forwarded-host')?.split(',')[0]?.trim() ||
     request.headers.get('host') ||
     ''
   )
     .split(':')[0]
     .toLowerCase();
-  return AFFILIATE_CUSTOM_DOMAINS.has(host);
+}
+
+function isAffiliateDomain(request: NextRequest): boolean {
+  return AFFILIATE_CUSTOM_DOMAINS.has(getHostFromRequest(request));
+}
+
+function getIntakeClinicSlug(request: NextRequest): string | null {
+  return INTAKE_CUSTOM_DOMAINS[getHostFromRequest(request)] || null;
 }
 
 /**
@@ -172,6 +187,22 @@ export async function proxy(request: NextRequest) {
     const response = NextResponse.rewrite(rewriteUrl);
     response.headers.set('x-affiliate-domain', 'true');
     return addSecurityHeaders(response, rewrittenPath);
+  }
+
+  // ── Intake custom domain rewrite ───────────────────────────────────
+  // intake.otmens.com/weight-loss       →  /intake/ot/weight-loss
+  // intake.otmens.com/peptides          →  /intake/ot/peptides
+  // intake.otmens.com/trt              →  /intake/ot/trt
+  // intake.otmens.com/weight-loss/step →  /intake/ot/weight-loss/step
+  // intake.otmens.com/                 →  redirect to /weight-loss
+  const intakeClinicSlug = getIntakeClinicSlug(request);
+  if (intakeClinicSlug && !isStaticAsset(pathname) && !isApiRoute(pathname)) {
+    if (pathname === '/' || pathname === '') {
+      return NextResponse.redirect(new URL('/weight-loss', request.url));
+    }
+    const rewriteUrl = request.nextUrl.clone();
+    rewriteUrl.pathname = `/intake/${intakeClinicSlug}${pathname}`;
+    return addSecurityHeaders(NextResponse.rewrite(rewriteUrl), rewriteUrl.pathname);
   }
 
   // ── Stale affiliate session detection for root page ──────────────────

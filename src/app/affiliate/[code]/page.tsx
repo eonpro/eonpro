@@ -84,7 +84,7 @@ const TREATMENTS = [
     keywordColor: '#b76e32',
     hoverBg: '#f1994e',
     hoverBgDark: '#d47830',
-    url: 'https://ot.eonpro.io/intake/ot/peptides',
+    url: 'https://intake.otmens.com/peptides',
   },
   {
     id: 'stayyoung',
@@ -104,7 +104,7 @@ const TREATMENTS = [
     keywordColor: '#295f3d',
     hoverBg: '#59c27b',
     hoverBgDark: '#3a9957',
-    url: 'https://ot.eonpro.io/intake/ot/trt',
+    url: 'https://intake.otmens.com/trt',
   },
   {
     id: 'weightloss',
@@ -114,7 +114,7 @@ const TREATMENTS = [
     keywordColor: '#b39231',
     hoverBg: '#f7cc49',
     hoverBgDark: '#d4a825',
-    url: 'https://ot.eonpro.io/intake/ot/weight-loss',
+    url: 'https://intake.otmens.com/weight-loss',
   },
 ];
 

@@ -273,12 +273,16 @@ async function resolveClinicFromDomain(domain: string) {
     return null;
   }
 
-  // Try affiliate custom domain (stored in clinic settings JSON)
-  // e.g. join.otmens.com -> clinic with settings.affiliateCustomDomain = "join.otmens.com"
+  // Try custom domain stored in clinic settings JSON (affiliate or intake domains)
+  // e.g. join.otmens.com -> settings.affiliateCustomDomain
+  //      intake.otmens.com -> settings.intakeCustomDomain
   const affiliateDomainClinic = await basePrisma.clinic.findFirst({
     where: {
       status: 'ACTIVE',
-      settings: { path: ['affiliateCustomDomain'], equals: normalizedDomain },
+      OR: [
+        { settings: { path: ['affiliateCustomDomain'], equals: normalizedDomain } },
+        { settings: { path: ['intakeCustomDomain'], equals: normalizedDomain } },
+      ],
     },
     select: {
       id: true,
