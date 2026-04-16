@@ -9,6 +9,7 @@
  */
 
 import { logger } from '@/lib/logger';
+import { redactEmail, redactRecipients } from '@/lib/security/log-sanitizer';
 import {
   sendEmail as sesSendEmail,
   sendBulkEmails as sesSendBulkEmails,
@@ -101,10 +102,10 @@ export async function sendEmail(options: EmailOptions): Promise<EmailResult> {
   const recipients = Array.isArray(to) ? to : [to];
   for (const email of recipients) {
     if (!validateEmail(email)) {
-      logger.error('Invalid email address', { email });
+      logger.error('Invalid email address', { emailRedacted: redactEmail(email) });
       return {
         success: false,
-        error: `Invalid email address: ${email}`,
+        error: `Invalid email address`,
       };
     }
   }
@@ -115,10 +116,10 @@ export async function sendEmail(options: EmailOptions): Promise<EmailResult> {
       try {
         const isSuppressed = await emailLogService.isEmailSuppressed(email);
         if (isSuppressed) {
-          logger.warn('Email suppressed - recipient has bounced or complained', { email });
+          logger.warn('Email suppressed - recipient has bounced or complained', { emailRedacted: redactEmail(email) });
           return {
             success: false,
-            error: `Email address ${email} is suppressed due to previous bounce or complaint`,
+            error: `Email address is suppressed due to previous bounce or complaint`,
           };
         }
       } catch {
@@ -139,7 +140,7 @@ export async function sendEmail(options: EmailOptions): Promise<EmailResult> {
 
     if (response.status === EmailStatus.SENT) {
       logger.info('Email sent successfully', {
-        to: recipients,
+        recipientCount: recipients.length,
         subject,
         messageId: response.messageId,
         provider: isSESEnabled() ? 'aws-ses' : 'mock',
@@ -170,7 +171,7 @@ export async function sendEmail(options: EmailOptions): Promise<EmailResult> {
       };
     } else {
       logger.error('Email send failed', {
-        to: recipients,
+        recipientCount: recipients.length,
         subject,
         error: response.error,
       });
@@ -183,7 +184,7 @@ export async function sendEmail(options: EmailOptions): Promise<EmailResult> {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Email send exception', {
-      to: recipients,
+      recipientCount: recipients.length,
       subject,
       error: errorMessage,
     });
@@ -243,10 +244,10 @@ export async function sendTemplatedEmail(options: TemplatedEmailOptions): Promis
   const recipients = Array.isArray(to) ? to : [to];
   for (const email of recipients) {
     if (!validateEmail(email)) {
-      logger.error('Invalid email address', { email });
+      logger.error('Invalid email address', { emailRedacted: redactEmail(email) });
       return {
         success: false,
-        error: `Invalid email address: ${email}`,
+        error: `Invalid email address`,
       };
     }
   }
@@ -258,12 +259,12 @@ export async function sendTemplatedEmail(options: TemplatedEmailOptions): Promis
         const isSuppressed = await emailLogService.isEmailSuppressed(email);
         if (isSuppressed) {
           logger.warn('Email suppressed - recipient has bounced or complained', {
-            email,
+            emailRedacted: redactEmail(email),
             template,
           });
           return {
             success: false,
-            error: `Email address ${email} is suppressed due to previous bounce or complaint`,
+            error: `Email address is suppressed due to previous bounce or complaint`,
           };
         }
       } catch {
@@ -284,7 +285,7 @@ export async function sendTemplatedEmail(options: TemplatedEmailOptions): Promis
 
     if (response.status === EmailStatus.SENT) {
       logger.info('Templated email sent successfully', {
-        to: recipients,
+        recipientCount: recipients.length,
         template,
         messageId: response.messageId,
         provider: isSESEnabled() ? 'aws-ses' : 'mock',
@@ -317,7 +318,7 @@ export async function sendTemplatedEmail(options: TemplatedEmailOptions): Promis
       };
     } else {
       logger.error('Templated email send failed', {
-        to: recipients,
+        recipientCount: recipients.length,
         template,
         error: response.error,
       });
@@ -330,7 +331,7 @@ export async function sendTemplatedEmail(options: TemplatedEmailOptions): Promis
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Templated email send exception', {
-      to: recipients,
+      recipientCount: recipients.length,
       template,
       error: errorMessage,
     });
@@ -385,7 +386,7 @@ export async function sendBulkEmail(
           results.sent++;
         } else {
           results.failed++;
-          results.errors.push(`${to}: ${result.error}`);
+          results.errors.push(`${redactEmail(to)}: ${result.error}`);
         }
 
         return result;
@@ -440,7 +441,7 @@ export async function sendBulkTemplatedEmail(
         results.sent++;
       } else {
         results.failed++;
-        results.errors.push(`${response.to.join(', ')}: ${response.error}`);
+        results.errors.push(`${redactRecipients(response.to)}: ${response.error}`);
       }
     }
   } catch (error) {

@@ -241,7 +241,7 @@ export async function registerPatient(
 
       if (existingUser) {
         // Don't reveal that email exists (security)
-        logger.warn('Registration attempted with existing email', { email: normalizedEmail });
+        logger.warn('Registration attempted with existing email', { emailHash: computeEmailHash(normalizedEmail) });
         return {
           success: false,
           error: 'Unable to complete registration. Please try again or contact support.',
@@ -319,7 +319,7 @@ export async function registerPatient(
 
       if (existingPatient?.user) {
         logger.warn('Registration attempted with existing patient+user', {
-          email: normalizedEmail,
+          emailHash: computeEmailHash(normalizedEmail),
           clinicId: inviteCode.clinicId,
           patientId: existingPatient.id,
         });
@@ -357,14 +357,13 @@ export async function registerPatient(
         if (nameMatches && dobMatches) {
           linkToExistingPatient = true;
           logger.info('Registration linked to existing intake patient', {
-            email: normalizedEmail,
+            emailHash: computeEmailHash(normalizedEmail),
             patientId: existingPatient.id,
             clinicId: inviteCode.clinicId,
-            matchedBy: existingPatient.email === normalizedEmail ? 'email' : 'phone',
           });
         } else {
           logger.warn('Registration identity mismatch with existing patient', {
-            email: normalizedEmail,
+            emailHash: computeEmailHash(normalizedEmail),
             patientId: existingPatient.id,
             clinicId: inviteCode.clinicId,
             nameMatches,
@@ -530,7 +529,6 @@ export async function registerPatient(
         logger.info('Welcome email sent for new patient registration', {
           userId: result.user.id,
           patientId: result.patient.id,
-          email: normalizedEmail,
         });
       } catch (emailError: unknown) {
         // Log error but don't fail registration
@@ -545,7 +543,7 @@ export async function registerPatient(
         userId: result.user.id,
         patientId: result.patient.id,
         clinicId: inviteCode.clinicId,
-        email: normalizedEmail,
+        emailHash: computeEmailHash(normalizedEmail),
         ipAddress,
         linkedToExistingPatient: result.linkedToExisting,
       });
@@ -619,7 +617,7 @@ export async function registerWithInviteToken(
         where: { email: normalizedEmail },
       });
       if (existingUser) {
-        logger.warn('RegisterWithInvite attempted with existing email', { email: normalizedEmail });
+        logger.warn('RegisterWithInvite attempted with existing email', { emailHash: computeEmailHash(normalizedEmail) });
         return {
           success: false,
           error: 'An account with this email already exists. Please log in or reset your password.',
@@ -874,7 +872,7 @@ export async function resendVerificationEmail(email: string): Promise<Registrati
         },
       });
 
-      logger.info('Verification email resent', { userId: user.id, email: normalizedEmail });
+      logger.info('Verification email resent', { userId: user.id, emailHash: computeEmailHash(normalizedEmail) });
 
       return { success: true, message: 'Verification email sent. Please check your inbox.' };
     } catch (error: unknown) {

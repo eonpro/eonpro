@@ -152,11 +152,11 @@ async function handler(req: NextRequest) {
       expand: ['latest_invoice'],
     };
 
-    if (applicationFee) {
-      (subscriptionParams as any).payment_intent_data = {
-        application_fee_amount: applicationFee,
-      };
-    }
+    const piMetadata = patientId ? { patientId } : {};
+    (subscriptionParams as any).payment_intent_data = {
+      ...(applicationFee ? { application_fee_amount: applicationFee } : {}),
+      metadata: piMetadata,
+    };
 
     if (promotionCodeId) {
       subscriptionParams.discounts = [{ promotion_code: promotionCodeId }];

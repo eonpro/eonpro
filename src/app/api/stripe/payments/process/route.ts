@@ -201,6 +201,39 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
         }
       }
 
+      // Server-side dedup: reject rapid duplicate charges for the same
+      // patient + amount within a 10-second window. This catches double-clicks
+      // and network retries that bypass the frontend disabled-button guard.
+      const DEDUP_WINDOW_MS = 10_000;
+      const recentDuplicate = await prisma.payment.findFirst({
+        where: {
+          patientId: patient.id,
+          amount,
+          createdAt: { gte: new Date(Date.now() - DEDUP_WINDOW_MS) },
+          status: { in: ['PENDING', 'PROCESSING', 'SUCCEEDED'] },
+        },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true, status: true, createdAt: true },
+      });
+
+      if (recentDuplicate) {
+        logger.warn('[PaymentProcess] Blocked duplicate charge within dedup window', {
+          patientId: patient.id,
+          amount,
+          existingPaymentId: recentDuplicate.id,
+          existingStatus: recentDuplicate.status,
+          windowMs: DEDUP_WINDOW_MS,
+        });
+        return NextResponse.json(
+          {
+            error: 'A payment for this amount was just processed. Please wait a moment before retrying.',
+            code: 'DUPLICATE_CHARGE_BLOCKED',
+            existingPaymentId: recentDuplicate.id,
+          },
+          { status: 409 }
+        );
+      }
+
       const idempotencyKey = `pi_saved_${patient.id}_${Date.now()}_${crypto.randomUUID()}`;
 
       const pendingPayment = await prisma.payment.create({
@@ -249,11 +282,18 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
         });
       } catch (stripeError: unknown) {
         const errMsg = stripeError instanceof Error ? stripeError.message : 'Stripe charge failed';
+
+        // When Stripe throws StripeCardError for confirm:true, the PI is still
+        // created. Capture its ID so the webhook can find this payment by
+        // stripePaymentIntentId instead of the less-reliable metadata fallback.
+        const failedPiId = (stripeError as any)?.payment_intent?.id as string | undefined;
+
         await prisma.payment.update({
           where: { id: pendingPayment.id },
           data: {
             status: PaymentStatus.FAILED,
             failureReason: errMsg,
+            ...(failedPiId ? { stripePaymentIntentId: failedPiId } : {}),
           },
         });
 
@@ -287,6 +327,7 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
         logger.error('[PaymentProcess] Stripe charge failed for saved card', {
           paymentId: pendingPayment.id,
           patientId: patient.id,
+          stripePaymentIntentId: failedPiId,
           error: errMsg,
         });
 
@@ -562,7 +603,7 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
         );
       }
 
-      await createInvoiceForProcessedPayment({
+      const invoiceResult = await createInvoiceForProcessedPayment({
         paymentId: pendingPayment.id,
         patientId: patient.id,
         clinicId: patient.clinicId,
@@ -574,6 +615,16 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
         planName: subscriptions[0]?.planName,
         lineItems: lineItems || undefined,
       });
+
+      if (!invoiceResult) {
+        logger.error('[PaymentProcess] CRITICAL: Invoice creation failed for succeeded payment — manual reconciliation needed', {
+          paymentId: pendingPayment.id,
+          patientId: patient.id,
+          clinicId: patient.clinicId,
+          amount,
+          stripePaymentIntentId: paymentIntent.id,
+        });
+      }
 
       // Commission processing (non-blocking)
       let commissionProcessed = false;
@@ -636,6 +687,34 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
     // No raw card data reaches this server. We create an unconfirmed PaymentIntent
     // and return clientSecret so the frontend confirms via Stripe.js CardElement.
     // stripeContext, stripe, stripeCustomerId, and connectOpts are resolved above.
+
+    // Same dedup guard as saved-card path
+    const ELEMENTS_DEDUP_WINDOW_MS = 10_000;
+    const recentElementsDuplicate = await prisma.payment.findFirst({
+      where: {
+        patientId: patient.id,
+        amount,
+        createdAt: { gte: new Date(Date.now() - ELEMENTS_DEDUP_WINDOW_MS) },
+        status: { in: ['PENDING', 'PROCESSING', 'SUCCEEDED'] },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, status: true },
+    });
+
+    if (recentElementsDuplicate) {
+      logger.warn('[PaymentProcess] Blocked duplicate Elements charge within dedup window', {
+        patientId: patient.id,
+        amount,
+        existingPaymentId: recentElementsDuplicate.id,
+      });
+      return NextResponse.json(
+        {
+          error: 'A payment for this amount was just processed. Please wait a moment before retrying.',
+          code: 'DUPLICATE_CHARGE_BLOCKED',
+        },
+        { status: 409 }
+      );
+    }
 
     const intentParams: Record<string, unknown> = {
       amount,

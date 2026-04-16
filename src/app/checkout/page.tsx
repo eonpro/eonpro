@@ -390,6 +390,10 @@ export function CheckoutInner() {
       }));
     }
 
+    if (typeof window !== 'undefined' && window.location.search) {
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+
     // Smart defaults from GLP-1 intake answers
     const glp1History = getSessionValue('intake_glp1_history');
     const glp1Type = getSessionValue('intake_glp1_type');

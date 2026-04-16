@@ -25,6 +25,7 @@ import { providerCompensationService } from '@/services/provider';
 import { platformFeeService } from '@/services/billing';
 import { buildPatientSearchIndex } from '@/lib/utils/search';
 import { computeEmailHash, computeDobHash } from '@/lib/security/phi-encryption';
+import { applyTestosteroneAddressSafeguard } from '@/lib/prescription-safeguards/testosterone-address';
 
 // Medication-specific clinical difference statements for Lifefile
 function getClinicalDifferenceStatement(medicationName: string): string | undefined {
@@ -464,76 +465,6 @@ async function createPrescriptionHandlerLegacy(req: NextRequest, user: AuthUser)
     const patientAddressLine2 = p.patient.address2 || undefined;
     const dobIso = normalizeDob(p.patient.dob);
 
-    let pdfBase64: string;
-    try {
-      pdfBase64 = await generatePrescriptionPDF({
-        referenceId,
-        date: printableDate,
-        // Pass clinic-specific info for PDF header/footer
-        clinic: {
-          name: lifefileCredentials.practiceName || process.env.LIFEFILE_PRACTICE_NAME,
-          address: lifefileCredentials.practiceAddress || process.env.LIFEFILE_PRACTICE_ADDRESS,
-          phone: lifefileCredentials.practicePhone || process.env.LIFEFILE_PRACTICE_PHONE,
-          fax: lifefileCredentials.practiceFax || process.env.LIFEFILE_PRACTICE_FAX,
-        },
-        provider: {
-          name: `${provider.firstName} ${provider.lastName}`,
-          npi: provider.npi,
-          dea: provider.dea,
-          licenseNumber: provider.licenseNumber,
-          address1: lifefileCredentials.practiceAddress || process.env.LIFEFILE_PRACTICE_ADDRESS,
-          phone:
-            lifefileCredentials.practicePhone ||
-            process.env.LIFEFILE_PRACTICE_PHONE ||
-            provider.phone ||
-            undefined,
-        },
-        patient: {
-          firstName: p.patient.firstName,
-          lastName: p.patient.lastName,
-          phone: p.patient.phone,
-          email: p.patient.email,
-          dob: dobIso,
-          gender: (() => {
-            const gRaw = (p.patient.gender || '').replace(/[^a-zA-Z]/g, '').toLowerCase();
-            if (gRaw[0] === 'm') return 'Male';
-            if (gRaw[0] === 'f') return 'Female';
-            return 'Unknown';
-          })(),
-          address1: p.patient.address1,
-          address2: patientAddressLine2,
-          city: p.patient.city,
-          state: p.patient.state,
-          zip: p.patient.zip,
-        },
-        // Pass all prescriptions, not just the primary one
-        prescriptions: rxsWithMeds.map(({ rx, med }) => ({
-          medication: med.name,
-          strength: med.strength,
-          sig: rx.sig,
-          quantity: rx.quantity,
-          refills: rx.refills,
-          daysSupply: Number(rx.daysSupply) || 30,
-        })),
-        shipping: {
-          methodLabel: shippingMethodLabel,
-          addressLine1: p.patient.address1,
-          addressLine2: patientAddressLine2,
-          city: p.patient.city,
-          state: p.patient.state,
-          zip: p.patient.zip,
-        },
-        signatureDataUrl: p.signatureDataUrl ?? provider.signatureDataUrl ?? null,
-      });
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      logger.error('[PRESCRIPTIONS/POST] PDF generation failed:', err);
-      return NextResponse.json(
-        { error: 'Failed to generate prescription PDF', detail: errorMessage },
-        { status: 500 }
-      );
-    }
-
     // CRITICAL: Lifefile pharmacy API only accepts 'm' or 'f' for gender.
     // Empty values cause a 422 rejection.
     // Map to Lifefile-compatible value or reject with a clear message.
@@ -597,6 +528,65 @@ async function createPrescriptionHandlerLegacy(req: NextRequest, user: AuthUser)
         { status: 400 }
       );
     }
+
+    // Build PDF data and Lifefile payload (addresses may be rewritten by safeguard below)
+    const pdfData = {
+      referenceId,
+      date: printableDate,
+      clinic: {
+        name: lifefileCredentials.practiceName || process.env.LIFEFILE_PRACTICE_NAME,
+        address: lifefileCredentials.practiceAddress || process.env.LIFEFILE_PRACTICE_ADDRESS,
+        phone: lifefileCredentials.practicePhone || process.env.LIFEFILE_PRACTICE_PHONE,
+        fax: lifefileCredentials.practiceFax || process.env.LIFEFILE_PRACTICE_FAX,
+      },
+      provider: {
+        name: `${provider.firstName} ${provider.lastName}`,
+        npi: provider.npi,
+        dea: provider.dea,
+        licenseNumber: provider.licenseNumber,
+        address1: lifefileCredentials.practiceAddress || process.env.LIFEFILE_PRACTICE_ADDRESS,
+        phone:
+          lifefileCredentials.practicePhone ||
+          process.env.LIFEFILE_PRACTICE_PHONE ||
+          provider.phone ||
+          undefined,
+      },
+      patient: {
+        firstName: p.patient.firstName,
+        lastName: p.patient.lastName,
+        phone: p.patient.phone,
+        email: p.patient.email,
+        dob: dobIso,
+        gender: (() => {
+          const gRaw = (p.patient.gender || '').replace(/[^a-zA-Z]/g, '').toLowerCase();
+          if (gRaw[0] === 'm') return 'Male';
+          if (gRaw[0] === 'f') return 'Female';
+          return 'Unknown';
+        })(),
+        address1: p.patient.address1,
+        address2: patientAddressLine2,
+        city: p.patient.city,
+        state: p.patient.state,
+        zip: p.patient.zip,
+      },
+      prescriptions: rxsWithMeds.map(({ rx, med }) => ({
+        medication: med.name,
+        strength: med.strength,
+        sig: rx.sig,
+        quantity: rx.quantity,
+        refills: rx.refills,
+        daysSupply: Number(rx.daysSupply) || 30,
+      })),
+      shipping: {
+        methodLabel: shippingMethodLabel,
+        addressLine1: p.patient.address1,
+        addressLine2: patientAddressLine2,
+        city: p.patient.city,
+        state: p.patient.state,
+        zip: p.patient.zip,
+      },
+      signatureDataUrl: p.signatureDataUrl ?? provider.signatureDataUrl ?? null,
+    };
 
     const orderPayload: LifefileOrderPayload = {
       message: {
@@ -674,7 +664,6 @@ async function createPrescriptionHandlerLegacy(req: NextRequest, user: AuthUser)
             clinicalDifferenceStatement: getClinicalDifferenceStatement(med.name),
           };
 
-          // Log each prescription being sent
           logger.debug(`[PRESCRIPTIONS] Rx #${index + 1}:`, {
             drugName: rxData.drugName,
             drugStrength: rxData.drugStrength,
@@ -683,11 +672,34 @@ async function createPrescriptionHandlerLegacy(req: NextRequest, user: AuthUser)
 
           return rxData;
         }),
-        document: {
-          pdfBase64,
-        },
+        document: { pdfBase64: '' }, // placeholder — filled after PDF generation
       },
     };
+
+    // ── Testosterone Cypionate Address Safeguard (OT clinic only) ──
+    if (activeClinicId) {
+      await applyTestosteroneAddressSafeguard({
+        clinicId: activeClinicId,
+        patientState: p.patient.state,
+        medicationNames: rxsWithMeds.map(({ med }) => med.name),
+        orderPayload,
+        pdfData,
+      });
+    }
+
+    // Generate PDF (uses potentially-redirected addresses from safeguard)
+    let pdfBase64: string;
+    try {
+      pdfBase64 = await generatePrescriptionPDF(pdfData);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      logger.error('[PRESCRIPTIONS/POST] PDF generation failed:', err);
+      return NextResponse.json(
+        { error: 'Failed to generate prescription PDF', detail: errorMessage },
+        { status: 500 }
+      );
+    }
+    orderPayload.order.document = { pdfBase64 };
 
     // CRITICAL: Must have clinicId for data integrity
     if (!activeClinicId) {

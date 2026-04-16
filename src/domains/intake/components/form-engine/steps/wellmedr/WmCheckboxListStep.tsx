@@ -159,7 +159,7 @@ export default function WmCheckboxListStep({
           }}
         >
           {question}
-          <span className="ml-1" style={{ color: '#c3b29e' }}>
+          <span className="ml-1" style={{ color: '#ef4444' }}>
             *
           </span>
         </h2>
@@ -215,7 +215,7 @@ export default function WmCheckboxListStep({
       </div>
 
       <div
-        className="mx-auto w-full max-w-[600px] px-6 pb-6 sm:mx-auto sm:max-w-[31rem] sm:px-8"
+        className="mx-auto w-full max-w-[600px] px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:mx-auto sm:max-w-[31rem] sm:px-8"
         style={{ backgroundColor: '#F7F7F9' }}
       >
         <button

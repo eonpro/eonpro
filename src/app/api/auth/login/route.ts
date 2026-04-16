@@ -22,6 +22,7 @@ import { JWT_SECRET, JWT_REFRESH_SECRET, AUTH_CONFIG } from '@/lib/auth/config';
 import { createSessionRecord } from '@/lib/auth/session-manager';
 import { authRateLimiter } from '@/lib/security/enterprise-rate-limiter';
 import { logger } from '@/lib/logger';
+import { redactEmail } from '@/lib/security/log-sanitizer';
 import {
   getRequestHost,
   getRequestHostWithUrlFallback,
@@ -208,7 +209,7 @@ async function loginHandler(req: NextRequest) {
 
       // Debug info only in development
       if (process.env.NODE_ENV === 'development') {
-        debugInfo = { step: 'parsed_body', email, role, hasPassword: !!password };
+        debugInfo = { step: 'parsed_body', emailPrefix: redactEmail(email), role, hasPassword: !!password };
         logger.debug('[Login] Starting login', debugInfo);
       }
 
@@ -817,7 +818,7 @@ async function loginHandler(req: NextRequest) {
               .catch((error: unknown) => {
                 logger.debug('[Login] Provider fallback lookup failed', {
                   error: error instanceof Error ? error.message : 'Unknown error',
-                  email: user.email,
+                  emailRedacted: redactEmail(user.email),
                 });
                 return null;
               })
@@ -882,7 +883,7 @@ async function loginHandler(req: NextRequest) {
         logger.info('[Login] Found provider by email fallback', {
           userId: user.id,
           providerId: providerFallback.id,
-          email: user.email,
+          emailRedacted: redactEmail(user.email),
         });
       }
 
@@ -952,7 +953,7 @@ async function loginHandler(req: NextRequest) {
         .sign(JWT_REFRESH_SECRET);
 
       // Log successful login
-      logger.debug(`Successful login: ${email} (${role})`);
+      logger.debug(`Successful login: ${redactEmail(email)} (${role})`);
 
       // Run providerClinics fetch IN PARALLEL with post-auth writes (login speed: was sequential, now parallel)
       const loginTime = new Date();

@@ -1,4 +1,5 @@
 import { ProductNameType, MedicationType, AddonId } from '@/app/wellmedr-checkout/types/checkout';
+import { logger } from '@/app/wellmedr-checkout/utils/logger';
 
 // Fallback Stripe Price IDs (test mode)
 // These are used if dynamic Stripe fetching fails
@@ -53,19 +54,19 @@ export const getStripePriceId = (
 ): string => {
   const product = STRIPE_PRICE_IDS[productName];
   if (!product) {
-    console.warn(`Product not found for stripe price id: ${productName}`);
+    logger.warn(`Product not found for stripe price id: ${productName}`);
     return '';
   }
 
   const type = product[medicationType];
   if (!type) {
-    console.warn(`Medication type not found for stripe price id: ${medicationType}`);
+    logger.warn(`Medication type not found for stripe price id: ${medicationType}`);
     return '';
   }
 
   const priceId = type[planType];
   if (!priceId) {
-    console.warn(`Plan type not found for stripe price id: ${planType}`);
+    logger.warn(`Plan type not found for stripe price id: ${planType}`);
     return '';
   }
 
@@ -75,7 +76,7 @@ export const getStripePriceId = (
 export const getAddonStripePriceId = (addonId: AddonId): string => {
   const priceId = ADDON_STRIPE_PRICE_IDS[addonId];
   if (!priceId) {
-    console.warn(`Addon not found for stripe price id: ${addonId}`);
+    logger.warn(`Addon not found for stripe price id: ${addonId}`);
     return '';
   }
   return priceId;

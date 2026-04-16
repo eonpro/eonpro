@@ -1,6 +1,7 @@
 import { US_STATE_OPTIONS } from '@/lib/usStates';
 import type { IntakeSection, NormalizedIntake, NormalizedPatient } from './types';
 import { logger } from '@/lib/logger';
+import { redactEmail } from '@/lib/security/log-sanitizer';
 import { Patient, Provider, Order } from '@/types/models';
 import { smartParseAddress } from '@/lib/address';
 
@@ -436,7 +437,7 @@ function findValue(
       const labelMatch = entries.find((entry: any) => entry.label?.toLowerCase().includes(needle));
       if (labelMatch?.value) {
         logger.debug(
-          `[Normalizer] Found "${matcher.labelIncludes}" by label match: ${labelMatch.value.slice(0, 50)}`
+          `[Normalizer] Found "${matcher.labelIncludes}" by label match`
         );
         return labelMatch.value;
       }
@@ -450,7 +451,7 @@ function findValue(
       const direct = entries.find((entry: any) => normalizeKey(entry.id) === matcherId);
       if (direct?.value) {
         logger.debug(
-          `[Normalizer] Found "${matcher.id}" by ID match: ${direct.value.slice(0, 50)}`
+          `[Normalizer] Found "${matcher.id}" by ID match`
         );
         return direct.value;
       }
@@ -568,13 +569,9 @@ function applyDerivedFields(
       if (!patient.state && parsed.state) patient.state = parsed.state;
       if (!patient.zip && parsed.zip) patient.zip = parsed.zip;
       logger.info('[Heyflow Normalizer] Parsed formattedAddress', {
-        formattedAddress: addressJson.formattedAddress.substring(0, 50),
-        parsed: {
-          address1: parsed.address1,
-          city: parsed.city,
-          state: parsed.state,
-          zip: parsed.zip,
-        },
+        hasAddress: true,
+        state: parsed.state,
+        zip: parsed.zip,
       });
     } else {
       // Fallback: use formattedAddress as-is if parsing fails
@@ -717,8 +714,7 @@ function applyDerivedFields(
         }
         logger.info('[Heyflow Normalizer] Extracted name from full name field', {
           label: fullNameEntry.label,
-          firstName: patient.firstName,
-          lastName: patient.lastName,
+          hasName: true,
         });
       }
     }
@@ -738,9 +734,8 @@ function applyDerivedFields(
         patient.firstName = capitalizeWords(fn.replace(/[^a-zA-Z]/g, ''));
         patient.lastName = capitalizeWords(ln.replace(/[^a-zA-Z]/g, ''));
         logger.info('[Heyflow Normalizer] Extracted name from email', {
-          email: patient.email,
-          firstName: patient.firstName,
-          lastName: patient.lastName,
+          emailRedacted: redactEmail(patient.email),
+          hasName: true,
         });
       }
     }

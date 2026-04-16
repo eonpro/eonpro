@@ -133,7 +133,7 @@ export default function WmGoalWeightStep({
             className="mb-2 block text-base font-medium sm:text-[1.125rem]"
             style={{ color: '#101010', letterSpacing: '-0.01em' }}
           >
-            Your goal weight (lbs) <span style={{ color: '#c3b29e' }}>*</span>
+            Your goal weight (lbs) <span style={{ color: '#ef4444' }}>*</span>
           </label>
           <input
             type="text"
@@ -148,7 +148,7 @@ export default function WmGoalWeightStep({
       </div>
 
       <div
-        className="mx-auto mt-8 w-full max-w-[600px] px-6 pb-6 sm:mx-auto sm:max-w-[31rem] sm:px-8"
+        className="mx-auto mt-8 w-full max-w-[600px] px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:mx-auto sm:max-w-[31rem] sm:px-8"
         style={{ backgroundColor: '#F7F7F9' }}
       >
         <button

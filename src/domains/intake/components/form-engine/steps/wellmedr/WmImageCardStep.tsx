@@ -354,7 +354,7 @@ export default function WmImageCardStep({
 
       {mode === 'multi' && (
         <div
-          className="mx-auto mt-8 w-full max-w-[600px] px-6 pb-8 sm:mx-auto sm:max-w-[31rem] sm:px-8"
+          className="mx-auto mt-8 w-full max-w-[600px] px-6 pb-[max(2rem,env(safe-area-inset-bottom))] sm:mx-auto sm:max-w-[31rem] sm:px-8"
           style={{ backgroundColor: '#F7F7F9' }}
         >
           <button

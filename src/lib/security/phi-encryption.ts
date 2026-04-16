@@ -40,6 +40,7 @@
  */
 
 import crypto from 'crypto';
+import * as Sentry from '@sentry/nextjs';
 import { logger } from '@/lib/logger';
 import { getEncryptionKey, isKMSEnabled } from './kms';
 
@@ -196,8 +197,8 @@ export function decryptPHI(encryptedData: string | null | undefined): string | n
     const parts = encryptedData.split(':').map((p) => p.trim().replace(/\s/g, ''));
 
     if (parts.length !== 3) {
-      // Data might be unencrypted (migration period)
       logger.warn('Attempting to decrypt non-encrypted data');
+      Sentry.captureMessage('Unencrypted PHI detected in database', 'warning');
       return encryptedData;
     }
 
@@ -236,6 +237,7 @@ export async function decryptPHIAsync(
 
     if (parts.length !== 3) {
       logger.warn('Attempting to decrypt non-encrypted data');
+      Sentry.captureMessage('Unencrypted PHI detected in database', 'warning');
       return encryptedData;
     }
 

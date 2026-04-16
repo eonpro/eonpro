@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { logger } from '@/lib/logger';
+import { rateLimit } from '@/lib/rateLimit';
 
 const STRIPE_PRODUCTS = {
   semaglutide: {
@@ -108,7 +110,7 @@ function normalizeMetaParam(value: string | null | undefined): string {
   return value;
 }
 
-export async function POST(req: NextRequest) {
+async function handler(req: NextRequest) {
   try {
     const body = await req.json();
     const {
@@ -303,10 +305,12 @@ export async function POST(req: NextRequest) {
       isSubscription,
     });
   } catch (error: any) {
-    console.error('[EONMeds] Error creating payment intent:', error.message);
+    logger.error('[EONMeds] Error creating payment intent', { error: error.message });
     return NextResponse.json(
       { error: 'Failed to create payment intent', message: error.message },
       { status: 500 }
     );
   }
 }
+
+export const POST = rateLimit({ max: 10, windowMs: 60_000 })(handler);

@@ -14,6 +14,15 @@ import type {
   FormStep as FormStepType,
   FormBranding,
 } from '@/domains/intake/types/form-engine';
+import {
+  CHECKOUT_FORM_KEY,
+  CHECKOUT_STEP_KEY,
+  SUBSCRIPTION_ID_KEY,
+  PATIENT_DATA_KEY,
+  PATIENT_ID_KEY,
+  INTAKE_RESPONSES_KEY,
+  AIRTABLE_RECORD_KEY,
+} from '@/app/wellmedr-checkout/lib/session-keys';
 
 function IntakeStepContent() {
   const params = useParams();
@@ -126,13 +135,13 @@ function IntakeStepContent() {
 
           // Clear stale checkout state when starting a fresh intake
           if (stepId === data.config.startStep && typeof sessionStorage !== 'undefined') {
-            sessionStorage.removeItem('wellmedr_checkout_form');
-            sessionStorage.removeItem('wellmedr_checkout_step');
-            sessionStorage.removeItem('wellmedr_subscription_id');
-            sessionStorage.removeItem('wellmedr_patient_data');
-            sessionStorage.removeItem('wellmedr_patient_id');
-            sessionStorage.removeItem('wm_intake_responses');
-            sessionStorage.removeItem('wm_airtable_record_id');
+            sessionStorage.removeItem(CHECKOUT_FORM_KEY);
+            sessionStorage.removeItem(CHECKOUT_STEP_KEY);
+            sessionStorage.removeItem(SUBSCRIPTION_ID_KEY);
+            sessionStorage.removeItem(PATIENT_DATA_KEY);
+            sessionStorage.removeItem(PATIENT_ID_KEY);
+            sessionStorage.removeItem(INTAKE_RESPONSES_KEY);
+            sessionStorage.removeItem(AIRTABLE_RECORD_KEY);
           }
 
           setLoading(false);
@@ -216,7 +225,7 @@ function IntakeStepContent() {
     const r = responses;
     if (typeof window !== 'undefined') {
       // Persist patient data in sessionStorage for checkout (HIPAA: no PII in URL)
-      sessionStorage.setItem('wellmedr_patient_data', JSON.stringify({
+      sessionStorage.setItem(PATIENT_DATA_KEY, JSON.stringify({
         firstName: r.firstName || '',
         lastName: r.lastName || '',
         email: r.email || '',
@@ -258,7 +267,7 @@ function IntakeStepContent() {
         'Checkout Completed': false,
       };
 
-      const existingRecordId = sessionStorage.getItem('wm_airtable_record_id');
+      const existingRecordId = sessionStorage.getItem(AIRTABLE_RECORD_KEY);
 
       Promise.all([
         fetch('/api/wellmedr/submit-intake', {
@@ -278,7 +287,7 @@ function IntakeStepContent() {
           .then((res) => res.json())
           .then((data) => {
             if (data?.recordId) {
-              sessionStorage.setItem('wm_airtable_record_id', data.recordId);
+              sessionStorage.setItem(AIRTABLE_RECORD_KEY, data.recordId);
             }
           })
           .catch(() => {}),

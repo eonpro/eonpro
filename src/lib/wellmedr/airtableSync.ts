@@ -5,6 +5,9 @@
  * Uses REST API (same pattern as src/lib/overtime/airtableClient.ts).
  */
 
+import * as Sentry from '@sentry/nextjs';
+import { logger } from '@/lib/logger';
+
 const AIRTABLE_BASE_ID = 'app7yWQkMnz0aoysI';
 const AIRTABLE_TABLE_ID = 'tbln93c69GlrNGEqa';
 const AIRTABLE_API_URL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_ID}`;
@@ -123,7 +126,7 @@ export async function createAirtableRecord(
 ): Promise<string | null> {
   const apiKey = getApiKey();
   if (!apiKey) {
-    console.error('[WellMedR-Airtable] AIRTABLE_API_KEY is empty or not set!');
+    logger.error('[WellMedR-Airtable] AIRTABLE_API_KEY is empty or not set!');
     return null;
   }
 
@@ -142,14 +145,16 @@ export async function createAirtableRecord(
     const responseText = await res.text();
 
     if (!res.ok) {
-      console.error('[WellMedR-Airtable] Create failed:', res.status, responseText);
+      logger.error('[WellMedR-Airtable] Create failed', { status: res.status, response: responseText });
+      Sentry.captureMessage('Airtable create failed', { level: 'error', extra: { status: res.status } });
       return null;
     }
 
     const data = JSON.parse(responseText);
     return data.id || null;
   } catch (err) {
-    console.error('[WellMedR-Airtable] Create error:', err);
+    logger.error('[WellMedR-Airtable] Create error', { error: err instanceof Error ? err.message : 'Unknown' });
+    Sentry.captureException(err, { tags: { module: 'wellmedr-airtable', op: 'create' } });
     return null;
   }
 }
@@ -198,13 +203,15 @@ export async function updateAirtableRecord(
 
     if (!res.ok) {
       const err = await res.text();
-      console.error('[WellMedR-Airtable] Update failed:', res.status, err);
+      logger.error('[WellMedR-Airtable] Update failed', { status: res.status, response: err });
+      Sentry.captureMessage('Airtable update failed', { level: 'error', extra: { status: res.status } });
       return false;
     }
 
     return true;
   } catch (err) {
-    console.error('[WellMedR-Airtable] Update error:', err);
+    logger.error('[WellMedR-Airtable] Update error', { error: err instanceof Error ? err.message : 'Unknown' });
+    Sentry.captureException(err, { tags: { module: 'wellmedr-airtable', op: 'update' } });
     return false;
   }
 }

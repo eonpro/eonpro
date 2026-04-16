@@ -54,7 +54,7 @@ function Dropdown({ label, placeholder, value, displayValue, options, onSelect }
         className="text-base font-medium sm:text-[1.125rem]"
         style={{ color: '#101010', letterSpacing: '-0.01em' }}
       >
-        {label} <span style={{ color: '#c3b29e' }}>*</span>
+        {label} <span style={{ color: '#ef4444' }}>*</span>
       </label>
       <div className="relative">
         <button
@@ -284,7 +284,7 @@ export default function WmDobStep({
         </div>
 
         {/* Button */}
-        <div className="mt-8 w-full sm:mx-auto sm:mt-[3.25rem] sm:max-w-[31rem]">
+        <div className="mt-8 w-full pb-[env(safe-area-inset-bottom)] sm:mx-auto sm:mt-[3.25rem] sm:max-w-[31rem]">
           <button
             type="button"
             onClick={handleContinue}

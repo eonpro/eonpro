@@ -28,8 +28,23 @@ export default function WmBmiCalcStep({ basePath, nextStep, progressPercent }: W
     String(responses.current_weight || responses.currentWeight || '')
   );
 
+  const [errors, setErrors] = useState<{ feet?: string; inches?: string; weight?: string }>({});
+
   const handleContinue = () => {
-    if (!weight || !feet || inches === '') return;
+    const newErrors: typeof errors = {};
+    const feetNum = Number(feet);
+    const inchesNum = Number(inches);
+    const weightNum = Number(weight);
+
+    if (!feet || feetNum < 3 || feetNum > 7) newErrors.feet = 'Feet must be between 3 and 7';
+    if (inches === '' || inchesNum < 0 || inchesNum > 11) newErrors.inches = 'Inches must be between 0 and 11';
+    if (!weight || weightNum < 50 || weightNum > 800) newErrors.weight = 'Enter a valid weight';
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+    setErrors({});
     setResponse('current_weight', weight);
     setResponse('currentWeight', weight);
     setResponse('height_feet', feet);
@@ -163,9 +178,17 @@ export default function WmBmiCalcStep({ basePath, nextStep, progressPercent }: W
                 pattern="[0-9]*"
                 placeholder="5"
                 className="wm-input"
+                style={errors.feet ? { borderColor: '#ef4444' } : undefined}
                 value={feet}
-                onChange={(e) => setFeet(e.target.value.replace(/[^0-9]/g, ''))}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/[^0-9]/g, '');
+                  if (v === '' || (Number(v) >= 0 && Number(v) <= 7)) setFeet(v);
+                  if (errors.feet) setErrors((prev) => ({ ...prev, feet: undefined }));
+                }}
               />
+              {errors.feet && (
+                <span className="text-xs" style={{ color: '#ef4444' }}>{errors.feet}</span>
+              )}
             </div>
             <div className="flex flex-1 flex-col gap-2">
               <label
@@ -180,9 +203,17 @@ export default function WmBmiCalcStep({ basePath, nextStep, progressPercent }: W
                 pattern="[0-9]*"
                 placeholder="4"
                 className="wm-input"
+                style={errors.inches ? { borderColor: '#ef4444' } : undefined}
                 value={inches}
-                onChange={(e) => setInches(e.target.value.replace(/[^0-9]/g, ''))}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/[^0-9]/g, '');
+                  if (v === '' || (Number(v) >= 0 && Number(v) <= 11)) setInches(v);
+                  if (errors.inches) setErrors((prev) => ({ ...prev, inches: undefined }));
+                }}
               />
+              {errors.inches && (
+                <span className="text-xs" style={{ color: '#ef4444' }}>{errors.inches}</span>
+              )}
             </div>
           </div>
 
@@ -200,9 +231,16 @@ export default function WmBmiCalcStep({ basePath, nextStep, progressPercent }: W
               pattern="[0-9]*"
               placeholder="200"
               className="wm-input"
+              style={errors.weight ? { borderColor: '#ef4444' } : undefined}
               value={weight}
-              onChange={(e) => setWeight(e.target.value.replace(/[^0-9]/g, ''))}
+              onChange={(e) => {
+                setWeight(e.target.value.replace(/[^0-9]/g, ''));
+                if (errors.weight) setErrors((prev) => ({ ...prev, weight: undefined }));
+              }}
             />
+            {errors.weight && (
+              <span className="text-xs" style={{ color: '#ef4444' }}>{errors.weight}</span>
+            )}
           </div>
         </div>
 

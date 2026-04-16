@@ -161,7 +161,7 @@ export default function WmTestimonialStep({
         )}
       </div>
 
-      <div className="mx-auto w-full max-w-[600px] px-6 pb-6 sm:mx-auto sm:max-w-[31rem] sm:px-8">
+      <div className="mx-auto w-full max-w-[600px] px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:mx-auto sm:max-w-[31rem] sm:px-8">
         <button
           onClick={handleContinue}
           className="wm-next-btn flex w-full items-center justify-center gap-4 rounded-full py-[18px] text-base font-normal text-white active:scale-[0.98] sm:text-[1.125rem]"

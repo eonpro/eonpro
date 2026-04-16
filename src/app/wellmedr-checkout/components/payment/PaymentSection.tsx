@@ -15,6 +15,9 @@ import {
 import type {
   StripeExpressCheckoutElementConfirmEvent,
   StripeExpressCheckoutElementReadyEvent,
+  StripeCardNumberElementChangeEvent,
+  StripeCardExpiryElementChangeEvent,
+  StripeCardCvcElementChangeEvent,
 } from '@stripe/stripe-js';
 import { validateCardholderName } from '@/app/wellmedr-checkout/lib/payment';
 import Button from '@/app/wellmedr-checkout/components/ui/button/Button';
@@ -41,6 +44,7 @@ import {
 import { getAddonTotal } from '@/app/wellmedr-checkout/data/addons';
 import { logger } from '@/app/wellmedr-checkout/utils/logger';
 import { pushBeginCheckout, pushPurchase } from '@/app/wellmedr-checkout/lib/tracking';
+import { SUBSCRIPTION_ID_KEY, PATIENT_ID_KEY } from '@/app/wellmedr-checkout/lib/session-keys';
 
 /**
  * Fire purchase events across all platforms (GTM/GA4, Meta, PostHog).
@@ -97,26 +101,25 @@ async function firePurchaseEvents(
   localStorage.setItem(purchaseKey, 'true');
 }
 
-const SUBSCRIPTION_STORAGE_KEY = 'wellmedr_subscription_id';
 
 function storeSubscriptionId(subscriptionId: string) {
   if (typeof window === 'undefined') return;
   try {
-    sessionStorage.setItem(SUBSCRIPTION_STORAGE_KEY, subscriptionId);
-    console.log('[Subscription Storage] Stored subscription ID:', subscriptionId);
+    sessionStorage.setItem(SUBSCRIPTION_ID_KEY, subscriptionId);
+    logger.log('[Subscription Storage] Stored subscription ID:', subscriptionId);
   } catch (e) {
-    console.error('Failed to store subscription ID:', e);
+    logger.error('Failed to store subscription ID:', e);
   }
 }
 
 function clearSubscriptionId() {
   if (typeof window === 'undefined') return;
   try {
-    const existingId = sessionStorage.getItem(SUBSCRIPTION_STORAGE_KEY);
-    sessionStorage.removeItem(SUBSCRIPTION_STORAGE_KEY);
-    console.log('[Subscription Storage] Cleared subscription ID:', existingId);
+    const existingId = sessionStorage.getItem(SUBSCRIPTION_ID_KEY);
+    sessionStorage.removeItem(SUBSCRIPTION_ID_KEY);
+    logger.log('[Subscription Storage] Cleared subscription ID:', existingId);
   } catch (e) {
-    console.error('Failed to clear subscription ID:', e);
+    logger.error('Failed to clear subscription ID:', e);
   }
 }
 
@@ -282,7 +285,7 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
     }
 
     const storedPatientId = typeof window !== 'undefined'
-      ? sessionStorage.getItem('wellmedr_patient_id')
+      ? sessionStorage.getItem(PATIENT_ID_KEY)
       : null;
 
     logger.log('[CLIENT] Calling /api/create-subscription...');
@@ -327,15 +330,15 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
     return data;
   }, [getValues, submissionId]);
 
-  const handleCardNumberChange = useCallback((event: any) => {
+  const handleCardNumberChange = useCallback((event: StripeCardNumberElementChangeEvent) => {
     setCardNumberValid(event.complete && !event.error);
   }, []);
 
-  const handleCardExpiryChange = useCallback((event: any) => {
+  const handleCardExpiryChange = useCallback((event: StripeCardExpiryElementChangeEvent) => {
     setCardExpiryValid(event.complete && !event.error);
   }, []);
 
-  const handleCardCvcChange = useCallback((event: any) => {
+  const handleCardCvcChange = useCallback((event: StripeCardCvcElementChangeEvent) => {
     setCardCvcValid(event.complete && !event.error);
   }, []);
 
@@ -486,7 +489,7 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
     }
 
     if (!formData.email) {
-      console.error('[PaymentSection] Missing email — cannot proceed');
+      setError('Email is required. Please go back and complete your information.');
       return;
     }
 

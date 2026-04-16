@@ -1,6 +1,7 @@
 import { US_STATE_OPTIONS } from '@/lib/usStates';
 import type { IntakeSection, NormalizedIntake, NormalizedPatient } from './types';
 import { logger } from '@/lib/logger';
+import { redactEmail } from '@/lib/security/log-sanitizer';
 import { Patient, Provider, Order } from '@/types/models';
 import { smartParseAddress } from '@/lib/address';
 
@@ -481,7 +482,7 @@ function buildSections(payload: Record<string, unknown>): IntakeSection[] {
       logger.debug('[Normalizer] Sample fields:', {
         samples: answers
           .slice(0, 5)
-          .map((a: any) => `${a.id}=${a.label}: ${String(a.value).slice(0, 50)}`),
+          .map((a: any) => `${a.id}=${a.label}`),
       });
     }
 
@@ -833,13 +834,9 @@ function applyDerivedFields(
       if (!patient.state && parsed.state) patient.state = parsed.state;
       if (!patient.zip && parsed.zip) patient.zip = parsed.zip;
       logger.info('[Medlink Normalizer] Parsed formattedAddress', {
-        formattedAddress: addressJson.formattedAddress.substring(0, 50),
-        parsed: {
-          address1: parsed.address1,
-          city: parsed.city,
-          state: parsed.state,
-          zip: parsed.zip,
-        },
+        hasAddress: true,
+        state: parsed.state,
+        zip: parsed.zip,
       });
     } else {
       // Fallback: use formattedAddress as-is if parsing fails
@@ -982,8 +979,7 @@ function applyDerivedFields(
         }
         logger.info('[Medlink Normalizer] Extracted name from full name field', {
           label: fullNameEntry.label,
-          firstName: patient.firstName,
-          lastName: patient.lastName,
+          hasName: true,
         });
       }
     }
@@ -1003,9 +999,8 @@ function applyDerivedFields(
         patient.firstName = capitalizeWords(fn.replace(/[^a-zA-Z]/g, ''));
         patient.lastName = capitalizeWords(ln.replace(/[^a-zA-Z]/g, ''));
         logger.info('[Medlink Normalizer] Extracted name from email', {
-          email: patient.email,
-          firstName: patient.firstName,
-          lastName: patient.lastName,
+          emailRedacted: redactEmail(patient.email),
+          hasName: true,
         });
       }
     }

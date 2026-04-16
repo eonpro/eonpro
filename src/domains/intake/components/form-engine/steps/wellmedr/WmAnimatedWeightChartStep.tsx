@@ -313,7 +313,7 @@ export default function WmAnimatedWeightChartStep({
       </div>
 
       <div
-        className="mx-auto w-full max-w-[600px] px-6 pb-8 sm:mx-auto sm:max-w-[31rem] sm:px-8"
+        className="mx-auto w-full max-w-[600px] px-6 pb-[max(2rem,env(safe-area-inset-bottom))] sm:mx-auto sm:max-w-[31rem] sm:px-8"
         style={{
           opacity: animComplete ? 1 : 0,
           transform: animComplete ? 'translateY(0)' : 'translateY(8px)',

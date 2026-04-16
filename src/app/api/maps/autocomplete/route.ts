@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 
-const GOOGLE_MAPS_KEY =
-  process.env.GOOGLE_MAPS_SERVER_KEY ?? process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+const GOOGLE_MAPS_KEY = process.env.GOOGLE_MAPS_SERVER_KEY;
 
 async function handler(request: NextRequest, user: AuthUser) {
   const input = request.nextUrl.searchParams.get('input') ?? '';

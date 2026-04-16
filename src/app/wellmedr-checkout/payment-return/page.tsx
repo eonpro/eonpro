@@ -11,6 +11,7 @@ import { pushPurchase } from '@/app/wellmedr-checkout/lib/tracking';
 import { event as trackMetaEvent } from '@/app/wellmedr-checkout/lib/fpixel';
 import { trackCheckoutCompleted } from '@/app/wellmedr-checkout/lib/posthog-events';
 import Header from '../components/ui/Header';
+import { CHECKOUT_FORM_KEY } from '@/app/wellmedr-checkout/lib/session-keys';
 
 function PaymentReturnContent() {
   const searchParams = useSearchParams();
@@ -47,7 +48,7 @@ function PaymentReturnContent() {
           const purchaseKey = `purchase_${transactionId}`;
           if (!localStorage.getItem(purchaseKey)) {
             try {
-              const storedForm = sessionStorage.getItem('wellmedr_checkout_form');
+              const storedForm = sessionStorage.getItem(CHECKOUT_FORM_KEY);
               const formData = storedForm ? JSON.parse(storedForm) : null;
               const planDetails = formData?.planDetails;
               const selectedProduct = formData?.selectedProduct;

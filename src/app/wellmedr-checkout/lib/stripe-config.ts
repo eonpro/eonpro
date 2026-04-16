@@ -8,6 +8,8 @@
  * missing the integration should fail loudly, not silently use the wrong account.
  */
 
+import { logger } from '@/app/wellmedr-checkout/utils/logger';
+
 /**
  * Returns the platform's publishable key for direct charges via Connect.
  * This MUST be the EONpro platform publishable key, never WellMedR's or EonMeds'.
@@ -15,7 +17,7 @@
 export function getStripePublishableKey(): string {
   const key = process.env.NEXT_PUBLIC_STRIPE_CONNECT_PUBLISHABLE_KEY;
   if (!key) {
-    console.error(
+    logger.error(
       '[WellMedR Stripe] NEXT_PUBLIC_STRIPE_CONNECT_PUBLISHABLE_KEY is not configured. ' +
         'Direct charges require the platform publishable key.'
     );
@@ -30,14 +32,14 @@ export function getStripePublishableKey(): string {
 export function getStripeConnectedAccountId(): string | undefined {
   const id = process.env.NEXT_PUBLIC_WELLMEDR_STRIPE_ACCOUNT_ID;
   if (!id) {
-    console.error(
+    logger.error(
       '[WellMedR Stripe] NEXT_PUBLIC_WELLMEDR_STRIPE_ACCOUNT_ID is not configured. ' +
         'loadStripe needs the connected account ID to scope operations to WellMedR.'
     );
     return undefined;
   }
   if (!id.startsWith('acct_')) {
-    console.error(
+    logger.error(
       '[WellMedR Stripe] NEXT_PUBLIC_WELLMEDR_STRIPE_ACCOUNT_ID must start with "acct_".'
     );
   }

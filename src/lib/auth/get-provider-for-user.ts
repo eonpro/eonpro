@@ -19,6 +19,7 @@
 
 import { basePrisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { redactEmail, redactName } from '@/lib/security/log-sanitizer';
 import { AuthUser } from './middleware';
 
 // CRITICAL: We use basePrisma (without clinic filtering) because:
@@ -125,7 +126,7 @@ export async function getProviderForUser(
         logger.warn('[GetProviderForUser] User has dangling providerId; attempting recovery', {
           userId: user.id,
           danglingProviderId: currentUserData.providerId,
-          email: currentUserData.email,
+          emailRedacted: redactEmail(currentUserData.email),
         });
       }
 
@@ -149,7 +150,7 @@ export async function getProviderForUser(
                 userId: user.id,
                 previousProviderId: currentUserData.providerId ?? null,
                 providerId: providerByEmail.id,
-                email: currentUserData.email,
+                emailRedacted: redactEmail(currentUserData.email),
               });
             }
           } catch (linkError) {
@@ -164,7 +165,7 @@ export async function getProviderForUser(
           logger.debug('[GetProviderForUser] Found via email match (database refresh)', {
             userId: user.id,
             providerId: providerByEmail.id,
-            email: currentUserData.email,
+            emailRedacted: redactEmail(currentUserData.email),
             source: 'database_refresh_email',
           });
           return providerByEmail as ProviderLookupResult;
@@ -213,7 +214,7 @@ export async function getProviderForUser(
       logger.debug('[GetProviderForUser] Found via email match', {
         userId: user.id,
         providerId: provider.id,
-        email: user.email,
+        emailRedacted: redactEmail(user.email),
         source: 'email',
       });
       return provider;
@@ -242,7 +243,7 @@ export async function getProviderForUser(
         logger.debug('[GetProviderForUser] Found via name match', {
           userId: user.id,
           providerId: provider.id,
-          name: `${userData.firstName} ${userData.lastName}`,
+          nameInitials: `${redactName(userData.firstName)} ${redactName(userData.lastName)}`,
           source: 'name',
         });
         return provider;
@@ -280,7 +281,7 @@ export async function getProviderForUser(
   // No provider found - log detailed diagnostics
   logger.warn('[GetProviderForUser] No provider found for user after all strategies', {
     userId: user.id,
-    email: user.email,
+    emailRedacted: redactEmail(user.email),
     tokenProviderId: user.providerId,
     tokenClinicId: user.clinicId,
     role: user.role,

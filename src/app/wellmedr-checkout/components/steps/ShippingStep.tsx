@@ -9,6 +9,7 @@ import CheckboxField from '@/app/wellmedr-checkout/components/ui/CheckboxField';
 import Button from '@/app/wellmedr-checkout/components/ui/button/Button';
 import { CheckoutFormData } from '@/app/wellmedr-checkout/types/checkout';
 import { useCheckoutStep } from '@/app/wellmedr-checkout/providers/CheckoutStepProvider';
+import { PATIENT_DATA_KEY, INTAKE_RESPONSES_KEY, PATIENT_ID_KEY } from '@/app/wellmedr-checkout/lib/session-keys';
 
 interface ShippingStepProps {
   uid: string;
@@ -44,8 +45,8 @@ interface IntakeResponses {
 }
 
 async function createPatientProfile(formData: CheckoutFormData): Promise<string | null> {
-  const patientData = readSessionJSON<PatientSessionData>('wellmedr_patient_data');
-  const intakeResponses = readSessionJSON<IntakeResponses>('wm_intake_responses');
+  const patientData = readSessionJSON<PatientSessionData>(PATIENT_DATA_KEY);
+  const intakeResponses = readSessionJSON<IntakeResponses>(INTAKE_RESPONSES_KEY);
 
   if (!patientData?.email) return null;
 
@@ -129,7 +130,7 @@ export default function ShippingStep({ uid: _uid }: ShippingStepProps) {
       try {
         const patientId = await createPatientProfile(formData);
         if (patientId) {
-          sessionStorage.setItem('wellmedr_patient_id', patientId);
+          sessionStorage.setItem(PATIENT_ID_KEY, patientId);
         }
       } catch (err) {
         Sentry.captureException(err, {
@@ -179,7 +180,7 @@ export default function ShippingStep({ uid: _uid }: ShippingStepProps) {
       </div>
       <BillingSection />
       <div className="sticky bottom-0 z-10 -mx-4 bg-white px-4 pb-[env(safe-area-inset-bottom)] pt-3 sm:static sm:mx-0 sm:bg-transparent sm:px-0 sm:pb-0 sm:pt-0">
-        <Button onClick={handleContinue} text={isSubmitting ? 'Saving...' : 'Continue'} />
+        <Button onClick={handleContinue} text={isSubmitting ? 'Saving...' : 'Continue'} disabled={isSubmitting} />
       </div>
     </form>
   );

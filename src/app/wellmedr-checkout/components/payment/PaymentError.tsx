@@ -1,6 +1,6 @@
 export default function PaymentError() {
   return (
-    <div className="flex w-full flex-col items-center justify-center gap-4 rounded-lg border border-red-200 bg-red-50 p-8">
+    <div role="alert" className="flex w-full flex-col items-center justify-center gap-4 rounded-lg border border-red-200 bg-red-50 p-8">
       <div className="text-red-600">
         <svg className="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path

@@ -8,9 +8,7 @@ import { stateNameToAbbreviation, StateAbbreviation } from '@/app/wellmedr-check
 import { PatientData } from '@/app/wellmedr-checkout/types/fillout';
 import { checkoutFormSchema } from '@/app/wellmedr-checkout/lib/validations/checkout';
 import { logger } from '@/app/wellmedr-checkout/utils/logger';
-
-const FORM_STORAGE_KEY = 'wellmedr_checkout_form';
-const SUBSCRIPTION_STORAGE_KEY = 'wellmedr_subscription_id';
+import { CHECKOUT_FORM_KEY, SUBSCRIPTION_ID_KEY } from '@/app/wellmedr-checkout/lib/session-keys';
 
 // Fields to persist in sessionStorage (excludes sensitive card data)
 type PersistedFormData = Omit<CheckoutFormData, 'cardholderName'>;
@@ -18,7 +16,7 @@ type PersistedFormData = Omit<CheckoutFormData, 'cardholderName'>;
 function getStoredSubscriptionId(): string | null {
   if (typeof window === 'undefined') return null;
   try {
-    return sessionStorage.getItem(SUBSCRIPTION_STORAGE_KEY);
+    return sessionStorage.getItem(SUBSCRIPTION_ID_KEY);
   } catch (e) {
     logger.error('Failed to get subscription ID');
   }
@@ -28,7 +26,7 @@ function getStoredSubscriptionId(): string | null {
 function getStoredFormData(): Partial<PersistedFormData> | null {
   if (typeof window === 'undefined') return null;
   try {
-    const stored = sessionStorage.getItem(FORM_STORAGE_KEY);
+    const stored = sessionStorage.getItem(CHECKOUT_FORM_KEY);
     if (stored) {
       return JSON.parse(stored);
     }
@@ -43,7 +41,7 @@ function storeFormData(data: Partial<PersistedFormData>) {
   try {
     // Don't store cardholderName for security
     const { ...toStore } = data;
-    sessionStorage.setItem(FORM_STORAGE_KEY, JSON.stringify(toStore));
+    sessionStorage.setItem(CHECKOUT_FORM_KEY, JSON.stringify(toStore));
   } catch (e) {
     logger.error('Failed to store form data:', e);
   }

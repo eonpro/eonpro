@@ -180,26 +180,35 @@ export default function WmContactInfoStep({
         </div>
 
         <div className="mb-4 w-full">
-          <label className="flex cursor-pointer items-start gap-3">
-            <div
-              onClick={() => setConsent(!consent)}
-              className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border-2"
-              style={{
-                borderColor: consent ? '#c3b29e' : '#d1d5db',
-                backgroundColor: consent ? '#c3b29e' : 'transparent',
-                transition: 'all 0.08s ease',
-              }}
-            >
-              {consent && (
-                <svg className="h-3 w-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                  <path
-                    fillRule="evenodd"
-                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              )}
-            </div>
+          <label htmlFor="consent-checkbox" className="flex cursor-pointer items-start gap-3">
+            <span className="relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center">
+              <input
+                id="consent-checkbox"
+                type="checkbox"
+                checked={consent}
+                onChange={() => setConsent(!consent)}
+                className="peer sr-only"
+              />
+              <span
+                className="flex h-5 w-5 items-center justify-center rounded border-2"
+                style={{
+                  borderColor: consent ? '#c3b29e' : '#d1d5db',
+                  backgroundColor: consent ? '#c3b29e' : 'transparent',
+                  transition: 'all 0.08s ease',
+                }}
+                aria-hidden="true"
+              >
+                {consent && (
+                  <svg className="h-3 w-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path
+                      fillRule="evenodd"
+                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                )}
+              </span>
+            </span>
             <span className="text-xs leading-relaxed" style={{ color: '#555' }}>
               I understand that my information is never shared, is protected by HIPAA and agree to
               the terms and privacy policies and to be contacted as necessary by Wellmedr and its
@@ -233,7 +242,7 @@ export default function WmContactInfoStep({
         </div>
       </div>
 
-      <div className="mx-auto w-full max-w-[600px] px-6 pb-8 sm:mx-auto sm:max-w-[31rem] sm:px-8">
+      <div className="mx-auto w-full max-w-[600px] px-6 pb-[max(2rem,env(safe-area-inset-bottom))] sm:mx-auto sm:max-w-[31rem] sm:px-8">
         <button
           onClick={handleContinue}
           className="wm-next-btn flex w-full items-center justify-center gap-4 rounded-full py-[18px] text-base font-normal text-white active:scale-[0.98] sm:text-[1.125rem]"

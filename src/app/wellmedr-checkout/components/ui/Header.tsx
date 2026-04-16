@@ -14,19 +14,26 @@ const Header = () => {
   const badgeLabel = isPaymentPhase ? 'SECURE PAYMENT' : 'SECURE CHECKOUT';
 
   return (
-    <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4 sm:px-8">
+    <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4 pt-[max(1rem,env(safe-area-inset-top))] sm:px-8">
       <a href="/" className="h-[24px] w-[160px] sm:h-[28px] sm:w-[200px]">
         <Logo className="h-full w-full" aria-label="Wellmedr Logo" />
       </a>
 
       <div className="flex items-center gap-4 sm:gap-6">
         {isPaymentPhase && (
-          <div className="hidden text-right sm:block">
-            <p className="text-xs text-gray-500">Questions? Call us</p>
-            <p className="text-sm font-bold" style={{ color: '#101010' }}>
-              1-888-397-6905
-            </p>
-          </div>
+          <>
+            <a href="tel:18883976905" className="text-gray-600 sm:hidden" aria-label="Call support">
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+              </svg>
+            </a>
+            <div className="hidden text-right sm:block">
+              <p className="text-xs text-gray-500">Questions? Call us</p>
+              <p className="text-sm font-bold" style={{ color: '#101010' }}>
+                1-888-397-6905
+              </p>
+            </div>
+          </>
         )}
         <div
           className="flex items-center gap-1.5 rounded-md border px-3 py-2"

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import * as Sentry from '@sentry/nextjs';
 import { logger } from '@/lib/logger';
 import { prisma, runWithClinicContext } from '@/lib/db';
 
@@ -34,6 +35,7 @@ export async function POST(req: NextRequest) {
     event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
   } catch (err: any) {
     logger.error('[EONMeds Webhook] Signature verification failed:', { error: err.message });
+    Sentry.captureException(err, { tags: { module: 'eonmeds', route: 'webhooks-stripe' } });
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
   }
 
@@ -119,10 +121,7 @@ export async function POST(req: NextRequest) {
               matchedBy: result.matchResult?.matchedBy,
             });
           } else {
-            logger.error('[EONMeds Webhook] Payment processing failed', {
-              paymentIntentId: pi.id,
-              error: result.error,
-            });
+            throw new Error(`processStripePayment failed: ${result.error}`);
           }
         });
 
@@ -149,6 +148,7 @@ export async function POST(req: NextRequest) {
       eventType: event.type,
       eventId: event.id,
     });
+    Sentry.captureException(error, { tags: { module: 'eonmeds', route: 'webhooks-stripe' } });
     return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 });
   }
 }

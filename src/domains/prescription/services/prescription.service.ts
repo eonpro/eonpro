@@ -35,6 +35,8 @@ import { platformFeeService } from '@/services/billing';
 import lifefile, { type LifefileOrderPayload, getEnvCredentials } from '@/lib/lifefile';
 import { getClinicLifefileClient, getClinicLifefileCredentials } from '@/lib/clinic-lifefile';
 
+import { applyTestosteroneAddressSafeguard } from '@/lib/prescription-safeguards/testosterone-address';
+
 import type { CreatePrescriptionInput, PrescriptionResult, UserContext } from '../types';
 
 // ============================================================================
@@ -329,8 +331,8 @@ export function createPrescriptionService(): PrescriptionService {
       const dateWritten = now.toISOString().slice(0, 10);
       const primary = rxsWithMeds[0];
 
-      // Generate PDF
-      const pdfBase64 = await generatePrescriptionPDF({
+      // Build PDF data and Lifefile payload (addresses may be rewritten by safeguard below)
+      const pdfData = {
         referenceId,
         date: now.toLocaleDateString(),
         clinic: {
@@ -388,9 +390,8 @@ export function createPrescriptionService(): PrescriptionService {
           zip: input.patient.zip,
         },
         signatureDataUrl: input.signatureDataUrl ?? provider.signatureDataUrl ?? null,
-      });
+      };
 
-      // Build Lifefile API payload
       const orderPayload: LifefileOrderPayload = {
         message: { id: messageId, sentTime: now.toISOString() },
         order: {
@@ -457,9 +458,22 @@ export function createPrescriptionService(): PrescriptionService {
             daysSupply: Number(rx.daysSupply) || 30,
             clinicalDifferenceStatement: getClinicalDifferenceStatement(med.name),
           })) as any[],
-          document: { pdfBase64 },
+          document: { pdfBase64: '' }, // placeholder — filled after PDF generation
         },
       };
+
+      // ── Testosterone Cypionate Address Safeguard (OT clinic only) ──
+      await applyTestosteroneAddressSafeguard({
+        clinicId: activeClinicId,
+        patientState: input.patient.state,
+        medicationNames: rxsWithMeds.map(({ med }) => med.name),
+        orderPayload,
+        pdfData,
+      });
+
+      // Generate PDF (uses potentially-redirected addresses from safeguard)
+      const pdfBase64 = await generatePrescriptionPDF(pdfData);
+      orderPayload.order.document = { pdfBase64 };
 
       // === ATOMIC TRANSACTION: Create order + patient + Rx items ===
       type TxResult = { order: Record<string, any>; patient: Record<string, any>; isNew: boolean };

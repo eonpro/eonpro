@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from 'react';
+import { CHECKOUT_STEP_KEY } from '@/app/wellmedr-checkout/lib/session-keys';
 
 type CheckoutStep = 'approval' | 'shipping' | 'payment';
 
@@ -12,7 +13,6 @@ interface CheckoutStepContextValue {
 }
 
 const STEP_ORDER: CheckoutStep[] = ['shipping', 'approval', 'payment'];
-const STEP_STORAGE_KEY = 'wellmedr_checkout_step';
 
 // Virtual page paths for GTM tracking
 const STEP_PATHS: Record<CheckoutStep, string> = {
@@ -23,7 +23,7 @@ const STEP_PATHS: Record<CheckoutStep, string> = {
 
 function getStoredStep(): CheckoutStep {
   if (typeof window === 'undefined') return 'shipping';
-  const stored = sessionStorage.getItem(STEP_STORAGE_KEY);
+  const stored = sessionStorage.getItem(CHECKOUT_STEP_KEY);
   if (stored && STEP_ORDER.includes(stored as CheckoutStep)) {
     return stored as CheckoutStep;
   }
@@ -46,7 +46,7 @@ export function CheckoutStepProvider({ children }: { children: ReactNode }) {
 
   // Persist step to sessionStorage when it changes
   useEffect(() => {
-    sessionStorage.setItem(STEP_STORAGE_KEY, currentStep);
+    sessionStorage.setItem(CHECKOUT_STEP_KEY, currentStep);
   }, [currentStep]);
 
   // Push virtual pageview to GTM when step changes

@@ -22,6 +22,7 @@ import {
   isCheckoutComplete,
 } from './treatmentTypes';
 import { logger } from '@/lib/logger';
+import { redactEmail, redactName } from '@/lib/security/log-sanitizer';
 import {
   smartParseAddress,
   normalizeState as normalizeStateFromLib,
@@ -459,8 +460,8 @@ export function normalizeOvertimePayload(
   const patient = buildOvertimePatient(payload as OvertimePayload);
 
   logger.info('[Overtime Normalizer] Normalized patient', {
-    name: `${patient.firstName} ${patient.lastName}`,
-    email: patient.email,
+    hasName: !!(patient.firstName && patient.lastName),
+    emailRedacted: redactEmail(patient.email),
     state: patient.state,
     treatmentType,
     fieldsExtracted: flatEntries.length,
@@ -1145,9 +1146,8 @@ function buildOvertimePatient(payload: OvertimePayload): NormalizedPatient {
             patient.firstName = capitalizeWords(fn.replace(/[^a-zA-Z]/g, ''));
             patient.lastName = capitalizeWords(ln.replace(/[^a-zA-Z]/g, ''));
             logger.info('[Overtime Normalizer] Extracted name from email', {
-              email: emailField,
-              firstName: patient.firstName,
-              lastName: patient.lastName,
+              emailRedacted: redactEmail(emailField),
+              hasName: true,
             });
           }
         }
@@ -1309,8 +1309,7 @@ function buildOvertimePatient(payload: OvertimePayload): NormalizedPatient {
       if (patient.address1 || patient.city || patient.state || patient.zip) {
         addressParsed = true;
         logger.info('[Overtime Normalizer] Address extracted from Heyflow JSON', {
-          address1: patient.address1,
-          city: patient.city,
+          hasAddress: true,
           state: patient.state,
           zip: patient.zip,
         });
@@ -1339,7 +1338,6 @@ function buildOvertimePatient(payload: OvertimePayload): NormalizedPatient {
         logger.debug('[Overtime Normalizer] Parsing combined address string', {
           field,
           rawAddressLength: rawAddress.length,
-          preview: rawAddress.substring(0, 50),
         });
 
         const parsed = smartParseAddress(rawAddress);
@@ -1352,8 +1350,7 @@ function buildOvertimePatient(payload: OvertimePayload): NormalizedPatient {
           patient.zip = parsed.zip || '';
           addressParsed = true;
           logger.info('[Overtime Normalizer] Address parsed from combined string', {
-            address1: patient.address1,
-            city: patient.city,
+            hasAddress: true,
             state: patient.state,
             zip: patient.zip,
           });
@@ -1392,8 +1389,7 @@ function buildOvertimePatient(payload: OvertimePayload): NormalizedPatient {
       addressParsed = !!(patient.address1 || patient.city || patient.zip);
       if (addressParsed) {
         logger.info('[Overtime Normalizer] Address extracted from Heyflow sub-fields', {
-          address1: patient.address1,
-          city: patient.city,
+          hasAddress: true,
           state: patient.state,
           zip: patient.zip,
         });

@@ -10,6 +10,8 @@ import StepRenderer from './components/StepRenderer';
 import DynamicCheckoutProgressHeader from './components/DynamicCheckoutProgressHeader';
 import Header from './components/ui/Header';
 import type { PatientData } from './types/fillout';
+import { PATIENT_DATA_KEY } from './lib/session-keys';
+import PaymentLoadingSkeleton from './components/payment/PaymentLoadingSkeleton';
 import './wellmedr.css';
 
 function CheckoutContent() {
@@ -21,7 +23,7 @@ function CheckoutContent() {
     let stored: Record<string, string | number> = {};
     if (typeof sessionStorage !== 'undefined') {
       try {
-        const raw = sessionStorage.getItem('wellmedr_patient_data');
+        const raw = sessionStorage.getItem(PATIENT_DATA_KEY);
         if (raw) stored = JSON.parse(raw);
       } catch {
         /* ignore parse errors */
@@ -38,7 +40,7 @@ function CheckoutContent() {
       }
       // Persist to sessionStorage so subsequent navigations don't rely on URL
       if (Object.keys(stored).length > 0 && typeof sessionStorage !== 'undefined') {
-        sessionStorage.setItem('wellmedr_patient_data', JSON.stringify(stored));
+        sessionStorage.setItem(PATIENT_DATA_KEY, JSON.stringify(stored));
       }
     }
 
@@ -99,7 +101,14 @@ function CheckoutContent() {
 
 export default function WellmedrCheckoutPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#f7f7f9]" />}>
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#f7f7f9]">
+        <Header />
+        <div className="mx-auto max-w-xl px-4 pt-12">
+          <PaymentLoadingSkeleton />
+        </div>
+      </div>
+    }>
       <CheckoutContent />
     </Suspense>
   );

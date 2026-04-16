@@ -3,6 +3,7 @@
 import { useFormContext, Controller } from 'react-hook-form';
 import { ReactNode } from 'react';
 import cn from '@/app/wellmedr-checkout/lib/cn';
+import getNestedError from '@/app/wellmedr-checkout/lib/getNestedError';
 
 interface CheckboxFieldProps {
   name: string;
@@ -15,7 +16,7 @@ export default function CheckboxField({ name, label, className }: CheckboxFieldP
     control,
     formState: { errors },
   } = useFormContext();
-  const error = errors[name]?.message as string;
+  const error = getNestedError(name, errors);
 
   return (
     <div className={cn('w-full', className)}>

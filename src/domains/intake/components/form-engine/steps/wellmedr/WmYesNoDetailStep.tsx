@@ -126,7 +126,7 @@ export default function WmYesNoDetailStep({
           }}
         >
           {question}
-          <span className="ml-1" style={{ color: '#c3b29e' }}>
+          <span className="ml-1" style={{ color: '#ef4444' }}>
             *
           </span>
         </h2>
@@ -184,7 +184,7 @@ export default function WmYesNoDetailStep({
             <style>{`@keyframes wmSlideDown { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }`}</style>
             <label htmlFor={`detail-${storageKey}`} className="mb-2 block text-sm font-medium" style={{ color: '#666' }}>
               {detailPrompt}
-              <span className="ml-1" style={{ color: '#c3b29e' }}>
+              <span className="ml-1" style={{ color: '#ef4444' }}>
                 *
               </span>
             </label>
@@ -230,7 +230,7 @@ export default function WmYesNoDetailStep({
 
       {answer === 'yes' && (
         <div
-          className="mx-auto w-full max-w-[600px] px-6 pb-6 sm:mx-auto sm:max-w-[31rem] sm:px-8"
+          className="mx-auto w-full max-w-[600px] px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:mx-auto sm:max-w-[31rem] sm:px-8"
           style={{ backgroundColor: '#F7F7F9' }}
         >
           <button

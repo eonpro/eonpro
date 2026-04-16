@@ -113,7 +113,7 @@ export default function WmMotivationRadioStep({
           }}
         >
           {question}
-          <span className="ml-1" style={{ color: '#c3b29e' }}>
+          <span className="ml-1" style={{ color: '#ef4444' }}>
             *
           </span>
         </h2>

@@ -10,6 +10,7 @@
 import { US_STATE_OPTIONS } from '@/lib/usStates';
 import type { IntakeSection, NormalizedIntake, NormalizedPatient, WellmedrPayload } from './types';
 import { logger } from '@/lib/logger';
+import { redactEmail } from '@/lib/security/log-sanitizer';
 import {
   smartParseAddress,
   normalizeState as normalizeStateFromLib,
@@ -139,8 +140,8 @@ export function normalizeWellmedrPayload(payload: Record<string, unknown>): Norm
   const patient = buildWellmedrPatient(payload as WellmedrPayload);
 
   logger.info('[Wellmedr Normalizer] Normalized patient', {
-    name: `${patient.firstName} ${patient.lastName}`,
-    email: patient.email,
+    hasName: !!(patient.firstName && patient.lastName),
+    emailRedacted: redactEmail(patient.email),
     state: patient.state,
     fieldsExtracted: flatEntries.length,
   });
@@ -517,9 +518,8 @@ function buildWellmedrPatient(payload: WellmedrPayload): NormalizedPatient {
             patient.firstName = capitalizeWords(fn.replace(/[^a-zA-Z]/g, ''));
             patient.lastName = capitalizeWords(ln.replace(/[^a-zA-Z]/g, ''));
             logger.info('[Wellmedr Normalizer] Extracted name from email', {
-              email: emailField,
-              firstName: patient.firstName,
-              lastName: patient.lastName,
+              emailRedacted: redactEmail(emailField),
+              hasName: true,
             });
           }
         }
@@ -743,7 +743,6 @@ function buildWellmedrPatient(payload: WellmedrPayload): NormalizedPatient {
         logger.info('[Wellmedr Normalizer] Parsing combined address', {
           field,
           rawAddressLength: rawAddress.length,
-          rawAddressPreview: rawAddress.substring(0, 50) + (rawAddress.length > 50 ? '...' : ''),
         });
 
         const parsed = smartParseAddress(rawAddress);
@@ -758,8 +757,7 @@ function buildWellmedrPatient(payload: WellmedrPayload): NormalizedPatient {
           addressParsed = true;
 
           logger.info('[Wellmedr Normalizer] Address parsed successfully', {
-            address1: patient.address1.substring(0, 30),
-            city: patient.city,
+            hasAddress: true,
             state: patient.state,
             zip: patient.zip,
           });
@@ -828,8 +826,7 @@ function buildWellmedrPatient(payload: WellmedrPayload): NormalizedPatient {
       addressParsed = !!(patient.address1 || patient.city || patient.zip);
       if (addressParsed) {
         logger.info('[Wellmedr Normalizer] Address extracted from Airtable bracket notation', {
-          address1: patient.address1,
-          city: patient.city,
+          hasAddress: true,
           state: patient.state,
           zip: patient.zip,
         });
@@ -914,7 +911,7 @@ function buildWellmedrPatient(payload: WellmedrPayload): NormalizedPatient {
           zipLooksLikeState,
           stateLooksLikeCity,
           zipNotValidCode,
-          city: patient.city,
+          hasAddress: true,
           state: patient.state,
           zip: patient.zip,
         }

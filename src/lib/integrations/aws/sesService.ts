@@ -5,6 +5,7 @@
  */
 
 import { logger } from '@/lib/logger';
+import { redactRecipients } from '@/lib/security/log-sanitizer';
 import {
   SESClient,
   SendEmailCommand,
@@ -963,7 +964,8 @@ function mockSendEmail(params: SendEmailParams): EmailResponse {
   const recipients = Array.isArray(params.to) ? params.to : [params.to];
 
   logger.debug('[Mock Email] Sending email:', {
-    to: recipients,
+    recipientCount: recipients.length,
+    to: redactRecipients(recipients),
     subject: params.subject || DEFAULT_SUBJECTS[params.template || EmailTemplate.CUSTOM],
     template: params.template,
     priority: params.priority,

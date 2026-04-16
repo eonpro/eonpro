@@ -60,14 +60,7 @@ export async function POST(req: NextRequest) {
     logger.info(`[CAPTURE ${requestId}] Address keys: ${JSON.stringify(addressKeys)}`);
     logger.info(`[CAPTURE ${requestId}] Medical keys: ${JSON.stringify(medicalKeys)}`);
 
-    // Log sample values (first 100 chars)
-    logger.info(`[CAPTURE ${requestId}] --- SAMPLE VALUES ---`);
-    for (const key of allKeys.slice(0, 40)) {
-      const value = payload[key];
-      const valueStr =
-        typeof value === 'string' ? value.slice(0, 100) : JSON.stringify(value)?.slice(0, 100);
-      logger.info(`[CAPTURE ${requestId}] "${key}": ${valueStr}`);
-    }
+    logger.info(`[CAPTURE ${requestId}] ${allKeys.length} fields received`);
 
     // Detect treatment type
     const treatmentIndicators = {

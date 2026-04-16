@@ -21,6 +21,7 @@ import { prisma } from '@/lib/db';
 import { Prisma } from '@prisma/client';
 import { mockSendSMS, mockProcessIncomingSMS } from './mockService';
 import { logger } from '@/lib/logger';
+import { redactPhone } from '@/lib/security/log-sanitizer';
 import { circuitBreakers } from '@/lib/resilience/circuitBreaker';
 import { decryptPHI } from '@/lib/security/phi-encryption';
 
@@ -163,7 +164,7 @@ export async function isOptedOut(phone: string, clinicId?: number | null): Promi
     return !!optOut;
   } catch (error: any) {
     const __errorMsg = error instanceof Error ? error.message : String(error);
-    logger.error('[SMS_OPT_OUT_CHECK_ERROR]', { phone, error });
+    logger.error('[SMS_OPT_OUT_CHECK_ERROR]', { phoneLast4: redactPhone(phone), error });
     // Fail safe - don't block sending on database errors
     return false;
   }
@@ -245,13 +246,13 @@ export async function processOptOut(
     }
 
     logger.info('[SMS_OPT_OUT_PROCESSED]', {
-      phone: formattedPhone,
+      phoneLast4: redactPhone(formattedPhone),
       clinicId: resolvedClinicId,
       patientId: resolvedPatientId,
     });
   } catch (error: any) {
     const __errorMsg = error instanceof Error ? error.message : String(error);
-    logger.error('[SMS_OPT_OUT_ERROR]', { phone, error });
+    logger.error('[SMS_OPT_OUT_ERROR]', { phoneLast4: redactPhone(phone), error });
     throw error;
   }
 }
@@ -292,10 +293,10 @@ export async function processOptIn(
       });
     }
 
-    logger.info('[SMS_OPT_IN_PROCESSED]', { phone: formattedPhone, clinicId, patientId });
+    logger.info('[SMS_OPT_IN_PROCESSED]', { phoneLast4: redactPhone(formattedPhone), clinicId, patientId });
   } catch (error: any) {
     const __errorMsg = error instanceof Error ? error.message : String(error);
-    logger.error('[SMS_OPT_IN_ERROR]', { phone, error });
+    logger.error('[SMS_OPT_IN_ERROR]', { phoneLast4: redactPhone(phone), error });
     throw error;
   }
 }
@@ -474,7 +475,7 @@ export async function checkRateLimit(
     return { blocked: false };
   } catch (error: any) {
     const __errorMsg = error instanceof Error ? error.message : String(error);
-    logger.error('[SMS_RATE_LIMIT_CHECK_ERROR]', { phone, error });
+    logger.error('[SMS_RATE_LIMIT_CHECK_ERROR]', { phoneLast4: redactPhone(phone), error });
     // Don't block on database errors
     return { blocked: false };
   }
@@ -542,7 +543,7 @@ async function logSMSMessage(data: SMSLogData): Promise<void> {
   } catch (error: any) {
     const __errorMsg = error instanceof Error ? error.message : String(error);
     // Log error but don't fail the SMS operation
-    logger.error('[SMS_LOG_ERROR]', { error, data: { to: data.to, status: data.status } });
+    logger.error('[SMS_LOG_ERROR]', { error, data: { phoneLast4: redactPhone(data.to), status: data.status } });
   }
 }
 
@@ -580,7 +581,7 @@ export async function sendSMS(message: SMSMessage): Promise<SMSResponse> {
     // Check opt-out status (TCPA compliance)
     const optedOut = await isOptedOut(message.to, message.clinicId);
     if (optedOut) {
-      logger.info('[SMS_BLOCKED_OPT_OUT]', { phone: message.to, clinicId: message.clinicId });
+      logger.info('[SMS_BLOCKED_OPT_OUT]', { phoneLast4: redactPhone(message.to), clinicId: message.clinicId });
       return {
         success: false,
         blocked: true,
@@ -592,7 +593,7 @@ export async function sendSMS(message: SMSMessage): Promise<SMSResponse> {
     // Check quiet hours
     const inQuietHours = await isQuietHours(message.clinicId);
     if (inQuietHours) {
-      logger.info('[SMS_BLOCKED_QUIET_HOURS]', { phone: message.to, clinicId: message.clinicId });
+      logger.info('[SMS_BLOCKED_QUIET_HOURS]', { phoneLast4: redactPhone(message.to), clinicId: message.clinicId });
       // Queue for later delivery instead of blocking
       return {
         success: false,
@@ -606,7 +607,7 @@ export async function sendSMS(message: SMSMessage): Promise<SMSResponse> {
     const rateLimitResult = await checkRateLimit(message.to, message.clinicId);
     if (rateLimitResult.blocked) {
       logger.warn('[SMS_BLOCKED_RATE_LIMIT]', {
-        phone: message.to,
+        phoneLast4: redactPhone(message.to),
         reason: rateLimitResult.reason,
       });
       return {
@@ -929,14 +930,14 @@ export async function processIncomingSMS(
     // TCPA Compliance: Check for opt-out keywords FIRST (highest priority, even in mock mode)
     if (isOptOutKeyword(messageBody)) {
       await processOptOut(from, patient?.clinicId, patient?.id, messageSid);
-      logger.info('[SMS_OPT_OUT_RECEIVED]', { from, messageSid });
+      logger.info('[SMS_OPT_OUT_RECEIVED]', { fromLast4: redactPhone(from), messageSid });
       return 'You have been unsubscribed from SMS messages. Reply START to resubscribe.';
     }
 
     // Check for opt-in keywords (also process in mock mode)
     if (isOptInKeyword(messageBody)) {
       await processOptIn(from, patient?.clinicId, patient?.id);
-      logger.info('[SMS_OPT_IN_RECEIVED]', { from, messageSid });
+      logger.info('[SMS_OPT_IN_RECEIVED]', { fromLast4: redactPhone(from), messageSid });
       return 'You have been resubscribed to SMS messages. Reply STOP to unsubscribe anytime.';
     }
 
@@ -967,7 +968,7 @@ export async function processIncomingSMS(
     }
 
     // Log the incoming message
-    logger.info('[INCOMING_SMS]', { from, bodyLength: body.length, messageSid });
+    logger.info('[INCOMING_SMS]', { fromLast4: redactPhone(from), bodyLength: body.length, messageSid });
 
     // Default response
     return 'Thank you for your message. Your healthcare team has been notified and will respond soon.';

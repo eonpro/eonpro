@@ -14,6 +14,7 @@ import {
 } from '@/app/wellmedr-checkout/types/checkout';
 import { useProducts } from '@/app/wellmedr-checkout/providers/ProductsProvider';
 import { getAddonTotal } from '@/app/wellmedr-checkout/data/addons';
+import { pushViewItem, pushAddToCart } from '@/app/wellmedr-checkout/lib/tracking';
 
 export interface UseCheckoutReturn {
   selectedProduct: SelectedProductType | null;
@@ -141,9 +142,14 @@ export function useCheckout(): UseCheckoutReturn {
         medicationType,
       };
       setValue('selectedProduct', newSelectedProduct);
-      // Reset plan selection when product changes
       setValue('selectedPlan', '');
       setValue('planDetails', null);
+
+      pushViewItem({
+        productId: productName,
+        productName: `${productName} - ${medicationType}`,
+        price: 0,
+      });
     },
     [setValue]
   );
@@ -155,6 +161,13 @@ export function useCheckout(): UseCheckoutReturn {
       const selectedPlanDetails = plans.find((plan) => plan.id === planId);
       if (selectedPlanDetails) {
         setValue('planDetails', selectedPlanDetails);
+
+        pushAddToCart({
+          productId: selectedPlanDetails.id,
+          productName: selectedPlanDetails.id,
+          price: selectedPlanDetails.totalPayToday,
+          planType: planId,
+        });
       }
     },
     [setValue, plans]

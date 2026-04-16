@@ -16,6 +16,7 @@ import { tenantNotFoundResponse } from '@/lib/tenant-response';
 import { logger } from '@/lib/logger';
 import { providerService } from '@/domains/provider';
 import type { LifefileOrderPayload } from '@/lib/lifefile';
+import { applyTestosteroneSafeguardToPayload } from '@/lib/prescription-safeguards/testosterone-address';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -135,6 +136,14 @@ async function handler(req: NextRequest, user: AuthUser, context?: Params) {
           { status: 400 }
         );
       }
+    }
+
+    // ── Testosterone Cypionate Address Safeguard (OT clinic only) ──
+    if (order.clinicId) {
+      await applyTestosteroneSafeguardToPayload({
+        clinicId: order.clinicId,
+        payload,
+      });
     }
 
     const clinicClient = order.clinicId ? await getClinicLifefileClient(order.clinicId) : null;

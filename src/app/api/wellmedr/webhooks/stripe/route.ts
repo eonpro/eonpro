@@ -230,10 +230,7 @@ export async function POST(req: NextRequest) {
                   patientCreated: result.patientCreated,
                 });
               } else {
-                logger.error('[wellmedr/webhook] processStripePayment failed', {
-                  error: result.error,
-                  paymentIntentId: pi.id,
-                });
+                throw new Error(`processStripePayment failed: ${result.error}`);
               }
             });
           } catch (processErr) {
@@ -276,6 +273,8 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       );
     }
+
+    return NextResponse.json({ received: true, error: 'non-critical handler failed' });
   }
 
   // Mark fully processed only after success — allows retries on failure

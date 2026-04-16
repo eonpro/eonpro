@@ -4,6 +4,7 @@ import { useSearchParams } from 'next/navigation';
 import { Suspense, useState, useEffect, useRef } from 'react';
 import Header from '../components/ui/Header';
 import UpsellModal from './components/UpsellModal';
+import { PATIENT_DATA_KEY, SUBSCRIPTION_ID_KEY, AIRTABLE_RECORD_KEY } from '@/app/wellmedr-checkout/lib/session-keys';
 
 function ThankYouContent() {
   const searchParams = useSearchParams();
@@ -13,7 +14,7 @@ function ThankYouContent() {
   let firstName = '';
   if (typeof sessionStorage !== 'undefined') {
     try {
-      const raw = sessionStorage.getItem('wellmedr_patient_data');
+      const raw = sessionStorage.getItem(PATIENT_DATA_KEY);
       if (raw) {
         const data = JSON.parse(raw);
         firstName = data.firstName || '';
@@ -37,7 +38,7 @@ function ThankYouContent() {
 
     const subscriptionId =
       typeof sessionStorage !== 'undefined'
-        ? sessionStorage.getItem('wellmedr_subscription_id')
+        ? sessionStorage.getItem(SUBSCRIPTION_ID_KEY)
         : null;
 
     if (!subscriptionId) return;
@@ -72,7 +73,7 @@ function ThankYouContent() {
 
     const airtableRecordId =
       typeof sessionStorage !== 'undefined'
-        ? sessionStorage.getItem('wm_airtable_record_id')
+        ? sessionStorage.getItem(AIRTABLE_RECORD_KEY)
         : null;
     if (!airtableRecordId) return;
 
@@ -99,7 +100,7 @@ function ThankYouContent() {
           customerId={customerId}
           subscriptionId={
             (typeof sessionStorage !== 'undefined'
-              ? sessionStorage.getItem('wellmedr_subscription_id')
+              ? sessionStorage.getItem(SUBSCRIPTION_ID_KEY)
               : null) || customerId
           }
           paymentMethod={paymentMethod}

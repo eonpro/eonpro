@@ -229,6 +229,42 @@ export class StripePaymentService {
     const newStatus = this.mapStripeStatus(paymentIntent.status);
     const wasAlreadySucceeded = payment.status === 'SUCCEEDED';
 
+    // Directional guard: never regress from a terminal/authoritative status.
+    // The process route sets FAILED synchronously on decline; a late-arriving
+    // webhook for the same PI must not overwrite it back to PENDING/PROCESSING.
+    const TERMINAL_STATUSES: PaymentStatus[] = ['SUCCEEDED', 'FAILED', 'REFUNDED', 'PARTIALLY_REFUNDED', 'CANCELED'];
+    const isTerminal = TERMINAL_STATUSES.includes(payment.status as PaymentStatus);
+    const newIsTerminal = TERMINAL_STATUSES.includes(newStatus);
+
+    if (isTerminal && !newIsTerminal) {
+      logger.info(
+        `[STRIPE] Skipping webhook status update for payment ${payment.id}: would regress ${payment.status} → ${newStatus}`,
+        {
+          stripePaymentIntentId: paymentIntent.id,
+          currentStatus: payment.status,
+          webhookStatus: newStatus,
+          stripeStatus: paymentIntent.status,
+        }
+      );
+      // Still link the stripePaymentIntentId if missing
+      if (!payment.stripePaymentIntentId) {
+        await prisma.payment.update({
+          where: { id: payment.id },
+          data: { stripePaymentIntentId: paymentIntent.id },
+        });
+      }
+      return;
+    }
+
+    // Never overwrite SUCCEEDED unless the new status is also terminal (e.g. refund)
+    if (wasAlreadySucceeded && newStatus !== 'SUCCEEDED' && newStatus !== 'REFUNDED' && newStatus !== 'PARTIALLY_REFUNDED') {
+      logger.info(
+        `[STRIPE] Skipping webhook status update for payment ${payment.id}: would overwrite SUCCEEDED → ${newStatus}`,
+        { stripePaymentIntentId: paymentIntent.id }
+      );
+      return;
+    }
+
     // Wrap payment and invoice updates in a transaction for atomicity
     try {
       await prisma.$transaction(
@@ -250,16 +286,35 @@ export class StripePaymentService {
           // This prevents double-counting when processStripePayment() already sets
           // amountPaid on the invoice and then this method is called from the webhook.
           if (paymentIntent.status === 'succeeded' && payment.invoiceId && !wasAlreadySucceeded) {
-            await tx.invoice.update({
+            // Safety: read current invoice to prevent amountPaid from exceeding amount
+            const currentInvoice = await tx.invoice.findUnique({
               where: { id: payment.invoiceId },
-              data: {
-                amountPaid: {
-                  increment: payment.amount,
-                },
-                status: 'PAID',
-                paidAt: new Date(),
-              },
+              select: { amount: true, amountPaid: true },
             });
+
+            if (currentInvoice && currentInvoice.amountPaid < (currentInvoice.amount ?? Infinity)) {
+              await tx.invoice.update({
+                where: { id: payment.invoiceId },
+                data: {
+                  amountPaid: {
+                    increment: payment.amount,
+                  },
+                  status: 'PAID',
+                  paidAt: new Date(),
+                },
+              });
+            } else {
+              logger.warn(
+                `[STRIPE] Skipping amountPaid increment for ${paymentIntent.id} — invoice already fully paid`,
+                {
+                  paymentId: payment.id,
+                  invoiceId: payment.invoiceId,
+                  invoiceAmount: currentInvoice?.amount,
+                  invoiceAmountPaid: currentInvoice?.amountPaid,
+                  paymentAmount: payment.amount,
+                }
+              );
+            }
           } else if (
             paymentIntent.status === 'succeeded' &&
             payment.invoiceId &&
@@ -523,11 +578,19 @@ export class StripePaymentService {
   }
 
   /**
-   * Map Stripe payment intent status to our enum
+   * Map Stripe payment intent status to our enum.
+   *
+   * `requires_payment_method` means the card was declined (insufficient funds,
+   * expired, etc.) — this must map to FAILED so webhooks don't regress a
+   * correctly-FAILED payment back to PENDING.
+   *
+   * `requires_confirmation` / `requires_action` are genuine pre-charge states
+   * that occur before the first confirm attempt (3DS, redirect).
    */
   private static mapStripeStatus(status: Stripe.PaymentIntent.Status): PaymentStatus {
     switch (status) {
       case 'requires_payment_method':
+        return 'FAILED';
       case 'requires_confirmation':
       case 'requires_action':
         return 'PENDING';
