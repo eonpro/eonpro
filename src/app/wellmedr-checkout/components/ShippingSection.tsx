@@ -49,8 +49,8 @@ export default function ShippingSection() {
 
         <InputField
           name="shippingAddress.apt"
-          label="Apt / Floor / Suite"
-          placeholder="Apt / Floor / Suite (optional)"
+          label="Apt / Unit / Suite"
+          placeholder="Apt, Unit, Suite, Floor #"
           type="text"
           autoComplete="off"
         />

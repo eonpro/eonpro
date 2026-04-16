@@ -103,16 +103,16 @@ export type CheckoutFormData = {
   discountPercentage?: number;
   discountAmount?: number;
 
-  // Patient Data (optional, from Fillout)
-  weight?: number;
-  goalWeight?: number;
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-  phone?: string;
-  state?: string;
-  bmi?: number;
-  dateOfBirth?: string;
-  sex?: string;
+  // Patient Data (from intake flow)
+  weight: number;
+  goalWeight: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  state: string;
+  bmi: number;
+  dateOfBirth: string;
+  sex: string;
   formTarget?: string;
 };

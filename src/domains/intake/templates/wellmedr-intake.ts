@@ -70,6 +70,7 @@ const steps: FormStep[] = [
         label: { en: 'Inches', es: 'Inches' },
         storageKey: 'height_inches',
         options: heightInchesOptions,
+        validation: [{ type: 'required', message: { en: 'Required', es: '' } }],
       },
     ],
     autoAdvance: false,

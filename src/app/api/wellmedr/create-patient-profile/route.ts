@@ -16,20 +16,20 @@ const patientProfileSchema = z.object({
   firstName: z.string().min(1).max(100),
   lastName: z.string().min(1).max(100),
   email: z.string().email().max(254),
-  phone: z.string().max(30).optional().default(''),
-  dob: z.string().max(20).optional().default(''),
-  sex: z.string().max(20).optional().default('unknown'),
+  phone: z.string().min(1, 'Phone is required').max(30),
+  dob: z.string().min(1, 'Date of birth is required').max(20),
+  sex: z.string().min(1, 'Sex is required').max(20),
 
   shippingAddress: z.object({
-    address: z.string().max(200).optional().default(''),
+    address: z.string().min(1, 'Address is required').max(200),
     apt: z.string().max(50).optional().default(''),
-    city: z.string().max(100).optional().default(''),
-    state: z.string().max(50).optional().default(''),
-    zipCode: z.string().max(20).optional().default(''),
+    city: z.string().min(1, 'City is required').max(100),
+    state: z.string().min(1, 'State is required').max(50),
+    zipCode: z.string().min(1, 'Zip code is required').max(20),
   }),
 
-  weight: z.union([z.string(), z.number()]).optional(),
-  goalWeight: z.union([z.string(), z.number()]).optional(),
+  weight: z.union([z.string(), z.number()]),
+  goalWeight: z.union([z.string(), z.number()]),
 
   intakeSummary: z.object({
     healthConditions: z.array(z.string()).optional(),
@@ -77,14 +77,14 @@ async function handler(req: NextRequest) {
       firstName,
       lastName,
       email,
-      phone: phone || '',
-      dob: dob || '1900-01-01',
+      phone,
+      dob,
       gender,
-      address1: shippingAddress.address || '',
+      address1: shippingAddress.address,
       address2: shippingAddress.apt || undefined,
-      city: shippingAddress.city || '',
-      state: shippingAddress.state || '',
-      zip: shippingAddress.zipCode || '',
+      city: shippingAddress.city,
+      state: shippingAddress.state,
+      zip: shippingAddress.zipCode,
     };
 
     const sourceMetadata: Record<string, unknown> = {

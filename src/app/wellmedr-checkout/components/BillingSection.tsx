@@ -81,8 +81,8 @@ export default function BillingSection() {
 
         <InputField
           name="billingAddress.apt"
-          label="Apt / Floor / Suite"
-          placeholder="Apt / Floor / Suite (optional)"
+          label="Apt / Unit / Suite"
+          placeholder="Apt, Unit, Suite, Floor #"
           type="text"
           autoComplete="off"
         />

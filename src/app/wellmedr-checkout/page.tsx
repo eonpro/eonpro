@@ -47,7 +47,7 @@ function CheckoutContent() {
     const heightFeet = String(stored.heightFeet || '');
     const heightInches = String(stored.heightInches || '0');
 
-    let bmi: number | undefined;
+    let bmi = 0;
     if (heightFeet && weight) {
       const totalInches = parseInt(heightFeet) * 12 + parseInt(heightInches);
       if (totalInches > 0) {
@@ -64,7 +64,7 @@ function CheckoutContent() {
       phone: String(stored.phone || ''),
       state: String(stored.state || ''),
       sex: String(stored.sex || ''),
-      dob: stored.dob ? String(stored.dob) : undefined,
+      dateOfBirth: String(stored.dob || ''),
       bmi,
     };
   }, [searchParams]);

@@ -4,9 +4,9 @@ export type PatientData = {
   firstName: string;
   lastName: string;
   email: string;
-  phone?: string;
+  phone: string;
   state: string;
-  bmi?: number;
-  dob?: string;
+  bmi: number;
+  dateOfBirth: string;
   sex: string;
 };

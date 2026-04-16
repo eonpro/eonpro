@@ -29,13 +29,13 @@ export default function WmBmiCalcStep({ basePath, nextStep, progressPercent }: W
   );
 
   const handleContinue = () => {
-    if (!weight || !feet) return;
+    if (!weight || !feet || inches === '') return;
     setResponse('current_weight', weight);
     setResponse('currentWeight', weight);
     setResponse('height_feet', feet);
     setResponse('heightFeet', feet);
-    setResponse('height_inches', inches || '0');
-    setResponse('heightInches', inches || '0');
+    setResponse('height_inches', inches);
+    setResponse('heightInches', inches);
     markStepCompleted('bmi-calc');
     setCurrentStep(nextStep);
     router.push(`${basePath}/${nextStep}`);
@@ -155,7 +155,7 @@ export default function WmBmiCalcStep({ basePath, nextStep, progressPercent }: W
                 className="text-base font-medium leading-[26px] sm:text-[1.125rem] sm:leading-6"
                 style={{ color: '#101010', letterSpacing: '-0.01em' }}
               >
-                Feet
+                Feet <span style={{ color: '#ef4444' }}>*</span>
               </label>
               <input
                 type="text"
@@ -172,7 +172,7 @@ export default function WmBmiCalcStep({ basePath, nextStep, progressPercent }: W
                 className="text-base font-medium leading-[26px] sm:text-[1.125rem] sm:leading-6"
                 style={{ color: '#101010', letterSpacing: '-0.01em' }}
               >
-                Inches
+                Inches <span style={{ color: '#ef4444' }}>*</span>
               </label>
               <input
                 type="text"
@@ -192,7 +192,7 @@ export default function WmBmiCalcStep({ basePath, nextStep, progressPercent }: W
               className="text-base font-medium leading-[26px] sm:text-[1.125rem] sm:leading-6"
               style={{ color: '#101010', letterSpacing: '-0.01em' }}
             >
-              Weight (lbs)
+              Weight (lbs) <span style={{ color: '#ef4444' }}>*</span>
             </label>
             <input
               type="text"
