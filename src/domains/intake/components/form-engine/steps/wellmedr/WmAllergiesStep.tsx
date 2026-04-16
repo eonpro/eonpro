@@ -1,31 +1,28 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useIntakeActions, useIntakeStore } from '../../../../store/intakeStore';
-import { MEDS } from '@/lib/medications';
-import { normalizedIncludes } from '@/lib/utils/search';
 
-interface WmCurrentMedsStepProps {
+interface AllergenResult {
+  name: string;
+  category?: string;
+  drugClass?: string;
+}
+
+interface WmAllergiesStepProps {
   basePath: string;
   nextStep: string;
   prevStep: string | null;
   progressPercent: number;
 }
 
-const medsList = Object.values(MEDS).map((m) => {
-  const display = m.strength
-    ? `${m.name} ${m.strength}${m.formLabel ? ` (${m.formLabel})` : ''}`
-    : m.name;
-  return { id: String(m.id), display, name: m.name };
-});
-
-export default function WmCurrentMedsStep({
+export default function WmAllergiesStep({
   basePath,
   nextStep,
   prevStep,
   progressPercent,
-}: WmCurrentMedsStepProps) {
+}: WmAllergiesStepProps) {
   const router = useRouter();
   const responses = useIntakeStore((s) => s.responses);
   const { setResponse, markStepCompleted, setCurrentStep } = useIntakeActions();
@@ -34,11 +31,11 @@ export default function WmCurrentMedsStep({
     requestAnimationFrame(() => setMounted(true));
   }, []);
 
-  const [answer, setAnswer] = useState<string>(String(responses.current_medications || ''));
-  const [selectedMeds, setSelectedMeds] = useState<string[]>(() => {
-    const existing = responses.current_medications_list;
+  const [answer, setAnswer] = useState<string>(String(responses.known_allergies || ''));
+  const [selectedAllergies, setSelectedAllergies] = useState<string[]>(() => {
+    const existing = responses.known_allergies_list;
     if (Array.isArray(existing)) return existing as string[];
-    const detail = String(responses.current_medications_detail || '');
+    const detail = String(responses.known_allergies_detail || '');
     return detail
       ? detail
           .split(',')
@@ -47,9 +44,12 @@ export default function WmCurrentMedsStep({
       : [];
   });
   const [search, setSearch] = useState('');
+  const [results, setResults] = useState<AllergenResult[]>([]);
+  const [loading, setLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
     if (!showDropdown) return;
@@ -67,21 +67,44 @@ export default function WmCurrentMedsStep({
     return () => document.removeEventListener('mousedown', onClick);
   }, [showDropdown]);
 
-  const filtered = useMemo(() => {
-    if (!search.trim()) return [];
-    return medsList
-      .filter((m) => normalizedIncludes(m.display, search) && !selectedMeds.includes(m.display))
-      .slice(0, 8);
-  }, [search, selectedMeds]);
+  const fetchResults = useCallback(async (q: string) => {
+    if (q.length < 2) {
+      setResults([]);
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/intake-forms/allergy-search?q=${encodeURIComponent(q)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setResults(data.results ?? []);
+      }
+    } catch {
+      /* network error — ignore */
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const handleSearchChange = (text: string) => {
+    setSearch(text);
+    setShowDropdown(true);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (text.trim().length >= 2) {
+      debounceRef.current = setTimeout(() => fetchResults(text.trim()), 300);
+    } else {
+      setResults([]);
+    }
+  };
 
   const handleSelect = (opt: string) => {
     navigator.vibrate?.(10);
     setAnswer(opt);
     if (opt === 'no') {
-      setResponse('current_medications', 'no');
-      setResponse('current_medications_list', []);
-      setResponse('current_medications_detail', '');
-      markStepCompleted('current-meds');
+      setResponse('known_allergies', 'no');
+      setResponse('known_allergies_list', []);
+      setResponse('known_allergies_detail', '');
+      markStepCompleted('known-allergies');
       setTimeout(() => {
         setCurrentStep(nextStep);
         router.push(`${basePath}/${nextStep}`);
@@ -89,25 +112,26 @@ export default function WmCurrentMedsStep({
     }
   };
 
-  const addMed = (med: string) => {
-    if (!med.trim() || selectedMeds.includes(med)) return;
-    const updated = [...selectedMeds, med];
-    setSelectedMeds(updated);
+  const addAllergy = (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed || selectedAllergies.some((a) => a.toLowerCase() === trimmed.toLowerCase())) return;
+    setSelectedAllergies((prev) => [...prev, trimmed]);
     setSearch('');
+    setResults([]);
     setShowDropdown(false);
     inputRef.current?.focus();
   };
 
-  const removeMed = (med: string) => {
-    setSelectedMeds(selectedMeds.filter((m) => m !== med));
+  const removeAllergy = (name: string) => {
+    setSelectedAllergies(selectedAllergies.filter((a) => a !== name));
   };
 
   const handleContinue = () => {
-    if (answer !== 'yes' || selectedMeds.length === 0) return;
-    setResponse('current_medications', 'yes');
-    setResponse('current_medications_list', selectedMeds);
-    setResponse('current_medications_detail', selectedMeds.join(', '));
-    markStepCompleted('current-meds');
+    if (answer !== 'yes' || selectedAllergies.length === 0) return;
+    setResponse('known_allergies', 'yes');
+    setResponse('known_allergies_list', selectedAllergies);
+    setResponse('known_allergies_detail', selectedAllergies.join(', '));
+    markStepCompleted('known-allergies');
     setCurrentStep(nextStep);
     router.push(`${basePath}/${nextStep}`);
   };
@@ -122,12 +146,22 @@ export default function WmCurrentMedsStep({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && search.trim()) {
       e.preventDefault();
-      if (filtered.length > 0) {
-        addMed(filtered[0].display);
+      if (results.length > 0) {
+        addAllergy(results[0].name);
       } else {
-        addMed(search.trim());
+        addAllergy(search.trim());
       }
     }
+  };
+
+  const filteredResults = results.filter(
+    (r) => !selectedAllergies.some((a) => a.toLowerCase() === r.name.toLowerCase())
+  );
+
+  const categoryColors: Record<string, string> = {
+    drug: 'bg-blue-50 text-blue-600',
+    food: 'bg-orange-50 text-orange-600',
+    environmental: 'bg-green-50 text-green-600',
   };
 
   return (
@@ -215,7 +249,7 @@ export default function WmCurrentMedsStep({
           className="mb-6 text-center text-xl font-bold sm:text-[1.5rem]"
           style={{ color: '#101010' }}
         >
-          Do you currently take any medications?
+          Do you have any known allergies?
           <span className="ml-1" style={{ color: '#c3b29e' }}>
             *
           </span>
@@ -260,12 +294,11 @@ export default function WmCurrentMedsStep({
           <div className="mt-2 w-full" style={{ animation: 'wmSlideDown 0.3s ease-out' }}>
             <style>{`@keyframes wmSlideDown { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }`}</style>
 
-            {/* Selected medications */}
-            {selectedMeds.length > 0 && (
+            {selectedAllergies.length > 0 && (
               <div className="mb-4 flex flex-wrap gap-2">
-                {selectedMeds.map((med) => (
+                {selectedAllergies.map((allergy) => (
                   <div
-                    key={med}
+                    key={allergy}
                     className="flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium"
                     style={{
                       backgroundColor: '#f5f0e8',
@@ -273,11 +306,11 @@ export default function WmCurrentMedsStep({
                       color: '#101010',
                     }}
                   >
-                    <span className="max-w-[200px] truncate">{med}</span>
+                    <span className="max-w-[200px] truncate">{allergy}</span>
                     <button
-                      onClick={() => removeMed(med)}
+                      onClick={() => removeAllergy(allergy)}
                       className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-black/10"
-                      aria-label={`Remove ${med}`}
+                      aria-label={`Remove ${allergy}`}
                     >
                       <svg
                         className="h-3 w-3"
@@ -298,26 +331,27 @@ export default function WmCurrentMedsStep({
               </div>
             )}
 
-            {/* Search input */}
             <div className="relative">
               <input
                 ref={inputRef}
                 type="text"
                 className="wm-input"
-                placeholder="Search medications..."
+                placeholder="Search allergies..."
                 value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setShowDropdown(true);
-                }}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 onFocus={() => {
-                  if (search.trim()) setShowDropdown(true);
+                  if (search.trim().length >= 2 && results.length > 0) setShowDropdown(true);
                 }}
                 onKeyDown={handleKeyDown}
               />
+              {loading && (
+                <div
+                  className="absolute right-5 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin rounded-full border-2 border-gray-300"
+                  style={{ borderTopColor: '#c3b29e' }}
+                />
+              )}
 
-              {/* Dropdown */}
-              {showDropdown && search.trim().length > 0 && (
+              {showDropdown && search.trim().length >= 2 && (
                 <div
                   ref={dropdownRef}
                   className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-2xl border bg-white shadow-lg"
@@ -327,26 +361,28 @@ export default function WmCurrentMedsStep({
                     className="overflow-y-auto"
                     style={{ maxHeight: 320, WebkitOverflowScrolling: 'touch' }}
                   >
-                    {filtered.map((med) => (
+                    {filteredResults.map((allergen, i) => (
                       <button
-                        key={med.id}
+                        key={`${allergen.name}-${i}`}
                         type="button"
-                        onClick={() => addMed(med.display)}
+                        onClick={() => addAllergy(allergen.name)}
                         className="w-full border-b px-5 py-3.5 text-left text-base transition-colors hover:bg-gray-50"
                         style={{ borderColor: 'rgba(0,0,0,0.04)', color: '#101010' }}
                       >
-                        <span className="font-medium">{med.name}</span>
-                        {med.display !== med.name && (
-                          <span className="ml-1 text-sm" style={{ color: '#7B95A9' }}>
-                            {med.display.replace(med.name, '').trim()}
+                        <span className="font-medium">{allergen.name}</span>
+                        {allergen.category && (
+                          <span
+                            className={`ml-2 rounded px-1.5 py-0.5 text-[10px] font-medium ${categoryColors[allergen.category] ?? 'bg-gray-50 text-gray-600'}`}
+                          >
+                            {allergen.category}
                           </span>
                         )}
                       </button>
                     ))}
-                    {filtered.length === 0 && (
+                    {filteredResults.length === 0 && !loading && (
                       <button
                         type="button"
-                        onClick={() => addMed(search.trim())}
+                        onClick={() => addAllergy(search.trim())}
                         className="w-full px-5 py-3.5 text-left text-base transition-colors hover:bg-gray-50"
                         style={{ color: '#101010' }}
                       >
@@ -362,7 +398,7 @@ export default function WmCurrentMedsStep({
             </div>
 
             <p className="mt-2 text-xs" style={{ color: '#999' }}>
-              Search and add each medication. Type a name and press Enter if not found.
+              Search and add each allergy. Type a name and press Enter if not found.
             </p>
           </div>
         )}

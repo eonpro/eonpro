@@ -10,9 +10,8 @@
 
 function push(data: Record<string, unknown>) {
   if (typeof window === 'undefined') return;
-  const w = window as unknown as { dataLayer: Record<string, unknown>[] };
-  w.dataLayer = w.dataLayer || [];
-  w.dataLayer.push(data);
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push(data);
 }
 
 function clearEcommerce() {

@@ -42,6 +42,8 @@ const INTAKE_FIELD_MAP: Record<string, string> = {
   glp1_dose_other: 'glp1-last-30-medication-dose-other',
   current_medications: 'current-meds',
   current_medications_detail: 'current-meds-details',
+  known_allergies: 'known-allergies',
+  known_allergies_detail: 'known-allergies-details',
   blood_pressure: 'avg-blood-pressure-range',
   med_priority: 'affordability-potency',
   opioid_use: 'opioids',

@@ -136,7 +136,28 @@ export default function WmAnimatedWeightChartStep({
 
       <div className="mx-auto grid w-full max-w-[48rem] grid-cols-3 items-center px-6 pt-4">
         <div>
-          {/* Back button removed — forward-only flow */}
+          {prevStep && (
+            <button
+              onClick={handleBack}
+              className="rounded-lg p-2.5 transition-all hover:bg-black/5 active:scale-95"
+              aria-label="Go back"
+            >
+              <svg
+                className="h-5 w-5"
+                style={{ color: '#101010' }}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M15 19l-7-7 7-7"
+                />
+              </svg>
+            </button>
+          )}
         </div>
         <div className="flex justify-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}

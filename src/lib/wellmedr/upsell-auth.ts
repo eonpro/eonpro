@@ -60,23 +60,32 @@ export function validateUpsellToken(token: string, expectedCustomerId: string): 
  * that need proof of a recent successful payment session.
  */
 export function isValidUpsellSession(token: string): boolean {
+  return extractCustomerIdFromToken(token) !== null;
+}
+
+/**
+ * Extracts the customerId from a valid, non-expired HMAC token.
+ * Returns null if the token is invalid or expired.
+ */
+export function extractCustomerIdFromToken(token: string): string | null {
   const lastColon = token.lastIndexOf(':');
-  if (lastColon === -1) return false;
+  if (lastColon === -1) return null;
 
   const sig = token.slice(lastColon + 1);
   const payload = token.slice(0, lastColon);
 
   const expected = createHmac('sha256', getSecret()).update(payload).digest('hex');
-  if (sig.length !== expected.length) return false;
-  if (!timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return false;
+  if (sig.length !== expected.length) return null;
+  if (!timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
 
   const firstColon = payload.indexOf(':');
-  if (firstColon === -1) return false;
+  if (firstColon === -1) return null;
 
+  const customerId = payload.slice(0, firstColon);
   const expiryStr = payload.slice(firstColon + 1);
   const expiry = parseInt(expiryStr, 10);
 
-  if (isNaN(expiry) || expiry < Math.floor(Date.now() / 1000)) return false;
+  if (isNaN(expiry) || expiry < Math.floor(Date.now() / 1000)) return null;
 
-  return true;
+  return customerId;
 }

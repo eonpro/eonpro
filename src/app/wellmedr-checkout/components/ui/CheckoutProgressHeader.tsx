@@ -4,11 +4,16 @@ const CheckoutProgressHeader = ({ currentStep }: { currentStep: StepNames }) => 
   const isCheckoutPhase = currentStep === 'shipping' || currentStep === 'payment';
 
   return (
-    <div className="flex w-full items-center justify-center gap-4 py-4 sm:gap-8">
+    <nav
+      role="navigation"
+      aria-label="Checkout progress"
+      className="flex w-full items-center justify-center gap-4 py-4 sm:gap-8"
+    >
       {/* Step 1: Select Product */}
       <div className="flex items-center gap-2">
         <div
           className={`flex h-6 w-6 items-center justify-center rounded-full ${isCheckoutPhase ? 'bg-green-500' : 'border-2 border-green-500 bg-white'}`}
+          aria-hidden="true"
         >
           {isCheckoutPhase ? (
             <svg
@@ -28,31 +33,38 @@ const CheckoutProgressHeader = ({ currentStep }: { currentStep: StepNames }) => 
             <div className="h-2 w-2 rounded-full bg-white" />
           )}
         </div>
-        <span className="text-sm font-medium" style={{ color: '#101010' }}>
+        <span
+          className="text-sm font-medium"
+          style={{ color: '#101010' }}
+          {...(!isCheckoutPhase ? { 'aria-current': 'step' as const } : {})}
+        >
           Select Product
         </span>
       </div>
 
-      {/* Line */}
+      {/* Connector line */}
       <div
         className={`h-0.5 w-16 rounded-full sm:w-24 ${isCheckoutPhase ? 'bg-green-500' : 'bg-gray-300'}`}
+        aria-hidden="true"
       />
 
       {/* Step 2: Checkout */}
       <div className="flex items-center gap-2">
         <div
           className={`flex h-6 w-6 items-center justify-center rounded-full border-2 ${isCheckoutPhase ? 'border-green-500 bg-green-500' : 'border-gray-300 bg-white'}`}
+          aria-hidden="true"
         >
           {isCheckoutPhase && <div className="h-2 w-2 rounded-full bg-white" />}
         </div>
         <span
-          className={`text-sm font-medium ${isCheckoutPhase ? '' : 'text-gray-400'}`}
+          className={`text-sm font-medium ${isCheckoutPhase ? '' : 'text-gray-500'}`}
           style={isCheckoutPhase ? { color: '#101010' } : undefined}
+          {...(isCheckoutPhase ? { 'aria-current': 'step' as const } : {})}
         >
           Checkout
         </span>
       </div>
-    </div>
+    </nav>
   );
 };
 

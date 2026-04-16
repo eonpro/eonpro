@@ -12,39 +12,33 @@ import {
 import { getAddonStripePriceId } from '@/app/wellmedr-checkout/data/stripe-price-ids';
 import type { AddonId } from '@/app/wellmedr-checkout/types/checkout';
 import { rateLimit } from '@/lib/rateLimit';
+import { logger } from '@/lib/logger';
+
+const addressSchema = z.object({
+  firstName: z.string().max(100).optional(),
+  lastName: z.string().max(100).optional(),
+  address: z.string().max(200).optional(),
+  apt: z.string().max(50).optional(),
+  city: z.string().max(100).optional(),
+  state: z.string().max(50).optional(),
+  zipCode: z.string().max(20).optional(),
+}).optional();
 
 const createSubscriptionSchema = z.object({
-  priceId: z.string().min(1, 'Price ID is required').max(200),
-  customerEmail: z.string().email('Valid email is required').max(254),
-  customerName: z.string().min(1).max(200),
-  customerPhone: z.string().max(20).optional(),
+  priceId: z.string().min(1).max(200),
+  customerEmail: z.string().email().max(254),
+  customerName: z.string().max(200).optional(),
   cardholderName: z.string().max(200).optional(),
-  shippingAddress: z.object({
-    firstName: z.string().min(1).max(100),
-    lastName: z.string().min(1).max(100),
-    address: z.string().min(1).max(500),
-    apt: z.string().max(100).optional(),
-    city: z.string().min(1).max(100),
-    state: z.string().min(2).max(2),
-    zipCode: z.string().regex(/^\d{5}(-\d{4})?$/),
-    billingAddressSameAsShipment: z.boolean().optional(),
-  }).optional(),
-  billingAddress: z.object({
-    firstName: z.string().max(100).optional(),
-    lastName: z.string().max(100).optional(),
-    address: z.string().max(500).optional(),
-    apt: z.string().max(100).optional(),
-    city: z.string().max(100).optional(),
-    state: z.string().max(2).optional(),
-    zipCode: z.string().max(10).optional(),
-  }).optional(),
-  submissionId: z.string().max(200).optional(),
-  productName: z.string().max(100).optional(),
+  customerPhone: z.string().max(30).optional(),
+  shippingAddress: addressSchema,
+  billingAddress: addressSchema,
+  submissionId: z.string().max(500).optional(),
+  productName: z.string().max(200).optional(),
   medicationType: z.string().max(50).optional(),
   planType: z.string().max(50).optional(),
   promotionCodeId: z.string().max(200).optional(),
-  selectedAddons: z.array(z.enum(['nad_plus', 'sermorelin', 'b12', 'elite_bundle'])).default([]),
-  airtableRecordId: z.string().max(200).optional(),
+  selectedAddons: z.array(z.enum(['nad_plus', 'sermorelin', 'b12', 'elite_bundle'])).optional(),
+  airtableRecordId: z.string().max(200).startsWith('rec').optional(),
 });
 
 function getPaymentConfigId(): string | undefined {
@@ -53,8 +47,8 @@ function getPaymentConfigId(): string | undefined {
 
 async function handler(req: NextRequest) {
   try {
-    const rawBody = await req.json();
-    const parsed = createSubscriptionSchema.safeParse(rawBody);
+    const body = await req.json();
+    const parsed = createSubscriptionSchema.safeParse(body);
 
     if (!parsed.success) {
       return NextResponse.json(
@@ -66,7 +60,6 @@ async function handler(req: NextRequest) {
     const {
       priceId,
       customerEmail,
-      customerPhone,
       customerName,
       cardholderName,
       shippingAddress,
@@ -76,9 +69,11 @@ async function handler(req: NextRequest) {
       medicationType,
       planType,
       promotionCodeId,
-      selectedAddons: addons,
+      selectedAddons,
       airtableRecordId,
     } = parsed.data;
+
+    const addons: AddonId[] = selectedAddons || [];
 
     const stripe = getWellMedrConnectStripe();
     const connectOpts = getWellMedrConnectOpts();
@@ -88,13 +83,13 @@ async function handler(req: NextRequest) {
 
     const shippingData = shippingAddress
       ? {
-          name: `${shippingAddress.firstName} ${shippingAddress.lastName}`,
+          name: `${shippingAddress.firstName || ''} ${shippingAddress.lastName || ''}`.trim(),
           address: {
-            line1: shippingAddress.address,
+            line1: shippingAddress.address || '',
             line2: shippingAddress.apt || '',
-            city: shippingAddress.city,
-            state: shippingAddress.state,
-            postal_code: shippingAddress.zipCode,
+            city: shippingAddress.city || '',
+            state: shippingAddress.state || '',
+            postal_code: shippingAddress.zipCode || '',
             country: 'US',
           },
         }
@@ -106,8 +101,7 @@ async function handler(req: NextRequest) {
         {
           name: customerName,
           ...(shippingData ? { shipping: shippingData } : {}),
-          metadata: { submissionId: submissionId || '', productName: productName || '', medicationType: medicationType || '', planType: planType || '', phone: customerPhone || '' },
-          ...(customerPhone ? { phone: customerPhone } : {}),
+          metadata: { submissionId: submissionId || '', productName: productName || '', medicationType: medicationType || '', planType: planType || '' },
         },
         connectOpts
       )) as Stripe.Customer;
@@ -116,15 +110,13 @@ async function handler(req: NextRequest) {
         {
           email: customerEmail,
           name: customerName,
-          ...(customerPhone ? { phone: customerPhone } : {}),
           ...(shippingData ? { shipping: shippingData } : {}),
-          metadata: { submissionId: submissionId || '', productName: productName || '', medicationType: medicationType || '', planType: planType || '', phone: customerPhone || '' },
+          metadata: { submissionId: submissionId || '', productName: productName || '', medicationType: medicationType || '', planType: planType || '' },
         },
         connectOpts
       );
     }
 
-    // Build addon invoice items — flat charges added to each billing cycle
     const addonInvoiceItems: Stripe.SubscriptionCreateParams.AddInvoiceItem[] = [];
     for (const addonId of addons) {
       const addonPriceId = getAddonStripePriceId(addonId);
@@ -148,10 +140,7 @@ async function handler(req: NextRequest) {
         productName: productName || '',
         medicationType: medicationType || '',
         planType: planType || '',
-        cardholderName: cardholderName || customerName,
-        phone: customerPhone || '',
-        email: customerEmail,
-        clinicId: process.env.WELLMEDR_CLINIC_ID || '7',
+        cardholderName: cardholderName || customerName || '',
         shippingAddress: JSON.stringify(shippingAddress || {}),
         billingAddress: JSON.stringify(billingAddress || {}),
         ...(addons.length > 0 ? { selectedAddons: JSON.stringify(addons) } : {}),
@@ -187,11 +176,11 @@ async function handler(req: NextRequest) {
         shippingAddress: shippingAddress || {},
         billingAddress: billingAddress || {},
         selectedAddons: addons,
-      }).catch((err) =>
+      }).catch((err) => {
         Sentry.captureException(err, {
-          tags: { module: 'wellmedr-checkout', route: 'create-subscription', step: 'createOrder' },
-        })
-      );
+          tags: { module: 'wellmedr-checkout', route: 'create-subscription', op: 'createOrder' },
+        });
+      });
 
       return NextResponse.json({
         success: true,
@@ -234,11 +223,11 @@ async function handler(req: NextRequest) {
       shippingAddress: shippingAddress || {},
       billingAddress: billingAddress || {},
       selectedAddons: addons,
-    }).catch((err) =>
-        Sentry.captureException(err, {
-          tags: { module: 'wellmedr-checkout', route: 'create-subscription', step: 'createOrder' },
-        })
-      );
+    }).catch((err) => {
+      Sentry.captureException(err, {
+        tags: { module: 'wellmedr-checkout', route: 'create-subscription', op: 'createOrder' },
+      });
+    });
 
     if (airtableRecordId) {
       updateCheckoutFields(airtableRecordId, {
@@ -256,11 +245,11 @@ async function handler(req: NextRequest) {
         billingAddress: billingAddress ? JSON.stringify(billingAddress) : undefined,
         paymentStatus: 'pending',
         orderStatus: 'created',
-      }).catch((err) =>
+      }).catch((err) => {
         Sentry.captureException(err, {
-          tags: { module: 'wellmedr-checkout', route: 'create-subscription', step: 'airtable-sync' },
-        })
-      );
+          tags: { module: 'wellmedr-checkout', route: 'create-subscription', op: 'airtableSync' },
+        });
+      });
     }
 
     return NextResponse.json({
@@ -270,12 +259,17 @@ async function handler(req: NextRequest) {
       status: subscription.status,
     });
   } catch (error) {
-    const msg = error instanceof Error ? error.message : 'Internal error';
     Sentry.captureException(error, {
       tags: { module: 'wellmedr-checkout', route: 'create-subscription' },
     });
-    return NextResponse.json({ error: msg }, { status: 500 });
+    logger.error('[wellmedr/create-subscription] Error', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return NextResponse.json(
+      { error: 'Failed to create subscription. Please try again.' },
+      { status: 500 }
+    );
   }
 }
 
-export const POST = rateLimit({ max: 10, windowMs: 60_000 })(handler);
+export const POST = rateLimit({ max: 5, windowMs: 60_000 })(handler);

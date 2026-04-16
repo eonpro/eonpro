@@ -3,6 +3,10 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { loadStripe } from '@stripe/stripe-js';
+import {
+  getStripePublishableKey,
+  getStripeConnectedAccountId,
+} from '@/app/wellmedr-checkout/lib/stripe-config';
 import Header from '../components/ui/Header';
 
 function PaymentReturnContent() {
@@ -23,12 +27,8 @@ function PaymentReturnContent() {
       }
 
       try {
-        const publishableKey =
-          process.env.NEXT_PUBLIC_STRIPE_CONNECT_PUBLISHABLE_KEY ||
-          process.env.NEXT_PUBLIC_WELLMEDR_STRIPE_PUBLISHABLE_KEY ||
-          process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ||
-          '';
-        const connectedAccountId = process.env.NEXT_PUBLIC_WELLMEDR_STRIPE_ACCOUNT_ID;
+        const publishableKey = getStripePublishableKey();
+        const connectedAccountId = getStripeConnectedAccountId();
         const stripe = await loadStripe(publishableKey, {
           ...(connectedAccountId ? { stripeAccount: connectedAccountId } : {}),
         });

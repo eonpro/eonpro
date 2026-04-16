@@ -1,7 +1,7 @@
 'use client';
 
 import { useFormContext, Controller } from 'react-hook-form';
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import cn from '@/app/wellmedr-checkout/lib/cn';
 import getNestedError from '@/app/wellmedr-checkout/lib/getNestedError';
 
@@ -34,16 +34,41 @@ export default function SelectField({
   } = useFormContext();
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const containerRef = useRef<HTMLDivElement>(null);
   const error = getNestedError(name, errors);
+
+  const fieldId = name.replace(/\./g, '-');
+  const listboxId = `${fieldId}-listbox`;
 
   const filteredOptions = options.filter((option) =>
     option.label.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const handleClose = useCallback(() => {
+    setIsOpen(false);
+    setSearchTerm('');
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleClose();
+    };
+    const onClick = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) handleClose();
+    };
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('mousedown', onClick);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('mousedown', onClick);
+    };
+  }, [isOpen, handleClose]);
+
   return (
-    <div className={cn('relative flex w-full flex-col gap-2', className)}>
+    <div ref={containerRef} className={cn('relative flex w-full flex-col gap-2', className)}>
       {label && (
-        <label className="form-label">
+        <label htmlFor={fieldId} className="form-label">
           {label}
           {required && <span className="ml-1 text-red-500">*</span>}
         </label>
@@ -61,16 +86,15 @@ export default function SelectField({
           const handleOptionSelect = (optionValue: string) => {
             onChange(optionValue);
             trigger(name);
-            setIsOpen(false);
-            setSearchTerm(''); // Reset search on select
+            handleClose();
           };
 
           const toggleOpen = () => {
-            setIsOpen(!isOpen);
-            if (!isOpen) {
-              // Reset search when opening? User preference usually aligns with keeping previous potential search or clearing.
-              // Clearing is safer for "finding something new".
+            if (isOpen) {
+              handleClose();
+            } else {
               setSearchTerm('');
+              setIsOpen(true);
             }
           };
 
@@ -78,14 +102,18 @@ export default function SelectField({
             <>
               <button
                 type="button"
-                id={name}
+                id={fieldId}
+                role="combobox"
+                aria-expanded={isOpen}
+                aria-controls={listboxId}
+                aria-haspopup="listbox"
+                aria-invalid={!!error}
                 onClick={toggleOpen}
                 className={cn(
                   'form-input relative flex w-full items-center justify-between',
                   error ? 'border-red-500' : 'border-border'
                 )}
               >
-                {/* Placeholder || SelectedOption */}
                 <span className={value ? '' : 'opacity-30'}>
                   {selectedOption?.label || placeholder}
                 </span>
@@ -93,6 +121,7 @@ export default function SelectField({
                   className={`h-5 w-5 text-gray-400 transition-transform duration-200 ${
                     isOpen ? 'rotate-180' : ''
                   }`}
+                  aria-hidden="true"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -106,14 +135,19 @@ export default function SelectField({
                 </svg>
               </button>
 
-              {/* Dropdown */}
               {isOpen && (
-                <div className="border-border rounded-smooth absolute top-full z-50 mt-1 flex max-h-60 w-full flex-col overflow-auto border bg-white py-1 shadow-lg sm:max-h-96">
+                <div
+                  id={listboxId}
+                  role="listbox"
+                  aria-label={label || placeholder}
+                  className="border-border rounded-smooth absolute top-full z-50 mt-1 flex max-h-60 w-full flex-col overflow-auto border bg-white py-1 shadow-lg sm:max-h-96"
+                >
                   <div className="sticky top-0 z-10 border-b border-gray-100 bg-white p-2 py-1">
                     <input
                       type="text"
                       className="form-input h-12 w-full rounded-lg px-2"
                       placeholder="Search..."
+                      aria-label="Search options"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       onClick={(e) => e.stopPropagation()}
@@ -126,6 +160,8 @@ export default function SelectField({
                         <button
                           key={option.value}
                           type="button"
+                          role="option"
+                          aria-selected={value === option.value}
                           onClick={() => handleOptionSelect(option.value)}
                           className={`w-full px-4 py-3 text-left transition-colors hover:bg-gray-50 focus:bg-gray-50 focus:outline-none ${
                             value === option.value
@@ -147,7 +183,7 @@ export default function SelectField({
         }}
       />
 
-      {error && <span className="block text-sm text-red-500">{error}</span>}
+      {error && <span className="block text-sm text-red-500" role="alert">{error}</span>}
     </div>
   );
 }

@@ -51,8 +51,8 @@ export default function ShippingStep({ uid: _uid }: ShippingStepProps) {
       // GTM add_shipping_info event (GA4 standard ecommerce)
       const formData = getValues();
       if (formData.planDetails && formData.selectedProduct) {
-        if (typeof window !== 'undefined' && (window as any).dataLayer) {
-          (window as any).dataLayer.push({
+        if (typeof window !== 'undefined' && window.dataLayer) {
+          window.dataLayer.push({
             event: 'add_shipping_info',
             ecommerce: {
               currency: 'USD',

@@ -9,10 +9,16 @@ import {
 import { rateLimit } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
 
+const MAX_RESPONSE_KEYS = 50;
+
 const airtableSyncSchema = z.object({
   sessionId: z.string().min(1).max(200).optional(),
-  recordId: z.string().min(1).max(200).optional(),
-  responses: z.record(z.unknown()),
+  recordId: z.string().min(1).max(200).startsWith('rec').optional(),
+  responses: z
+    .record(z.string().max(100), z.unknown())
+    .refine((obj) => Object.keys(obj).length <= MAX_RESPONSE_KEYS, {
+      message: `responses must have at most ${MAX_RESPONSE_KEYS} keys`,
+    }),
 });
 
 async function handler(req: NextRequest) {
@@ -28,10 +34,11 @@ async function handler(req: NextRequest) {
     }
 
     const { sessionId, recordId, responses } = parsed.data;
+
     const fields = mapIntakeToAirtable(responses);
 
     if (!fields || Object.keys(fields).length === 0) {
-      logger.debug('[airtable-sync] No mappable fields, skipping');
+      logger.info('[airtable-sync] No mappable fields, skipping');
       return NextResponse.json({ recordId: recordId || null });
     }
 
@@ -46,11 +53,13 @@ async function handler(req: NextRequest) {
 
     const newRecordId = await createAirtableRecord(fields);
     return NextResponse.json({ recordId: newRecordId });
-  } catch (err) {
-    Sentry.captureException(err, {
+  } catch (error) {
+    Sentry.captureException(error, {
       tags: { module: 'wellmedr-checkout', route: 'airtable-sync' },
     });
-    logger.error('[airtable-sync] Error', err instanceof Error ? err : undefined);
+    logger.error('[airtable-sync] Error', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json({ error: 'Sync failed' }, { status: 500 });
   }
 }

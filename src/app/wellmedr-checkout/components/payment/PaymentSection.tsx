@@ -47,12 +47,22 @@ function storeSubscriptionId(subscriptionId: string) {
   if (typeof window === 'undefined') return;
   try {
     sessionStorage.setItem(SUBSCRIPTION_STORAGE_KEY, subscriptionId);
-    logger.log('[Subscription Storage] Stored subscription ID');
+    console.log('[Subscription Storage] Stored subscription ID:', subscriptionId);
   } catch (e) {
-    logger.error('Failed to store subscription ID');
+    console.error('Failed to store subscription ID:', e);
   }
 }
 
+function clearSubscriptionId() {
+  if (typeof window === 'undefined') return;
+  try {
+    const existingId = sessionStorage.getItem(SUBSCRIPTION_STORAGE_KEY);
+    sessionStorage.removeItem(SUBSCRIPTION_STORAGE_KEY);
+    console.log('[Subscription Storage] Cleared subscription ID:', existingId);
+  } catch (e) {
+    console.error('Failed to clear subscription ID:', e);
+  }
+}
 
 // Load stripe once at module level to prevent recreation on re-renders.
 // For direct charges via Connect, pass the connected account ID so Stripe.js
@@ -177,8 +187,8 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
       });
 
       // GTM begin_checkout event (GA4 standard ecommerce)
-      if (typeof window !== 'undefined' && (window as any).dataLayer) {
-        (window as any).dataLayer.push({
+      if (typeof window !== 'undefined' && window.dataLayer) {
+        window.dataLayer.push({
           event: 'begin_checkout',
           ecommerce: {
             currency: 'USD',
@@ -229,12 +239,6 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
       throw new Error('Shipping address is required.');
     }
 
-    // Read Airtable record ID from sessionStorage so checkout data syncs back
-    let airtableRecordId: string | undefined;
-    if (typeof sessionStorage !== 'undefined') {
-      airtableRecordId = sessionStorage.getItem('wm_airtable_record_id') || undefined;
-    }
-
     logger.log('[CLIENT] Calling /api/create-subscription...');
     const response = await fetch('/api/wellmedr/create-subscription', {
       method: 'POST',
@@ -242,7 +246,6 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
       body: JSON.stringify({
         priceId: formData.planDetails.id,
         customerEmail: formData.email,
-        customerPhone: formData.phone || '',
         customerName: `${formData.shippingAddress.firstName} ${formData.shippingAddress.lastName}`,
         cardholderName:
           formData.cardholderName ||
@@ -257,7 +260,6 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
         planType: formData.planDetails.plan_type,
         selectedAddons: formData.selectedAddons || [],
         promotionCodeId: formData.promotionCodeId,
-        airtableRecordId,
       }),
     });
     logger.log(
@@ -346,10 +348,10 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
         // GTM add_payment_info event for express checkout
         if (
           typeof window !== 'undefined' &&
-          (window as any).dataLayer &&
+          window.dataLayer &&
           formData.selectedProduct
         ) {
-          (window as any).dataLayer.push({
+          window.dataLayer.push({
             event: 'add_payment_info',
             ecommerce: {
               currency: 'USD',
@@ -374,6 +376,7 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
 
         // If subscription is already active (100% discount), redirect to thank you
         if (subscriptionData.status === 'active' && subscriptionData.success) {
+          clearSubscriptionId();
           setPaymentCompleted(true);
           router.push(`/wellmedr-checkout/thank-you?uid=${submissionId}`);
           return;
@@ -434,7 +437,8 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
     }
 
     if (!formData.email) {
-      setError('Email is required to complete your order.');
+      console.error('[PaymentSection] Missing email — cannot proceed');
+      return;
       return;
     }
 
@@ -449,8 +453,8 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
     });
 
     // GTM add_payment_info event (GA4 standard ecommerce)
-    if (typeof window !== 'undefined' && (window as any).dataLayer) {
-      (window as any).dataLayer.push({
+    if (typeof window !== 'undefined' && window.dataLayer) {
+      window.dataLayer.push({
         event: 'add_payment_info',
         ecommerce: {
           currency: 'USD',
@@ -485,6 +489,7 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
 
       // If subscription is already active (100% discount), redirect to thank you
       if (subscriptionData.status === 'active' && subscriptionData.success) {
+        clearSubscriptionId();
         setPaymentCompleted(true);
         router.push(`/wellmedr-checkout/thank-you?uid=${submissionId}`);
         return;
@@ -540,10 +545,10 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
         const purchaseKey = `purchase_${transactionId}`;
         if (
           typeof window !== 'undefined' &&
-          (window as any).dataLayer &&
+          window.dataLayer &&
           !localStorage.getItem(purchaseKey)
         ) {
-          (window as any).dataLayer.push({
+          window.dataLayer.push({
             event: 'purchase',
             ecommerce: {
               transaction_id: transactionId,
@@ -571,6 +576,7 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
           transaction_id: transactionId,
         });
 
+        clearSubscriptionId();
         setPaymentCompleted(true);
         router.push(`/wellmedr-checkout/thank-you?uid=${submissionId}`);
         return;

@@ -136,7 +136,9 @@ function ThankYouContent() {
                 Please specify your current GLP-1 dosage below. A licensed clinician will review
                 your information and determine the appropriate dosage.
               </p>
+              <label htmlFor="glp1-details" className="sr-only">Current GLP-1 dosage</label>
               <textarea
+                id="glp1-details"
                 value={glp1Details}
                 onChange={(e) => setGlp1Details(e.target.value)}
                 placeholder="e.g. Ozempic 0.5mg for 3 months"

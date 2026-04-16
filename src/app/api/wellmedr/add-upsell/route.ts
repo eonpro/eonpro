@@ -8,6 +8,13 @@ import {
   getWellMedrConnectOpts,
 } from '@/app/wellmedr-checkout/lib/stripe-connect';
 import { rateLimit } from '@/lib/rateLimit';
+import { logger } from '@/lib/logger';
+
+function getAllowedProductIds(): Set<string> {
+  const raw = process.env.WELLMEDR_UPSELL_ALLOWED_PRODUCT_IDS || '';
+  const ids = raw.split(',').map((s) => s.trim()).filter(Boolean);
+  return new Set(ids);
+}
 
 const addUpsellSchema = z.object({
   customerId: z.string().min(1).max(200),
@@ -32,6 +39,21 @@ async function handler(req: NextRequest) {
     const authToken = req.cookies.get('wellmedr_upsell_auth')?.value;
     if (!authToken || !validateUpsellToken(authToken, customerId)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
+    const allowedIds = getAllowedProductIds();
+    if (allowedIds.size > 0) {
+      const disallowed = upsellProductIds.filter((id) => !allowedIds.has(id));
+      if (disallowed.length > 0) {
+        logger.warn('[add-upsell] Rejected disallowed product IDs', {
+          customerId,
+          disallowed,
+        });
+        return NextResponse.json(
+          { error: 'One or more products are not available for upsell.' },
+          { status: 400 }
+        );
+      }
     }
 
     const stripe = getWellMedrConnectStripe();
@@ -162,8 +184,9 @@ async function handler(req: NextRequest) {
         tags: { module: 'wellmedr-checkout', route: 'add-upsell' },
         extra: { type: error.type, code: error.code },
       });
+      logger.error('[add-upsell] Stripe error', { type: error.type, code: error.code });
       return NextResponse.json(
-        { error: error.message || 'Payment failed. Please contact support.' },
+        { error: 'Payment failed. Please contact support.' },
         { status: 400 }
       );
     }

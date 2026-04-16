@@ -13,32 +13,34 @@ interface StepRendererProps {
 }
 
 export default function StepRenderer({ uid, patientData }: StepRendererProps) {
-  const { currentStep } = useCheckoutStep();
+  const { currentStep, goToStep } = useCheckoutStep();
 
   if (currentStep === 'approval') {
     return <ApprovalStep patientData={patientData} />;
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 pb-8 pt-4 sm:px-6 sm:pt-8">
-      <div className="mb-6 flex items-center gap-2 text-sm" style={{ color: '#999' }}>
-        <button onClick={() => window.history.back()} className="hover:underline">
+    <div
+      id="checkout-step-content"
+      tabIndex={-1}
+      className="mx-auto w-full max-w-6xl px-4 pb-8 pt-4 outline-none sm:px-6 sm:pt-8"
+    >
+      <nav aria-label="Breadcrumb" className="mb-6 flex items-center gap-2 text-sm" style={{ color: '#767676' }}>
+        <button onClick={() => goToStep('approval')} className="hover:underline">
           Choose
         </button>
-        <span>›</span>
-        <span className="font-medium" style={{ color: '#101010' }}>
+        <span aria-hidden="true">›</span>
+        <span className="font-medium" style={{ color: '#101010' }} aria-current="page">
           Checkout
         </span>
-      </div>
+      </nav>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:gap-12">
-        {/* Left: Shipping + Payment */}
         <div>
           {currentStep === 'shipping' && <ShippingStep uid={uid} />}
           {currentStep === 'payment' && <PaymentStep uid={uid} />}
         </div>
 
-        {/* Right: Order Summary */}
         <div className="lg:sticky lg:top-8 lg:self-start">
           <h2 className="mb-4 text-xl font-bold" style={{ color: '#101010' }}>
             Order Summary

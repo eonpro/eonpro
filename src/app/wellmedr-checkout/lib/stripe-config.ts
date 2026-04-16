@@ -1,32 +1,47 @@
 /**
+ * WellMedR Stripe Connect — Client-Side Configuration
+ *
+ * For direct charges via Connect the client MUST use the platform's publishable
+ * key together with the connected account ID (`stripeAccount` option on loadStripe).
+ *
+ * IMPORTANT: No fallback chains to other accounts' keys. If the platform key is
+ * missing the integration should fail loudly, not silently use the wrong account.
+ */
+
+/**
  * Returns the platform's publishable key for direct charges via Connect.
- * Falls back to WellMedR-specific or legacy keys for backward compatibility.
+ * This MUST be the EONpro platform publishable key, never WellMedR's or EonMeds'.
  */
 export function getStripePublishableKey(): string {
-  return (
-    process.env.NEXT_PUBLIC_STRIPE_CONNECT_PUBLISHABLE_KEY ||
-    process.env.NEXT_PUBLIC_WELLMEDR_STRIPE_PUBLISHABLE_KEY ||
-    process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PUBLISHABLE_KEY ||
-    process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ||
-    ''
-  );
+  const key = process.env.NEXT_PUBLIC_STRIPE_CONNECT_PUBLISHABLE_KEY;
+  if (!key) {
+    console.error(
+      '[WellMedR Stripe] NEXT_PUBLIC_STRIPE_CONNECT_PUBLISHABLE_KEY is not configured. ' +
+        'Direct charges require the platform publishable key.'
+    );
+    return '';
+  }
+  return key;
 }
 
 /**
  * Returns the WellMedR connected account ID for use with loadStripe's stripeAccount option.
  */
 export function getStripeConnectedAccountId(): string | undefined {
-  return process.env.NEXT_PUBLIC_WELLMEDR_STRIPE_ACCOUNT_ID || undefined;
-}
-
-export function getStripeSecretKey(): string {
-  return (
-    process.env.STRIPE_CONNECT_PLATFORM_SECRET_KEY ||
-    process.env.WELLMEDR_STRIPE_SECRET_KEY ||
-    process.env.EONMEDS_STRIPE_SECRET_KEY ||
-    process.env.STRIPE_SECRET_KEY ||
-    ''
-  );
+  const id = process.env.NEXT_PUBLIC_WELLMEDR_STRIPE_ACCOUNT_ID;
+  if (!id) {
+    console.error(
+      '[WellMedR Stripe] NEXT_PUBLIC_WELLMEDR_STRIPE_ACCOUNT_ID is not configured. ' +
+        'loadStripe needs the connected account ID to scope operations to WellMedR.'
+    );
+    return undefined;
+  }
+  if (!id.startsWith('acct_')) {
+    console.error(
+      '[WellMedR Stripe] NEXT_PUBLIC_WELLMEDR_STRIPE_ACCOUNT_ID must start with "acct_".'
+    );
+  }
+  return id;
 }
 
 export function getStripePaymentConfigId(): string | undefined {
@@ -34,14 +49,5 @@ export function getStripePaymentConfigId(): string | undefined {
     process.env.NEXT_PUBLIC_WELLMEDR_STRIPE_PAYMENT_CONFIG_ID ||
     process.env.NEXT_PUBLIC_STRIPE_PAYMENT_CONFIG_ID ||
     undefined
-  );
-}
-
-export function getStripeWebhookSecret(): string {
-  return (
-    process.env.STRIPE_CONNECT_PLATFORM_WEBHOOK_SECRET ||
-    process.env.WELLMEDR_STRIPE_WEBHOOK_SECRET ||
-    process.env.STRIPE_WEBHOOK_SECRET ||
-    ''
   );
 }

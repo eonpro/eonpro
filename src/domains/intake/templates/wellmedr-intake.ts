@@ -765,12 +765,27 @@ const steps: FormStep[] = [
     fields: [],
     autoAdvance: false,
     showContinueButton: false,
-    nextStep: 'motivation-level',
+    nextStep: 'known-allergies',
     prevStep: 'med-priority',
     progressPercent: 75,
   },
 
-  // 26. Motivation Level (image cards with emojis)
+  // 26. Known Allergies
+  {
+    id: 'known-allergies',
+    path: 'known-allergies',
+    title: { en: 'Do you have any known allergies?', es: '' },
+    type: 'custom',
+    component: 'WmAllergiesStep',
+    fields: [],
+    autoAdvance: false,
+    showContinueButton: false,
+    nextStep: 'motivation-level',
+    prevStep: 'current-meds',
+    progressPercent: 77,
+  },
+
+  // 27. Motivation Level (image cards with emojis)
   {
     id: 'motivation-level',
     path: 'motivation-level',
@@ -781,8 +796,8 @@ const steps: FormStep[] = [
     autoAdvance: false,
     showContinueButton: false,
     nextStep: 'anything-else',
-    prevStep: 'current-meds',
-    progressPercent: 78,
+    prevStep: 'known-allergies',
+    progressPercent: 80,
     props: {
       headerText: "Let's better understand your current",
       headerItalic: 'state of mind.',

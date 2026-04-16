@@ -48,37 +48,33 @@ export default function BillingSection() {
 
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
-          <InputField name="billingAddress.firstName" placeholder="First name" type="text" />
-          <InputField name="billingAddress.lastName" placeholder="Last name" type="text" />
+          <InputField name="billingAddress.firstName" label="First name" placeholder="First name" type="text" />
+          <InputField name="billingAddress.lastName" label="Last name" placeholder="Last name" type="text" />
         </div>
 
-        <InputField name="billingAddress.address" placeholder="Address" type="text" />
+        <InputField name="billingAddress.address" label="Address" placeholder="Address" type="text" />
 
         <InputField
           name="billingAddress.apt"
+          label="Apt / Floor / Suite"
           placeholder="Apt / Floor / Suite (optional)"
           type="text"
         />
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <InputField name="billingAddress.city" placeholder="City" type="text" />
-          <StateSelectField />
-          <InputField name="billingAddress.zipCode" placeholder="Zip Code" type="text" />
+          <InputField name="billingAddress.city" label="City" placeholder="City" type="text" />
+          <SelectField
+            name="billingAddress.state"
+            label="State"
+            options={US_STATES.map((state) => ({
+              value: state.value,
+              label: state.label,
+            }))}
+            placeholder="State"
+          />
+          <InputField name="billingAddress.zipCode" label="Zip Code" placeholder="Zip Code" type="text" />
         </div>
       </div>
     </div>
   );
 }
-
-const StateSelectField = () => {
-  return (
-    <SelectField
-      name="billingAddress.state"
-      options={US_STATES.map((state) => ({
-        value: state.value,
-        label: state.label,
-      }))}
-      placeholder="State"
-    />
-  );
-};

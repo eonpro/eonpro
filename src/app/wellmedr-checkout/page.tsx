@@ -14,6 +14,7 @@ import './wellmedr.css';
 
 function CheckoutContent() {
   const searchParams = useSearchParams();
+  const paymentError = searchParams.get('payment_error') === 'true';
 
   const patientData: PatientData = useMemo(() => {
     // Read PII from sessionStorage (never from URL params — HIPAA compliance)
@@ -61,6 +62,13 @@ function CheckoutContent() {
       <Header />
       <CheckoutStepProvider>
         <DynamicCheckoutProgressHeader />
+        {paymentError && (
+          <div className="mx-auto max-w-2xl px-4 pt-4" role="alert">
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-center text-sm text-red-700">
+              Your payment could not be processed. Please try again or use a different payment method.
+            </div>
+          </div>
+        )}
         <main className="relative flex min-h-[60svh] w-full flex-col items-center justify-center px-6 sm:min-h-[50svh] sm:px-8">
           <TimerProvider>
             <ProductsProvider>

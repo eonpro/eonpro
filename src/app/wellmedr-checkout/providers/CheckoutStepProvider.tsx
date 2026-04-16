@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from 'react';
 
 type CheckoutStep = 'approval' | 'shipping' | 'payment';
 
@@ -34,6 +34,7 @@ const CheckoutStepContext = createContext<CheckoutStepContextValue | null>(null)
 
 export function CheckoutStepProvider({ children }: { children: ReactNode }) {
   const [currentStep, setCurrentStep] = useState<CheckoutStep>('approval');
+  const isInitialMount = useRef(true);
 
   // Restore step from sessionStorage on mount
   useEffect(() => {
@@ -51,13 +52,25 @@ export function CheckoutStepProvider({ children }: { children: ReactNode }) {
   // Push virtual pageview to GTM when step changes
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const dataLayer = (window as any).dataLayer;
+      const dataLayer = window.dataLayer;
       dataLayer?.push({
         event: 'virtual_page_view',
         page_path: STEP_PATHS[currentStep],
         page_title: `Checkout - ${currentStep}`,
       });
     }
+  }, [currentStep]);
+
+  // Scroll to top and focus the step container on step transitions (skip initial mount)
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    requestAnimationFrame(() => {
+      document.getElementById('checkout-step-content')?.focus({ preventScroll: true });
+    });
   }, [currentStep]);
 
   const goToStep = useCallback((step: CheckoutStep) => {

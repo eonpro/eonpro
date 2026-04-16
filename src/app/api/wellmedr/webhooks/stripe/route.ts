@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import * as Sentry from '@sentry/nextjs';
 import {
-  findOrderBySubscriptionId,
   findOrderByCustomerId,
   updateOrderPaymentStatus,
   updateOrderSubscriptionStatus,
@@ -65,8 +64,7 @@ export async function POST(req: NextRequest) {
         const invoice = event.data.object as Stripe.Invoice;
         const subscriptionId = getInvoiceSubscriptionId(invoice);
         if (subscriptionId) {
-          const order = await findOrderBySubscriptionId(subscriptionId);
-          if (order) await updateOrderPaymentStatus(order.id, 'succeeded');
+          await updateOrderPaymentStatus(subscriptionId, 'succeeded');
         }
         break;
       }
@@ -74,58 +72,52 @@ export async function POST(req: NextRequest) {
         const invoice = event.data.object as Stripe.Invoice;
         const subscriptionId = getInvoiceSubscriptionId(invoice);
         if (subscriptionId) {
-          const order = await findOrderBySubscriptionId(subscriptionId);
-          if (order) await updateOrderPaymentStatus(order.id, 'failed');
+          await updateOrderPaymentStatus(subscriptionId, 'failed');
         }
         break;
       }
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription;
-        const order = await findOrderBySubscriptionId(subscription.id);
-        if (order) {
-          const status =
-            subscription.status === 'active'
-              ? 'succeeded'
-              : subscription.status === 'past_due'
-                ? 'failed'
-                : subscription.status;
-          await updateOrderSubscriptionStatus(order.id, status);
+        const status =
+          subscription.status === 'active'
+            ? 'succeeded'
+            : subscription.status === 'past_due'
+              ? 'failed'
+              : subscription.status;
+        await updateOrderSubscriptionStatus(subscription.id, status);
 
-          // Capture addon metadata from subscription
-          if (subscription.metadata?.selectedAddons) {
-            try {
-              const addons = JSON.parse(subscription.metadata.selectedAddons);
-              if (Array.isArray(addons)) {
-                await updateOrderAddonMetadata(order.id, addons);
-              }
-            } catch (parseErr) {
-              Sentry.captureMessage('webhook: Failed to parse selectedAddons metadata', 'warning');
+        if (subscription.metadata?.selectedAddons) {
+          try {
+            const addons = JSON.parse(subscription.metadata.selectedAddons);
+            if (Array.isArray(addons)) {
+              await updateOrderAddonMetadata(subscription.id, addons);
             }
+          } catch (parseErr) {
+            Sentry.captureMessage('webhook: Failed to parse selectedAddons metadata', 'warning');
           }
         }
         break;
       }
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription;
-        const order = await findOrderBySubscriptionId(subscription.id);
-        if (order) await updateOrderStatus(order.id, 'cancelled');
+        await updateOrderStatus(subscription.id, 'cancelled');
         break;
       }
       case 'payment_intent.succeeded': {
         const pi = event.data.object as Stripe.PaymentIntent;
         const customerId = typeof pi.customer === 'string' ? pi.customer : pi.customer?.id;
         if (customerId) {
-          // --- In-memory order-store update (backward compat) ---
+          // --- Redis order-store update ---
           const order = await findOrderByCustomerId(customerId);
           if (order) {
-            await updateOrderPaymentStatus(order.id, 'succeeded');
+            await updateOrderPaymentStatus(order.subscriptionId, 'succeeded');
             if (pi.payment_method) {
               const pm = await stripe.paymentMethods.retrieve(
                 typeof pi.payment_method === 'string' ? pi.payment_method : pi.payment_method.id,
                 {},
                 connectOpts as any
               );
-              await updateOrderPaymentDetails(order.id, {
+              await updateOrderPaymentDetails(order.subscriptionId, {
                 paymentMethodType: pm.type,
                 cardBrand: pm.card?.brand,
                 cardLast4: pm.card?.last4,
@@ -256,7 +248,7 @@ export async function POST(req: NextRequest) {
         const customerId = typeof pi.customer === 'string' ? pi.customer : pi.customer?.id;
         if (customerId) {
           const order = await findOrderByCustomerId(customerId);
-          if (order) await updateOrderPaymentStatus(order.id, 'failed');
+          if (order) await updateOrderPaymentStatus(order.subscriptionId, 'failed');
         }
         break;
       }

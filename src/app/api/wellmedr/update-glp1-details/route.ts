@@ -3,17 +3,20 @@ import { z } from 'zod';
 import * as Sentry from '@sentry/nextjs';
 import { updateAirtableRecord } from '@/lib/wellmedr/airtableSync';
 import { rateLimit } from '@/lib/rateLimit';
-import { isValidUpsellSession } from '@/lib/wellmedr/upsell-auth';
+import { extractCustomerIdFromToken } from '@/lib/wellmedr/upsell-auth';
+import { logger } from '@/lib/logger';
 
 const glp1DetailsSchema = z.object({
-  airtableRecordId: z.string().min(1).max(200),
+  airtableRecordId: z.string().min(1).max(200).startsWith('rec'),
   details: z.string().min(1, 'Details are required').max(1000),
 });
 
 async function handler(req: NextRequest) {
   try {
     const authToken = req.cookies.get('wellmedr_upsell_auth')?.value;
-    if (!authToken || !isValidUpsellSession(authToken)) {
+    const customerId = authToken ? extractCustomerIdFromToken(authToken) : null;
+
+    if (!customerId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -29,8 +32,14 @@ async function handler(req: NextRequest) {
 
     const { airtableRecordId, details } = parsed.data;
 
+    logger.info('[wellmedr/glp1-details] Updating record', {
+      customerId,
+      airtableRecordId,
+    });
+
     const success = await updateAirtableRecord(airtableRecordId, {
       previous_glp1_details: details,
+      stripe_customer_id: customerId,
     });
 
     if (!success) {

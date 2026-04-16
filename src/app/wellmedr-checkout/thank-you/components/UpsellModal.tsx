@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 const UPSELL_PRODUCTS = {
   b12: {
@@ -72,10 +72,30 @@ export default function UpsellModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (currentStep === -1) onClose();
   }, [currentStep, onClose]);
+
+  const handleEscape = useCallback(
+    (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleDecline();
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [currentStep]
+  );
+
+  useEffect(() => {
+    document.addEventListener('keydown', handleEscape);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    modalRef.current?.focus();
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [handleEscape]);
 
   const brandDisplay = (brand: string) => {
     const brands: Record<string, string> = {
@@ -145,7 +165,7 @@ export default function UpsellModal({
 
   if (success) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-white">
+      <div role="dialog" aria-modal="true" aria-label="Upsell added" className="fixed inset-0 z-50 flex items-center justify-center bg-white">
         <div className="max-w-md w-full text-center px-6">
           <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-green-100">
             <svg className="h-10 w-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -171,7 +191,7 @@ export default function UpsellModal({
   if (isBundle) {
     const price = step.discounted ? '$179' : '$199';
     return (
-      <div className="fixed inset-0 z-50 flex flex-col bg-white">
+      <div ref={modalRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={step.discounted ? 'Final bundle offer' : 'Bundle offer'} className="fixed inset-0 z-50 flex flex-col bg-white">
         <div className="flex-shrink-0 py-4 text-center">
           <span className="inline-block rounded-full bg-green-600 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-white">
             One-Time Offer
@@ -231,7 +251,7 @@ export default function UpsellModal({
   if (!product) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-white">
+    <div ref={modalRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={product.name} className="fixed inset-0 z-50 flex flex-col bg-white">
       <div className="flex-shrink-0 py-4 text-center">
         <span className="inline-block rounded-full bg-green-600 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-white">
           One-Time Offer
