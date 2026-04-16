@@ -35,14 +35,15 @@ export default function WmGlp1TypeStep({
   const semaDoses = ['0.25', '0.5', '1.0', '1.7', '2.4'];
   const tirzDoses = ['2.5', '5', '7.5', '10', '12.5', '15'];
 
-  const handleContinue = () => {
-    if (!selected) return;
-    if (selected === 'semaglutide' && !dose) return;
-    if (selected === 'tirzepatide' && !dose) return;
-    if (selected === 'other' && !otherName.trim()) return;
-    setResponse('glp1_type', selected);
-    if (dose) setResponse('glp1_dose', dose);
-    if (selected === 'other') {
+  const advance = (overrides?: { type?: string; doseVal?: string }) => {
+    const t = overrides?.type ?? selected;
+    const d = overrides?.doseVal ?? dose;
+    if (!t) return;
+    if ((t === 'semaglutide' || t === 'tirzepatide') && !d) return;
+    if (t === 'other' && !otherName.trim()) return;
+    setResponse('glp1_type', t);
+    if (d) setResponse('glp1_dose', d);
+    if (t === 'other') {
       setResponse('glp1_type_other', otherName);
       if (otherDose) setResponse('glp1_dose_other', otherDose);
     }
@@ -50,6 +51,8 @@ export default function WmGlp1TypeStep({
     setCurrentStep(nextStep);
     router.push(`${basePath}/${nextStep}`);
   };
+
+  const handleContinue = () => advance();
 
   const handleContinueRef = useRef(handleContinue);
   handleContinueRef.current = handleContinue;
@@ -106,7 +109,7 @@ export default function WmGlp1TypeStep({
         <div />
       </div>
 
-      <div className="mx-auto flex w-full max-w-[600px] flex-1 flex-col justify-center px-6 pb-6 sm:px-8">
+      <div className="mx-auto flex w-full max-w-[540px] flex-1 flex-col justify-center px-8 pb-6 sm:px-10">
         <h1
           className="mb-2 text-center text-[1.25rem] font-bold sm:text-[1.5rem]"
           style={{ color: '#101010' }}
@@ -172,7 +175,10 @@ export default function WmGlp1TypeStep({
               {(selected === 'semaglutide' ? semaDoses : tirzDoses).map((d) => (
                 <button
                   key={d}
-                  onClick={() => setDose(d)}
+                  onClick={() => {
+                    setDose(d);
+                    advance({ type: selected, doseVal: d });
+                  }}
                   className="flex w-full items-center gap-3 rounded-3xl border-2 bg-white px-5 py-4 text-left transition-all"
                   style={{ borderColor: dose === d ? '#0C2631' : 'rgba(0,0,0,0.06)' }}
                 >
@@ -225,17 +231,29 @@ export default function WmGlp1TypeStep({
         )}
       </div>
 
-      <div className="mx-auto w-full max-w-[600px] px-6 pb-[max(2rem,env(safe-area-inset-bottom))] sm:mx-auto sm:max-w-[31rem] sm:px-8">
-        <button
-          onClick={handleContinue}
-          className="wm-next-btn flex w-full items-center justify-center gap-4 rounded-full py-[18px] text-base font-normal text-white active:scale-[0.98] sm:text-[1.125rem]"
-          style={{ height: 56, backgroundColor: '#0C2631', cursor: 'pointer' }}
-        >
-          Next{' '}
-          <span className="text-base" aria-hidden>
-            &#10132;
-          </span>
-        </button>
+      {/* Show Next button only for "Other" type which needs free-text input */}
+      {selected === 'other' && (
+        <div className="mx-auto w-full max-w-[600px] px-6 pb-[max(2rem,env(safe-area-inset-bottom))] sm:mx-auto sm:max-w-[31rem] sm:px-8">
+          <button
+            onClick={handleContinue}
+            className="wm-next-btn flex w-full items-center justify-center gap-4 rounded-full py-[18px] text-base font-normal text-white active:scale-[0.98] sm:text-[1.125rem]"
+            style={{ height: 56, backgroundColor: '#0C2631', cursor: 'pointer' }}
+          >
+            Next{' '}
+            <span className="text-base" aria-hidden>
+              &#10132;
+            </span>
+          </button>
+        </div>
+      )}
+
+      {/* Copyright footer */}
+      <div className="pb-6 text-center">
+        <p style={{ fontSize: '0.75rem', color: '#9ca3af', lineHeight: 1.5 }}>
+          &copy; 2026 EONPro, LLC. All rights reserved.
+          <br />
+          Exclusive and protected process.
+        </p>
       </div>
     </div>
   );

@@ -185,6 +185,7 @@ export default function PaymentForm({ submissionId }: PaymentFormProps) {
     );
   }
 
+  const pmConfigId = getStripePaymentConfigId();
   return (
     <Elements
       stripe={stripePromise}
@@ -192,7 +193,7 @@ export default function PaymentForm({ submissionId }: PaymentFormProps) {
         mode: 'subscription',
         amount: amountInCents,
         currency: 'usd',
-        paymentMethodConfiguration: getStripePaymentConfigId(),
+        ...(pmConfigId ? { paymentMethodConfiguration: pmConfigId } : {}),
       }}
       // Only re-key on plan change, NOT on discount change
       // This preserves card input data when promo codes are applied
@@ -652,6 +653,9 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
   };
 
   // Express Checkout Element options
+  // Shipping address is already collected in a prior step; don't request it
+  // again inside Express Checkout (doing so without an onShippingAddressChange
+  // handler can prevent the element from loading).
   const expressCheckoutOptions = {
     buttonHeight: 48,
     buttonTheme: {
@@ -661,15 +665,12 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
     buttonType: {
       applePay: 'plain' as const,
       googlePay: 'plain' as const,
-      klarna: 'pay' as const,
     },
-    // Order: Apple Pay, Google Pay, Link, Amazon Pay, Klarna
-    paymentMethodOrder: ['apple_pay', 'google_pay', 'link', 'amazon_pay', 'klarna'],
+    paymentMethodOrder: ['apple_pay', 'google_pay', 'link'],
     layout: {
       maxColumns: 3,
-      maxRows: 2,
+      maxRows: 1,
     },
-    shippingAddressRequired: true,
   };
 
   // If payment was already completed, show redirect message

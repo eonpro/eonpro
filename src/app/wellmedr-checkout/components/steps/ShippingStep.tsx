@@ -37,6 +37,8 @@ interface PatientSessionData {
   sex?: string;
   weight?: string | number;
   goalWeight?: string | number;
+  heightFeet?: string | number;
+  heightInches?: string | number;
 }
 
 interface IntakeResponses {
@@ -69,6 +71,8 @@ async function createPatientProfile(formData: CheckoutFormData): Promise<string 
       zipCode: formData.shippingAddress?.zipCode || '',
     },
     weight: patientData.weight,
+    heightFeet: patientData.heightFeet,
+    heightInches: patientData.heightInches,
     goalWeight: patientData.goalWeight,
     intakeSummary: intakeResponses
       ? {
@@ -79,6 +83,7 @@ async function createPatientProfile(formData: CheckoutFormData): Promise<string 
           contraindications: intakeResponses.contraindications ?? [],
         }
       : undefined,
+    allIntakeResponses: intakeResponses ?? undefined,
   };
 
   const res = await fetch('/api/wellmedr/create-patient-profile', {

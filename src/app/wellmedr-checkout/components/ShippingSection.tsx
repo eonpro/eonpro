@@ -63,13 +63,21 @@ export default function ShippingSection() {
           </button>
         )}
 
-        <InputField
-          name="shippingAddress.apt"
-          label="Apt / Unit / Suite"
-          placeholder="Apt, Unit, Suite, Floor #"
-          type="text"
-          autoComplete="off"
-        />
+        <div className="rounded-xl border border-gray-200 bg-gray-50/50 p-4">
+          <InputField
+            name="shippingAddress.apt"
+            label="Apartment, suite, or unit number"
+            placeholder="e.g., Apt 4B, Suite 200, Unit 12"
+            type="text"
+            autoComplete="off"
+          />
+          <p className="mt-2 text-xs text-gray-500">
+            If you live in an apartment, condo, or multi-unit building, please include your unit number.
+          </p>
+        </div>
+        <p className="text-xs font-semibold" style={{ color: '#ef4444' }}>
+          Ensure your address is complete so we can ship out within 24-48 hours!
+        </p>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <InputField
