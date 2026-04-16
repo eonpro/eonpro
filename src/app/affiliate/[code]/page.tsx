@@ -208,25 +208,17 @@ function OTLogo({
   size?: 'default' | 'small';
 }) {
   const src = logoUrl || ASSETS.logo;
-  const imgHeight = size === 'small' ? 'h-6' : 'h-8 sm:h-10';
-  const textSize = size === 'small' ? 'text-base' : 'text-lg sm:text-2xl';
+  const height = size === 'small' ? 'h-7' : 'h-8 sm:h-14';
 
   return (
-    <div className="flex items-center gap-2">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={src}
-        alt={clinicName || "OT Men's Health"}
-        className={`${imgHeight} w-auto object-contain`}
-        width={size === 'small' ? 24 : 40}
-        height={size === 'small' ? 24 : 40}
-      />
-      {clinicName && (
-        <span className={`${textSize} font-semibold tracking-tight`} style={{ color: PALETTE.text }}>
-          {clinicName}
-        </span>
-      )}
-    </div>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt={clinicName || "OT Men's Health"}
+      className={`${height} w-auto object-contain`}
+      width={160}
+      height={size === 'small' ? 28 : 56}
+    />
   );
 }
 
