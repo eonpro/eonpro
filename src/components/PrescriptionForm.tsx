@@ -204,6 +204,8 @@ export default function PrescriptionForm({
   const [rxGeneration, setRxGeneration] = useState(0);
   const [isWellmedr, setIsWellmedr] = useState(false);
 
+  const [isOtClinic, setIsOtClinic] = useState(false);
+
   // Load active clinic ID and detect clinic-specific defaults on mount
   useEffect(() => {
     const activeClinicId = localStorage.getItem('activeClinicId');
@@ -218,6 +220,7 @@ export default function PrescriptionForm({
     const hostname = typeof window !== 'undefined' ? window.location.hostname.toLowerCase() : '';
     const wellmedr = hostname.includes('wellmedr');
     const eonmeds = hostname.includes('eonmeds');
+    setIsOtClinic(hostname.startsWith('ot.'));
     setIsWellmedr(wellmedr);
     if (wellmedr) {
       setForm((f: any) => ({ ...f, shippingMethod: 8234 }));
@@ -261,6 +264,36 @@ export default function PrescriptionForm({
   const selectedProvider = isProviderRole
     ? selfProvider
     : providers.find((p: any) => p.id === form.providerId);
+
+  // ── Testosterone Cypionate Address Safeguard (OT clinic only) ──
+  const TESTOSTERONE_APPROVED_STATES = useMemo(
+    () =>
+      new Set([
+        'AZ','CO','CT','DE','FL','GA','HI','ID','ME','MN','MO','MT',
+        'ND','NH','NJ','NM','NY','OH','PA','RI','SD','UT','DC','WI','WY',
+      ]),
+    []
+  );
+  const TESTOSTERONE_REDIRECT = {
+    address1: '1801 N Morgan St',
+    address2: 'Unit 12',
+    city: 'Tampa',
+    state: 'FL',
+    zip: '33602',
+  };
+  const testosteroneSafeguardActive = useMemo(() => {
+    if (!isOtClinic) return false;
+    const patientState = (form.patient.state ?? '').trim().toUpperCase();
+    if (!patientState) return false;
+    if (TESTOSTERONE_APPROVED_STATES.has(patientState)) return false;
+    return form.rxs.some((rx: RxForm) => {
+      const med = MEDS[rx.medicationKey];
+      if (!med) return false;
+      const upper = med.name.toUpperCase();
+      return upper.includes('TESTOSTERONE') && upper.includes('CYPIONATE');
+    });
+  }, [isOtClinic, form.patient.state, form.rxs, TESTOSTERONE_APPROVED_STATES]);
+
   const filteredPatients = useMemo(() => {
     const query = patientQuery.trim().toLowerCase();
     if (!query) {
@@ -860,13 +893,29 @@ export default function PrescriptionForm({
               </p>
               <p className="mt-2">
                 <span className="text-gray-600">Delivery Address:</span>{' '}
-                <span className="font-medium">
-                  {form.patient.address1}
-                  {form.patient.address2 && `, ${form.patient.address2}`}, {form.patient.city},{' '}
-                  {form.patient.state} {form.patient.zip}
-                </span>
+                {testosteroneSafeguardActive ? (
+                  <span className="font-medium text-blue-700">
+                    {TESTOSTERONE_REDIRECT.address1}, {TESTOSTERONE_REDIRECT.address2},{' '}
+                    {TESTOSTERONE_REDIRECT.city}, {TESTOSTERONE_REDIRECT.state}{' '}
+                    {TESTOSTERONE_REDIRECT.zip}
+                  </span>
+                ) : (
+                  <span className="font-medium">
+                    {form.patient.address1}
+                    {form.patient.address2 && `, ${form.patient.address2}`}, {form.patient.city},{' '}
+                    {form.patient.state} {form.patient.zip}
+                  </span>
+                )}
               </p>
             </div>
+            {testosteroneSafeguardActive && (
+              <div className="mt-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+                <strong>Address Redirect Active:</strong> Patient is in{' '}
+                {form.patient.state?.toUpperCase()} which is not an approved direct-ship state for
+                Testosterone Cypionate. Shipping address on the prescription and PDF will be
+                automatically changed to the Tampa facility.
+              </div>
+            )}
           </div>
 
           {/* Important Notice */}
