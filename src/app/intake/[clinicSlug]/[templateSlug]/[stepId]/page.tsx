@@ -164,7 +164,8 @@ function IntakeStepContent() {
     return formConfig.steps.find((s) => s.id === stepId);
   }, [formConfig, stepId]);
 
-  const basePath = `/intake/${clinicSlug}/${templateSlug}`;
+  const isIntakeDomain = typeof window !== 'undefined' && ['intake.otmens.com'].includes(window.location.hostname);
+  const basePath = isIntakeDomain ? `/${templateSlug}` : `/intake/${clinicSlug}/${templateSlug}`;
 
   const handleNavigate = useCallback(
     (nextStepId: string) => {
@@ -391,7 +392,7 @@ function IntakeStepContent() {
 
   const logoElement = branding?.logo ? (
     <div
-      className={`mx-auto w-full px-6 lg:px-8 ${isWellmedr ? 'max-w-[600px] pt-6' : 'max-w-[480px] pt-4 lg:max-w-[560px]'}`}
+      className={`mx-auto w-full px-6 lg:px-8 ${isWellmedr ? 'flex max-w-[600px] justify-end pt-6' : 'max-w-[480px] pt-4 lg:max-w-[560px]'}`}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
@@ -436,6 +437,7 @@ function IntakeStepContent() {
         onMarkCompleted={handleMarkCompleted}
         onNavigate={handleNavigate}
         onBack={handleBack}
+        hideBackButton={isWellmedr}
         onLanguageChange={setLanguage}
       />
     </div>

@@ -1,6 +1,11 @@
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 import { basePrisma, runWithClinicContext } from '@/lib/db';
 import { prisma } from '@/lib/db';
+
+const INTAKE_CUSTOM_DOMAINS: Record<string, string> = {
+  'intake.otmens.com': 'ot',
+};
 import { weightLossIntakeConfig } from '@/domains/intake/templates/weight-loss-intake';
 import { otMensIntakeConfig } from '@/domains/intake/templates/ot-mens-intake';
 import { wellmedrIntakeConfig } from '@/domains/intake/templates/wellmedr-intake';
@@ -112,7 +117,13 @@ export default async function IntakeLandingPage({ params }: Props) {
   });
 
   if (startStep) {
-    redirect(`/intake/${clinicSlug}/${templateSlug}/${startStep}`);
+    const headersList = await headers();
+    const host = (headersList.get('x-forwarded-host') || headersList.get('host') || '').split(':')[0].toLowerCase();
+    const isIntakeDomain = host in INTAKE_CUSTOM_DOMAINS;
+    const redirectPath = isIntakeDomain
+      ? `/${templateSlug}/${startStep}`
+      : `/intake/${clinicSlug}/${templateSlug}/${startStep}`;
+    redirect(redirectPath);
   }
 
   return (
