@@ -30,7 +30,7 @@ function getStoredStep(): CheckoutStep {
   return 'shipping';
 }
 
-const CheckoutStepContext = createContext<CheckoutStepContextValue | null>(null);
+export const CheckoutStepContext = createContext<CheckoutStepContextValue | null>(null);
 
 export function CheckoutStepProvider({ children }: { children: ReactNode }) {
   const [currentStep, setCurrentStep] = useState<CheckoutStep>('shipping');

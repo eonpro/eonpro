@@ -1,10 +1,15 @@
 'use client';
 
+import { useContext } from 'react';
 import Logo from '../icons/Logo';
-import { useCheckoutStep } from '@/app/wellmedr-checkout/providers/CheckoutStepProvider';
+
+// Import the context directly to avoid the throwing hook on standalone pages
+// (payment-return, thank-you) that render outside CheckoutStepProvider.
+import { CheckoutStepContext } from '@/app/wellmedr-checkout/providers/CheckoutStepProvider';
 
 const Header = () => {
-  const { currentStep } = useCheckoutStep();
+  const ctx = useContext(CheckoutStepContext);
+  const currentStep = ctx?.currentStep ?? 'payment';
   const isPaymentPhase = currentStep === 'approval' || currentStep === 'payment';
   const badgeLabel = isPaymentPhase ? 'SECURE PAYMENT' : 'SECURE CHECKOUT';
 
