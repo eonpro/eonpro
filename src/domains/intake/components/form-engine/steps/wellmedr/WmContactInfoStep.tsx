@@ -28,7 +28,6 @@ export default function WmContactInfoStep({
     nextStep ||
     (responses.glp1_history_recent === 'yes' ? 'glp1-type-wm' : 'wellmedr-checkout-redirect');
 
-
   const firstName = String(responses.firstName || '');
   const [email, setEmail] = useState(String(responses.email || ''));
   const [phone, setPhone] = useState(String(responses.phone || ''));

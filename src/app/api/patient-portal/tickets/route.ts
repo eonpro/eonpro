@@ -55,4 +55,3 @@ export const GET = withAuth(async (request, user) => {
     return handleApiError(error, { route: 'GET /api/patient-portal/tickets' });
   }
 });
-

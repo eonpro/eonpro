@@ -53,8 +53,12 @@ export default function StepRenderer({ uid, patientData }: StepRendererProps) {
       tabIndex={-1}
       className="mx-auto w-full max-w-6xl px-4 pb-8 pt-4 outline-none sm:px-6 sm:pt-8"
     >
-      <nav aria-label="Breadcrumb" className="mb-6 flex items-center gap-2 text-sm" style={{ color: '#767676' }}>
-        <button onClick={() => goToStep('approval')} className="py-2 px-1 hover:underline">
+      <nav
+        aria-label="Breadcrumb"
+        className="mb-6 flex items-center gap-2 text-sm"
+        style={{ color: '#767676' }}
+      >
+        <button onClick={() => goToStep('approval')} className="px-1 py-2 hover:underline">
           Choose
         </button>
         <span aria-hidden="true">&rsaquo;</span>
@@ -69,7 +73,7 @@ export default function StepRenderer({ uid, patientData }: StepRendererProps) {
         <div className="order-2 lg:order-1">
           <PaymentStep uid={uid} />
         </div>
-        <div className="order-1 lg:order-2 lg:sticky lg:top-8 lg:self-start">
+        <div className="order-1 lg:sticky lg:top-8 lg:order-2 lg:self-start">
           <h2 className="mb-4 text-xl font-bold" style={{ color: '#101010' }}>
             Order Summary
           </h2>

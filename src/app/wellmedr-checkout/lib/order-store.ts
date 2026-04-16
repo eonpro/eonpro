@@ -80,10 +80,7 @@ export async function findOrderByCustomerId(customerId: string): Promise<OrderRe
   return cache.get<OrderRecord>(`sub:${subscriptionId}`, { namespace: NS });
 }
 
-async function patchOrder(
-  subscriptionId: string,
-  patch: Partial<OrderRecord>
-): Promise<void> {
+async function patchOrder(subscriptionId: string, patch: Partial<OrderRecord>): Promise<void> {
   const order = await cache.get<OrderRecord>(`sub:${subscriptionId}`, { namespace: NS });
   if (!order) return;
   const updated = { ...order, ...patch };

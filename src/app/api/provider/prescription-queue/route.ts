@@ -1115,10 +1115,15 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       const invoicesNeedingAddonEnrichment = (invoices as any[]).filter((inv: any) => {
         const meta = inv.metadata as Record<string, unknown> | null;
         const source = meta?.source;
-        if (source === 'stripe-connect-addon' || source === 'stripe-connect-addon-cron') return false;
-        return !Array.isArray(meta?.selectedAddons) || (meta.selectedAddons as unknown[]).length === 0;
+        if (source === 'stripe-connect-addon' || source === 'stripe-connect-addon-cron')
+          return false;
+        return (
+          !Array.isArray(meta?.selectedAddons) || (meta.selectedAddons as unknown[]).length === 0
+        );
       });
-      const patientIdsForAddonLookup = [...new Set(invoicesNeedingAddonEnrichment.map((inv: any) => inv.patient.id as number))];
+      const patientIdsForAddonLookup = [
+        ...new Set(invoicesNeedingAddonEnrichment.map((inv: any) => inv.patient.id as number)),
+      ];
 
       if (patientIdsForAddonLookup.length > 0) {
         try {
@@ -1152,7 +1157,10 @@ async function handleGet(req: NextRequest, user: AuthUser) {
               addons.push('nad_plus');
             } else if (product.includes('sermorelin') && !addons.includes('sermorelin')) {
               addons.push('sermorelin');
-            } else if ((product.includes('b12') || product.includes('cyanocobalamin')) && !addons.includes('b12')) {
+            } else if (
+              (product.includes('b12') || product.includes('cyanocobalamin')) &&
+              !addons.includes('b12')
+            ) {
               addons.push('b12');
             }
 

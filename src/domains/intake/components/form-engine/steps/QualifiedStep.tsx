@@ -485,9 +485,7 @@ export default function QualifiedStep({ basePath, prevStep }: QualifiedStepProps
               </span>
               <br />
               <span className="text-[#413d3d]">
-                {isSpanish
-                  ? 'consulta de Pérdida de Peso.'
-                  : 'Weight Loss consultation.'}
+                {isSpanish ? 'consulta de Pérdida de Peso.' : 'Weight Loss consultation.'}
               </span>
             </h1>
             <p className="text-base text-gray-400">

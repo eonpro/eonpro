@@ -81,7 +81,13 @@ export default function PersonalizedTreatmentStep({
             {isSpanish ? (
               <>
                 ¿Te interesaría que tu proveedor considere un plan de{' '}
-                <span style={{ backgroundColor: isOt ? '#f5ecd8' : '#f2fdb4', padding: '0 2px', borderRadius: '2px' }}>
+                <span
+                  style={{
+                    backgroundColor: isOt ? '#f5ecd8' : '#f2fdb4',
+                    padding: '0 2px',
+                    borderRadius: '2px',
+                  }}
+                >
                   tratamiento personalizado sin costo adicional
                 </span>{' '}
                 para ayudarte a manejar cualquier efecto secundario?
@@ -89,7 +95,13 @@ export default function PersonalizedTreatmentStep({
             ) : (
               <>
                 Would you be interested in having your provider consider a{' '}
-                <span style={{ backgroundColor: isOt ? '#f5ecd8' : '#f2fdb4', padding: '0 2px', borderRadius: '2px' }}>
+                <span
+                  style={{
+                    backgroundColor: isOt ? '#f5ecd8' : '#f2fdb4',
+                    padding: '0 2px',
+                    borderRadius: '2px',
+                  }}
+                >
                   personalized treatment plan at no extra cost
                 </span>{' '}
                 to help you manage any side effects?

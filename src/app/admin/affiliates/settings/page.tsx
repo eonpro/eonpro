@@ -159,7 +159,12 @@ export default function AffiliateSettingsPage() {
         <div className="mb-6 flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
           <AlertTriangle className="h-5 w-5 flex-shrink-0 text-red-600" />
           <p className="text-sm text-red-700">{saveError}</p>
-          <button onClick={() => setSaveError(null)} className="ml-auto text-sm font-medium text-red-600 hover:text-red-800">&times;</button>
+          <button
+            onClick={() => setSaveError(null)}
+            className="ml-auto text-sm font-medium text-red-600 hover:text-red-800"
+          >
+            &times;
+          </button>
         </div>
       )}
 

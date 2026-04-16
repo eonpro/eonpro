@@ -18,6 +18,8 @@ export interface AffiliateBranding {
   clinicName: string;
   affiliateName: string;
   logoUrl: string | null;
+  /** White-text logo variant for dark backgrounds (brand-primary cards, dark headers) */
+  logoUrlDark: string | null;
   faviconUrl: string | null;
   primaryColor: string;
   secondaryColor: string;
@@ -45,6 +47,7 @@ const defaultBranding: AffiliateBranding = {
   clinicName: '',
   affiliateName: 'Partner',
   logoUrl: null,
+  logoUrlDark: null,
   faviconUrl: null,
   primaryColor: '#111827',
   secondaryColor: '#6B7280',

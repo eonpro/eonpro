@@ -765,7 +765,10 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
     // the main invoice doesn't already have them (subscription lookup may have
     // failed when the wellmedr-invoice webhook created this record).
     let enrichedMetadata = invoice.metadata as Record<string, unknown> | null;
-    if (!Array.isArray(enrichedMetadata?.selectedAddons) || (enrichedMetadata.selectedAddons as unknown[]).length === 0) {
+    if (
+      !Array.isArray(enrichedMetadata?.selectedAddons) ||
+      (enrichedMetadata.selectedAddons as unknown[]).length === 0
+    ) {
       try {
         const relatedAddonInvoices = await prisma.invoice.findMany({
           where: {
@@ -804,12 +807,15 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
 
           if (mergedAddons.size > 0) {
             enrichedMetadata = { ...(enrichedMetadata || {}), selectedAddons: [...mergedAddons] };
-            logger.info('[PRESCRIPTION-QUEUE] Enriched invoice metadata with addons from related addon invoices', {
-              invoiceId: invoice.id,
-              patientId: invoice.patient.id,
-              addons: [...mergedAddons],
-              addonInvoiceCount: relatedAddonInvoices.length,
-            });
+            logger.info(
+              '[PRESCRIPTION-QUEUE] Enriched invoice metadata with addons from related addon invoices',
+              {
+                invoiceId: invoice.id,
+                patientId: invoice.patient.id,
+                addons: [...mergedAddons],
+                addonInvoiceCount: relatedAddonInvoices.length,
+              }
+            );
           }
         }
       } catch (enrichErr) {

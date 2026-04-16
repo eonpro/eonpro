@@ -66,7 +66,12 @@ async function handler(req: NextRequest) {
     }
 
     // Fallback: recover shipping from Stripe customer object
-    if (!shippingAddress && customer && typeof customer !== 'string' && customer.shipping?.address) {
+    if (
+      !shippingAddress &&
+      customer &&
+      typeof customer !== 'string' &&
+      customer.shipping?.address
+    ) {
       const addr = customer.shipping.address;
       const nameParts = (customer.shipping.name || '').split(' ');
       shippingAddress = {

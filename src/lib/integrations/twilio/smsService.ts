@@ -293,7 +293,11 @@ export async function processOptIn(
       });
     }
 
-    logger.info('[SMS_OPT_IN_PROCESSED]', { phoneLast4: redactPhone(formattedPhone), clinicId, patientId });
+    logger.info('[SMS_OPT_IN_PROCESSED]', {
+      phoneLast4: redactPhone(formattedPhone),
+      clinicId,
+      patientId,
+    });
   } catch (error: any) {
     const __errorMsg = error instanceof Error ? error.message : String(error);
     logger.error('[SMS_OPT_IN_ERROR]', { phoneLast4: redactPhone(phone), error });
@@ -543,7 +547,10 @@ async function logSMSMessage(data: SMSLogData): Promise<void> {
   } catch (error: any) {
     const __errorMsg = error instanceof Error ? error.message : String(error);
     // Log error but don't fail the SMS operation
-    logger.error('[SMS_LOG_ERROR]', { error, data: { phoneLast4: redactPhone(data.to), status: data.status } });
+    logger.error('[SMS_LOG_ERROR]', {
+      error,
+      data: { phoneLast4: redactPhone(data.to), status: data.status },
+    });
   }
 }
 
@@ -581,7 +588,10 @@ export async function sendSMS(message: SMSMessage): Promise<SMSResponse> {
     // Check opt-out status (TCPA compliance)
     const optedOut = await isOptedOut(message.to, message.clinicId);
     if (optedOut) {
-      logger.info('[SMS_BLOCKED_OPT_OUT]', { phoneLast4: redactPhone(message.to), clinicId: message.clinicId });
+      logger.info('[SMS_BLOCKED_OPT_OUT]', {
+        phoneLast4: redactPhone(message.to),
+        clinicId: message.clinicId,
+      });
       return {
         success: false,
         blocked: true,
@@ -593,7 +603,10 @@ export async function sendSMS(message: SMSMessage): Promise<SMSResponse> {
     // Check quiet hours
     const inQuietHours = await isQuietHours(message.clinicId);
     if (inQuietHours) {
-      logger.info('[SMS_BLOCKED_QUIET_HOURS]', { phoneLast4: redactPhone(message.to), clinicId: message.clinicId });
+      logger.info('[SMS_BLOCKED_QUIET_HOURS]', {
+        phoneLast4: redactPhone(message.to),
+        clinicId: message.clinicId,
+      });
       // Queue for later delivery instead of blocking
       return {
         success: false,
@@ -968,7 +981,11 @@ export async function processIncomingSMS(
     }
 
     // Log the incoming message
-    logger.info('[INCOMING_SMS]', { fromLast4: redactPhone(from), bodyLength: body.length, messageSid });
+    logger.info('[INCOMING_SMS]', {
+      fromLast4: redactPhone(from),
+      bodyLength: body.length,
+      messageSid,
+    });
 
     // Default response
     return 'Thank you for your message. Your healthcare team has been notified and will respond soon.';

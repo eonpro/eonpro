@@ -436,9 +436,7 @@ function findValue(
       const needle = matcher.labelIncludes.toLowerCase();
       const labelMatch = entries.find((entry: any) => entry.label?.toLowerCase().includes(needle));
       if (labelMatch?.value) {
-        logger.debug(
-          `[Normalizer] Found "${matcher.labelIncludes}" by label match`
-        );
+        logger.debug(`[Normalizer] Found "${matcher.labelIncludes}" by label match`);
         return labelMatch.value;
       }
     }
@@ -450,9 +448,7 @@ function findValue(
       const matcherId = normalizeKey(matcher.id);
       const direct = entries.find((entry: any) => normalizeKey(entry.id) === matcherId);
       if (direct?.value) {
-        logger.debug(
-          `[Normalizer] Found "${matcher.id}" by ID match`
-        );
+        logger.debug(`[Normalizer] Found "${matcher.id}" by ID match`);
         return direct.value;
       }
     }

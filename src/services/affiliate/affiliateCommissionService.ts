@@ -776,9 +776,7 @@ export async function processPaymentForCommission(
 
     // Calculate hold until date — extend hold for HIGH risk commissions to allow manual review
     const effectiveHoldDays =
-      fraudRiskLevel === 'HIGH'
-        ? Math.max(commissionPlan.holdDays, 30)
-        : commissionPlan.holdDays;
+      fraudRiskLevel === 'HIGH' ? Math.max(commissionPlan.holdDays, 30) : commissionPlan.holdDays;
     const holdUntil =
       effectiveHoldDays > 0
         ? new Date(occurredAt.getTime() + effectiveHoldDays * 24 * 60 * 60 * 1000)
@@ -820,7 +818,10 @@ export async function processPaymentForCommission(
                 promotionName: breakdown.promotionName,
                 appliedProductRule: breakdown.appliedProductRule,
                 recurringMultiplier: breakdown.recurringMultiplier,
-                fraudCheck: { riskLevel: fraudRiskLevel, requiresReview: fraudRiskLevel === 'HIGH' },
+                fraudCheck: {
+                  riskLevel: fraudRiskLevel,
+                  requiresReview: fraudRiskLevel === 'HIGH',
+                },
                 // HIPAA: Do NOT store patient name, email, or any identifiers
               },
             },

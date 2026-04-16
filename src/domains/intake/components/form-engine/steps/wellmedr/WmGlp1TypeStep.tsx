@@ -21,7 +21,6 @@ export default function WmGlp1TypeStep({
   const responses = useIntakeStore((s) => s.responses);
   const { setResponse, markStepCompleted, setCurrentStep } = useIntakeActions();
 
-
   const [selected, setSelected] = useState(String(responses.glp1_type || ''));
   const [dose, setDose] = useState(String(responses.glp1_dose || ''));
   const [otherName, setOtherName] = useState(String(responses.glp1_type_other || ''));

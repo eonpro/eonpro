@@ -41,7 +41,6 @@ export default function WmMotivationRadioStep({
   }, []);
   const fadeInStyle = { opacity: mounted ? 1 : 0, transition: 'opacity 0.5s ease' };
 
-
   const [selected, setSelected] = useState<string>(String(responses[storageKey] || ''));
 
   const handleSelect = (id: string) => {

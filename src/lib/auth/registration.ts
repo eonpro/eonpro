@@ -241,7 +241,9 @@ export async function registerPatient(
 
       if (existingUser) {
         // Don't reveal that email exists (security)
-        logger.warn('Registration attempted with existing email', { emailHash: computeEmailHash(normalizedEmail) });
+        logger.warn('Registration attempted with existing email', {
+          emailHash: computeEmailHash(normalizedEmail),
+        });
         return {
           success: false,
           error: 'Unable to complete registration. Please try again or contact support.',
@@ -617,7 +619,9 @@ export async function registerWithInviteToken(
         where: { email: normalizedEmail },
       });
       if (existingUser) {
-        logger.warn('RegisterWithInvite attempted with existing email', { emailHash: computeEmailHash(normalizedEmail) });
+        logger.warn('RegisterWithInvite attempted with existing email', {
+          emailHash: computeEmailHash(normalizedEmail),
+        });
         return {
           success: false,
           error: 'An account with this email already exists. Please log in or reset your password.',
@@ -872,7 +876,10 @@ export async function resendVerificationEmail(email: string): Promise<Registrati
         },
       });
 
-      logger.info('Verification email resent', { userId: user.id, emailHash: computeEmailHash(normalizedEmail) });
+      logger.info('Verification email resent', {
+        userId: user.id,
+        emailHash: computeEmailHash(normalizedEmail),
+      });
 
       return { success: true, message: 'Verification email sent. Please check your inbox.' };
     } catch (error: unknown) {

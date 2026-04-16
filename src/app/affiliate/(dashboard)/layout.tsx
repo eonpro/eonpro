@@ -14,7 +14,7 @@ import { ReactNode, useEffect, useState, useMemo } from 'react';
 import { apiFetch } from '@/lib/api/fetch';
 import { AffiliateBranding, BrandingProvider, brandingToCssVars } from './branding-context';
 import { AffiliateToastProvider } from './toast-context';
-import { EONPRO_LOGO, EONPRO_ICON } from '@/lib/constants/brand-assets';
+import { EONPRO_LOGO, EONPRO_LOGO_DARK, EONPRO_ICON } from '@/lib/constants/brand-assets';
 
 interface NavItem {
   href: string;
@@ -171,6 +171,7 @@ export default function AffiliateDashboardLayout({ children }: { children: React
               clinicName: clinic.name || '',
               affiliateName: 'Partner',
               logoUrl: clinic.branding?.logoUrl || null,
+              logoUrlDark: clinic.branding?.logoUrlDark || null,
               faviconUrl: clinic.branding?.faviconUrl || null,
               primaryColor: clinic.branding?.primaryColor || '#4fa77e',
               secondaryColor: clinic.branding?.secondaryColor || '#3B82F6',
@@ -320,94 +321,162 @@ export default function AffiliateDashboardLayout({ children }: { children: React
   return (
     <BrandingProvider branding={branding}>
       <AffiliateToastProvider>
-      <div
-        className="min-h-screen pb-20 md:pb-0 md:pl-64"
-        style={{ backgroundColor: 'var(--brand-bg)', ...cssVars } as React.CSSProperties}
-      >
-        {/* Desktop Sidebar */}
-        <aside className="fixed bottom-0 left-0 top-0 hidden w-64 flex-col border-r border-gray-100 bg-white md:flex">
-          <div className="border-b border-gray-100 p-6">
-            {branding?.logoUrl ? (
-              <img
-                src={branding.logoUrl}
-                alt={branding.clinicName}
-                className="h-8 max-w-[180px] object-contain"
-                onError={(e) => {
-                  e.currentTarget.src = EONPRO_LOGO;
-                }}
-              />
-            ) : (
-              <h1 className="text-xl font-semibold text-gray-900">{portalName}</h1>
-            )}
-          </div>
-          <nav className="flex-1 space-y-1 p-4">
-            {navItems.map((item) => {
-              const active = isActive(item.href);
-              return (
-                <a
-                  key={item.href}
-                  href={item.href}
-                  aria-current={active ? 'page' : undefined}
-                  className={`flex items-center gap-3 rounded-xl px-4 py-3 transition-all duration-200 ${
-                    active ? 'text-white' : 'text-gray-600 hover:bg-gray-50'
-                  }`}
-                  style={active ? { backgroundColor: primaryColor } : undefined}
+        <div
+          className="min-h-screen pb-20 md:pb-0 md:pl-64"
+          style={{ backgroundColor: 'var(--brand-bg)', ...cssVars } as React.CSSProperties}
+        >
+          {/* Desktop Sidebar */}
+          <aside className="fixed bottom-0 left-0 top-0 hidden w-64 flex-col border-r border-gray-100 bg-white md:flex">
+            <div className="border-b border-gray-100 p-6">
+              {branding?.logoUrl ? (
+                <img
+                  src={branding.logoUrl}
+                  alt={branding.clinicName}
+                  className="h-8 max-w-[180px] object-contain"
+                  onError={(e) => {
+                    e.currentTarget.src = EONPRO_LOGO;
+                  }}
+                />
+              ) : (
+                <h1 className="text-xl font-semibold text-gray-900">{portalName}</h1>
+              )}
+            </div>
+            <nav className="flex-1 space-y-1 p-4">
+              {navItems.map((item) => {
+                const active = isActive(item.href);
+                return (
+                  <a
+                    key={item.href}
+                    href={item.href}
+                    aria-current={active ? 'page' : undefined}
+                    className={`flex items-center gap-3 rounded-xl px-4 py-3 transition-all duration-200 ${
+                      active ? 'text-white' : 'text-gray-600 hover:bg-gray-50'
+                    }`}
+                    style={active ? { backgroundColor: primaryColor } : undefined}
+                  >
+                    {item.icon(active)}
+                    <span className="font-medium">{item.label}</span>
+                  </a>
+                );
+              })}
+            </nav>
+
+            {/* Quick-copy referral link */}
+            {refLink && (
+              <div className="border-t border-gray-100 px-4 py-3">
+                <button
+                  onClick={copyRefLink}
+                  className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors"
+                  style={{ backgroundColor: `${primaryColor}10`, color: primaryColor }}
                 >
-                  {item.icon(active)}
-                  <span className="font-medium">{item.label}</span>
-                </a>
-              );
-            })}
+                  {copiedLink ? (
+                    <svg
+                      className="h-5 w-5 flex-shrink-0 text-green-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  ) : (
+                    <svg
+                      className="h-5 w-5 flex-shrink-0"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                      />
+                    </svg>
+                  )}
+                  <span className="truncate">{copiedLink ? 'Copied!' : 'Copy Referral Link'}</span>
+                </button>
+              </div>
+            )}
+
+            <div className="border-t border-gray-100 p-4">
+              <a
+                href="/affiliate/help"
+                className="flex items-center gap-3 px-4 py-3 text-gray-500 transition-colors hover:text-gray-700"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <span>Help & Support</span>
+              </a>
+              {branding && (
+                <p className="mt-4 flex items-center gap-1.5 whitespace-nowrap px-4 text-xs text-gray-400">
+                  Powered by <img src={EONPRO_LOGO} alt="EONPRO" className="h-[21px] w-auto opacity-60" />
+                </p>
+              )}
+            </div>
+          </aside>
+
+          {/* Mobile Bottom Navigation */}
+          <nav className="pb-safe fixed bottom-0 left-0 right-0 z-50 border-t border-gray-100 bg-white px-2 md:hidden">
+            <div className="flex h-16 items-center justify-around">
+              {navItems.map((item) => {
+                const active = isActive(item.href);
+                return (
+                  <a
+                    key={item.href}
+                    href={item.href}
+                    aria-current={active ? 'page' : undefined}
+                    className="relative flex flex-1 flex-col items-center justify-center py-2"
+                  >
+                    <span
+                      className="transition-colors duration-200"
+                      style={{ color: active ? primaryColor : '#9CA3AF' }}
+                    >
+                      {item.icon(active)}
+                    </span>
+                    <span
+                      className={`mt-1 text-xs transition-colors duration-200 ${active ? 'font-medium' : ''}`}
+                      style={{ color: active ? primaryColor : '#9CA3AF' }}
+                    >
+                      {item.label}
+                    </span>
+                    {active && (
+                      <motion.div
+                        layoutId="bottomNavIndicator"
+                        className="absolute -top-0.5 left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full"
+                        style={{ backgroundColor: primaryColor }}
+                        transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                      />
+                    )}
+                  </a>
+                );
+              })}
+            </div>
           </nav>
 
-          {/* Quick-copy referral link */}
-          {refLink && (
-            <div className="border-t border-gray-100 px-4 py-3">
-              <button
-                onClick={copyRefLink}
-                className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors"
-                style={{ backgroundColor: `${primaryColor}10`, color: primaryColor }}
-              >
-                {copiedLink ? (
-                  <svg
-                    className="h-5 w-5 flex-shrink-0 text-green-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                ) : (
-                  <svg
-                    className="h-5 w-5 flex-shrink-0"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                    />
-                  </svg>
-                )}
-                <span className="truncate">{copiedLink ? 'Copied!' : 'Copy Referral Link'}</span>
-              </button>
-            </div>
-          )}
-
-          <div className="border-t border-gray-100 p-4">
+          {/* Mobile Help FAB */}
+          {!pathname.includes('/help') && (
             <a
               href="/affiliate/help"
-              className="flex items-center gap-3 px-4 py-3 text-gray-500 transition-colors hover:text-gray-700"
+              className="fixed bottom-20 right-4 z-40 flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-lg ring-1 ring-gray-200 transition-shadow hover:shadow-xl md:hidden"
+              aria-label="Help & Support"
             >
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg
+                className="h-5 w-5 text-gray-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -415,70 +484,12 @@ export default function AffiliateDashboardLayout({ children }: { children: React
                   d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
-              <span>Help & Support</span>
             </a>
-            {branding && (
-              <p className="mt-4 flex items-center gap-1.5 whitespace-nowrap px-4 text-xs text-gray-400">
-                Powered by <img src={EONPRO_LOGO} alt="EONPRO" className="h-[21px] w-auto" />
-              </p>
-            )}
-          </div>
-        </aside>
+          )}
 
-        {/* Mobile Bottom Navigation */}
-        <nav className="pb-safe fixed bottom-0 left-0 right-0 z-50 border-t border-gray-100 bg-white px-2 md:hidden">
-          <div className="flex h-16 items-center justify-around">
-            {navItems.map((item) => {
-              const active = isActive(item.href);
-              return (
-                <a
-                  key={item.href}
-                  href={item.href}
-                  aria-current={active ? 'page' : undefined}
-                  className="relative flex flex-1 flex-col items-center justify-center py-2"
-                >
-                  <span
-                    className="transition-colors duration-200"
-                    style={{ color: active ? primaryColor : '#9CA3AF' }}
-                  >
-                    {item.icon(active)}
-                  </span>
-                  <span
-                    className={`mt-1 text-xs transition-colors duration-200 ${active ? 'font-medium' : ''}`}
-                    style={{ color: active ? primaryColor : '#9CA3AF' }}
-                  >
-                    {item.label}
-                  </span>
-                  {active && (
-                    <motion.div
-                      layoutId="bottomNavIndicator"
-                      className="absolute -top-0.5 left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full"
-                      style={{ backgroundColor: primaryColor }}
-                      transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                    />
-                  )}
-                </a>
-              );
-            })}
-          </div>
-        </nav>
-
-        {/* Mobile Help FAB */}
-        {!pathname.includes('/help') && (
-          <a
-            href="/affiliate/help"
-            className="fixed bottom-20 right-4 z-40 flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-lg ring-1 ring-gray-200 transition-shadow hover:shadow-xl md:hidden"
-            aria-label="Help & Support"
-          >
-            <svg className="h-5 w-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </a>
-        )}
-
-        {/* Page Content */}
-        <main className="min-h-screen">{children}</main>
-      </div>
+          {/* Page Content */}
+          <main className="min-h-screen">{children}</main>
+        </div>
       </AffiliateToastProvider>
     </BrandingProvider>
   );

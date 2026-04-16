@@ -114,35 +114,41 @@ export default function LinksPage() {
     return '/affiliate';
   }, [data?.linkPrefix]);
 
-  const renderQR = useCallback(async (refCodeId: string, code: string) => {
-    const canvas = qrCanvasRefs.current.get(refCodeId);
-    if (!canvas) return;
-    const url = `${getBaseUrl()}${getLinkPrefix()}/${code}`;
-    try {
-      await QRCode.toCanvas(canvas, url, {
-        width: 160,
-        margin: 2,
-        color: { dark: '#000000', light: '#ffffff' },
-      });
-    } catch {
-      // QR generation failed silently
-    }
-  }, [getBaseUrl]);
+  const renderQR = useCallback(
+    async (refCodeId: string, code: string) => {
+      const canvas = qrCanvasRefs.current.get(refCodeId);
+      if (!canvas) return;
+      const url = `${getBaseUrl()}${getLinkPrefix()}/${code}`;
+      try {
+        await QRCode.toCanvas(canvas, url, {
+          width: 160,
+          margin: 2,
+          color: { dark: '#000000', light: '#ffffff' },
+        });
+      } catch {
+        // QR generation failed silently
+      }
+    },
+    [getBaseUrl]
+  );
 
-  const downloadQR = useCallback(async (code: string, name: string) => {
-    const url = `${getBaseUrl()}${getLinkPrefix()}/${code}`;
-    try {
-      const dataUrl = await QRCode.toDataURL(url, { width: 400, margin: 2 });
-      const link = document.createElement('a');
-      link.download = `qr-${name || code}.png`;
-      link.href = dataUrl;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch {
-      // QR download failed silently
-    }
-  }, [getBaseUrl]);
+  const downloadQR = useCallback(
+    async (code: string, name: string) => {
+      const url = `${getBaseUrl()}${getLinkPrefix()}/${code}`;
+      try {
+        const dataUrl = await QRCode.toDataURL(url, { width: 400, margin: 2 });
+        const link = document.createElement('a');
+        link.download = `qr-${name || code}.png`;
+        link.href = dataUrl;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } catch {
+        // QR download failed silently
+      }
+    },
+    [getBaseUrl]
+  );
 
   const copyLink = async (code: string, id: string) => {
     const url = `${getBaseUrl()}${getLinkPrefix()}/${code}`;
@@ -233,7 +239,9 @@ export default function LinksPage() {
     return (
       <div className="min-h-screen animate-pulse">
         <header className="border-b border-gray-100 bg-white px-6 py-4">
-          <div className="mx-auto max-w-3xl"><div className="h-6 w-28 rounded bg-gray-200" /></div>
+          <div className="mx-auto max-w-3xl">
+            <div className="h-6 w-28 rounded bg-gray-200" />
+          </div>
         </header>
         <div className="mx-auto max-w-3xl space-y-4 px-6 py-6">
           <div className="h-44 rounded-2xl bg-gray-100" />
@@ -249,8 +257,18 @@ export default function LinksPage() {
       <div className="flex min-h-screen items-center justify-center px-6">
         <div className="max-w-sm text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-50">
-            <svg className="h-8 w-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+            <svg
+              className="h-8 w-8 text-red-500"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+              />
             </svg>
           </div>
           <h2 className="mb-2 text-lg font-semibold text-gray-900">Unable to load links</h2>
@@ -330,7 +348,8 @@ export default function LinksPage() {
             <p className="mb-3 text-sm text-gray-400">Your main link</p>
             <div className="mb-4 flex items-center gap-3 rounded-xl bg-white/10 p-4">
               <span className="flex-1 truncate font-mono text-sm">
-                {displayData.baseUrl}{getLinkPrefix()}/
+                {displayData.baseUrl}
+                {getLinkPrefix()}/
                 {displayData.refCodes.find((c) => c.isDefault)?.code ||
                   displayData.refCodes[0]?.code}
               </span>
@@ -419,22 +438,50 @@ export default function LinksPage() {
                             type="text"
                             value={editName}
                             onChange={(e) => setEditName(e.target.value)}
-                            onKeyDown={(e) => { if (e.key === 'Enter') handleRename(refCode.id); if (e.key === 'Escape') setEditingId(null); }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleRename(refCode.id);
+                              if (e.key === 'Escape') setEditingId(null);
+                            }}
                             className="rounded-lg border border-gray-300 px-2 py-1 text-sm focus:border-gray-900 focus:ring-0"
                             autoFocus
                           />
-                          <button onClick={() => handleRename(refCode.id)} className="rounded bg-gray-900 px-2 py-1 text-xs text-white">Save</button>
-                          <button onClick={() => setEditingId(null)} className="text-xs text-gray-500">Cancel</button>
+                          <button
+                            onClick={() => handleRename(refCode.id)}
+                            className="rounded bg-gray-900 px-2 py-1 text-xs text-white"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={() => setEditingId(null)}
+                            className="text-xs text-gray-500"
+                          >
+                            Cancel
+                          </button>
                         </div>
                       ) : (
                         <div className="flex items-center gap-2">
                           <h3 className="font-medium text-gray-900">{refCode.name}</h3>
                           <button
-                            onClick={() => { setEditingId(refCode.id); setEditName(refCode.name); }}
+                            onClick={() => {
+                              setEditingId(refCode.id);
+                              setEditName(refCode.name);
+                            }}
                             aria-label="Rename link"
                             className="rounded p-1 text-gray-300 transition-colors hover:text-gray-600"
                           >
-                            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                            <svg
+                              className="h-3.5 w-3.5"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                              />
+                            </svg>
                           </button>
                           {refCode.isDefault && (
                             <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
@@ -627,7 +674,9 @@ export default function LinksPage() {
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center"
             onClick={() => setIsCreating(false)}
-            onKeyDown={(e) => { if (e.key === 'Escape') setIsCreating(false); }}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setIsCreating(false);
+            }}
           >
             <motion.div
               initial={{ y: '100%' }}

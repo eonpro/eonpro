@@ -9,7 +9,11 @@ import CheckboxField from '@/app/wellmedr-checkout/components/ui/CheckboxField';
 import Button from '@/app/wellmedr-checkout/components/ui/button/Button';
 import { CheckoutFormData } from '@/app/wellmedr-checkout/types/checkout';
 import { useCheckoutStep } from '@/app/wellmedr-checkout/providers/CheckoutStepProvider';
-import { PATIENT_DATA_KEY, INTAKE_RESPONSES_KEY, PATIENT_ID_KEY } from '@/app/wellmedr-checkout/lib/session-keys';
+import {
+  PATIENT_DATA_KEY,
+  INTAKE_RESPONSES_KEY,
+  PATIENT_ID_KEY,
+} from '@/app/wellmedr-checkout/lib/session-keys';
 
 interface ShippingStepProps {
   uid: string;
@@ -140,7 +144,12 @@ export default function ShippingStep({ uid: _uid }: ShippingStepProps) {
         setIsSubmitting(false);
       }
 
-      if (formData.planDetails && formData.selectedProduct && typeof window !== 'undefined' && window.dataLayer) {
+      if (
+        formData.planDetails &&
+        formData.selectedProduct &&
+        typeof window !== 'undefined' &&
+        window.dataLayer
+      ) {
         window.dataLayer.push({
           event: 'add_shipping_info',
           ecommerce: {
@@ -180,7 +189,11 @@ export default function ShippingStep({ uid: _uid }: ShippingStepProps) {
       </div>
       <BillingSection />
       <div className="sticky bottom-0 z-10 -mx-4 bg-white px-4 pb-[env(safe-area-inset-bottom)] pt-3 sm:static sm:mx-0 sm:bg-transparent sm:px-0 sm:pb-0 sm:pt-0">
-        <Button onClick={handleContinue} text={isSubmitting ? 'Saving...' : 'Continue'} disabled={isSubmitting} />
+        <Button
+          onClick={handleContinue}
+          text={isSubmitting ? 'Saving...' : 'Continue'}
+          disabled={isSubmitting}
+        />
       </div>
     </form>
   );

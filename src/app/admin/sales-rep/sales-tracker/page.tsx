@@ -278,13 +278,9 @@ export default function SalesTrackerPage() {
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4 text-amber-500" />
-              <p className="text-xs font-medium uppercase tracking-wider text-amber-700">
-                Pending
-              </p>
+              <p className="text-xs font-medium uppercase tracking-wider text-amber-700">Pending</p>
             </div>
-            <p className="mt-1 text-2xl font-bold text-amber-700">
-              {summary.pendingDisposition}
-            </p>
+            <p className="mt-1 text-2xl font-bold text-amber-700">{summary.pendingDisposition}</p>
           </div>
           <div className="rounded-xl border border-green-200 bg-green-50 p-4">
             <div className="flex items-center gap-2">
@@ -451,9 +447,7 @@ export default function SalesTrackerPage() {
                   const isSaving = savingId === p.id;
                   const isSuccess = successId === p.id;
                   const description =
-                    p.description ||
-                    p.invoiceItems.map((i) => i.description).join(', ') ||
-                    '—';
+                    p.description || p.invoiceItems.map((i) => i.description).join(', ') || '—';
 
                   return (
                     <tr

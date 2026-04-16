@@ -81,16 +81,16 @@ function getPatientPortalBasePath(): string {
  * so that join.otmens.com/julian becomes /affiliate/julian internally.
  * The user never sees "/affiliate" in their browser URL.
  */
-const AFFILIATE_CUSTOM_DOMAINS = new Set([
-  'join.otmens.com',
-]);
+const AFFILIATE_CUSTOM_DOMAINS = new Set(['join.otmens.com']);
 
 function isAffiliateDomain(request: NextRequest): boolean {
   const host = (
     request.headers.get('x-forwarded-host')?.split(',')[0]?.trim() ||
     request.headers.get('host') ||
     ''
-  ).split(':')[0].toLowerCase();
+  )
+    .split(':')[0]
+    .toLowerCase();
   return AFFILIATE_CUSTOM_DOMAINS.has(host);
 }
 

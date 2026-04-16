@@ -212,7 +212,9 @@ export default function AccountPage() {
     return (
       <div className="min-h-screen animate-pulse">
         <header className="sticky top-0 z-10 border-b border-gray-100 bg-white px-6 py-4">
-          <div className="mx-auto max-w-3xl"><div className="h-6 w-24 rounded bg-gray-200" /></div>
+          <div className="mx-auto max-w-3xl">
+            <div className="h-6 w-24 rounded bg-gray-200" />
+          </div>
         </header>
         <div className="mx-auto max-w-3xl space-y-4 px-6 py-6">
           <div className="h-48 rounded-2xl bg-gray-100" />
@@ -229,13 +231,29 @@ export default function AccountPage() {
       <div className="flex min-h-screen items-center justify-center px-6">
         <div className="max-w-sm text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-50">
-            <svg className="h-8 w-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            <svg
+              className="h-8 w-8 text-red-500"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+              />
             </svg>
           </div>
           <h2 className="mb-2 text-lg font-semibold text-gray-900">Unable to load account</h2>
           <p className="mb-6 text-sm text-gray-500">{loadError}</p>
-          <button onClick={() => window.location.reload()} className="rounded-xl px-6 py-3 font-medium text-white transition-opacity hover:opacity-90" style={{ backgroundColor: 'var(--brand-primary)' }}>Try Again</button>
+          <button
+            onClick={() => window.location.reload()}
+            className="rounded-xl px-6 py-3 font-medium text-white transition-opacity hover:opacity-90"
+            style={{ backgroundColor: 'var(--brand-primary)' }}
+          >
+            Try Again
+          </button>
         </div>
       </div>
     );
@@ -252,10 +270,32 @@ export default function AccountPage() {
 
       <div className="mx-auto max-w-3xl space-y-6 px-6 py-6">
         {prefError && (
-          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 p-3">
-            <svg className="h-5 w-5 flex-shrink-0 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01" /></svg>
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 p-3"
+          >
+            <svg
+              className="h-5 w-5 flex-shrink-0 text-red-500"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01"
+              />
+            </svg>
             <p className="flex-1 text-sm text-red-700">{prefError}</p>
-            <button onClick={() => setPrefError(null)} className="text-red-400 hover:text-red-600" aria-label="Dismiss error">&times;</button>
+            <button
+              onClick={() => setPrefError(null)}
+              className="text-red-400 hover:text-red-600"
+              aria-label="Dismiss error"
+            >
+              &times;
+            </button>
           </motion.div>
         )}
         {/* Profile Card */}

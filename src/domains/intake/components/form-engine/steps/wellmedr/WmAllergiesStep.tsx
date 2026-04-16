@@ -114,7 +114,8 @@ export default function WmAllergiesStep({
 
   const addAllergy = (name: string) => {
     const trimmed = name.trim();
-    if (!trimmed || selectedAllergies.some((a) => a.toLowerCase() === trimmed.toLowerCase())) return;
+    if (!trimmed || selectedAllergies.some((a) => a.toLowerCase() === trimmed.toLowerCase()))
+      return;
     setSelectedAllergies((prev) => [...prev, trimmed]);
     setSearch('');
     setResults([]);
@@ -135,7 +136,6 @@ export default function WmAllergiesStep({
     setCurrentStep(nextStep);
     router.push(`${basePath}/${nextStep}`);
   };
-
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && search.trim()) {

@@ -12,8 +12,12 @@ import { z } from 'zod';
 // Settings schema for validation
 const affiliateSettingsSchema = z.object({
   // Attribution
-  newPatientModel: z.enum(['FIRST_CLICK', 'LAST_CLICK', 'LINEAR', 'TIME_DECAY', 'POSITION']).optional(),
-  returningPatientModel: z.enum(['FIRST_CLICK', 'LAST_CLICK', 'LINEAR', 'TIME_DECAY', 'POSITION']).optional(),
+  newPatientModel: z
+    .enum(['FIRST_CLICK', 'LAST_CLICK', 'LINEAR', 'TIME_DECAY', 'POSITION'])
+    .optional(),
+  returningPatientModel: z
+    .enum(['FIRST_CLICK', 'LAST_CLICK', 'LINEAR', 'TIME_DECAY', 'POSITION'])
+    .optional(),
   cookieWindowDays: z.number().min(1).max(365).optional(),
   enableFingerprinting: z.boolean().optional(),
   enableSubIds: z.boolean().optional(),

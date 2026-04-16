@@ -5,10 +5,7 @@ import { rateLimit } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/db';
 import { runWithClinicContext } from '@/lib/db/clinic-context';
-import {
-  patientDeduplicationService,
-  type IntakePatientData,
-} from '@/domains/patient';
+import { patientDeduplicationService, type IntakePatientData } from '@/domains/patient';
 
 const WELLMEDR_CLINIC_ID = parseInt(process.env.WELLMEDR_CLINIC_ID || '7', 10);
 
@@ -31,13 +28,15 @@ const patientProfileSchema = z.object({
   weight: z.union([z.string(), z.number()]),
   goalWeight: z.union([z.string(), z.number()]),
 
-  intakeSummary: z.object({
-    healthConditions: z.array(z.string()).optional(),
-    allergies: z.array(z.string()).optional(),
-    medications: z.array(z.string()).optional(),
-    glp1Type: z.string().optional(),
-    contraindications: z.array(z.string()).optional(),
-  }).optional(),
+  intakeSummary: z
+    .object({
+      healthConditions: z.array(z.string()).optional(),
+      allergies: z.array(z.string()).optional(),
+      medications: z.array(z.string()).optional(),
+      glp1Type: z.string().optional(),
+      contraindications: z.array(z.string()).optional(),
+    })
+    .optional(),
 });
 
 async function handler(req: NextRequest) {
@@ -46,10 +45,7 @@ async function handler(req: NextRequest) {
     const parsed = patientProfileSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: 'Validation failed' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Validation failed' }, { status: 400 });
     }
 
     const {
@@ -147,10 +143,7 @@ async function handler(req: NextRequest) {
     logger.error('[WellMedR] Failed to create patient profile', {
       error: error instanceof Error ? error.message : 'Unknown',
     });
-    return NextResponse.json(
-      { error: 'Failed to create patient profile' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to create patient profile' }, { status: 500 });
   }
 }
 

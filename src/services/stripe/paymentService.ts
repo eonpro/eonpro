@@ -232,7 +232,13 @@ export class StripePaymentService {
     // Directional guard: never regress from a terminal/authoritative status.
     // The process route sets FAILED synchronously on decline; a late-arriving
     // webhook for the same PI must not overwrite it back to PENDING/PROCESSING.
-    const TERMINAL_STATUSES: PaymentStatus[] = ['SUCCEEDED', 'FAILED', 'REFUNDED', 'PARTIALLY_REFUNDED', 'CANCELED'];
+    const TERMINAL_STATUSES: PaymentStatus[] = [
+      'SUCCEEDED',
+      'FAILED',
+      'REFUNDED',
+      'PARTIALLY_REFUNDED',
+      'CANCELED',
+    ];
     const isTerminal = TERMINAL_STATUSES.includes(payment.status as PaymentStatus);
     const newIsTerminal = TERMINAL_STATUSES.includes(newStatus);
 
@@ -257,7 +263,12 @@ export class StripePaymentService {
     }
 
     // Never overwrite SUCCEEDED unless the new status is also terminal (e.g. refund)
-    if (wasAlreadySucceeded && newStatus !== 'SUCCEEDED' && newStatus !== 'REFUNDED' && newStatus !== 'PARTIALLY_REFUNDED') {
+    if (
+      wasAlreadySucceeded &&
+      newStatus !== 'SUCCEEDED' &&
+      newStatus !== 'REFUNDED' &&
+      newStatus !== 'PARTIALLY_REFUNDED'
+    ) {
       logger.info(
         `[STRIPE] Skipping webhook status update for payment ${payment.id}: would overwrite SUCCEEDED → ${newStatus}`,
         { stripePaymentIntentId: paymentIntent.id }

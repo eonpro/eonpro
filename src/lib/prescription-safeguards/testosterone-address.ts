@@ -137,9 +137,7 @@ export async function shouldApplyTestosteroneSafeguard(params: {
 /**
  * Apply the redirect to a Lifefile `order.patient` block (address1/address2/city/state/zip).
  */
-export function applyRedirectToPatientAddress<T extends Record<string, any>>(
-  patient: T
-): T {
+export function applyRedirectToPatientAddress<T extends Record<string, any>>(patient: T): T {
   return {
     ...patient,
     address1: REDIRECT_ADDRESS.addressLine1,
@@ -153,9 +151,7 @@ export function applyRedirectToPatientAddress<T extends Record<string, any>>(
 /**
  * Apply the redirect to a Lifefile `order.shipping` block (addressLine1/addressLine2/city/state/zipCode).
  */
-export function applyRedirectToShipping<T extends Record<string, any>>(
-  shipping: T
-): T {
+export function applyRedirectToShipping<T extends Record<string, any>>(shipping: T): T {
   return {
     ...shipping,
     addressLine1: REDIRECT_ADDRESS.addressLine1,
@@ -169,9 +165,7 @@ export function applyRedirectToShipping<T extends Record<string, any>>(
 /**
  * Apply the redirect to the PDF patient data (address1/address2/city/state/zip).
  */
-export function applyRedirectToPdfPatient<T extends Record<string, any>>(
-  patient: T
-): T {
+export function applyRedirectToPdfPatient<T extends Record<string, any>>(patient: T): T {
   return {
     ...patient,
     address1: REDIRECT_ADDRESS.addressLine1,
@@ -185,9 +179,7 @@ export function applyRedirectToPdfPatient<T extends Record<string, any>>(
 /**
  * Apply the redirect to the PDF shipping data (addressLine1/addressLine2/city/state/zip).
  */
-export function applyRedirectToPdfShipping<T extends Record<string, any>>(
-  shipping: T
-): T {
+export function applyRedirectToPdfShipping<T extends Record<string, any>>(shipping: T): T {
   return {
     ...shipping,
     addressLine1: REDIRECT_ADDRESS.addressLine1,

@@ -18,7 +18,15 @@ interface TaxStatus {
   threshold: number;
 }
 
-function TaxIdInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
+function TaxIdInput({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+}) {
   const [show, setShow] = useState(false);
   return (
     <div className="relative">

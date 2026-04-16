@@ -56,7 +56,6 @@ export default function WmTestimonialStep({
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-
   return (
     <div className="flex min-h-[100dvh] flex-col" style={{ backgroundColor: '#F7F7F9' }}>
       <div className="h-[3px] w-full" style={{ backgroundColor: '#e5e0d8' }}>

@@ -72,11 +72,7 @@ export default function AddressAutocompleteField({
         setValue(`${fieldPrefix}.zipCode`, parsed.zip, { shouldValidate: true, shouldDirty: true });
       }
 
-      trigger([
-        `${fieldPrefix}.city`,
-        `${fieldPrefix}.state`,
-        `${fieldPrefix}.zipCode`,
-      ]);
+      trigger([`${fieldPrefix}.city`, `${fieldPrefix}.state`, `${fieldPrefix}.zipCode`]);
 
       onPlaceSelectedRef.current?.();
     });
@@ -111,10 +107,7 @@ export default function AddressAutocompleteField({
           autoComplete="off"
           placeholder={placeholder}
           aria-invalid={!!error}
-          className={cn(
-            'form-input w-full pl-11',
-            error ? 'border-red-500' : ''
-          )}
+          className={cn('form-input w-full pl-11', error ? 'border-red-500' : '')}
           onChange={handleChange}
         />
       </div>

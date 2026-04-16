@@ -138,7 +138,9 @@ export default function ResourcesPage() {
             <FileQuestion className="h-6 w-6" style={{ color: primaryColor }} />
           </div>
           <div>
-            <h3 className="font-semibold text-gray-900">Can&apos;t find what you&apos;re looking for?</h3>
+            <h3 className="font-semibold text-gray-900">
+              Can&apos;t find what you&apos;re looking for?
+            </h3>
             <p className="mt-1 text-sm text-gray-600">
               Contact our support team and we&apos;ll be happy to help with any questions about your
               treatment or medication.

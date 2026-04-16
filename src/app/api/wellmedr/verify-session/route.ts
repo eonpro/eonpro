@@ -22,10 +22,7 @@ async function handler(req: NextRequest) {
     });
 
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: 'Invalid parameters' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid parameters' }, { status: 400 });
     }
 
     const { subscription_id: subscriptionId, payment_intent: paymentIntentId } = parsed.data;
@@ -111,10 +108,7 @@ async function handler(req: NextRequest) {
     Sentry.captureException(error, {
       tags: { module: 'wellmedr-checkout', route: 'verify-session' },
     });
-    return NextResponse.json(
-      { error: 'Failed to verify session' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to verify session' }, { status: 500 });
   }
 }
 

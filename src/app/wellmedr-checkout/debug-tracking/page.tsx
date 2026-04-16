@@ -31,8 +31,7 @@ interface ServiceStatus {
 // ── Gate ────────────────────────────────────────────────────────────
 
 const DEBUG_ALLOWED =
-  process.env.NODE_ENV !== 'production' ||
-  process.env.NEXT_PUBLIC_DEBUG_TRACKING === 'true';
+  process.env.NODE_ENV !== 'production' || process.env.NEXT_PUBLIC_DEBUG_TRACKING === 'true';
 
 // ── Test product used by simulate buttons ──────────────────────────
 
@@ -70,14 +69,11 @@ function DebugDashboard() {
   const seqRef = useRef(0);
   const patchedRef = useRef(false);
 
-  const addEvent = useCallback(
-    (platform: Platform, eventName: string, data: unknown) => {
-      seqRef.current += 1;
-      const id = seqRef.current;
-      setEvents((prev) => [{ id, platform, eventName, data, ts: Date.now() }, ...prev].slice(0, 200));
-    },
-    []
-  );
+  const addEvent = useCallback((platform: Platform, eventName: string, data: unknown) => {
+    seqRef.current += 1;
+    const id = seqRef.current;
+    setEvents((prev) => [{ id, platform, eventName, data, ts: Date.now() }, ...prev].slice(0, 200));
+  }, []);
 
   // ── Patch dataLayer.push & posthog.capture ─────────────────────
   useEffect(() => {
@@ -122,7 +118,9 @@ function DebugDashboard() {
   useEffect(() => {
     const check = () => {
       setStatus({
-        gtm: !!(window as any).google_tag_manager || !!document.querySelector('script[src*="googletagmanager"]'),
+        gtm:
+          !!(window as any).google_tag_manager ||
+          !!document.querySelector('script[src*="googletagmanager"]'),
         googleAds: typeof (window as any).gtag === 'function',
         posthog: !!(window.posthog as any)?.__loaded,
         dataLayer: Array.isArray(window.dataLayer) && window.dataLayer.length > 0,
@@ -154,7 +152,10 @@ function DebugDashboard() {
   const filtered = events.filter((e) => filter.has(e.platform));
 
   return (
-    <div className="min-h-screen bg-[#0d1117] text-gray-200" style={{ fontFamily: 'ui-monospace, monospace' }}>
+    <div
+      className="min-h-screen bg-[#0d1117] text-gray-200"
+      style={{ fontFamily: 'ui-monospace, monospace' }}
+    >
       {/* Header */}
       <div className="sticky top-0 z-20 border-b border-gray-800 bg-[#161b22] px-4 py-3">
         <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -191,14 +192,8 @@ function DebugDashboard() {
           {/* Simulate */}
           <Panel title="Simulate Events">
             <div className="flex flex-col gap-2">
-              <SimButton
-                label="view_item"
-                onClick={() => pushViewItem(TEST_PRODUCT)}
-              />
-              <SimButton
-                label="add_to_cart"
-                onClick={() => pushAddToCart(TEST_PRODUCT)}
-              />
+              <SimButton label="view_item" onClick={() => pushViewItem(TEST_PRODUCT)} />
+              <SimButton label="add_to_cart" onClick={() => pushAddToCart(TEST_PRODUCT)} />
               <SimButton
                 label="begin_checkout"
                 onClick={() => {
@@ -278,19 +273,31 @@ function DebugDashboard() {
             <div className="space-y-3 text-xs leading-relaxed text-gray-400">
               <div>
                 <p className="mb-1 font-semibold text-gray-300">GTM Preview Mode</p>
-                <p>Go to tagmanager.google.com, open your container, click &quot;Preview&quot;, enter your checkout URL. The debug panel shows every tag that fires.</p>
+                <p>
+                  Go to tagmanager.google.com, open your container, click &quot;Preview&quot;, enter
+                  your checkout URL. The debug panel shows every tag that fires.
+                </p>
               </div>
               <div>
                 <p className="mb-1 font-semibold text-gray-300">Meta Pixel Helper</p>
-                <p>Install the &quot;Meta Pixel Helper&quot; Chrome extension. Badge count shows events fired. Click for event names, params, and pixel ID match.</p>
+                <p>
+                  Install the &quot;Meta Pixel Helper&quot; Chrome extension. Badge count shows
+                  events fired. Click for event names, params, and pixel ID match.
+                </p>
               </div>
               <div>
                 <p className="mb-1 font-semibold text-gray-300">PostHog Toolbar</p>
-                <p>In PostHog dashboard, click &quot;Toolbar&quot;, enter your checkout URL. PostHog overlays an event inspector on the page.</p>
+                <p>
+                  In PostHog dashboard, click &quot;Toolbar&quot;, enter your checkout URL. PostHog
+                  overlays an event inspector on the page.
+                </p>
               </div>
               <div>
                 <p className="mb-1 font-semibold text-gray-300">Google Tag Assistant</p>
-                <p>Install &quot;Tag Assistant Companion&quot; Chrome extension. Enable recording, walk through checkout, review the tag timeline.</p>
+                <p>
+                  Install &quot;Tag Assistant Companion&quot; Chrome extension. Enable recording,
+                  walk through checkout, review the tag timeline.
+                </p>
               </div>
             </div>
           </Panel>
@@ -392,7 +399,10 @@ function EventRow({
   expanded: boolean;
   onToggle: () => void;
 }) {
-  const time = new Date(evt.ts).toLocaleTimeString('en-US', { hour12: false, fractionalSecondDigits: 3 });
+  const time = new Date(evt.ts).toLocaleTimeString('en-US', {
+    hour12: false,
+    fractionalSecondDigits: 3,
+  });
 
   return (
     <div

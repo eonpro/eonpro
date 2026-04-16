@@ -55,79 +55,70 @@ export default function AffiliateActivityPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(1);
 
-  const fetchActivity = useCallback(
-    async (pageNum: number, append = false) => {
-      if (pageNum === 1) setIsLoading(true);
-      else setLoadingMore(true);
-      setLoadError(null);
+  const fetchActivity = useCallback(async (pageNum: number, append = false) => {
+    if (pageNum === 1) setIsLoading(true);
+    else setLoadingMore(true);
+    setLoadError(null);
 
-      try {
-        // Fetch from dashboard for initial data, then commissions for more detail
-        const [dashboardRes, commissionsRes] = await Promise.all([
-          pageNum === 1 ? apiFetch('/api/affiliate/dashboard') : null,
-          apiFetch(`/api/affiliate/commissions?page=${pageNum}&limit=20`),
-        ]);
+    try {
+      // Fetch from dashboard for initial data, then commissions for more detail
+      const [dashboardRes, commissionsRes] = await Promise.all([
+        pageNum === 1 ? apiFetch('/api/affiliate/dashboard') : null,
+        apiFetch(`/api/affiliate/commissions?page=${pageNum}&limit=20`),
+      ]);
 
-        let combined: ActivityItem[] = [];
+      let combined: ActivityItem[] = [];
 
-        if (dashboardRes?.ok) {
-          const dashData = await dashboardRes.json();
-          combined = dashData.recentActivity || [];
-        }
+      if (dashboardRes?.ok) {
+        const dashData = await dashboardRes.json();
+        combined = dashData.recentActivity || [];
+      }
 
-        if (commissionsRes?.ok) {
-          const commData = await commissionsRes.json();
-          const commItems: ActivityItem[] = (commData.commissions || []).map(
-            (c: any) => ({
-              id: `comm-${c.id}`,
-              type: 'conversion' as const,
-              amount: c.commissionAmountCents,
-              createdAt: c.occurredAt || c.createdAt,
-              description: `Commission: ${c.metadata?.planName || 'Referral'} (${c.status?.toLowerCase()})`,
-            })
-          );
-
-          if (append) {
-            combined = commItems;
-          } else {
-            // Merge without duplicates
-            const existingIds = new Set(combined.map((a) => a.id));
-            for (const item of commItems) {
-              if (!existingIds.has(item.id)) {
-                combined.push(item);
-              }
-            }
-          }
-
-          setHasMore(
-            commData.pagination
-              ? commData.pagination.page < commData.pagination.totalPages
-              : false
-          );
-        }
-
-        combined.sort(
-          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
+      if (commissionsRes?.ok) {
+        const commData = await commissionsRes.json();
+        const commItems: ActivityItem[] = (commData.commissions || []).map((c: any) => ({
+          id: `comm-${c.id}`,
+          type: 'conversion' as const,
+          amount: c.commissionAmountCents,
+          createdAt: c.occurredAt || c.createdAt,
+          description: `Commission: ${c.metadata?.planName || 'Referral'} (${c.status?.toLowerCase()})`,
+        }));
 
         if (append) {
-          setActivities((prev) => {
-            const existingIds = new Set(prev.map((a) => a.id));
-            const newItems = combined.filter((item) => !existingIds.has(item.id));
-            return [...prev, ...newItems];
-          });
+          combined = commItems;
         } else {
-          setActivities(combined);
+          // Merge without duplicates
+          const existingIds = new Set(combined.map((a) => a.id));
+          for (const item of commItems) {
+            if (!existingIds.has(item.id)) {
+              combined.push(item);
+            }
+          }
         }
-      } catch {
-        setLoadError('Failed to load activity. Please try again.');
-      } finally {
-        setIsLoading(false);
-        setLoadingMore(false);
+
+        setHasMore(
+          commData.pagination ? commData.pagination.page < commData.pagination.totalPages : false
+        );
       }
-    },
-    []
-  );
+
+      combined.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+      if (append) {
+        setActivities((prev) => {
+          const existingIds = new Set(prev.map((a) => a.id));
+          const newItems = combined.filter((item) => !existingIds.has(item.id));
+          return [...prev, ...newItems];
+        });
+      } else {
+        setActivities(combined);
+      }
+    } catch {
+      setLoadError('Failed to load activity. Please try again.');
+    } finally {
+      setIsLoading(false);
+      setLoadingMore(false);
+    }
+  }, []);
 
   useEffect(() => {
     fetchActivity(1);
@@ -286,9 +277,7 @@ export default function AffiliateActivityPage() {
                             style={{ color: 'var(--brand-accent)' }}
                           />
                         )}
-                        {activity.type === 'click' && (
-                          <Clock className="h-5 w-5 text-gray-600" />
-                        )}
+                        {activity.type === 'click' && <Clock className="h-5 w-5 text-gray-600" />}
                       </div>
                       <div>
                         <p className="font-medium text-gray-900">{activity.description}</p>

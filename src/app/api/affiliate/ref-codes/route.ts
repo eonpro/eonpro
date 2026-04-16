@@ -128,7 +128,9 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       request.headers.get('x-forwarded-host')?.split(',')[0]?.trim() ||
       request.headers.get('host') ||
       ''
-    ).split(':')[0].toLowerCase();
+    )
+      .split(':')[0]
+      .toLowerCase();
     const protocol = request.headers.get('x-forwarded-proto') || 'https';
     const isAffiliateDomainHost = request.headers.get('x-affiliate-domain') === 'true';
 

@@ -4,7 +4,11 @@ import { useSearchParams } from 'next/navigation';
 import { Suspense, useState, useEffect, useRef } from 'react';
 import Header from '../components/ui/Header';
 import UpsellModal from './components/UpsellModal';
-import { PATIENT_DATA_KEY, SUBSCRIPTION_ID_KEY, AIRTABLE_RECORD_KEY } from '@/app/wellmedr-checkout/lib/session-keys';
+import {
+  PATIENT_DATA_KEY,
+  SUBSCRIPTION_ID_KEY,
+  AIRTABLE_RECORD_KEY,
+} from '@/app/wellmedr-checkout/lib/session-keys';
 
 function ThankYouContent() {
   const searchParams = useSearchParams();
@@ -25,7 +29,9 @@ function ThankYouContent() {
   }
 
   const [customerId, setCustomerId] = useState<string | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<{ brand: string; last4: string } | undefined>();
+  const [paymentMethod, setPaymentMethod] = useState<
+    { brand: string; last4: string } | undefined
+  >();
   const [showUpsell, setShowUpsell] = useState(false);
   const [glp1Details, setGlp1Details] = useState('');
   const [glp1Status, setGlp1Status] = useState<'idle' | 'submitting' | 'submitted'>('idle');
@@ -37,9 +43,7 @@ function ThankYouContent() {
     verifiedRef.current = true;
 
     const subscriptionId =
-      typeof sessionStorage !== 'undefined'
-        ? sessionStorage.getItem(SUBSCRIPTION_ID_KEY)
-        : null;
+      typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(SUBSCRIPTION_ID_KEY) : null;
 
     if (!subscriptionId) return;
 
@@ -72,9 +76,7 @@ function ThankYouContent() {
     if (!glp1Details.trim()) return;
 
     const airtableRecordId =
-      typeof sessionStorage !== 'undefined'
-        ? sessionStorage.getItem(AIRTABLE_RECORD_KEY)
-        : null;
+      typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(AIRTABLE_RECORD_KEY) : null;
     if (!airtableRecordId) return;
 
     setGlp1Status('submitting');
@@ -137,7 +139,9 @@ function ThankYouContent() {
                 Please specify your current GLP-1 dosage below. A licensed clinician will review
                 your information and determine the appropriate dosage.
               </p>
-              <label htmlFor="glp1-details" className="sr-only">Current GLP-1 dosage</label>
+              <label htmlFor="glp1-details" className="sr-only">
+                Current GLP-1 dosage
+              </label>
               <textarea
                 id="glp1-details"
                 value={glp1Details}

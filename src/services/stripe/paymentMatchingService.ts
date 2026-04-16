@@ -1583,7 +1583,10 @@ export async function processStripePayment(
     }
 
     // Promote LEAD or PENDING_COMPLETION patients to ACTIVE on successful payment
-    if (patient && (patient.profileStatus === 'LEAD' || patient.profileStatus === 'PENDING_COMPLETION')) {
+    if (
+      patient &&
+      (patient.profileStatus === 'LEAD' || patient.profileStatus === 'PENDING_COMPLETION')
+    ) {
       const previousStatus = patient.profileStatus;
       const updateData: Record<string, unknown> = {
         profileStatus: 'ACTIVE',

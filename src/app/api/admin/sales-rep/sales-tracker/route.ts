@@ -154,11 +154,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         // Decrypt patient PHI fields
         let patientData = null;
         if (p.patient) {
-          const decrypted = decryptPatientPHI(p.patient, [
-            'firstName',
-            'lastName',
-            'email',
-          ]);
+          const decrypted = decryptPatientPHI(p.patient, ['firstName', 'lastName', 'email']);
           patientData = {
             id: p.patient.id,
             firstName: decrypted.firstName || '[Encrypted]',
@@ -190,8 +186,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
                 commissionEventId: commission.id,
                 commissionType: commission.isRecurring ? 'RECURRING' : 'NEW',
                 commissionAmountCents: commission.commissionAmountCents,
-                planName:
-                  (commission.metadata as Record<string, any> | null)?.planName || null,
+                planName: (commission.metadata as Record<string, any> | null)?.planName || null,
                 breakdown: {
                   base: commission.baseCommissionCents,
                   volumeTier: commission.volumeTierBonusCents,

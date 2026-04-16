@@ -51,7 +51,6 @@ export default function WmGoalWeightStep({
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-
   return (
     <div className="flex min-h-[100dvh] flex-col" style={{ backgroundColor: '#F7F7F9' }}>
       <style>{`

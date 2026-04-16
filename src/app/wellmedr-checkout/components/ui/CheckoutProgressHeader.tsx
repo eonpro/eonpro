@@ -70,9 +70,7 @@ const CheckoutProgressHeader = ({ currentStep }: { currentStep: StepNames }) => 
                 ) : null}
               </div>
               <span
-                className={`text-sm font-medium ${
-                  state === 'pending' ? 'text-gray-400' : ''
-                }`}
+                className={`text-sm font-medium ${state === 'pending' ? 'text-gray-400' : ''}`}
                 style={state !== 'pending' ? { color: '#101010' } : undefined}
                 {...(state === 'active' ? { 'aria-current': 'step' as const } : {})}
               >

@@ -138,7 +138,6 @@ export default function WmImageCardStep({
     requestAnimationFrame(() => setMounted(true));
   }, []);
 
-
   const resolvedHeaderItalic =
     headerItalic === 'gender-text' ? (responses.sex === 'female' ? 'Women' : 'Men') : headerItalic;
 

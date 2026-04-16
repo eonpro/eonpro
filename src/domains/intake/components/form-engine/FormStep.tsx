@@ -87,6 +87,7 @@ interface FormStepProps {
   onNavigate: (stepId: string) => void;
   onBack: () => void;
   onLanguageChange?: (lang: 'en' | 'es') => void;
+  hideBackButton?: boolean;
 }
 
 export default function FormStep({
@@ -102,6 +103,7 @@ export default function FormStep({
   onNavigate,
   onBack,
   onLanguageChange,
+  hideBackButton,
 }: FormStepProps) {
   const isSpanish = language === 'es';
 
@@ -681,8 +683,8 @@ export default function FormStep({
         />
       </div>
 
-      {/* Back button - ghost style */}
-      {config.prevStep && (
+      {/* Back button - ghost style (hidden for WellMedR) */}
+      {config.prevStep && !hideBackButton && (
         <div className={`${contentPadding} pt-6 ${contentMaxWidth} mx-auto w-full`}>
           <button
             onClick={handleBack}

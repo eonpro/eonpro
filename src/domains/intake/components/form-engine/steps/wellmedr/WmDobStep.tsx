@@ -163,7 +163,6 @@ export default function WmDobStep({
     return () => window.removeEventListener('keydown', onKey);
   }, [handleContinue]);
 
-
   const dayOptions = Array.from({ length: 31 }, (_, i) => ({
     value: String(i + 1),
     label: String(i + 1),

@@ -101,7 +101,6 @@ async function firePurchaseEvents(
   localStorage.setItem(purchaseKey, 'true');
 }
 
-
 function storeSubscriptionId(subscriptionId: string) {
   if (typeof window === 'undefined') return;
   try {
@@ -284,9 +283,8 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
       throw new Error('Shipping address is required.');
     }
 
-    const storedPatientId = typeof window !== 'undefined'
-      ? sessionStorage.getItem(PATIENT_ID_KEY)
-      : null;
+    const storedPatientId =
+      typeof window !== 'undefined' ? sessionStorage.getItem(PATIENT_ID_KEY) : null;
 
     logger.log('[CLIENT] Calling /api/create-subscription...');
     const response = await fetch('/api/wellmedr/create-subscription', {
@@ -396,11 +394,7 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
         });
 
         // GTM add_payment_info event for express checkout
-        if (
-          typeof window !== 'undefined' &&
-          window.dataLayer &&
-          formData.selectedProduct
-        ) {
+        if (typeof window !== 'undefined' && window.dataLayer && formData.selectedProduct) {
           window.dataLayer.push({
             event: 'add_payment_info',
             ecommerce: {
@@ -427,7 +421,11 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
         // If subscription is already active (100% discount), redirect to thank you
         if (subscriptionData.status === 'active' && subscriptionData.success) {
           const formData = getValues();
-          await firePurchaseEvents(subscriptionData.subscriptionId || submissionId, formData, 'express_free');
+          await firePurchaseEvents(
+            subscriptionData.subscriptionId || submissionId,
+            formData,
+            'express_free'
+          );
           clearSubscriptionId();
           setPaymentCompleted(true);
           router.push(`/wellmedr-checkout/thank-you?uid=${submissionId}`);
@@ -540,7 +538,11 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
 
       // If subscription is already active (100% discount), redirect to thank you
       if (subscriptionData.status === 'active' && subscriptionData.success) {
-        await firePurchaseEvents(subscriptionData.subscriptionId || submissionId, formData, 'card_free');
+        await firePurchaseEvents(
+          subscriptionData.subscriptionId || submissionId,
+          formData,
+          'card_free'
+        );
         clearSubscriptionId();
         setPaymentCompleted(true);
         router.push(`/wellmedr-checkout/thank-you?uid=${submissionId}`);
@@ -775,7 +777,9 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
           />
 
           {error && (
-            <div role="alert" className="mt-2 flex items-center gap-2 text-sm text-red-500">{error}</div>
+            <div role="alert" className="mt-2 flex items-center gap-2 text-sm text-red-500">
+              {error}
+            </div>
           )}
         </div>
 

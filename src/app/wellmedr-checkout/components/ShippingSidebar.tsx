@@ -92,11 +92,23 @@ export default function ShippingSidebar() {
           ].map((item) => (
             <div key={item} className="flex items-center gap-3">
               <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-green-500">
-                <svg className="h-3.5 w-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                <svg
+                  className="h-3.5 w-3.5 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={3}
+                    d="M5 13l4 4L19 7"
+                  />
                 </svg>
               </div>
-              <span className="text-sm font-medium" style={{ color: '#1a1a1a' }}>{item}</span>
+              <span className="text-sm font-medium" style={{ color: '#1a1a1a' }}>
+                {item}
+              </span>
             </div>
           ))}
         </div>
@@ -156,11 +168,23 @@ export default function ShippingSidebar() {
               </p>
               <div className="flex items-center gap-1.5">
                 <div className="flex h-4 w-4 items-center justify-center rounded-full bg-green-500">
-                  <svg className="h-2.5 w-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  <svg
+                    className="h-2.5 w-2.5 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={3}
+                      d="M5 13l4 4L19 7"
+                    />
                   </svg>
                 </div>
-                <span className="text-xs font-semibold" style={{ color: '#22c55e' }}>{review.badge}</span>
+                <span className="text-xs font-semibold" style={{ color: '#22c55e' }}>
+                  {review.badge}
+                </span>
               </div>
             </div>
           </div>
@@ -178,8 +202,19 @@ export default function ShippingSidebar() {
           style={{ borderColor: 'rgba(0,0,0,0.08)' }}
           aria-label="Previous review"
         >
-          <svg className="h-4 w-4" style={{ color: '#333' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+          <svg
+            className="h-4 w-4"
+            style={{ color: '#333' }}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2.5}
+              d="M15 19l-7-7 7-7"
+            />
           </svg>
         </button>
         <button
@@ -188,7 +223,13 @@ export default function ShippingSidebar() {
           style={{ borderColor: 'rgba(0,0,0,0.08)' }}
           aria-label="Next review"
         >
-          <svg className="h-4 w-4" style={{ color: '#333' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg
+            className="h-4 w-4"
+            style={{ color: '#333' }}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
           </svg>
         </button>

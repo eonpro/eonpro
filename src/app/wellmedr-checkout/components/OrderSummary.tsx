@@ -186,18 +186,47 @@ export default function OrderSummary() {
           </p>
           <button className="text-gray-400 hover:text-gray-600" aria-label="Dismiss">
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
         <div className="space-y-0 divide-y divide-gray-200/60">
           {[
-            { text: 'Unlimited Video Calls With Clinicians', price: '$129', img: '/assets/images/whats-included/consult.webp' },
-            { text: 'Always On Medical Assistance via Phone', price: '$89', img: '/assets/images/whats-included/care.webp' },
-            { text: '100% U.S. Based Care Agents', price: '$69', img: '/assets/images/products/commun.webp' },
-            { text: 'On-Time Refills Guaranteed', price: '$49', img: '/assets/images/products/wellmedrtruck.webp' },
-            { text: 'Access the WellMedr Member Community', price: '$29', img: '/assets/images/whats-included/commun.webp' },
-            { text: 'WellMedr Weight Loss Warranty', price: null, img: '/assets/images/whats-included/warranty-badge.webp' },
+            {
+              text: 'Unlimited Video Calls With Clinicians',
+              price: '$129',
+              img: '/assets/images/whats-included/consult.webp',
+            },
+            {
+              text: 'Always On Medical Assistance via Phone',
+              price: '$89',
+              img: '/assets/images/whats-included/care.webp',
+            },
+            {
+              text: '100% U.S. Based Care Agents',
+              price: '$69',
+              img: '/assets/images/products/commun.webp',
+            },
+            {
+              text: 'On-Time Refills Guaranteed',
+              price: '$49',
+              img: '/assets/images/products/wellmedrtruck.webp',
+            },
+            {
+              text: 'Access the WellMedr Member Community',
+              price: '$29',
+              img: '/assets/images/whats-included/commun.webp',
+            },
+            {
+              text: 'WellMedr Weight Loss Warranty',
+              price: null,
+              img: '/assets/images/whats-included/warranty-badge.webp',
+            },
           ].map((b, i) => (
             <div key={i} className="flex items-center justify-between py-3">
               <div className="flex items-center gap-3">

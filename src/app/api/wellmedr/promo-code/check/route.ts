@@ -31,7 +31,7 @@ async function handler(req: NextRequest) {
 
     // Hardcoded coupon-to-plan restrictions (server-side enforcement)
     const COUPON_PLAN_RESTRICTIONS: Record<string, string[]> = {
-      'GOAL10': ['monthly', 'quarterly', 'sixMonth', 'annual'],
+      GOAL10: ['monthly', 'quarterly', 'sixMonth', 'annual'],
       '50OFF': ['quarterly'],
       '200OFF': ['quarterly'],
       '100OFF': ['sixMonth'],

@@ -209,7 +209,12 @@ async function loginHandler(req: NextRequest) {
 
       // Debug info only in development
       if (process.env.NODE_ENV === 'development') {
-        debugInfo = { step: 'parsed_body', emailPrefix: redactEmail(email), role, hasPassword: !!password };
+        debugInfo = {
+          step: 'parsed_body',
+          emailPrefix: redactEmail(email),
+          role,
+          hasPassword: !!password,
+        };
         logger.debug('[Login] Starting login', debugInfo);
       }
 

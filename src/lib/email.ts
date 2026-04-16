@@ -116,7 +116,9 @@ export async function sendEmail(options: EmailOptions): Promise<EmailResult> {
       try {
         const isSuppressed = await emailLogService.isEmailSuppressed(email);
         if (isSuppressed) {
-          logger.warn('Email suppressed - recipient has bounced or complained', { emailRedacted: redactEmail(email) });
+          logger.warn('Email suppressed - recipient has bounced or complained', {
+            emailRedacted: redactEmail(email),
+          });
           return {
             success: false,
             error: `Email address is suppressed due to previous bounce or complaint`,

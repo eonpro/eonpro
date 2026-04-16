@@ -12,7 +12,10 @@ import { logger } from '@/lib/logger';
 
 function getAllowedProductIds(): Set<string> {
   const raw = process.env.WELLMEDR_UPSELL_ALLOWED_PRODUCT_IDS || '';
-  const ids = raw.split(',').map((s) => s.trim()).filter(Boolean);
+  const ids = raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
   return new Set(ids);
 }
 

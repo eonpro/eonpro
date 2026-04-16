@@ -45,7 +45,6 @@ export default function WmCheckboxListStep({
   }, []);
   const fadeInStyle = { opacity: mounted ? 1 : 0, transition: 'opacity 0.5s ease' };
 
-
   const [selected, setSelected] = useState<string[]>(
     Array.isArray(responses[storageKey]) ? (responses[storageKey] as string[]) : []
   );
@@ -59,7 +58,10 @@ export default function WmCheckboxListStep({
         setSelected([noneOptionId]);
         setResponse(storageKey, [noneOptionId]);
         markStepCompleted(storageKey);
-        setTimeout(() => { setCurrentStep(nextStep); router.push(`${basePath}/${nextStep}`); }, 300);
+        setTimeout(() => {
+          setCurrentStep(nextStep);
+          router.push(`${basePath}/${nextStep}`);
+        }, 300);
       }
       return;
     }

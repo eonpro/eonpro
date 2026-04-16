@@ -10,14 +10,7 @@ interface WmCurrentMedsStepProps {
   progressPercent: number;
 }
 
-const COMMON_MEDS = [
-  'Semaglutide',
-  'Tirzepatide',
-  'Ozempic',
-  'Wegovy',
-  'Zepbound',
-  'Mounjaro',
-];
+const COMMON_MEDS = ['Semaglutide', 'Tirzepatide', 'Ozempic', 'Wegovy', 'Zepbound', 'Mounjaro'];
 
 const medsList = COMMON_MEDS.map((name) => ({
   id: name.toLowerCase(),
@@ -116,7 +109,6 @@ export default function WmCurrentMedsStep({
     setCurrentStep(nextStep);
     router.push(`${basePath}/${nextStep}`);
   };
-
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && search.trim()) {

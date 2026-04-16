@@ -85,7 +85,7 @@ export default function AffiliateResourcesPage() {
         'Add your referral link to your social media bio — this is where most conversions come from',
         'Create separate tracking links for each platform (Instagram, TikTok, etc.) to see what works best',
         'Share your personal experience and results for the most authentic content',
-        'Engage with your audience\'s questions in DMs to build trust before sharing your link',
+        "Engage with your audience's questions in DMs to build trust before sharing your link",
       ],
     },
     {
@@ -97,7 +97,7 @@ export default function AffiliateResourcesPage() {
         'Create before/after content (with permission) to show real results',
         'Do Q&A sessions or Lives where you answer common questions',
         'Share quick tips related to wellness that naturally lead to your recommendation',
-        'Post testimonials or success stories (anonymized) from people you\'ve referred',
+        "Post testimonials or success stories (anonymized) from people you've referred",
       ],
     },
     {
@@ -211,9 +211,7 @@ export default function AffiliateResourcesPage() {
             {tipSections.map((section) => (
               <div key={section.id} className="rounded-2xl bg-white">
                 <button
-                  onClick={() =>
-                    setExpandedTip(expandedTip === section.id ? null : section.id)
-                  }
+                  onClick={() => setExpandedTip(expandedTip === section.id ? null : section.id)}
                   className="flex w-full items-center justify-between p-4"
                 >
                   <div className="flex items-center gap-3">

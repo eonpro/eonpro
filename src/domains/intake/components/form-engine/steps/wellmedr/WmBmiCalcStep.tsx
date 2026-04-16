@@ -37,7 +37,8 @@ export default function WmBmiCalcStep({ basePath, nextStep, progressPercent }: W
     const weightNum = Number(weight);
 
     if (!feet || feetNum < 3 || feetNum > 7) newErrors.feet = 'Feet must be between 3 and 7';
-    if (inches === '' || inchesNum < 0 || inchesNum > 11) newErrors.inches = 'Inches must be between 0 and 11';
+    if (inches === '' || inchesNum < 0 || inchesNum > 11)
+      newErrors.inches = 'Inches must be between 0 and 11';
     if (!weight || weightNum < 50 || weightNum > 800) newErrors.weight = 'Enter a valid weight';
 
     if (Object.keys(newErrors).length > 0) {
@@ -187,7 +188,9 @@ export default function WmBmiCalcStep({ basePath, nextStep, progressPercent }: W
                 }}
               />
               {errors.feet && (
-                <span className="text-xs" style={{ color: '#ef4444' }}>{errors.feet}</span>
+                <span className="text-xs" style={{ color: '#ef4444' }}>
+                  {errors.feet}
+                </span>
               )}
             </div>
             <div className="flex flex-1 flex-col gap-2">
@@ -212,7 +215,9 @@ export default function WmBmiCalcStep({ basePath, nextStep, progressPercent }: W
                 }}
               />
               {errors.inches && (
-                <span className="text-xs" style={{ color: '#ef4444' }}>{errors.inches}</span>
+                <span className="text-xs" style={{ color: '#ef4444' }}>
+                  {errors.inches}
+                </span>
               )}
             </div>
           </div>
@@ -239,7 +244,9 @@ export default function WmBmiCalcStep({ basePath, nextStep, progressPercent }: W
               }}
             />
             {errors.weight && (
-              <span className="text-xs" style={{ color: '#ef4444' }}>{errors.weight}</span>
+              <span className="text-xs" style={{ color: '#ef4444' }}>
+                {errors.weight}
+              </span>
             )}
           </div>
         </div>

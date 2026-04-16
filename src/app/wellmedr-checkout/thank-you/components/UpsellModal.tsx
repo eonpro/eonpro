@@ -10,8 +10,7 @@ const UPSELL_PRODUCTS = {
     priceCents: 6900,
     daily: '$2.30/day',
     headline: 'Most Patients Add This — Prevent Fatigue',
-    description:
-      'Boost your energy, sharpen mental clarity, and eliminate brain fog.',
+    description: 'Boost your energy, sharpen mental clarity, and eliminate brain fog.',
     bullets: ['Boosts Metabolism', 'Eliminates Brain Fog', 'Improves Energy'],
   },
   nad: {
@@ -165,11 +164,26 @@ export default function UpsellModal({
 
   if (success) {
     return (
-      <div role="dialog" aria-modal="true" aria-label="Upsell added" className="fixed inset-0 z-50 flex items-center justify-center bg-white">
-        <div className="max-w-md w-full text-center px-6">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Upsell added"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-white"
+      >
+        <div className="w-full max-w-md px-6 text-center">
           <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-green-100">
-            <svg className="h-10 w-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            <svg
+              className="h-10 w-10 text-green-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
             </svg>
           </div>
           <h2 className="mb-3 text-2xl font-bold" style={{ color: '#0c2631' }}>
@@ -191,7 +205,14 @@ export default function UpsellModal({
   if (isBundle) {
     const price = step.discounted ? '$179' : '$199';
     return (
-      <div ref={modalRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={step.discounted ? 'Final bundle offer' : 'Bundle offer'} className="fixed inset-0 z-50 flex flex-col bg-white">
+      <div
+        ref={modalRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-label={step.discounted ? 'Final bundle offer' : 'Bundle offer'}
+        className="fixed inset-0 z-50 flex flex-col bg-white"
+      >
         <div className="flex-shrink-0 py-4 text-center">
           <span className="inline-block rounded-full bg-green-600 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-white">
             One-Time Offer
@@ -212,7 +233,9 @@ export default function UpsellModal({
               </p>
               <div className="flex items-baseline gap-2">
                 <span className="text-lg text-gray-400 line-through">$267</span>
-                {step.discounted && <span className="text-lg text-gray-400 line-through">$199</span>}
+                {step.discounted && (
+                  <span className="text-lg text-gray-400 line-through">$199</span>
+                )}
                 <span className="text-4xl font-bold text-green-600">{price}</span>
                 <span className="text-gray-500">/mo</span>
               </div>
@@ -224,7 +247,9 @@ export default function UpsellModal({
           <div className="mx-auto max-w-md px-6">
             {paymentMethod && (
               <div className="mb-2 flex items-center justify-center gap-2 text-sm text-gray-500">
-                <span>Charging {brandDisplay(paymentMethod.brand)} ending in {paymentMethod.last4}</span>
+                <span>
+                  Charging {brandDisplay(paymentMethod.brand)} ending in {paymentMethod.last4}
+                </span>
               </div>
             )}
             {error && <p className="mb-2 text-center text-sm text-red-500">{error}</p>}
@@ -251,7 +276,14 @@ export default function UpsellModal({
   if (!product) return null;
 
   return (
-    <div ref={modalRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={product.name} className="fixed inset-0 z-50 flex flex-col bg-white">
+    <div
+      ref={modalRef}
+      tabIndex={-1}
+      role="dialog"
+      aria-modal="true"
+      aria-label={product.name}
+      className="fixed inset-0 z-50 flex flex-col bg-white"
+    >
       <div className="flex-shrink-0 py-4 text-center">
         <span className="inline-block rounded-full bg-green-600 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-white">
           One-Time Offer
@@ -288,7 +320,9 @@ export default function UpsellModal({
         <div className="mx-auto max-w-md px-6">
           {paymentMethod && (
             <div className="mb-2 flex items-center justify-center gap-2 text-sm text-gray-500">
-              <span>Charging {brandDisplay(paymentMethod.brand)} ending in {paymentMethod.last4}</span>
+              <span>
+                Charging {brandDisplay(paymentMethod.brand)} ending in {paymentMethod.last4}
+              </span>
             </div>
           )}
           {error && <p className="mb-2 text-center text-sm text-red-500">{error}</p>}

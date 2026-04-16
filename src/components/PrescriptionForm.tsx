@@ -269,8 +269,31 @@ export default function PrescriptionForm({
   const TESTOSTERONE_APPROVED_STATES = useMemo(
     () =>
       new Set([
-        'AZ','CO','CT','DE','FL','GA','HI','ID','ME','MN','MO','MT',
-        'ND','NH','NJ','NM','NY','OH','PA','RI','SD','UT','DC','WI','WY',
+        'AZ',
+        'CO',
+        'CT',
+        'DE',
+        'FL',
+        'GA',
+        'HI',
+        'ID',
+        'ME',
+        'MN',
+        'MO',
+        'MT',
+        'ND',
+        'NH',
+        'NJ',
+        'NM',
+        'NY',
+        'OH',
+        'PA',
+        'RI',
+        'SD',
+        'UT',
+        'DC',
+        'WI',
+        'WY',
       ]),
     []
   );

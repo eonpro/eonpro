@@ -76,7 +76,6 @@ export default function WmAnimatedWeightChartStep({
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-
   const W = 600,
     H = 320,
     L = 70,

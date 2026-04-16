@@ -37,7 +37,6 @@ export default function WmYesNoDetailStep({
   }, []);
   const fadeInStyle = { opacity: mounted ? 1 : 0, transition: 'opacity 0.5s ease' };
 
-
   const [answer, setAnswer] = useState<string>(String(responses[storageKey] || ''));
   const [detail, setDetail] = useState<string>(String(responses[detailStorageKey] || ''));
   const [detailError, setDetailError] = useState(false);
@@ -182,7 +181,11 @@ export default function WmYesNoDetailStep({
             style={{ backgroundColor: '#eef2f5', animation: 'wmSlideDown 0.3s ease-out' }}
           >
             <style>{`@keyframes wmSlideDown { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }`}</style>
-            <label htmlFor={`detail-${storageKey}`} className="mb-2 block text-sm font-medium" style={{ color: '#666' }}>
+            <label
+              htmlFor={`detail-${storageKey}`}
+              className="mb-2 block text-sm font-medium"
+              style={{ color: '#666' }}
+            >
               {detailPrompt}
               <span className="ml-1" style={{ color: '#ef4444' }}>
                 *

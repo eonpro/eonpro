@@ -480,9 +480,7 @@ function buildSections(payload: Record<string, unknown>): IntakeSection[] {
     logger.debug('[Normalizer] Extracted answers from data object:', { count: answers.length });
     if (answers.length > 0) {
       logger.debug('[Normalizer] Sample fields:', {
-        samples: answers
-          .slice(0, 5)
-          .map((a: any) => `${a.id}=${a.label}`),
+        samples: answers.slice(0, 5).map((a: any) => `${a.id}=${a.label}`),
       });
     }
 

@@ -123,7 +123,6 @@ export default function WmCongratsStep({
   const responses = useIntakeStore((s) => s.responses);
   const { markStepCompleted, setCurrentStep } = useIntakeActions();
 
-
   const weight = Number(responses.current_weight) || 200;
   const goalWeight = Number(responses.ideal_weight) || 150;
   const lbsToLose = weight - goalWeight;

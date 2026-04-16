@@ -120,7 +120,9 @@ function PaymentReturnContent() {
         setErrorMessage('Failed to verify payment status.');
         const uid = searchParams.get('uid');
         setTimeout(() => {
-          router.push(uid ? `/wellmedr-checkout?uid=${encodeURIComponent(uid)}&payment_error=true` : '/');
+          router.push(
+            uid ? `/wellmedr-checkout?uid=${encodeURIComponent(uid)}&payment_error=true` : '/'
+          );
         }, 2500);
       }
     };

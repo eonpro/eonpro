@@ -133,10 +133,7 @@ export async function POST(req: NextRequest) {
           }
 
           // --- Attentive purchase event (non-blocking) ---
-          let resolvedEmail =
-            pi.receipt_email ||
-            pi.metadata?.email ||
-            null;
+          let resolvedEmail = pi.receipt_email || pi.metadata?.email || null;
 
           // Resolve customer data from Connect account for patient matching
           let customerObj: Stripe.Customer | null = null;
@@ -175,13 +172,14 @@ export async function POST(req: NextRequest) {
 
             // Build StripePaymentData manually (charges live on Connect account,
             // so extractPaymentDataFromPaymentIntent would fail using platform Stripe client)
-            const { processStripePayment } = await import(
-              '@/services/stripe/paymentMatchingService'
-            );
-            type StripePaymentData = import('@/services/stripe/paymentMatchingService').StripePaymentData;
+            const { processStripePayment } =
+              await import('@/services/stripe/paymentMatchingService');
+            type StripePaymentData =
+              import('@/services/stripe/paymentMatchingService').StripePaymentData;
 
             const customerName = customerObj?.name || pi.metadata?.cardholderName || '';
-            const customerPhone = customerObj?.phone || pi.metadata?.phone || pi.shipping?.phone || '';
+            const customerPhone =
+              customerObj?.phone || pi.metadata?.phone || pi.shipping?.phone || '';
 
             const paymentData: StripePaymentData = {
               customerId,
@@ -190,7 +188,8 @@ export async function POST(req: NextRequest) {
               phone: customerPhone,
               amount: pi.amount,
               currency: pi.currency || 'usd',
-              description: pi.description || `WellMedR ${pi.metadata?.productName || 'Subscription'}`,
+              description:
+                pi.description || `WellMedR ${pi.metadata?.productName || 'Subscription'}`,
               paymentIntentId: pi.id,
               chargeId: typeof pi.latest_charge === 'string' ? pi.latest_charge : null,
               stripeInvoiceId: null,
@@ -238,10 +237,13 @@ export async function POST(req: NextRequest) {
               tags: { module: 'wellmedr-checkout', route: 'webhooks-stripe-processPayment' },
               extra: { paymentIntentId: pi.id, customerId },
             });
-            logger.error('[wellmedr/webhook] processStripePayment error — will return 500 for retry', {
-              error: processErr instanceof Error ? processErr.message : 'Unknown',
-              paymentIntentId: pi.id,
-            });
+            logger.error(
+              '[wellmedr/webhook] processStripePayment error — will return 500 for retry',
+              {
+                error: processErr instanceof Error ? processErr.message : 'Unknown',
+                paymentIntentId: pi.id,
+              }
+            );
             throw processErr;
           }
         }
@@ -268,10 +270,7 @@ export async function POST(req: NextRequest) {
 
     const critical = event.type === 'payment_intent.succeeded';
     if (critical) {
-      return NextResponse.json(
-        { error: 'Webhook handler failed' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Webhook handler failed' }, { status: 500 });
     }
 
     return NextResponse.json({ received: true, error: 'non-critical handler failed' });

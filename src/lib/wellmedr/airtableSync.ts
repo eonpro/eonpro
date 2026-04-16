@@ -145,15 +145,23 @@ export async function createAirtableRecord(
     const responseText = await res.text();
 
     if (!res.ok) {
-      logger.error('[WellMedR-Airtable] Create failed', { status: res.status, response: responseText });
-      Sentry.captureMessage('Airtable create failed', { level: 'error', extra: { status: res.status } });
+      logger.error('[WellMedR-Airtable] Create failed', {
+        status: res.status,
+        response: responseText,
+      });
+      Sentry.captureMessage('Airtable create failed', {
+        level: 'error',
+        extra: { status: res.status },
+      });
       return null;
     }
 
     const data = JSON.parse(responseText);
     return data.id || null;
   } catch (err) {
-    logger.error('[WellMedR-Airtable] Create error', { error: err instanceof Error ? err.message : 'Unknown' });
+    logger.error('[WellMedR-Airtable] Create error', {
+      error: err instanceof Error ? err.message : 'Unknown',
+    });
     Sentry.captureException(err, { tags: { module: 'wellmedr-airtable', op: 'create' } });
     return null;
   }
@@ -204,13 +212,18 @@ export async function updateAirtableRecord(
     if (!res.ok) {
       const err = await res.text();
       logger.error('[WellMedR-Airtable] Update failed', { status: res.status, response: err });
-      Sentry.captureMessage('Airtable update failed', { level: 'error', extra: { status: res.status } });
+      Sentry.captureMessage('Airtable update failed', {
+        level: 'error',
+        extra: { status: res.status },
+      });
       return false;
     }
 
     return true;
   } catch (err) {
-    logger.error('[WellMedR-Airtable] Update error', { error: err instanceof Error ? err.message : 'Unknown' });
+    logger.error('[WellMedR-Airtable] Update error', {
+      error: err instanceof Error ? err.message : 'Unknown',
+    });
     Sentry.captureException(err, { tags: { module: 'wellmedr-airtable', op: 'update' } });
     return false;
   }

@@ -226,7 +226,8 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
         });
         return NextResponse.json(
           {
-            error: 'A payment for this amount was just processed. Please wait a moment before retrying.',
+            error:
+              'A payment for this amount was just processed. Please wait a moment before retrying.',
             code: 'DUPLICATE_CHARGE_BLOCKED',
             existingPaymentId: recentDuplicate.id,
           },
@@ -617,13 +618,16 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
       });
 
       if (!invoiceResult) {
-        logger.error('[PaymentProcess] CRITICAL: Invoice creation failed for succeeded payment — manual reconciliation needed', {
-          paymentId: pendingPayment.id,
-          patientId: patient.id,
-          clinicId: patient.clinicId,
-          amount,
-          stripePaymentIntentId: paymentIntent.id,
-        });
+        logger.error(
+          '[PaymentProcess] CRITICAL: Invoice creation failed for succeeded payment — manual reconciliation needed',
+          {
+            paymentId: pendingPayment.id,
+            patientId: patient.id,
+            clinicId: patient.clinicId,
+            amount,
+            stripePaymentIntentId: paymentIntent.id,
+          }
+        );
       }
 
       // Commission processing (non-blocking)
@@ -709,7 +713,8 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
       });
       return NextResponse.json(
         {
-          error: 'A payment for this amount was just processed. Please wait a moment before retrying.',
+          error:
+            'A payment for this amount was just processed. Please wait a moment before retrying.',
           code: 'DUPLICATE_CHARGE_BLOCKED',
         },
         { status: 409 }

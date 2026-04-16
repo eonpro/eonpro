@@ -61,7 +61,9 @@ export function GLP1DataStep({ basePath, nextStep, prevStep, progressPercent }: 
             </p>
           </div>
 
-          <div className={`border-t ${isOt ? 'border-[#cab172]/30' : 'border-[#d4e8a0]'} pt-4 text-center`}>
+          <div
+            className={`border-t ${isOt ? 'border-[#cab172]/30' : 'border-[#d4e8a0]'} pt-4 text-center`}
+          >
             <span className="text-5xl font-bold text-[#413d3d]">91%</span>
             <p className="mt-2 text-[15px] text-[#413d3d]">
               {isSpanish

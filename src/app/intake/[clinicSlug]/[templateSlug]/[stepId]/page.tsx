@@ -225,19 +225,22 @@ function IntakeStepContent() {
     const r = responses;
     if (typeof window !== 'undefined') {
       // Persist patient data in sessionStorage for checkout (HIPAA: no PII in URL)
-      sessionStorage.setItem(PATIENT_DATA_KEY, JSON.stringify({
-        firstName: r.firstName || '',
-        lastName: r.lastName || '',
-        email: r.email || '',
-        phone: r.phone || '',
-        state: r.state || '',
-        sex: r.sex || '',
-        weight: r.current_weight || '',
-        goalWeight: r.ideal_weight || '',
-        heightFeet: r.height_feet || '',
-        heightInches: r.height_inches || '0',
-        dob: r.dob || '',
-      }));
+      sessionStorage.setItem(
+        PATIENT_DATA_KEY,
+        JSON.stringify({
+          firstName: r.firstName || '',
+          lastName: r.lastName || '',
+          email: r.email || '',
+          phone: r.phone || '',
+          state: r.state || '',
+          sex: r.sex || '',
+          weight: r.current_weight || '',
+          goalWeight: r.ideal_weight || '',
+          heightFeet: r.height_feet || '',
+          heightInches: r.height_inches || '0',
+          dob: r.dob || '',
+        })
+      );
 
       const webhookPayload = {
         'submission-id': sessionId,
@@ -447,19 +450,29 @@ class IntakeErrorBoundary extends React.Component<
     super(props);
     this.state = { hasError: false };
   }
-  static getDerivedStateFromError() { return { hasError: true }; }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
   override componentDidCatch(error: Error) {
     console.error('[IntakeErrorBoundary]', error.message);
   }
   override render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex flex-col items-center justify-center p-8" style={{ backgroundColor: '#F7F7F9' }}>
-          <h2 className="text-xl font-bold mb-2">Something went wrong</h2>
-          <p className="text-gray-500 mb-4 text-center">We hit an unexpected issue. Please try again.</p>
+        <div
+          className="flex min-h-screen flex-col items-center justify-center p-8"
+          style={{ backgroundColor: '#F7F7F9' }}
+        >
+          <h2 className="mb-2 text-xl font-bold">Something went wrong</h2>
+          <p className="mb-4 text-center text-gray-500">
+            We hit an unexpected issue. Please try again.
+          </p>
           <button
-            onClick={() => { this.setState({ hasError: false }); window.location.reload(); }}
-            className="px-6 py-3 bg-[#0C2631] text-white rounded-full font-medium"
+            onClick={() => {
+              this.setState({ hasError: false });
+              window.location.reload();
+            }}
+            className="rounded-full bg-[#0C2631] px-6 py-3 font-medium text-white"
           >
             Reload
           </button>

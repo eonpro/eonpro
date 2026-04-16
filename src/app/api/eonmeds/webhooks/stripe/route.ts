@@ -98,9 +98,8 @@ export async function POST(req: NextRequest) {
         }
 
         await runWithClinicContext(clinicId, async () => {
-          const { processStripePayment, extractPaymentDataFromPaymentIntent } = await import(
-            '@/services/stripe/paymentMatchingService'
-          );
+          const { processStripePayment, extractPaymentDataFromPaymentIntent } =
+            await import('@/services/stripe/paymentMatchingService');
 
           const paymentData = await extractPaymentDataFromPaymentIntent(pi);
           if (!paymentData.metadata?.clinicId) {

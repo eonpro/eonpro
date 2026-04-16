@@ -24,7 +24,6 @@ export default function WmMedicalReviewStep({
 
   const fadeStyle: CSSProperties = {};
 
-
   const weight = Number(responses.current_weight) || 0;
   const goalWeight = Number(responses.ideal_weight) || 0;
   const lbsToLose = weight - goalWeight;

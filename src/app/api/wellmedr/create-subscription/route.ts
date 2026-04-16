@@ -15,15 +15,17 @@ import { rateLimit } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
 import { sendCheckoutStartedEvent } from '@/lib/wellmedr/attentive';
 
-const addressSchema = z.object({
-  firstName: z.string().max(100).optional(),
-  lastName: z.string().max(100).optional(),
-  address: z.string().max(200).optional(),
-  apt: z.string().max(50).optional(),
-  city: z.string().max(100).optional(),
-  state: z.string().max(50).optional(),
-  zipCode: z.string().max(20).optional(),
-}).optional();
+const addressSchema = z
+  .object({
+    firstName: z.string().max(100).optional(),
+    lastName: z.string().max(100).optional(),
+    address: z.string().max(200).optional(),
+    apt: z.string().max(50).optional(),
+    city: z.string().max(100).optional(),
+    state: z.string().max(50).optional(),
+    zipCode: z.string().max(20).optional(),
+  })
+  .optional();
 
 const createSubscriptionSchema = z.object({
   priceId: z.string().min(1).max(200),
@@ -104,7 +106,12 @@ async function handler(req: NextRequest) {
         {
           name: customerName,
           ...(shippingData ? { shipping: shippingData } : {}),
-          metadata: { submissionId: submissionId || '', productName: productName || '', medicationType: medicationType || '', planType: planType || '' },
+          metadata: {
+            submissionId: submissionId || '',
+            productName: productName || '',
+            medicationType: medicationType || '',
+            planType: planType || '',
+          },
         },
         connectOpts
       )) as Stripe.Customer;
@@ -114,7 +121,12 @@ async function handler(req: NextRequest) {
           email: customerEmail,
           name: customerName,
           ...(shippingData ? { shipping: shippingData } : {}),
-          metadata: { submissionId: submissionId || '', productName: productName || '', medicationType: medicationType || '', planType: planType || '' },
+          metadata: {
+            submissionId: submissionId || '',
+            productName: productName || '',
+            medicationType: medicationType || '',
+            planType: planType || '',
+          },
         },
         connectOpts
       );

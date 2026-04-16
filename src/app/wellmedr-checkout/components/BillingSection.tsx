@@ -58,8 +58,20 @@ export default function BillingSection() {
 
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
-          <InputField name="billingAddress.firstName" label="First name" placeholder="First name" type="text" autoComplete="off" />
-          <InputField name="billingAddress.lastName" label="Last name" placeholder="Last name" type="text" autoComplete="off" />
+          <InputField
+            name="billingAddress.firstName"
+            label="First name"
+            placeholder="First name"
+            type="text"
+            autoComplete="off"
+          />
+          <InputField
+            name="billingAddress.lastName"
+            label="Last name"
+            placeholder="Last name"
+            type="text"
+            autoComplete="off"
+          />
         </div>
 
         <AddressAutocompleteField

@@ -186,12 +186,11 @@ async function handlePost(request: NextRequest) {
     });
 
     // Notify clinic admins of new application (fire-and-forget)
-    notifyAdminsOfApplication(clinic.id, clinic.name, application.id, data.fullName).catch(
-      (err) =>
-        logger.error('[AffiliateApply] Failed to send admin notification', {
-          error: err instanceof Error ? err.message : 'Unknown',
-          applicationId: application.id,
-        })
+    notifyAdminsOfApplication(clinic.id, clinic.name, application.id, data.fullName).catch((err) =>
+      logger.error('[AffiliateApply] Failed to send admin notification', {
+        error: err instanceof Error ? err.message : 'Unknown',
+        applicationId: application.id,
+      })
     );
 
     return NextResponse.json({
@@ -230,19 +229,15 @@ async function notifyAdminsOfApplication(
 ) {
   const admins = await prisma.user.findMany({
     where: {
-      OR: [
-        { userClinics: { some: { clinicId, isActive: true } } },
-        { clinicId },
-      ],
+      OR: [{ userClinics: { some: { clinicId, isActive: true } } }, { clinicId }],
       role: { in: ['ADMIN', 'SUPER_ADMIN'] },
       status: 'ACTIVE',
     },
     select: { id: true },
   });
 
-  const { default: notificationService } = await import(
-    '@/services/notification/notificationService'
-  );
+  const { default: notificationService } =
+    await import('@/services/notification/notificationService');
 
   for (const admin of admins) {
     await notificationService.createNotification({

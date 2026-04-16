@@ -39,9 +39,10 @@ async function handler(req: NextRequest) {
 
     // Verify caller owns this subscription
     const subCustomer = subscription.customer;
-    const customerObj = typeof subCustomer === 'string'
-      ? await stripe.customers.retrieve(subCustomer, {}, connectOpts)
-      : subCustomer;
+    const customerObj =
+      typeof subCustomer === 'string'
+        ? await stripe.customers.retrieve(subCustomer, {}, connectOpts)
+        : subCustomer;
     if (
       !customerObj ||
       (customerObj as Stripe.DeletedCustomer).deleted ||

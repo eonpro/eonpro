@@ -1,6 +1,14 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  ReactNode,
+} from 'react';
 import { CHECKOUT_STEP_KEY } from '@/app/wellmedr-checkout/lib/session-keys';
 
 type CheckoutStep = 'approval' | 'shipping' | 'payment';

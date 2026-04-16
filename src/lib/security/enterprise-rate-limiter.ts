@@ -816,7 +816,11 @@ export async function adminClearRateLimit(
         `Rate limit cleared for ${ip ? `IP: ${ip}` : ''} ${email ? `Email: ${email}` : ''}`.trim(),
     };
   } catch (error) {
-    logger.error('[EnterpriseRateLimit] Admin clear failed', { ip, email: email ? email.substring(0, 3) + '***' : undefined, error });
+    logger.error('[EnterpriseRateLimit] Admin clear failed', {
+      ip,
+      email: email ? email.substring(0, 3) + '***' : undefined,
+      error,
+    });
     return { success: false, message: 'Failed to clear rate limit' };
   }
 }
@@ -852,7 +856,11 @@ export async function verifyUnlockAndClear(
     await authRateLimiter.clearRateLimit(ip, email);
     return { success: true, message: 'Account unlocked successfully' };
   } catch (error) {
-    logger.error('[EnterpriseRateLimit] Unlock verification failed', { ip, email: email ? email.substring(0, 3) + '***' : undefined, error });
+    logger.error('[EnterpriseRateLimit] Unlock verification failed', {
+      ip,
+      email: email ? email.substring(0, 3) + '***' : undefined,
+      error,
+    });
     return { success: false, message: 'Failed to unlock account' };
   }
 }

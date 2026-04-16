@@ -33,7 +33,19 @@ function CheckoutContent() {
     // Fallback: read from URL params if sessionStorage is empty (e.g. shared link)
     const hasStoredData = Object.keys(stored).length > 0;
     if (!hasStoredData) {
-      const fallbackKeys = ['firstName', 'lastName', 'email', 'phone', 'state', 'sex', 'weight', 'goalWeight', 'heightFeet', 'heightInches', 'dob'] as const;
+      const fallbackKeys = [
+        'firstName',
+        'lastName',
+        'email',
+        'phone',
+        'state',
+        'sex',
+        'weight',
+        'goalWeight',
+        'heightFeet',
+        'heightInches',
+        'dob',
+      ] as const;
       for (const key of fallbackKeys) {
         const val = searchParams.get(key);
         if (val) stored[key] = val;
@@ -81,7 +93,8 @@ function CheckoutContent() {
         {paymentError && (
           <div className="mx-auto max-w-2xl px-4 pt-4" role="alert">
             <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-center text-sm text-red-700">
-              Your payment could not be processed. Please try again or use a different payment method.
+              Your payment could not be processed. Please try again or use a different payment
+              method.
             </div>
           </div>
         )}
@@ -101,14 +114,16 @@ function CheckoutContent() {
 
 export default function WellmedrCheckoutPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-[#f7f7f9]">
-        <Header />
-        <div className="mx-auto max-w-xl px-4 pt-12">
-          <PaymentLoadingSkeleton />
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#f7f7f9]">
+          <Header />
+          <div className="mx-auto max-w-xl px-4 pt-12">
+            <PaymentLoadingSkeleton />
+          </div>
         </div>
-      </div>
-    }>
+      }
+    >
       <CheckoutContent />
     </Suspense>
   );
