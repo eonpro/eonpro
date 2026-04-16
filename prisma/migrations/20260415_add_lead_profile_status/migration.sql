@@ -1,2 +1,2 @@
 -- AlterEnum
-ALTER TYPE "ProfileStatus" ADD VALUE 'LEAD';
+ALTER TYPE "ProfileStatus" ADD VALUE IF NOT EXISTS 'LEAD';
