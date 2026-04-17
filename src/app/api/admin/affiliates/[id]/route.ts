@@ -11,6 +11,7 @@ import { withAdminAuth } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { suppressConversionMetrics, CLICK_FILTER } from '@/services/affiliate/reportingConstants';
 import { badRequest, notFound, serverError } from '@/lib/api/error-response';
+import { normalizePagination } from '@/lib/pagination';
 
 interface AffiliateDetail {
   id: number;
@@ -59,12 +60,18 @@ interface AffiliateDetail {
     amountCents?: number;
     createdAt: string;
   }>;
-  /** Recent patients attributed to this affiliate (HIPAA-safe: IDs and dates only) */
-  recentAttributedPatients: Array<{
+  /** Patients attributed to this affiliate (HIPAA-safe: IDs and dates only) */
+  attributedPatients: Array<{
     patientId: number;
     refCode: string | null;
     attributedAt: string;
   }>;
+  attributedPatientsPagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 async function handler(req: NextRequest, user: any): Promise<Response> {
@@ -78,6 +85,12 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
   if (isNaN(affiliateId) || affiliateId <= 0) {
     return badRequest('Invalid affiliate ID');
   }
+
+  const searchParams = url.searchParams;
+  const patientsPagination = normalizePagination({
+    page: searchParams.get('patientsPage') ?? '1',
+    pageSize: searchParams.get('patientsPageSize') ?? '20',
+  });
 
   try {
     // Determine clinic filter
@@ -156,7 +169,8 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
             createdAt: true,
           },
           orderBy: { createdAt: 'desc' },
-          take: 10,
+          take: patientsPagination.take,
+          skip: patientsPagination.skip,
         }),
         prisma.affiliateCommissionEvent.aggregate({
           where: {
@@ -240,11 +254,17 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
           pendingCommissionCents: pendingAgg._sum.commissionAmountCents || 0,
         },
         recentActivity,
-        recentAttributedPatients: recentPatients.map((p) => ({
+        attributedPatients: recentPatients.map((p) => ({
           patientId: p.id,
           refCode: p.attributionRefCode,
           attributedAt: (p.attributionFirstTouchAt || p.createdAt).toISOString(),
         })),
+        attributedPatientsPagination: {
+          page: patientsPagination.page,
+          pageSize: patientsPagination.take,
+          total: totalIntakes,
+          totalPages: Math.ceil(totalIntakes / patientsPagination.take),
+        },
       };
 
       return NextResponse.json(response);
@@ -324,7 +344,13 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
           pendingCommissionCents: 0,
         },
         recentActivity,
-        recentAttributedPatients: [],
+        attributedPatients: [],
+        attributedPatientsPagination: {
+          page: 1,
+          pageSize: patientsPagination.take,
+          total: 0,
+          totalPages: 0,
+        },
       };
 
       return NextResponse.json(response);

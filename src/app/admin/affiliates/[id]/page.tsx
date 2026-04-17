@@ -83,11 +83,17 @@ interface AffiliateDetail {
     amountCents?: number;
     createdAt: string;
   }>;
-  recentAttributedPatients: Array<{
+  attributedPatients: Array<{
     patientId: number;
     refCode: string | null;
     attributedAt: string;
   }>;
+  attributedPatientsPagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 function formatCurrency(cents: number): string {
@@ -129,12 +135,18 @@ export default function AffiliateDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
-  const fetchAffiliate = useCallback(async () => {
+  const [patientsPage, setPatientsPage] = useState(1);
+  const [patientsLoading, setPatientsLoading] = useState(false);
+  const PATIENTS_PAGE_SIZE = 20;
+
+  const fetchAffiliate = useCallback(async (patientPage = 1) => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await apiFetch(`/api/admin/affiliates/${affiliateId}`);
+      const response = await apiFetch(
+        `/api/admin/affiliates/${affiliateId}?patientsPage=${patientPage}&patientsPageSize=${PATIENTS_PAGE_SIZE}`
+      );
 
       if (response.ok) {
         const data = await response.json();
@@ -151,6 +163,25 @@ export default function AffiliateDetailPage() {
       setLoading(false);
     }
   }, [affiliateId]);
+
+  const fetchPatientsPage = useCallback(async (page: number) => {
+    if (!affiliate) return;
+    setPatientsLoading(true);
+    try {
+      const response = await apiFetch(
+        `/api/admin/affiliates/${affiliateId}?patientsPage=${page}&patientsPageSize=${PATIENTS_PAGE_SIZE}`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setAffiliate(data);
+        setPatientsPage(page);
+      }
+    } catch (err) {
+      console.error('Error fetching patients page:', err);
+    } finally {
+      setPatientsLoading(false);
+    }
+  }, [affiliate, affiliateId]);
 
   useEffect(() => {
     fetchAffiliate();
@@ -777,37 +808,92 @@ export default function AffiliateDetailPage() {
               <Users className="h-5 w-5 text-violet-500" />
               <h2 className="text-lg font-semibold text-gray-900">Attributed Patients</h2>
               <span className="ml-auto rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-semibold text-violet-700">
-                {affiliate.stats.totalIntakes ?? 0}
+                {affiliate.attributedPatientsPagination?.total ?? affiliate.stats.totalIntakes ?? 0}
               </span>
             </div>
-            {!affiliate.recentAttributedPatients ||
-            affiliate.recentAttributedPatients.length === 0 ? (
+            {!affiliate.attributedPatients ||
+            affiliate.attributedPatients.length === 0 ? (
               <p className="text-gray-500">No patients attributed yet</p>
             ) : (
-              <div className="space-y-3">
-                {affiliate.recentAttributedPatients.map((p) => (
-                  <a
-                    key={p.patientId}
-                    href={`/patients/${p.patientId}`}
-                    className="flex items-center justify-between rounded-lg border border-gray-100 px-4 py-3 transition-colors hover:bg-gray-50"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-100 text-xs font-bold text-violet-600">
-                        #{p.patientId}
+              <>
+                <div className={`space-y-3 ${patientsLoading ? 'opacity-50' : ''}`}>
+                  {affiliate.attributedPatients.map((p) => (
+                    <a
+                      key={p.patientId}
+                      href={`/patients/${p.patientId}`}
+                      className="flex items-center justify-between rounded-lg border border-gray-100 px-4 py-3 transition-colors hover:bg-gray-50"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-100 text-xs font-bold text-violet-600">
+                          #{p.patientId}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">Patient #{p.patientId}</p>
+                          <p className="text-xs text-gray-500">{formatDate(p.attributedAt)}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">Patient #{p.patientId}</p>
-                        <p className="text-xs text-gray-500">{formatDate(p.attributedAt)}</p>
-                      </div>
+                      {p.refCode && (
+                        <span className="rounded-full bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-600">
+                          {p.refCode}
+                        </span>
+                      )}
+                    </a>
+                  ))}
+                </div>
+
+                {affiliate.attributedPatientsPagination && affiliate.attributedPatientsPagination.totalPages > 1 && (
+                  <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-4">
+                    <p className="text-sm text-gray-500">
+                      Showing {((patientsPage - 1) * PATIENTS_PAGE_SIZE) + 1}–{Math.min(patientsPage * PATIENTS_PAGE_SIZE, affiliate.attributedPatientsPagination.total)} of {affiliate.attributedPatientsPagination.total}
+                    </p>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => fetchPatientsPage(patientsPage - 1)}
+                        disabled={patientsPage <= 1 || patientsLoading}
+                        className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        Previous
+                      </button>
+                      {Array.from({ length: affiliate.attributedPatientsPagination.totalPages }, (_, i) => i + 1)
+                        .filter((p) => {
+                          if (affiliate.attributedPatientsPagination!.totalPages <= 7) return true;
+                          if (p === 1 || p === affiliate.attributedPatientsPagination!.totalPages) return true;
+                          return Math.abs(p - patientsPage) <= 1;
+                        })
+                        .reduce<(number | 'ellipsis')[]>((acc, p, i, arr) => {
+                          if (i > 0 && p - (arr[i - 1] as number) > 1) acc.push('ellipsis');
+                          acc.push(p);
+                          return acc;
+                        }, [])
+                        .map((item, idx) =>
+                          item === 'ellipsis' ? (
+                            <span key={`ellipsis-${idx}`} className="px-1 text-gray-400">...</span>
+                          ) : (
+                            <button
+                              key={item}
+                              onClick={() => fetchPatientsPage(item)}
+                              disabled={patientsLoading}
+                              className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+                                item === patientsPage
+                                  ? 'bg-[var(--brand-primary)] text-white'
+                                  : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                              } disabled:opacity-40`}
+                            >
+                              {item}
+                            </button>
+                          )
+                        )}
+                      <button
+                        onClick={() => fetchPatientsPage(patientsPage + 1)}
+                        disabled={patientsPage >= affiliate.attributedPatientsPagination.totalPages || patientsLoading}
+                        className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        Next
+                      </button>
                     </div>
-                    {p.refCode && (
-                      <span className="rounded-full bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-600">
-                        {p.refCode}
-                      </span>
-                    )}
-                  </a>
-                ))}
-              </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
