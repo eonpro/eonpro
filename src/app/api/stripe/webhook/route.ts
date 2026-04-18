@@ -342,7 +342,10 @@ export async function POST(request: NextRequest) {
 
 interface ProcessingServices {
   StripeInvoiceService: {
-    updateFromWebhook(stripeInvoice: Stripe.Invoice): Promise<void>;
+    updateFromWebhook(
+      stripeInvoice: Stripe.Invoice,
+      connectContext?: { stripeAccountId?: string; clinicId?: number }
+    ): Promise<void>;
   };
   StripePaymentService: {
     updatePaymentFromIntent(paymentIntent: Stripe.PaymentIntent): Promise<void>;
@@ -428,7 +431,11 @@ async function processWebhookEvent(
       // ================================================================
       case 'invoice.payment_succeeded': {
         const invoice = event.data.object as Stripe.Invoice;
-        await StripeInvoiceService.updateFromWebhook(invoice);
+        const connectAcctForInvoice = (event as Stripe.Event & { account?: string }).account;
+        await StripeInvoiceService.updateFromWebhook(invoice, {
+          stripeAccountId: connectAcctForInvoice || undefined,
+          clinicId: resolvedClinicId > 0 ? resolvedClinicId : undefined,
+        });
 
         // If this invoice is for a subscription renewal, trigger Rx refill
         const invoiceSubscriptionId =
@@ -839,7 +846,11 @@ async function processWebhookEvent(
       case 'invoice.finalized':
       case 'invoice.sent': {
         const invoice = event.data.object as Stripe.Invoice;
-        await StripeInvoiceService.updateFromWebhook(invoice);
+        const connectAcctForOtherInvoice = (event as Stripe.Event & { account?: string }).account;
+        await StripeInvoiceService.updateFromWebhook(invoice, {
+          stripeAccountId: connectAcctForOtherInvoice || undefined,
+          clinicId: resolvedClinicId > 0 ? resolvedClinicId : undefined,
+        });
         return {
           success: true,
           details: { invoiceId: invoice.id, status: invoice.status },

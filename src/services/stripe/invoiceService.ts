@@ -372,9 +372,16 @@ export class StripeInvoiceService {
   }
 
   /**
-   * Update invoice from Stripe webhook
+   * Update invoice from Stripe webhook.
+   *
+   * @param stripeInvoice - The Stripe Invoice object from the webhook event
+   * @param connectContext - Optional Connect account context for resolving customers
+   *   on the correct Stripe account (required for WellMedR and other Connect clinics)
    */
-  static async updateFromWebhook(stripeInvoice: Stripe.Invoice): Promise<void> {
+  static async updateFromWebhook(
+    stripeInvoice: Stripe.Invoice,
+    connectContext?: { stripeAccountId?: string; clinicId?: number }
+  ): Promise<void> {
     // Find invoice in database
     let invoice = await prisma.invoice.findUnique({
       where: { stripeInvoiceId: stripeInvoice.id },
@@ -401,7 +408,7 @@ export class StripeInvoiceService {
     let wasAutoCreated = false;
 
     if (!invoice && stripeInvoice.status === 'paid') {
-      const created = await this.createInvoiceFromStripeWebhook(stripeInvoice);
+      const created = await this.createInvoiceFromStripeWebhook(stripeInvoice, connectContext);
       if (created) {
         invoice = created;
         wasAutoCreated = true;
@@ -581,10 +588,18 @@ export class StripeInvoiceService {
    * Patient resolution: stripeCustomerId → email fallback (with Stripe Customer fetch).
    * Idempotent: protected by the stripeInvoiceId unique index.
    *
+   * @param stripeInvoice - The Stripe Invoice object
+   * @param connectContext - Optional Connect account context. When present, the
+   *   customer lives on the connected account and must be retrieved using
+   *   `stripeAccount` request options. Without this, Connect renewal invoices
+   *   silently fail to resolve patients because the platform client cannot
+   *   access Connect-scoped customers.
+   *
    * Returns the created Invoice (with patient relation) or null if patient cannot be resolved.
    */
   private static async createInvoiceFromStripeWebhook(
-    stripeInvoice: Stripe.Invoice
+    stripeInvoice: Stripe.Invoice,
+    connectContext?: { stripeAccountId?: string; clinicId?: number }
   ): Promise<(any & { patient: any; items: any[] }) | null> {
     const customerId =
       typeof stripeInvoice.customer === 'string'
@@ -603,22 +618,48 @@ export class StripeInvoiceService {
       where: { stripeCustomerId: customerId },
     });
 
-    // Email fallback: fetch Stripe customer email and match
+    // Email fallback: fetch Stripe customer email and match.
+    // For Connect events (WellMedR etc.), the customer lives on the connected
+    // Stripe account. We MUST use the Connect context to retrieve it; the
+    // platform client will 404 on Connect-scoped customer IDs.
     if (!patient) {
       try {
         const metaClinicRaw = stripeInvoice.metadata?.clinicId;
         const metaClinicId =
           metaClinicRaw != null && metaClinicRaw !== '' ? parseInt(String(metaClinicRaw), 10) : NaN;
+
+        // Determine the effective clinicId: metadata > connectContext > none
+        const effectiveClinicId = Number.isFinite(metaClinicId) && metaClinicId > 0
+          ? metaClinicId
+          : connectContext?.clinicId && connectContext.clinicId > 0
+            ? connectContext.clinicId
+            : NaN;
+
         let stripeClient: Stripe;
         let stripeOpts: Stripe.RequestOptions | undefined;
-        if (Number.isFinite(metaClinicId) && metaClinicId > 0) {
-          const ctx = await getStripeForClinic(metaClinicId);
+
+        if (Number.isFinite(effectiveClinicId) && effectiveClinicId > 0) {
+          const ctx = await getStripeForClinic(effectiveClinicId);
           stripeClient = ctx.stripe;
           stripeOpts = stripeRequestOptions(ctx);
+        } else if (connectContext?.stripeAccountId) {
+          // Connect event without resolved clinicId — use platform client
+          // with explicit stripeAccount header so the customer retrieval
+          // hits the correct connected account.
+          stripeClient = getStripe();
+          stripeOpts = { stripeAccount: connectContext.stripeAccountId };
         } else {
           stripeClient = getStripe();
           stripeOpts = undefined;
         }
+
+        logger.debug('[STRIPE] Retrieving customer for invoice auto-create', {
+          stripeInvoiceId: stripeInvoice.id,
+          customerId,
+          effectiveClinicId: Number.isFinite(effectiveClinicId) ? effectiveClinicId : 'none',
+          hasConnectAccount: !!stripeOpts,
+        });
+
         const stripeCustomer = stripeOpts
           ? await stripeClient.customers.retrieve(customerId, {}, stripeOpts)
           : await stripeClient.customers.retrieve(customerId);
@@ -628,7 +669,12 @@ export class StripeInvoiceService {
           'email' in stripeCustomer &&
           stripeCustomer.email
         ) {
-          patient = await findPatientByEmail(stripeCustomer.email.trim().toLowerCase());
+          // Search within the correct clinic when context is available
+          const searchClinicId = Number.isFinite(effectiveClinicId) ? effectiveClinicId : undefined;
+          patient = await findPatientByEmail(
+            stripeCustomer.email.trim().toLowerCase(),
+            searchClinicId
+          );
           if (patient) {
             // Link stripeCustomerId for fast-path on future events
             await prisma.patient.update({
@@ -640,6 +686,7 @@ export class StripeInvoiceService {
               {
                 patientId: patient.id,
                 stripeInvoiceId: stripeInvoice.id,
+                clinicId: patient.clinicId,
               }
             );
           }
@@ -647,11 +694,10 @@ export class StripeInvoiceService {
       } catch (emailErr) {
         logger.warn('[STRIPE] Email fallback for invoice auto-create failed (non-blocking)', {
           stripeInvoiceId: stripeInvoice.id,
+          connectAccountId: connectContext?.stripeAccountId?.substring(0, 12),
           error:
             emailErr instanceof Error
-              ? emailErr instanceof Error
-                ? emailErr.message
-                : String(emailErr)
+              ? emailErr.message
               : 'Unknown',
         });
       }

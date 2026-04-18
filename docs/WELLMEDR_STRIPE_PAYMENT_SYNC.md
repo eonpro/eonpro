@@ -55,12 +55,14 @@ If the Wellmedr Stripe account (or Connect) is not sending events to the platfor
 
 ### 3. **Invoice not in our database (common for subscription renewals)**
 
-`StripeInvoiceService.updateFromWebhook(invoice)` looks up our invoice by **`stripeInvoiceId`**. We only store that when **we** create the invoice in Stripe (e.g. from the platform or wellmedr-invoice flow). For **subscription renewals**, Stripe creates the invoice automatically; we often do **not** create a matching row. So:
+`StripeInvoiceService.updateFromWebhook(invoice, connectContext)` looks up our invoice by **`stripeInvoiceId`**. We only store that when **we** create the invoice in Stripe (e.g. from the platform or wellmedr-invoice flow). For **subscription renewals**, Stripe creates the invoice automatically; we often do **not** create a matching row. So:
 
 - The webhook runs and tries to update an invoice that doesn’t exist.
 - We log: `[STRIPE] Invoice in_xxx not found in database` and return (no update).
 
-So the **invoice** line may not show PAID from the renewal, but the **refill** path (step 4 below) can still run if we have a local Subscription.
+**Auto-create (2026-04-18 fix):** When no local invoice exists and the Stripe invoice is `paid`, `createInvoiceFromStripeWebhook` auto-creates one by resolving the patient via `stripeCustomerId` → email fallback (using Connect context). Previously, Connect context was not passed, causing silent failures for WellMedR customers. The Airtable webhook now also links `stripeCustomerId` for the fast-path.
+
+So the **invoice** line should now show PAID from the renewal, and the **refill** path (step 4 below) can also run if we have a local Subscription.
 
 ### 4. **No local Subscription linked to the Stripe subscription**
 

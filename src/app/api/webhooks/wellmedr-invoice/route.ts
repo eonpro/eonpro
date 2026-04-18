@@ -1080,6 +1080,9 @@ export async function POST(req: NextRequest) {
     // When a customer selects add-ons at checkout, they're stored in the subscription's
     // metadata.selectedAddons. We add them as additional invoice line items so the
     // provider sees them in the Rx queue and can prescribe each one.
+    //
+    // Also link stripeCustomerId to the patient so subscription renewal webhooks
+    // (invoice.payment_succeeded) can fast-path resolve the patient without email fallback.
     let addonIds: AddonId[] = [];
     if (payload.submission_id) {
       try {
@@ -1093,23 +1096,88 @@ export async function POST(req: NextRequest) {
           connectOpts
         );
 
-        if (subs.data.length > 0 && subs.data[0].metadata?.selectedAddons) {
-          const parsed = JSON.parse(subs.data[0].metadata.selectedAddons);
-          if (Array.isArray(parsed)) {
-            addonIds = parsed.filter(
-              (k: unknown): k is AddonId => typeof k === 'string' && k in ADDON_PRODUCTS
-            );
-          }
-          if (addonIds.length > 0) {
-            logger.info(`[WELLMEDR-INVOICE ${requestId}] Add-ons found on subscription`, {
-              addons: addonIds,
-              subscriptionId: subs.data[0].id,
+        if (subs.data.length > 0) {
+          const sub = subs.data[0];
+
+          // Link stripeCustomerId so renewal webhooks can resolve the patient
+          const subCustomerId = typeof sub.customer === 'string' ? sub.customer : sub.customer?.id;
+          if (subCustomerId && !wasAutoCreated && verifiedPatient.id > 0) {
+            const existingPatient = await prisma.patient.findUnique({
+              where: { id: verifiedPatient.id },
+              select: { stripeCustomerId: true },
             });
+            if (!existingPatient?.stripeCustomerId) {
+              await prisma.patient.update({
+                where: { id: verifiedPatient.id },
+                data: { stripeCustomerId: subCustomerId },
+              }).catch((linkErr) => {
+                // P2002 = another patient already has this stripeCustomerId — not fatal
+                if ((linkErr as any)?.code !== 'P2002') {
+                  logger.warn(`[WELLMEDR-INVOICE ${requestId}] Failed to link stripeCustomerId`, {
+                    patientId: verifiedPatient.id,
+                    customerId: subCustomerId,
+                    error: linkErr instanceof Error ? linkErr.message : String(linkErr),
+                  });
+                }
+              });
+              logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Linked stripeCustomerId to patient`, {
+                patientId: verifiedPatient.id,
+                stripeCustomerId: subCustomerId,
+              });
+            }
+          }
+
+          if (sub.metadata?.selectedAddons) {
+            const parsed = JSON.parse(sub.metadata.selectedAddons);
+            if (Array.isArray(parsed)) {
+              addonIds = parsed.filter(
+                (k: unknown): k is AddonId => typeof k === 'string' && k in ADDON_PRODUCTS
+              );
+            }
+            if (addonIds.length > 0) {
+              logger.info(`[WELLMEDR-INVOICE ${requestId}] Add-ons found on subscription`, {
+                addons: addonIds,
+                subscriptionId: sub.id,
+              });
+            }
           }
         }
       } catch (addonErr) {
-        logger.warn(`[WELLMEDR-INVOICE ${requestId}] Add-on lookup failed (non-fatal)`, {
+        logger.warn(`[WELLMEDR-INVOICE ${requestId}] Add-on/customer lookup failed (non-fatal)`, {
           error: addonErr instanceof Error ? addonErr.message : String(addonErr),
+        });
+      }
+    }
+
+    // Fallback: if no submission_id was available to link stripeCustomerId above,
+    // look up the Connect customer by email and link it.
+    if (!wasAutoCreated && verifiedPatient.id > 0) {
+      try {
+        const existingPatient = await prisma.patient.findUnique({
+          where: { id: verifiedPatient.id },
+          select: { stripeCustomerId: true },
+        });
+        if (!existingPatient?.stripeCustomerId) {
+          const stripe = getWellMedrConnectStripe();
+          const connectOpts = getWellMedrConnectOpts();
+          const customers = await stripe.customers.list(
+            { email, limit: 1 },
+            connectOpts
+          );
+          if (customers.data.length > 0) {
+            await prisma.patient.update({
+              where: { id: verifiedPatient.id },
+              data: { stripeCustomerId: customers.data[0].id },
+            }).catch(() => {});
+            logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Linked stripeCustomerId via email lookup`, {
+              patientId: verifiedPatient.id,
+              stripeCustomerId: customers.data[0].id,
+            });
+          }
+        }
+      } catch (custLinkErr) {
+        logger.debug(`[WELLMEDR-INVOICE ${requestId}] Customer link fallback skipped`, {
+          error: custLinkErr instanceof Error ? custLinkErr.message : String(custLinkErr),
         });
       }
     }
