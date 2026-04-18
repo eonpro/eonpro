@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useIntakeActions, useIntakeStore } from '../../../../store/intakeStore';
 
@@ -26,6 +26,18 @@ const monthNames = [
   'December',
 ];
 
+function getMaxDay(monthNum: number, yearNum: number | null): number {
+  const thirtyDayMonths = [4, 6, 9, 11];
+  if (monthNum === 2) {
+    if (yearNum && ((yearNum % 4 === 0 && yearNum % 100 !== 0) || yearNum % 400 === 0)) {
+      return 29;
+    }
+    return 29; // allow 29 when year not yet selected (leap year possible)
+  }
+  if (thirtyDayMonths.includes(monthNum)) return 30;
+  return 31;
+}
+
 interface DropdownProps {
   label: string;
   placeholder: string;
@@ -33,9 +45,10 @@ interface DropdownProps {
   displayValue: string;
   options: { value: string; label: string }[];
   onSelect: (value: string) => void;
+  error?: string;
 }
 
-function Dropdown({ label, placeholder, value, displayValue, options, onSelect }: DropdownProps) {
+function Dropdown({ label, placeholder, value, displayValue, options, onSelect, error }: DropdownProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -61,7 +74,10 @@ function Dropdown({ label, placeholder, value, displayValue, options, onSelect }
           type="button"
           onClick={() => setOpen(!open)}
           className="wm-dropdown-btn"
-          style={{ color: value ? '#101010' : 'rgba(16,16,16,0.3)' }}
+          style={{
+            color: value ? '#101010' : 'rgba(16,16,16,0.3)',
+            borderColor: error ? '#ef4444' : undefined,
+          }}
         >
           {value ? displayValue : placeholder}
           <svg
@@ -109,6 +125,9 @@ function Dropdown({ label, placeholder, value, displayValue, options, onSelect }
           </div>
         )}
       </div>
+      {error && (
+        <span className="text-xs font-medium" style={{ color: '#ef4444' }}>{error}</span>
+      )}
     </div>
   );
 }
@@ -116,13 +135,14 @@ function Dropdown({ label, placeholder, value, displayValue, options, onSelect }
 export default function WmDobStep({
   basePath,
   nextStep,
-  prevStep,
   progressPercent,
 }: WmDobStepProps) {
   const router = useRouter();
   const responses = useIntakeStore((s) => s.responses);
   const { setResponse, markStepCompleted, setCurrentStep } = useIntakeActions();
   const [mounted, setMounted] = useState(false);
+  const [error, setError] = useState('');
+
   useEffect(() => {
     requestAnimationFrame(() => setMounted(true));
   }, []);
@@ -134,26 +154,90 @@ export default function WmDobStep({
   const [year, setYear] = useState(parts[2] || '');
 
   const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 80 }, (_, i) => currentYear - 18 - i);
+  const minAge = 18;
+  const maxAge = 85;
+  const years = Array.from({ length: maxAge - minAge + 1 }, (_, i) => currentYear - minAge - i);
+
+  const maxDay = useMemo(() => {
+    const m = Number(month);
+    const y = year ? Number(year) : null;
+    if (!m) return 31;
+    return getMaxDay(m, y);
+  }, [month, year]);
+
+  // Auto-correct day when month/year changes and current day exceeds max
+  useEffect(() => {
+    if (day && Number(day) > maxDay) {
+      setDay(String(maxDay));
+    }
+  }, [maxDay, day]);
+
+  const dayOptions = useMemo(
+    () => Array.from({ length: maxDay }, (_, i) => ({
+      value: String(i + 1),
+      label: String(i + 1),
+    })),
+    [maxDay]
+  );
+
+  const monthOptions = monthNames.map((m, i) => ({ value: String(i + 1), label: m }));
+  const yearOptions = years.map((y) => ({ value: String(y), label: String(y) }));
+
+  const handleMonthSelect = useCallback((val: string) => {
+    setMonth(val);
+    setError('');
+  }, []);
+
+  const handleDaySelect = useCallback((val: string) => {
+    setDay(val);
+    setError('');
+  }, []);
+
+  const handleYearSelect = useCallback((val: string) => {
+    setYear(val);
+    setError('');
+  }, []);
 
   const handleContinue = useCallback(() => {
-    if (!month || !day || !year) return;
+    if (!month || !day || !year) {
+      setError('Please select day, month, and year.');
+      return;
+    }
+
+    const m = Number(month);
+    const d = Number(day);
+    const y = Number(year);
+
+    const actualMax = getMaxDay(m, y);
+    if (d > actualMax) {
+      setError(`${monthNames[m - 1]} only has ${actualMax} days.`);
+      return;
+    }
+
+    const today = new Date();
+    const birthDate = new Date(y, m - 1, d);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+
+    if (age < minAge) {
+      setError('You must be at least 18 years old to qualify.');
+      return;
+    }
+    if (age > maxAge) {
+      setError('This program is available for patients up to 85 years old.');
+      return;
+    }
+
+    setError('');
     const dob = `${month.padStart(2, '0')}/${day.padStart(2, '0')}/${year}`;
     setResponse('dob', dob);
     markStepCompleted('dob');
     setCurrentStep(nextStep);
     router.push(`${basePath}/${nextStep}`);
-  }, [
-    month,
-    day,
-    year,
-    setResponse,
-    markStepCompleted,
-    setCurrentStep,
-    nextStep,
-    router,
-    basePath,
-  ]);
+  }, [month, day, year, setResponse, markStepCompleted, setCurrentStep, nextStep, router, basePath]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -162,13 +246,6 @@ export default function WmDobStep({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [handleContinue]);
-
-  const dayOptions = Array.from({ length: 31 }, (_, i) => ({
-    value: String(i + 1),
-    label: String(i + 1),
-  }));
-  const monthOptions = monthNames.map((m, i) => ({ value: String(i + 1), label: m }));
-  const yearOptions = years.map((y) => ({ value: String(y), label: String(y) }));
 
   return (
     <div className="flex min-h-[100dvh] flex-col" style={{ backgroundColor: '#F7F7F9' }}>
@@ -207,7 +284,7 @@ export default function WmDobStep({
         />
       </div>
 
-      {/* Back + Logo row */}
+      {/* Logo row */}
       <div className="mx-auto grid w-full max-w-[48rem] grid-cols-3 items-center px-6 pt-4">
         <div />
         <div className="flex justify-center">
@@ -261,7 +338,7 @@ export default function WmDobStep({
               value={day}
               displayValue={day}
               options={dayOptions}
-              onSelect={setDay}
+              onSelect={handleDaySelect}
             />
             <Dropdown
               label="Month"
@@ -269,7 +346,7 @@ export default function WmDobStep({
               value={month}
               displayValue={month ? monthNames[Number(month) - 1] : ''}
               options={monthOptions}
-              onSelect={setMonth}
+              onSelect={handleMonthSelect}
             />
           </div>
           <Dropdown
@@ -278,9 +355,21 @@ export default function WmDobStep({
             value={year}
             displayValue={year}
             options={yearOptions}
-            onSelect={setYear}
+            onSelect={handleYearSelect}
           />
         </div>
+
+        {/* Error message */}
+        {error && (
+          <div className="mt-4 rounded-xl px-4 py-3 text-center text-sm font-medium" style={{ backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}>
+            {error}
+          </div>
+        )}
+
+        {/* Eligibility note */}
+        <p className="mt-4 text-center text-xs" style={{ color: '#9ca3af' }}>
+          Eligible ages: 18–85 years old
+        </p>
 
         {/* Button */}
         <div className="mt-8 w-full pb-[env(safe-area-inset-bottom)] sm:mx-auto sm:mt-[3.25rem] sm:max-w-[31rem]">
