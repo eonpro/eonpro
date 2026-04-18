@@ -359,7 +359,8 @@ interface ProcessingServices {
     charge: Stripe.Charge
   ) => import('@/services/stripe/paymentMatchingService').StripePaymentData;
   extractPaymentDataFromPaymentIntent: (
-    paymentIntent: Stripe.PaymentIntent
+    paymentIntent: Stripe.PaymentIntent,
+    stripeClient?: import('stripe').default | null
   ) => Promise<import('@/services/stripe/paymentMatchingService').StripePaymentData>;
   extractPaymentDataFromCheckoutSession: (
     session: Stripe.Checkout.Session

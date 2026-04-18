@@ -394,7 +394,9 @@ async function processOTWebhookEvent(
         }
 
         // Extract payment data and add OT clinic ID
-        const intentPaymentData = await extractPaymentDataFromPaymentIntent(paymentIntent);
+        // Pass OT Stripe client so charge expansion uses OT's account (not legacy EonMeds)
+        const otStripeForExtract = getOTStripe();
+        const intentPaymentData = await extractPaymentDataFromPaymentIntent(paymentIntent, otStripeForExtract);
         intentPaymentData.metadata = {
           ...intentPaymentData.metadata,
           clinicId: clinicId.toString(),
@@ -967,9 +969,9 @@ async function processOTWebhookEvent(
             );
 
             try {
-              const otStripe = getOTStripe();
-              const pi = await otStripe.paymentIntents.retrieve(piId);
-              const piPaymentData = await extractPaymentDataFromPaymentIntent(pi);
+              const otStripeForSub = getOTStripe();
+              const pi = await otStripeForSub.paymentIntents.retrieve(piId);
+              const piPaymentData = await extractPaymentDataFromPaymentIntent(pi, otStripeForSub);
               piPaymentData.stripeInvoiceId = invoice.id;
               piPaymentData.metadata = {
                 ...piPaymentData.metadata,

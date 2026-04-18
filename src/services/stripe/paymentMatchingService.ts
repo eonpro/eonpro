@@ -1239,9 +1239,16 @@ export function extractPaymentDataFromCharge(charge: Stripe.Charge): StripePayme
  * 2. receipt_email from charge - Email for receipt
  * 3. metadata - Custom fields
  * 4. description - Often contains customer name
+ *
+ * @param paymentIntent - The Stripe PaymentIntent object
+ * @param stripeClient  - Optional clinic-specific Stripe client for expanding the charge.
+ *                         When omitted, falls back to the legacy (EonMeds) client. Callers
+ *                         processing payments on dedicated accounts (e.g. OT) MUST pass
+ *                         the correct client so the charge can be retrieved successfully.
  */
 export async function extractPaymentDataFromPaymentIntent(
-  paymentIntent: Stripe.PaymentIntent
+  paymentIntent: Stripe.PaymentIntent,
+  stripeClient?: Stripe | null
 ): Promise<StripePaymentData> {
   // Get billing details from the latest charge.
   // CRITICAL: In webhook events, latest_charge is typically a string ID (not expanded).
@@ -1250,12 +1257,14 @@ export async function extractPaymentDataFromPaymentIntent(
   let chargeObj: Stripe.Charge | null =
     typeof charge === 'object' ? (charge as Stripe.Charge) : null;
 
-  // If latest_charge is a string ID, retrieve the full Charge object from Stripe
+  // If latest_charge is a string ID, retrieve the full Charge object from Stripe.
+  // Use the caller-supplied client first (handles dedicated accounts like OT),
+  // then fall back to the legacy client.
   if (!chargeObj && typeof charge === 'string') {
-    const stripe = getLegacyStripeClient();
-    if (stripe) {
+    const clientToUse = stripeClient ?? getLegacyStripeClient();
+    if (clientToUse) {
       try {
-        chargeObj = await stripe.charges.retrieve(charge);
+        chargeObj = await clientToUse.charges.retrieve(charge);
         logger.debug('[PaymentMatching] Expanded latest_charge from string ID', {
           chargeId: charge,
           hasBillingDetails: !!chargeObj.billing_details,

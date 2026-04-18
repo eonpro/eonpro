@@ -350,7 +350,7 @@ async function handlePost(request: NextRequest, user: AuthUser) {
           // Fully new — process from scratch
           try {
             const paymentResult = await runWithClinicContext(clinicId, async () => {
-              const paymentData = await extractPaymentDataFromPaymentIntent(pi);
+              const paymentData = await extractPaymentDataFromPaymentIntent(pi, stripe);
               paymentData.metadata = {
                 ...paymentData.metadata,
                 clinicId: clinicId.toString(),
@@ -443,7 +443,7 @@ async function handlePost(request: NextRequest, user: AuthUser) {
           if (pi.status !== 'succeeded') continue;
 
           await runWithClinicContext(clinicId, async () => {
-            const paymentData = await extractPaymentDataFromPaymentIntent(pi);
+            const paymentData = await extractPaymentDataFromPaymentIntent(pi, stripe);
             paymentData.metadata = {
               ...paymentData.metadata,
               clinicId: clinicId.toString(),
