@@ -26,6 +26,11 @@ const PUBLIC_ROUTE_PREFIXES = [
   '/terms-of-service',
   '/hipaa-notice',
   '/checkout',
+  '/wellmedr-checkout',
+  '/eonmeds-checkout',
+  '/pay/',
+  '/csat/',
+  '/promo/',
 ];
 
 export default function SessionExpirationHandler() {

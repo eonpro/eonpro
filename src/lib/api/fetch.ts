@@ -243,6 +243,11 @@ const PUBLIC_REDIRECT_PREFIXES = [
   '/terms-of-service',
   '/hipaa-notice',
   '/checkout',
+  '/wellmedr-checkout',
+  '/eonmeds-checkout',
+  '/pay/',
+  '/csat/',
+  '/promo/',
 ];
 
 /**
