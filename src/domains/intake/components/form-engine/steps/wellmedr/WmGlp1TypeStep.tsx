@@ -21,6 +21,9 @@ export default function WmGlp1TypeStep({
   const responses = useIntakeStore((s) => s.responses);
   const { setResponse, markStepCompleted, setCurrentStep } = useIntakeActions();
 
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { requestAnimationFrame(() => setMounted(true)); }, []);
+
   const [selected, setSelected] = useState(String(responses.glp1_type || ''));
   const [dose, setDose] = useState(String(responses.glp1_dose || ''));
   const [otherName, setOtherName] = useState(String(responses.glp1_type_other || ''));
@@ -109,7 +112,14 @@ export default function WmGlp1TypeStep({
         <div />
       </div>
 
-      <div className="mx-auto flex w-full max-w-[540px] flex-1 flex-col justify-center px-8 pb-6 sm:px-10">
+      <div
+        className="mx-auto flex w-full max-w-[540px] flex-1 flex-col justify-center px-8 pb-6 sm:px-10"
+        style={{
+          opacity: mounted ? 1 : 0,
+          transform: mounted ? 'translateY(0)' : 'translateY(8px)',
+          transition: 'opacity 0.45s cubic-bezier(0.16,1,0.3,1), transform 0.45s cubic-bezier(0.16,1,0.3,1)',
+        }}
+      >
         <h1
           className="mb-2 text-center text-[1.25rem] font-bold sm:text-[1.5rem]"
           style={{ color: '#101010' }}

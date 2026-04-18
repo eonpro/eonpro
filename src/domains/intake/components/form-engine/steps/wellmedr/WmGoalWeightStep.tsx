@@ -21,6 +21,9 @@ export default function WmGoalWeightStep({
   const responses = useIntakeStore((s) => s.responses);
   const { setResponse, markStepCompleted, setCurrentStep } = useIntakeActions();
 
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { requestAnimationFrame(() => setMounted(true)); }, []);
+
   const [weight, setWeight] = useState(
     String(responses.ideal_weight || responses.idealWeight || '')
   );
@@ -102,7 +105,14 @@ export default function WmGoalWeightStep({
         <div />
       </div>
 
-      <div className="mx-auto flex w-full max-w-[600px] flex-1 flex-col justify-center space-y-5 px-6 pb-6 sm:px-8">
+      <div
+        className="mx-auto flex w-full max-w-[600px] flex-1 flex-col justify-center space-y-5 px-6 pb-6 sm:px-8"
+        style={{
+          opacity: mounted ? 1 : 0,
+          transform: mounted ? 'translateY(0)' : 'translateY(8px)',
+          transition: 'opacity 0.45s cubic-bezier(0.16,1,0.3,1), transform 0.45s cubic-bezier(0.16,1,0.3,1)',
+        }}
+      >
         {w > 0 && (
           <p className="text-center text-[15px]" style={{ color: '#666' }}>
             Perfect! With a BMI of{' '}

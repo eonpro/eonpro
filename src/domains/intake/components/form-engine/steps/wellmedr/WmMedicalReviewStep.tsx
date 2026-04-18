@@ -1,6 +1,5 @@
 'use client';
 
-import type { CSSProperties } from 'react';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useIntakeActions, useIntakeStore } from '../../../../store/intakeStore';
@@ -22,7 +21,8 @@ export default function WmMedicalReviewStep({
   const responses = useIntakeStore((s) => s.responses);
   const { setResponses, markStepCompleted, setCurrentStep } = useIntakeActions();
 
-  const fadeStyle: CSSProperties = {};
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { requestAnimationFrame(() => setMounted(true)); }, []);
 
   const weight = Number(responses.current_weight) || 0;
   const goalWeight = Number(responses.ideal_weight) || 0;
@@ -192,7 +192,14 @@ export default function WmMedicalReviewStep({
         <div />
       </div>
 
-      <div className="mx-auto flex w-full max-w-[600px] flex-1 flex-col justify-center px-6 pb-6 sm:px-8">
+      <div
+        className="mx-auto flex w-full max-w-[600px] flex-1 flex-col justify-center px-6 pb-6 sm:px-8"
+        style={{
+          opacity: mounted ? 1 : 0,
+          transform: mounted ? 'translateY(0)' : 'translateY(8px)',
+          transition: 'opacity 0.45s cubic-bezier(0.16,1,0.3,1), transform 0.45s cubic-bezier(0.16,1,0.3,1)',
+        }}
+      >
         <h2
           className="mb-4 text-center text-[1.5rem] font-bold sm:text-[1.75rem]"
           style={{ color: '#101010' }}

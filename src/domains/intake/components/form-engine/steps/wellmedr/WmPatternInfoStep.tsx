@@ -1,7 +1,6 @@
 'use client';
 
-import type { CSSProperties } from 'react';
-import { useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useIntakeActions, useIntakeStore } from '../../../../store/intakeStore';
 
@@ -22,7 +21,8 @@ export default function WmPatternInfoStep({
   const responses = useIntakeStore((s) => s.responses);
   const { markStepCompleted, setCurrentStep } = useIntakeActions();
 
-  const fadeStyle: CSSProperties = {};
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { requestAnimationFrame(() => setMounted(true)); }, []);
 
   const weight = Number(responses.current_weight) || 200;
   const goalWeight = Number(responses.ideal_weight) || 150;
@@ -67,7 +67,14 @@ export default function WmPatternInfoStep({
         <div />
       </div>
 
-      <div className="mx-auto flex w-full max-w-[600px] flex-1 flex-col justify-center px-6 pb-6 sm:px-8">
+      <div
+        className="mx-auto flex w-full max-w-[600px] flex-1 flex-col justify-center px-6 pb-6 sm:px-8"
+        style={{
+          opacity: mounted ? 1 : 0,
+          transform: mounted ? 'translateY(0)' : 'translateY(8px)',
+          transition: 'opacity 0.45s cubic-bezier(0.16,1,0.3,1), transform 0.45s cubic-bezier(0.16,1,0.3,1)',
+        }}
+      >
         <div
           className="flex min-h-[50vh] w-full flex-col items-center justify-center rounded-2xl p-8 text-center text-white sm:p-12"
           style={{

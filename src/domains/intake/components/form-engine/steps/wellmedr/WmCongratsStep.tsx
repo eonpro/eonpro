@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useIntakeActions, useIntakeStore } from '../../../../store/intakeStore';
 
@@ -123,6 +123,9 @@ export default function WmCongratsStep({
   const responses = useIntakeStore((s) => s.responses);
   const { markStepCompleted, setCurrentStep } = useIntakeActions();
 
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { requestAnimationFrame(() => setMounted(true)); }, []);
+
   const weight = Number(responses.current_weight) || 200;
   const goalWeight = Number(responses.ideal_weight) || 150;
   const lbsToLose = weight - goalWeight;
@@ -210,7 +213,14 @@ export default function WmCongratsStep({
       </div>
 
       {/* Main content */}
-      <div className="mx-auto flex w-full max-w-[600px] flex-1 flex-col px-6 pb-6 pt-6 sm:px-8">
+      <div
+        className="mx-auto flex w-full max-w-[600px] flex-1 flex-col px-6 pb-6 pt-6 sm:px-8"
+        style={{
+          opacity: mounted ? 1 : 0,
+          transform: mounted ? 'translateY(0)' : 'translateY(8px)',
+          transition: 'opacity 0.45s cubic-bezier(0.16,1,0.3,1), transform 0.45s cubic-bezier(0.16,1,0.3,1)',
+        }}
+      >
         {/* Hero heading */}
         <h1 className="mb-2 w-full text-left text-[2rem] font-bold leading-tight sm:text-[2.5rem]">
           <span style={{ color: '#2E7D32' }}>Congrats,</span>{' '}

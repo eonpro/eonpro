@@ -80,10 +80,15 @@ function IntakeStepContent() {
     const prevIdx = allStepIds.indexOf(prevStepRef.current);
     const currIdx = allStepIds.indexOf(stepId);
     const isBack = currIdx < prevIdx;
+    const cls = isBack ? 'intake-step-enter-back' : 'intake-step-enter';
 
-    setTransitionClass('');
+    // Double-rAF ensures the browser has fully removed the old animation
+    // before starting the new one — eliminates the single-frame flash.
+    setTransitionClass('intake-step-hidden');
     requestAnimationFrame(() => {
-      setTransitionClass(isBack ? 'intake-step-enter-back' : 'intake-step-enter');
+      requestAnimationFrame(() => {
+        setTransitionClass(cls);
+      });
     });
 
     const timeSpent = Date.now() - stepEnterTime.current;

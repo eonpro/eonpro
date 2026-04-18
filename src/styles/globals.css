@@ -328,7 +328,7 @@ input[type='number'] {
 @keyframes intakeSlideIn {
   from {
     opacity: 0;
-    transform: translateX(16px);
+    transform: translateX(20px);
   }
   to {
     opacity: 1;
@@ -338,7 +338,7 @@ input[type='number'] {
 @keyframes intakeSlideBack {
   from {
     opacity: 0;
-    transform: translateX(-16px);
+    transform: translateX(-20px);
   }
   to {
     opacity: 1;
@@ -348,9 +348,11 @@ input[type='number'] {
 @keyframes intakeFadeIn {
   from {
     opacity: 0;
+    transform: translateY(4px);
   }
   to {
     opacity: 1;
+    transform: translateY(0);
   }
 }
 @keyframes fadeSlideUp {
@@ -374,14 +376,17 @@ input[type='number'] {
     transform: scale(1);
   }
 }
+.intake-step-hidden {
+  opacity: 0;
+}
 .intake-step-enter {
-  animation: intakeSlideIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: intakeSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .intake-step-enter-back {
-  animation: intakeSlideBack 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: intakeSlideBack 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .intake-step-fade {
-  animation: intakeFadeIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: intakeFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .intake-stagger > * {
