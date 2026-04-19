@@ -528,31 +528,12 @@ const steps: FormStep[] = [
     id: 'glp1-history',
     path: 'glp1-history',
     title: { en: 'Have you taken medication for weight loss within the past 4 weeks?', es: '' },
-    type: 'single-select',
-    fields: [
-      {
-        id: 'glp1_history_recent',
-        type: 'radio',
-        label: { en: 'GLP-1 History', es: '' },
-        storageKey: 'glp1_history_recent',
-        options: [
-          { id: 'yes', label: { en: "Yes, I've taken GLP-1 medication", es: '' }, value: 'yes' },
-          { id: 'no', label: { en: 'No', es: '' }, value: 'no' },
-        ],
-      },
-    ],
-    autoAdvance: true,
+    type: 'custom',
+    component: 'WmGlp1HistoryStep',
+    fields: [],
+    autoAdvance: false,
     showContinueButton: false,
-    nextStep: [
-      {
-        conditions: [{ field: 'glp1_history_recent', operator: 'equals', value: 'yes' }],
-        target: 'glp1-type-wm',
-      },
-      {
-        conditions: [{ field: 'glp1_history_recent', operator: 'equals', value: 'no' }],
-        target: 'opioids',
-      },
-    ],
+    nextStep: 'opioids',
     prevStep: 'health-conditions',
     progressPercent: 58,
   },

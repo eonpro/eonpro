@@ -15,3 +15,4 @@ export { default as WmContactInfoStep } from './WmContactInfoStep';
 export { default as WmGlp1TypeStep } from './WmGlp1TypeStep';
 export { default as WmCurrentMedsStep } from './WmCurrentMedsStep';
 export { default as WmAllergiesStep } from './WmAllergiesStep';
+export { default as WmGlp1HistoryStep } from './WmGlp1HistoryStep';
