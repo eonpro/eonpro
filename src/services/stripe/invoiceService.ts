@@ -711,58 +711,6 @@ export class StripeInvoiceService {
       return null;
     }
 
-    // ──────────────────────────────────────────────────────────────────────
-    // DEDUP: For Connect clinics (WellMedR), the Airtable automation may
-    // have already created a PAID invoice for this patient. If a recent
-    // invoice exists, skip auto-create to avoid duplicates in the Rx queue.
-    // When an existing invoice is found, link the stripeInvoiceId to it so
-    // future webhook lookups hit the fast-path (findUnique by stripeInvoiceId).
-    // ──────────────────────────────────────────────────────────────────────
-    if (connectContext?.stripeAccountId || connectContext?.clinicId) {
-      const recentExistingInvoice = await prisma.invoice.findFirst({
-        where: {
-          patientId: patient.id,
-          clinicId: patient.clinicId,
-          status: 'PAID',
-          prescriptionProcessed: false,
-          createdAt: { gte: new Date(Date.now() - 72 * 60 * 60 * 1000) },
-          stripeInvoiceId: null, // Airtable invoices have no stripeInvoiceId
-        },
-        include: { patient: true, items: { include: { product: true } } },
-        orderBy: { createdAt: 'desc' },
-      });
-
-      if (recentExistingInvoice) {
-        // Link the Stripe invoice ID to the existing record for reconciliation
-        await prisma.invoice.update({
-          where: { id: recentExistingInvoice.id },
-          data: { stripeInvoiceId: stripeInvoice.id },
-        }).catch((linkErr) => {
-          // P2002 = another invoice already has this stripeInvoiceId — fine
-          if ((linkErr as any)?.code !== 'P2002') {
-            logger.warn('[STRIPE] Failed to link stripeInvoiceId to existing invoice', {
-              invoiceId: recentExistingInvoice.id,
-              stripeInvoiceId: stripeInvoice.id,
-              error: linkErr instanceof Error ? linkErr.message : String(linkErr),
-            });
-          }
-        });
-
-        logger.info(
-          '[STRIPE] Skipping auto-create: recent PAID invoice already exists (Connect dedup)',
-          {
-            existingInvoiceId: recentExistingInvoice.id,
-            stripeInvoiceId: stripeInvoice.id,
-            patientId: patient.id,
-            existingSource: (recentExistingInvoice.metadata as any)?.source,
-            createdAt: recentExistingInvoice.createdAt,
-          }
-        );
-
-        return recentExistingInvoice;
-      }
-    }
-
     const paidAt = stripeInvoice.status_transitions?.paid_at
       ? new Date(stripeInvoice.status_transitions.paid_at * 1000)
       : new Date();
@@ -771,6 +719,85 @@ export class StripeInvoiceService {
       typeof (stripeInvoice as any).payment_intent === 'string'
         ? (stripeInvoice as any).payment_intent
         : (stripeInvoice as any).payment_intent?.id;
+
+    // ──────────────────────────────────────────────────────────────────────
+    // DEDUP: Multiple paths can create invoices for the same payment:
+    //   1. WellMedR checkout webhook (processStripePayment on PI.succeeded)
+    //   2. Airtable automation (/api/webhooks/wellmedr-invoice)
+    //   3. This path (invoice.payment_succeeded → auto-create)
+    //
+    // Check in order of precision:
+    //   a) Payment record with this PaymentIntent ID → its invoice
+    //   b) Any recent unprocessed PAID invoice for this patient (72h window)
+    //
+    // When found, link the stripeInvoiceId to the existing invoice for
+    // reconciliation and skip creating a duplicate.
+    // ──────────────────────────────────────────────────────────────────────
+    if (paymentIntentId) {
+      const existingPayment = await prisma.payment.findUnique({
+        where: { stripePaymentIntentId: paymentIntentId },
+        include: {
+          invoice: {
+            include: { patient: true, items: { include: { product: true } } },
+          },
+        },
+      });
+      if (existingPayment?.invoice) {
+        if (!existingPayment.invoice.stripeInvoiceId && stripeInvoice.id) {
+          await prisma.invoice.update({
+            where: { id: existingPayment.invoice.id },
+            data: { stripeInvoiceId: stripeInvoice.id },
+          }).catch(() => {});
+        }
+        logger.info(
+          '[STRIPE] Skipping auto-create: Payment record already has invoice (PI dedup)',
+          {
+            existingInvoiceId: existingPayment.invoice.id,
+            paymentIntentId,
+            stripeInvoiceId: stripeInvoice.id,
+            patientId: patient.id,
+          }
+        );
+        return existingPayment.invoice;
+      }
+    }
+
+    // Broader dedup: check for any recent PAID invoice for this patient
+    // from Airtable or checkout webhook (catches race conditions and
+    // cases where the Payment record doesn't have a PI match).
+    {
+      const recentExistingInvoice = await prisma.invoice.findFirst({
+        where: {
+          patientId: patient.id,
+          clinicId: patient.clinicId,
+          status: 'PAID',
+          prescriptionProcessed: false,
+          createdAt: { gte: new Date(Date.now() - 72 * 60 * 60 * 1000) },
+          stripeInvoiceId: null,
+        },
+        include: { patient: true, items: { include: { product: true } } },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (recentExistingInvoice) {
+        await prisma.invoice.update({
+          where: { id: recentExistingInvoice.id },
+          data: { stripeInvoiceId: stripeInvoice.id },
+        }).catch(() => {});
+
+        logger.info(
+          '[STRIPE] Skipping auto-create: recent PAID invoice exists (time-window dedup)',
+          {
+            existingInvoiceId: recentExistingInvoice.id,
+            stripeInvoiceId: stripeInvoice.id,
+            patientId: patient.id,
+            existingSource: (recentExistingInvoice.metadata as any)?.source,
+          }
+        );
+
+        return recentExistingInvoice;
+      }
+    }
 
     const subscriptionId =
       typeof (stripeInvoice as any).subscription === 'string'
