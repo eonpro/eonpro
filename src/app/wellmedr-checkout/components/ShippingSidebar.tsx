@@ -134,34 +134,34 @@ export default function ShippingSidebar() {
           </div>
 
           {/* Review title */}
-          <p className="mb-1.5 text-[15px] font-bold leading-snug" style={{ color: '#101010' }}>
+          <p className="mb-1.5 text-[12px] font-bold leading-snug" style={{ color: '#101010' }}>
             {review.title}
           </p>
 
           {/* Review text */}
-          <p className="mb-4 text-[13px] leading-relaxed" style={{ color: '#555', lineHeight: '1.6' }}>
+          <p className="mb-4 text-[11px] leading-relaxed" style={{ color: '#555', lineHeight: '1.55' }}>
             {review.text}
           </p>
 
           {/* Reviewer */}
           <div className="flex items-center gap-3">
             <div
-              className="flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold text-white"
+              className="flex h-8 w-8 items-center justify-center rounded-full text-[10px] font-bold text-white"
               style={{ backgroundColor: review.color }}
             >
               {review.initials}
             </div>
             <div>
-              <p className="text-[13px] font-bold" style={{ color: '#101010' }}>
+              <p className="text-[11px] font-bold" style={{ color: '#101010' }}>
                 {review.name}
               </p>
-              <div className="flex items-center gap-1.5">
-                <div className="flex h-3.5 w-3.5 items-center justify-center rounded-full" style={{ backgroundColor: '#00b67a' }}>
-                  <svg className="h-2 w-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="flex items-center gap-1">
+                <div className="flex h-3 w-3 items-center justify-center rounded-full" style={{ backgroundColor: '#00b67a' }}>
+                  <svg className="h-1.5 w-1.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <span className="text-xs font-medium" style={{ color: '#00b67a' }}>
+                <span className="text-[10px] font-medium" style={{ color: '#00b67a' }}>
                   {review.badge}
                 </span>
               </div>
@@ -169,7 +169,7 @@ export default function ShippingSidebar() {
           </div>
 
           {/* Date */}
-          <p className="mt-2.5 text-[11px]" style={{ color: '#aaa' }}>
+          <p className="mt-2 text-[10px]" style={{ color: '#aaa' }}>
             Date of Experience: {review.date}
           </p>
         </div>
