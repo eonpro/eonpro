@@ -1591,9 +1591,13 @@ export async function processStripePayment(
       }
     }
 
-    // Promote LEAD or PENDING_COMPLETION patients to ACTIVE on successful payment
+    // Promote LEAD or PENDING_COMPLETION patients to ACTIVE on successful payment.
+    // IMPORTANT: Only promote MATCHED patients, NOT newly created ones. Newly created
+    // patients from Stripe start as PENDING_COMPLETION and need admin review (DOB,
+    // address, medical history) before entering the provider Rx queue.
     if (
       patient &&
+      !patientCreated &&
       (patient.profileStatus === 'LEAD' || patient.profileStatus === 'PENDING_COMPLETION')
     ) {
       const previousStatus = patient.profileStatus;
