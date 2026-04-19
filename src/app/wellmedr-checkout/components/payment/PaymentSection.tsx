@@ -38,7 +38,6 @@ import InputField from '@/app/wellmedr-checkout/components/ui/InputField';
 import PromoCodeSection from './PromoCodeSection';
 import {
   getStripePublishableKey,
-  getStripePaymentConfigId,
   getStripeConnectedAccountId,
 } from '@/app/wellmedr-checkout/lib/stripe-config';
 import { getAddonTotal } from '@/app/wellmedr-checkout/data/addons';
@@ -185,7 +184,6 @@ export default function PaymentForm({ submissionId }: PaymentFormProps) {
     );
   }
 
-  const pmConfigId = getStripePaymentConfigId();
   return (
     <Elements
       stripe={stripePromise}
@@ -193,7 +191,7 @@ export default function PaymentForm({ submissionId }: PaymentFormProps) {
         mode: 'subscription',
         amount: amountInCents,
         currency: 'usd',
-        ...(pmConfigId ? { paymentMethodConfiguration: pmConfigId } : {}),
+        paymentMethodTypes: ['card', 'link'],
       }}
       // Only re-key on plan change, NOT on discount change
       // This preserves card input data when promo codes are applied
@@ -219,6 +217,7 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
   const [processingMethod, setProcessingMethod] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expressCheckoutReady, setExpressCheckoutReady] = useState(false);
+  const [expressCheckoutUnavailable, setExpressCheckoutUnavailable] = useState(false);
   const [paymentCompleted, setPaymentCompleted] = useState(false);
 
   const stripe = useStripe();
@@ -265,6 +264,18 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
     setIsProcessing(false);
     setProcessingMethod(null);
   }, []);
+
+  // Auto-hide express checkout after 8s if it never becomes ready
+  useEffect(() => {
+    if (expressCheckoutReady || expressCheckoutUnavailable) return;
+    const timeout = setTimeout(() => {
+      if (!expressCheckoutReady) {
+        logger.warn('[Express Checkout] Timed out waiting for ready — hiding section');
+        setExpressCheckoutUnavailable(true);
+      }
+    }, 8000);
+    return () => clearTimeout(timeout);
+  }, [expressCheckoutReady, expressCheckoutUnavailable]);
 
   // Helper function to create subscription
   const createSubscription = useCallback(async () => {
@@ -368,13 +379,30 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
   /** Express Checkout Element ready handler */
   const handleExpressCheckoutReady = useCallback(
     (event: StripeExpressCheckoutElementReadyEvent) => {
-      // Check if any payment methods are available
       if (event.availablePaymentMethods) {
-        setExpressCheckoutReady(true);
+        const methods = event.availablePaymentMethods;
+        const hasAny = methods.applePay || methods.googlePay || methods.link;
+        if (hasAny) {
+          setExpressCheckoutReady(true);
+        } else {
+          setExpressCheckoutUnavailable(true);
+        }
+      } else {
+        setExpressCheckoutUnavailable(true);
       }
     },
     []
   );
+
+  /** Express Checkout Element load error handler */
+  const handleExpressCheckoutLoadError = useCallback(
+    (event: { elementType: 'expressCheckout'; error: import('@stripe/stripe-js').StripeError }) => {
+      logger.error('[Express Checkout] Load error:', event.error?.message);
+      setExpressCheckoutUnavailable(true);
+    },
+    []
+  );
+
 
   /** Express Checkout Element confirm handler */
   const handleExpressCheckoutConfirm = useCallback(
@@ -690,32 +718,34 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
     <div className="flex w-full flex-col gap-6 sm:gap-8">
       <h2 className="text-center">Payment method</h2>
 
-      {/* Express Checkout */}
-      <div className="card w-full bg-white sm:p-6">
-        <h3 className="mb-4 text-center text-base sm:mb-6 sm:text-xl">Express Checkout</h3>
+      {/* Express Checkout — hidden entirely when unavailable */}
+      {!expressCheckoutUnavailable && (
+        <>
+          <div className="card w-full bg-white sm:p-6">
+            <h3 className="mb-4 text-center text-base sm:mb-6 sm:text-xl">Express Checkout</h3>
 
-        {/* Stripe Express Checkout Element */}
-        <ExpressCheckoutElement
-          options={expressCheckoutOptions}
-          onReady={handleExpressCheckoutReady}
-          onConfirm={handleExpressCheckoutConfirm}
-        />
+            <ExpressCheckoutElement
+              options={expressCheckoutOptions}
+              onReady={handleExpressCheckoutReady}
+              onConfirm={handleExpressCheckoutConfirm}
+              onLoadError={handleExpressCheckoutLoadError}
+            />
 
-        {/* Show loading state while express checkout initializes */}
-        {!expressCheckoutReady && (
-          <div className="mt-2 flex justify-center gap-4">
-            <div className="h-10 w-full animate-pulse rounded-md bg-gray-100" />
-            <div className="h-10 w-full animate-pulse rounded-md bg-gray-100" />
+            {!expressCheckoutReady && (
+              <div className="mt-2 flex justify-center gap-4">
+                <div className="h-10 w-full animate-pulse rounded-md bg-gray-100" />
+                <div className="h-10 w-full animate-pulse rounded-md bg-gray-100" />
+              </div>
+            )}
           </div>
-        )}
-      </div>
 
-      {/* Divider */}
-      <div className="flex items-center gap-4">
-        <div className="h-px flex-1 bg-gray-200" />
-        <span className="text-sm opacity-50">OR</span>
-        <div className="h-px flex-1 bg-gray-200" />
-      </div>
+          <div className="flex items-center gap-4">
+            <div className="h-px flex-1 bg-gray-200" />
+            <span className="text-sm opacity-50">OR</span>
+            <div className="h-px flex-1 bg-gray-200" />
+          </div>
+        </>
+      )}
 
       {/* Card Payment Form */}
       <form

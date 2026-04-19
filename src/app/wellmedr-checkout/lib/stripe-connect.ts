@@ -112,11 +112,58 @@ async function validateConnectSetup(stripe: Stripe): Promise<void> {
       connectedAccountId: accountId,
       chargesEnabled: connectedAccount.charges_enabled,
     });
+
+    // Auto-register payment method domains for Apple Pay / Google Pay / Link
+    await ensurePaymentMethodDomains(stripe, accountId);
   } catch (err) {
     logger.error('[STRIPE CONNECT] Failed to validate Connect setup — check API keys', {
       error: err instanceof Error ? err.message : 'Unknown',
       connectedAccountId: accountId,
     });
+  }
+}
+
+const WELLMEDR_DOMAINS = ['wellmedr.eonpro.io', 'intake.wellmedr.com'];
+
+/**
+ * Registers payment method domains (Apple Pay, Google Pay, Link) on the
+ * WellMedR connected account. Connect platforms using direct charges must
+ * register domains via API — the Stripe Dashboard only covers the platform's
+ * own account.
+ */
+async function ensurePaymentMethodDomains(stripe: Stripe, accountId: string): Promise<void> {
+  const opts = { stripeAccount: accountId };
+
+  for (const domain of WELLMEDR_DOMAINS) {
+    try {
+      const existing = await stripe.paymentMethodDomains.list(
+        { domain_name: domain, enabled: true },
+        opts
+      );
+      if (existing.data.length > 0) {
+        const d = existing.data[0];
+        logger.info('[PMD] Domain already registered', {
+          domain,
+          applePay: d.apple_pay.status,
+          googlePay: d.google_pay.status,
+          link: d.link.status,
+        });
+        continue;
+      }
+
+      const pmd = await stripe.paymentMethodDomains.create({ domain_name: domain }, opts);
+      logger.info('[PMD] Registered domain for connected account', {
+        domain,
+        applePay: pmd.apple_pay.status,
+        googlePay: pmd.google_pay.status,
+        link: pmd.link.status,
+      });
+    } catch (err) {
+      logger.warn('[PMD] Failed to register domain — Express Checkout may not load', {
+        domain,
+        error: err instanceof Error ? err.message : 'Unknown',
+      });
+    }
   }
 }
 
