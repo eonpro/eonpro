@@ -404,10 +404,21 @@ export class StripeInvoiceService {
     //   • Affiliate commission is processed
     //   • Portal invite triggers
     // Idempotent: gated by stripeInvoiceId unique index.
+    //
+    // CONNECT EVENTS (WellMedR etc.): Skip auto-create. Invoice creation
+    // for Connect clinics is handled by dedicated paths:
+    //   1. WellMedR checkout webhook (processStripePayment on PI.succeeded)
+    //   2. Airtable automation (/api/webhooks/wellmedr-invoice)
+    // Auto-creating here causes duplicates because the main webhook fires
+    // before those paths, and both end up creating separate invoices.
+    // The subscription refill trigger (triggerRefillForSubscriptionPayment)
+    // runs independently in the invoice.payment_succeeded handler and is
+    // NOT affected by skipping the auto-create.
     // ──────────────────────────────────────────────────────────────────────
     let wasAutoCreated = false;
+    const isConnectInvoice = !!connectContext?.stripeAccountId;
 
-    if (!invoice && stripeInvoice.status === 'paid') {
+    if (!invoice && stripeInvoice.status === 'paid' && !isConnectInvoice) {
       const created = await this.createInvoiceFromStripeWebhook(stripeInvoice, connectContext);
       if (created) {
         invoice = created;
@@ -420,6 +431,14 @@ export class StripeInvoiceService {
           billingReason: stripeInvoice.billing_reason,
         });
       }
+    }
+
+    if (!invoice && stripeInvoice.status === 'paid' && isConnectInvoice) {
+      logger.info('[STRIPE] Skipping auto-create for Connect invoice (handled by external automation)', {
+        stripeInvoiceId: stripeInvoice.id,
+        billingReason: stripeInvoice.billing_reason,
+        connectAccountId: connectContext?.stripeAccountId?.substring(0, 12),
+      });
     }
 
     if (!invoice) {
