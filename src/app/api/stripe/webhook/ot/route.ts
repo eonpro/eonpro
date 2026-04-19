@@ -693,13 +693,19 @@ async function processOTWebhookEvent(
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
 
-        // Skip if not paid or has invoice
-        if (session.payment_status !== 'paid' || session.invoice) {
+        // Skip if not paid, has invoice, or is a subscription checkout.
+        // Subscription checkouts are handled by invoice.payment_succeeded to
+        // avoid creating duplicate invoices (checkout + invoice events both fire).
+        if (session.payment_status !== 'paid' || session.invoice || session.subscription) {
           return {
             success: true,
             details: {
               skipped: true,
-              reason: session.payment_status !== 'paid' ? 'Not paid' : 'Has invoice',
+              reason: session.payment_status !== 'paid'
+                ? 'Not paid'
+                : session.subscription
+                  ? 'Subscription checkout — handled by invoice.payment_succeeded'
+                  : 'Has invoice',
             },
           };
         }
