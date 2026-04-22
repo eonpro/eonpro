@@ -199,7 +199,7 @@ export const GET = withAuth(
       // Invoice.amount / amountPaid / amountDue are stored in cents (Prisma Int);
       // the portal UI's formatCurrency divides by 100, so pass cents through unchanged.
       // Prefer amountPaid for paid invoices, fall back to amount, then amountDue.
-      const invoices = patient.invoices.map((inv: any) => ({
+      const rawInvoices = patient.invoices.map((inv: any) => ({
         id: inv.id.toString(),
         number: inv.stripeInvoiceNumber || `INV-${inv.id}`,
         amount: inv.amountPaid || inv.amount || inv.amountDue || 0,
@@ -209,6 +209,26 @@ export const GET = withAuth(
         description: inv.description || 'Subscription',
         pdfUrl: inv.stripePdfUrl || null,
       }));
+
+      // Deduplicate invoices that share the same date and amount — these are
+      // almost certainly the same charge represented by multiple DB records
+      // (e.g. invoice + payment + subscription-creation). Keep the one with
+      // the most descriptive text and prefer entries with a PDF link.
+      const seen = new Map<string, typeof rawInvoices[number]>();
+      for (const inv of rawInvoices) {
+        const dateKey = inv.date.slice(0, 10);
+        const key = `${dateKey}|${inv.amount}|${inv.status}`;
+        const existing = seen.get(key);
+        if (!existing) {
+          seen.set(key, inv);
+        } else {
+          const better =
+            (!existing.pdfUrl && inv.pdfUrl) ||
+            inv.description.length > existing.description.length;
+          if (better) seen.set(key, inv);
+        }
+      }
+      const invoices = [...seen.values()];
 
       try {
         await auditLog(req, {
