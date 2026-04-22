@@ -753,7 +753,7 @@ export default function AppointmentsPage() {
                                 <p className="font-semibold text-gray-900">{type.name}</p>
                                 <p className="text-sm text-gray-500">
                                   {type.duration} min
-                                  {type.price ? ` · $${type.price}` : ''}
+                                  {type.price ? ` · $${(type.price / 100).toFixed(2)}` : ''}
                                 </p>
                               </div>
                               {selectedType?.id === type.id && (
