@@ -438,6 +438,24 @@ async function processWebhookEvent(
           clinicId: resolvedClinicId > 0 ? resolvedClinicId : undefined,
         });
 
+        // Resolve the local Invoice row (may have been auto-created by
+        // updateFromWebhook above) so we can link it to the RefillQueue below.
+        // Missing linkage was the root cause of WellMedR renewals not appearing
+        // in the provider Rx queue (2026-04-22 incident).
+        let localInvoiceId: number | undefined;
+        try {
+          const localInvoice = await prisma.invoice.findUnique({
+            where: { stripeInvoiceId: invoice.id },
+            select: { id: true },
+          });
+          localInvoiceId = localInvoice?.id;
+        } catch (lookupErr) {
+          logger.warn('[STRIPE WEBHOOK] Local invoice lookup for refill linkage failed', {
+            stripeInvoiceId: invoice.id,
+            error: lookupErr instanceof Error ? lookupErr.message : 'Unknown',
+          });
+        }
+
         // If this invoice is for a subscription renewal, trigger Rx refill
         const invoiceSubscriptionId =
           typeof (invoice as any).subscription === 'string'
@@ -518,10 +536,18 @@ async function processWebhookEvent(
             }
 
             if (localSub) {
+              // Derive stripePaymentId from the invoice's payment intent so
+              // RefillQueue.stripePaymentId is populated (used by finance
+              // reconciliation + affiliate commission reversal on refunds).
+              const stripePaymentId =
+                typeof (invoice as any).payment_intent === 'string'
+                  ? ((invoice as any).payment_intent as string)
+                  : (invoice as any).payment_intent?.id;
+
               const refill = await triggerRefillForSubscriptionPayment(
                 localSub.id,
-                undefined,
-                undefined
+                stripePaymentId,
+                localInvoiceId
               );
               refillTriggered = true;
 
@@ -530,6 +556,8 @@ async function processWebhookEvent(
                 stripeSubscriptionId: invoiceSubscriptionId,
                 refillId: refill?.id,
                 patientId: localSub.patientId,
+                invoiceId: localInvoiceId,
+                stripePaymentId,
               });
             } else {
               logger.error(

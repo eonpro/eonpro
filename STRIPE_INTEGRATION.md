@@ -299,3 +299,85 @@ npx prisma generate
 ---
 
 The Stripe invoicing integration is now fully operational and ready for use. The system provides a complete billing solution with invoice creation, payment processing, and customer management capabilities.
+
+---
+
+## WellMedR Connect — Invoice Flow Runbook (updated 2026-04-22)
+
+### Overview
+
+WellMedR operates on a Stripe Connect account. Invoice creation is split:
+
+| Phase | Trigger | Owner | Creates Invoice? |
+|---|---|---|---|
+| Initial checkout | New Airtable order row (customer pays) | Airtable → `/api/webhooks/wellmedr-invoice` | ✅ yes |
+| Recurring renewal | Stripe `invoice.payment_succeeded` (`subscription_cycle`) | `/api/stripe/webhook` → `StripeInvoiceService.updateFromWebhook` | ✅ yes (since 2026-04-22) |
+| Mid-cycle proration | Stripe `invoice.payment_succeeded` (`subscription_update`) | `/api/stripe/webhook` → `StripeInvoiceService.updateFromWebhook` | ✅ yes |
+| Cancellation | Stripe `customer.subscription.deleted` | `/api/stripe/webhook` | n/a (cancels refills) |
+
+The decision is made by `shouldAutoCreateConnectInvoice(stripeInvoice, connectContext)` in `src/services/stripe/connectInvoiceGuard.ts`. Unit tests: `tests/unit/stripe/connect-invoice-auto-create.test.ts`.
+
+### Sequence: Recurring Renewal
+
+```
+Stripe (Connect)
+  │
+  ├─ invoice.payment_succeeded  { billing_reason: 'subscription_cycle' }
+  ▼
+POST /api/stripe/webhook
+  │
+  ├─ resolve clinicId from event.account → Clinic.stripeAccountId
+  │
+  ├─ StripeInvoiceService.updateFromWebhook(invoice, {stripeAccountId, clinicId})
+  │   ├─ shouldAutoCreateConnectInvoice → true
+  │   ├─ findRecentConnectDuplicate (≤24h stripePaymentMethodId)  ──── no dupe
+  │   └─ createInvoiceFromStripeWebhook (creates Invoice row, SOAP, portal invite)
+  │
+  ├─ prisma.invoice.findUnique({stripeInvoiceId}) → localInvoiceId
+  │
+  └─ triggerRefillForSubscriptionPayment(subId, stripePaymentId, localInvoiceId)
+      └─ RefillQueue row (APPROVED, auto-queued to provider)
+
+Patient profile → Invoices tab: reads Invoice table ✅
+Provider Rx queue: reads Invoice where prescriptionProcessed=false, status=PAID ✅
+```
+
+### Safety nets
+
+1. **Hourly cron** — `/api/cron/wellmedr-renewal-invoice-sync` (scheduled `15 * * * *` in `vercel.json`). Scans last 48h of paid renewal invoices on the Connect account, replays any missing through the same webhook code path. Emits a Slack warning when it finds gaps.
+2. **Sentry tripwire** — If `billing_reason ∈ {subscription_cycle, subscription_update, subscription_threshold}` ever reaches the skip branch in `updateFromWebhook`, an ERROR-level Sentry event fires with tag `regression=connect-renewal-skip`.
+3. **Historical backfill script** — `scripts/backfill-wellmedr-renewal-invoices.ts` for one-time cleanup of the 2026-04-19 → 2026-04-22 gap (see below).
+
+### Runbook: "Patient paid on WellMedR but invoice is missing"
+
+1. Get the Stripe invoice ID from the WellMedR Stripe dashboard (Billing → Invoices).
+2. Check local record:
+   ```sql
+   SELECT id, "patientId", status, "prescriptionProcessed", "createdAt", metadata
+   FROM "Invoice"
+   WHERE "stripeInvoiceId" = 'in_...';
+   ```
+3. If no row exists:
+   a. Check webhook logs: `SELECT * FROM "WebhookLog" WHERE "eventId" IN (SELECT id FROM stripe_events WHERE ...)` — was the event received?
+   b. Trigger the safety-net cron manually: `curl -H 'Authorization: Bearer $CRON_SECRET' https://wellmedr.eonpro.io/api/cron/wellmedr-renewal-invoice-sync`
+   c. If still missing, run the backfill dry-run: `npx tsx scripts/backfill-wellmedr-renewal-invoices.ts --since=YYYY-MM-DD`
+4. If row exists but not in Rx queue: verify `status='PAID'` AND `prescriptionProcessed=false` AND `clinicId` matches WellMedR.
+
+### Historical backfill procedure (2026-04-19 → 2026-04-22 gap)
+
+```bash
+# 1. Dry run (no writes, produces CSV)
+npx tsx scripts/backfill-wellmedr-renewal-invoices.ts
+
+# 2. Review CSV (backfill-wellmedr-renewals-<timestamp>-dryrun.csv):
+#    - action=would_create → missing invoices that will be created
+#    - action=replay_no_patient → manual triage needed (no patient match)
+#    - action=skipped_existing → already reconciled, no-op
+
+# 3. Ops + clinical lead sign-off on the CSV
+
+# 4. Execute (writes to DB, skips receipt emails via historicalBackfill flag)
+npx tsx scripts/backfill-wellmedr-renewal-invoices.ts --execute
+
+# 5. Verify: spot-check 3-5 patients from the CSV in the Rx queue UI
+```

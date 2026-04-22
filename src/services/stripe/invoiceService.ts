@@ -11,6 +11,11 @@ import { triggerAutomation, AutomationTrigger } from '@/lib/email/automations';
 import { ensureSoapNoteExists } from '@/lib/soap-note-automation';
 import { findPatientByEmail } from '@/services/stripe/paymentMatchingService';
 import { decryptPHI } from '@/lib/security/phi-encryption';
+import {
+  shouldAutoCreateConnectInvoice,
+  isRenewalBillingReason,
+} from '@/services/stripe/connectInvoiceGuard';
+import * as Sentry from '@sentry/nextjs';
 
 function safeDecryptField(value: string | null | undefined): string {
   if (!value) return '';
@@ -405,18 +410,17 @@ export class StripeInvoiceService {
     //   • Portal invite triggers
     // Idempotent: gated by stripeInvoiceId unique index.
     //
-    // CONNECT EVENTS (WellMedR etc.): Skip auto-create. Invoice creation
-    // for Connect clinics is handled by dedicated paths:
-    //   1. WellMedR checkout webhook (processStripePayment on PI.succeeded)
-    //   2. Airtable automation (/api/webhooks/wellmedr-invoice)
-    // Auto-creating here causes duplicates because the main webhook fires
-    // before those paths, and both end up creating separate invoices.
-    // The subscription refill trigger (triggerRefillForSubscriptionPayment)
-    // runs independently in the invoice.payment_succeeded handler and is
-    // NOT affected by skipping the auto-create.
+    // CONNECT EVENTS (WellMedR etc.): scoped by `billing_reason` (2026-04-22).
+    //   • subscription_create / manual → owned by Airtable automation
+    //     (/api/webhooks/wellmedr-invoice). Skip auto-create to avoid duplicates.
+    //   • subscription_cycle / subscription_update / subscription_threshold →
+    //     NO external automation fires. MUST auto-create or renewal invoices
+    //     go missing from the patient profile and the provider Rx queue.
+    // See `connectInvoiceGuard.ts` for the full decision matrix + unit tests.
     // ──────────────────────────────────────────────────────────────────────
     let wasAutoCreated = false;
     const isConnectInvoice = !!connectContext?.stripeAccountId;
+    const connectShouldAutoCreate = shouldAutoCreateConnectInvoice(stripeInvoice, connectContext);
 
     if (!invoice && stripeInvoice.status === 'paid' && !isConnectInvoice) {
       const created = await this.createInvoiceFromStripeWebhook(stripeInvoice, connectContext);
@@ -433,12 +437,101 @@ export class StripeInvoiceService {
       }
     }
 
-    if (!invoice && stripeInvoice.status === 'paid' && isConnectInvoice) {
-      logger.info('[STRIPE] Skipping auto-create for Connect invoice (handled by external automation)', {
-        stripeInvoiceId: stripeInvoice.id,
-        billingReason: stripeInvoice.billing_reason,
-        connectAccountId: connectContext?.stripeAccountId?.substring(0, 12),
-      });
+    if (!invoice && stripeInvoice.status === 'paid' && isConnectInvoice && connectShouldAutoCreate) {
+      // Belt-and-suspenders dedup: if Airtable (or any other path) already created
+      // an Invoice for the same patient using the same Stripe PaymentMethod within
+      // the last 24h, skip auto-create. The primary dedup is the stripeInvoiceId
+      // unique index, but Airtable-created Invoices have stripeInvoiceId=null and
+      // track the PaymentMethod in metadata.stripePaymentMethodId, so a secondary
+      // check is required to avoid double-invoicing on the same charge.
+      const airtableCreatedRecently = await this.findRecentConnectDuplicate(stripeInvoice);
+      if (airtableCreatedRecently) {
+        logger.info(
+          '[STRIPE] Connect renewal matched a recent Airtable-created invoice — skipping auto-create',
+          {
+            stripeInvoiceId: stripeInvoice.id,
+            existingInvoiceId: airtableCreatedRecently.id,
+            billingReason: stripeInvoice.billing_reason,
+          }
+        );
+        // Backfill stripeInvoiceId onto the existing record so future events resolve cleanly.
+        try {
+          await prisma.invoice.update({
+            where: { id: airtableCreatedRecently.id },
+            data: { stripeInvoiceId: stripeInvoice.id },
+          });
+        } catch (backfillErr) {
+          // P2002 means another invoice already has this stripeInvoiceId — benign race.
+          if ((backfillErr as { code?: string })?.code !== 'P2002') {
+            logger.warn('[STRIPE] Failed to backfill stripeInvoiceId on deduped invoice', {
+              invoiceId: airtableCreatedRecently.id,
+              stripeInvoiceId: stripeInvoice.id,
+              error: backfillErr instanceof Error ? backfillErr.message : 'Unknown',
+            });
+          }
+        }
+      } else {
+        const created = await this.createInvoiceFromStripeWebhook(stripeInvoice, connectContext);
+        if (created) {
+          invoice = created;
+          wasAutoCreated = true;
+          logger.info('[STRIPE] Auto-created local invoice for Connect renewal', {
+            invoiceId: created.id,
+            stripeInvoiceId: stripeInvoice.id,
+            patientId: created.patientId,
+            amount: stripeInvoice.amount_paid,
+            billingReason: stripeInvoice.billing_reason,
+            connectAccountId: connectContext?.stripeAccountId?.substring(0, 12),
+          });
+        }
+      }
+    }
+
+    if (!invoice && stripeInvoice.status === 'paid' && isConnectInvoice && !connectShouldAutoCreate) {
+      // Expected skip (subscription_create / manual) — Airtable owns this path.
+      // Log at DEBUG so production noise is minimal; unexpected skips (a renewal
+      // reaching this branch) are impossible given the predicate, but the surprise
+      // case below catches any future regression.
+      logger.debug(
+        '[STRIPE] Connect invoice skipped by design (owned by external automation)',
+        {
+          stripeInvoiceId: stripeInvoice.id,
+          billingReason: stripeInvoice.billing_reason,
+          connectAccountId: connectContext?.stripeAccountId?.substring(0, 12),
+        }
+      );
+
+      // Regression tripwire: if billing_reason indicates a renewal but the
+      // predicate returned false (e.g. someone narrowed RENEWAL_BILLING_REASONS
+      // incorrectly), emit an ERROR + Sentry event so we find out instead of
+      // silently losing data. This is the guardrail against repeating the
+      // 2026-04-19 regression that dropped all WellMedR renewal invoices.
+      if (isRenewalBillingReason(stripeInvoice.billing_reason)) {
+        const tripwireContext = {
+          stripeInvoiceId: stripeInvoice.id,
+          billingReason: stripeInvoice.billing_reason,
+          connectAccountId: connectContext?.stripeAccountId?.substring(0, 12),
+        };
+        logger.error(
+          '[STRIPE] REGRESSION: Connect renewal reached skip branch — auto-create guard misconfigured',
+          tripwireContext
+        );
+        try {
+          Sentry.captureMessage(
+            'Connect renewal invoice skipped by auto-create guard (regression)',
+            {
+              level: 'error',
+              tags: {
+                component: 'stripe-invoice-service',
+                regression: 'connect-renewal-skip',
+              },
+              extra: tripwireContext,
+            }
+          );
+        } catch {
+          /* Sentry may not be initialized in some environments; don't crash */
+        }
+      }
     }
 
     if (!invoice) {
@@ -477,9 +570,13 @@ export class StripeInvoiceService {
       logger.debug(`[STRIPE] Updated invoice ${stripeInvoice.id} from webhook`);
     }
 
-    // Send receipt email when invoice is paid
+    // Send receipt email when invoice is paid. Suppress for historical backfills
+    // (tagged in metadata by `backfill-wellmedr-renewal-invoices.ts`) to avoid
+    // spamming patients with receipts for months-old charges during a cleanup run.
+    const invoiceMetadata = (invoice.metadata as Record<string, unknown> | null) || null;
+    const isHistoricalBackfill = invoiceMetadata?.historicalBackfill === true;
     const receiptEmail = safeDecryptField(invoice.patient?.email);
-    if (wasPaid && wasNotPaidBefore && receiptEmail) {
+    if (wasPaid && wasNotPaidBefore && receiptEmail && !isHistoricalBackfill) {
       try {
         const decFirstName = safeDecryptField(invoice.patient?.firstName);
         const decLastName = safeDecryptField(invoice.patient?.lastName);
@@ -616,6 +713,63 @@ export class StripeInvoiceService {
    *
    * Returns the created Invoice (with patient relation) or null if patient cannot be resolved.
    */
+  /**
+   * Belt-and-suspenders dedup for Connect renewals: find an Invoice created
+   * in the last 24h by another path (typically Airtable) that corresponds to
+   * the same underlying Stripe charge.
+   *
+   * Signal: `metadata.stripePaymentMethodId` — set by the WellMedR Airtable
+   * webhook (`/api/webhooks/wellmedr-invoice`) on every Invoice it creates.
+   * Matched against the payment method on the Stripe invoice's charge/PI.
+   *
+   * Only considers invoices with `stripeInvoiceId IS NULL` (not yet linked to
+   * a Stripe invoice) to avoid false-positives with other Stripe-originated
+   * invoices for the same patient.
+   */
+  private static async findRecentConnectDuplicate(
+    stripeInvoice: Stripe.Invoice
+  ): Promise<{ id: number; metadata: unknown } | null> {
+    const charge = (stripeInvoice as Stripe.Invoice & { charge?: Stripe.Charge | string | null })
+      .charge;
+    const chargePaymentMethod =
+      charge && typeof charge !== 'string' ? charge.payment_method : null;
+    const pi = (
+      stripeInvoice as Stripe.Invoice & { payment_intent?: Stripe.PaymentIntent | string | null }
+    ).payment_intent;
+    const piPaymentMethod =
+      pi && typeof pi !== 'string' && pi.payment_method
+        ? typeof pi.payment_method === 'string'
+          ? pi.payment_method
+          : pi.payment_method.id
+        : null;
+    const paymentMethodId =
+      chargePaymentMethod && typeof chargePaymentMethod === 'string'
+        ? chargePaymentMethod
+        : piPaymentMethod;
+
+    if (!paymentMethodId) return null;
+
+    const windowStart = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    try {
+      const candidate = await prisma.invoice.findFirst({
+        where: {
+          stripeInvoiceId: null,
+          createdAt: { gte: windowStart },
+          metadata: { path: ['stripePaymentMethodId'], equals: paymentMethodId },
+        },
+        select: { id: true, metadata: true },
+        orderBy: { createdAt: 'desc' },
+      });
+      return candidate;
+    } catch (err) {
+      logger.warn('[STRIPE] findRecentConnectDuplicate lookup failed (non-fatal)', {
+        stripeInvoiceId: stripeInvoice.id,
+        error: err instanceof Error ? err.message : 'Unknown',
+      });
+      return null;
+    }
+  }
+
   private static async createInvoiceFromStripeWebhook(
     stripeInvoice: Stripe.Invoice,
     connectContext?: { stripeAccountId?: string; clinicId?: number }
