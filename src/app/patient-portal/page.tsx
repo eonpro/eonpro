@@ -1074,23 +1074,34 @@ export default function PatientPortalDashboard() {
               className="block overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-all hover:shadow-md"
             >
               <div
-                className="px-4 py-3 sm:px-5 sm:py-4"
+                className="flex items-center justify-between px-4 py-4 sm:px-5"
                 style={{
                   background: `linear-gradient(135deg, ${primaryColor}, ${primaryColor}dd)`,
                 }}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
+                    {branding?.logoUrl ? (
+                      <img
+                        src={branding.logoUrl}
+                        alt=""
+                        className="h-7 w-7 object-contain"
+                        width={28}
+                        height={28}
+                        loading="eager"
+                      />
+                    ) : (
                       <CreditCard className="h-5 w-5 text-white" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-medium text-white/70">Your Membership</p>
-                      <h3 className="truncate text-lg font-bold text-white">
-                        {membershipPlan.planName}
-                      </h3>
-                    </div>
+                    )}
                   </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-white/70">Your Membership</p>
+                    <h3 className="truncate text-lg font-bold text-white">
+                      {membershipPlan.planName}
+                    </h3>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
                   <span
                     className={`rounded-full px-3 py-1 text-xs font-semibold uppercase ${
                       membershipPlan.status.toUpperCase() === 'ACTIVE' || membershipPlan.status === 'active'
@@ -1106,29 +1117,8 @@ export default function PatientPortalDashboard() {
                       ? 'Past Due'
                       : membershipPlan.status.charAt(0).toUpperCase() + membershipPlan.status.slice(1).toLowerCase()}
                   </span>
+                  <ChevronRight className="h-4 w-4 text-white/60" />
                 </div>
-              </div>
-              <div className="flex items-center justify-between px-4 py-3 sm:px-5">
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-600">
-                  <span className="font-semibold text-gray-900">
-                    ${membershipPlan.amount}/{membershipPlan.interval === 'year' ? 'yr' : 'mo'}
-                  </span>
-                  {membershipPlan.nextBillingDate && (
-                    <span className="flex items-center gap-1">
-                      <Calendar className="h-3.5 w-3.5 text-gray-400" />
-                      Next billing{' '}
-                      {(() => {
-                        const d = new Date(membershipPlan.nextBillingDate);
-                        return isNaN(d.getTime())
-                          ? '—'
-                          : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-                      })()}
-                    </span>
-                  )}
-                </div>
-                <span className="flex items-center gap-1 text-xs font-medium" style={{ color: primaryColor }}>
-                  Manage <ChevronRight className="h-3.5 w-3.5" />
-                </span>
               </div>
             </Link>
           ) : !dashboardLoading ? (
