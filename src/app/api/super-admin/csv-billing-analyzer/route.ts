@@ -82,8 +82,10 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, _user: AuthUser)
 
     return NextResponse.json({
       data: {
-        ...result,
-        rows: undefined,
+        summary: result.summary,
+        issues: result.issues,
+        patients: result.patients,
+        medications: result.medications,
       },
       meta: {
         fileName: file.name,

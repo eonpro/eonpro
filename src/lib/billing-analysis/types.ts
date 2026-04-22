@@ -45,6 +45,28 @@ export interface Issue {
   details: string;
 }
 
+export enum DrugCategory {
+  PRIMARY_GLP1 = 'primary_glp1',
+  ADD_ON = 'add_on',
+  ANTI_NAUSEA = 'anti_nausea',
+  SUPPLY = 'supply',
+  UNKNOWN = 'unknown',
+}
+
+export interface PatientLineItem {
+  rowNumber: number;
+  rxNumber: string;
+  dateShipped: string;
+  drugName: string;
+  drugCategory: DrugCategory;
+  rxQty: number | null;
+  dispensedQ: number | null;
+  filledQty: number | null;
+  rxPrice: number | null;
+  rxStatus: string;
+  orderId: string;
+}
+
 export interface MedicationPriceEntry {
   price: number;
   count: number;
@@ -52,6 +74,7 @@ export interface MedicationPriceEntry {
 
 export interface MedicationSummary {
   drugName: string;
+  drugCategory: DrugCategory;
   totalRows: number;
   totalQuantityDispensed: number;
   totalBilled: number;
@@ -67,6 +90,10 @@ export interface PatientSummary {
   totalBilled: number;
   orders: string[];
   issueCount: number;
+  lineItems: PatientLineItem[];
+  hasAddOns: boolean;
+  addOnDrugs: string[];
+  primaryDrugs: string[];
 }
 
 export interface SummaryStats {

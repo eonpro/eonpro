@@ -3,12 +3,65 @@ import {
   Issue,
   IssueSeverity,
   IssueRule,
+  DrugCategory,
+  PatientLineItem,
   PatientSummary,
   MedicationSummary,
   MedicationPriceEntry,
   SummaryStats,
   AnalysisResult,
 } from './types';
+
+// ── Drug classification ──
+
+const PRIMARY_GLP1_KEYWORDS = ['semaglutide', 'tirzepatide'];
+
+const ADD_ON_KEYWORDS = [
+  'nad',
+  'nad+',
+  'nicotinamide',
+  'sermorelin',
+  'cyanocobalamin',
+  'b12',
+  'vitamin b',
+  'bpc-157',
+  'bpc 157',
+  'bpc157',
+  'glutathione',
+  'lipo-mino',
+  'lipomino',
+  'lipo mino',
+  'mic',
+  'methionine',
+  'l-carnitine',
+  'carnitine',
+  'biotin',
+  'testosterone',
+  'pt-141',
+  'pt 141',
+  'pt141',
+  'oxytocin',
+  'sildenafil',
+  'tadalafil',
+  'ipamorelin',
+  'tesamorelin',
+  'gonadorelin',
+  'anastrozole',
+  'enclomiphene',
+  'dhea',
+  'pregnenolone',
+  'progesterone',
+  'estradiol',
+  'tretinoin',
+  'minoxidil',
+  'finasteride',
+  'dutasteride',
+  'modafinil',
+  'naltrexone',
+  'metformin',
+];
+
+const ANTI_NAUSEA_KEYWORDS = ['ondansetron', 'ondansentron', 'zofran', 'odt tablet'];
 
 const SUPPLY_KEYWORDS = [
   'syringe',
@@ -20,9 +73,17 @@ const SUPPLY_KEYWORDS = [
   'swab',
 ];
 
-function isSupplyItem(drugName: string): boolean {
+export function classifyDrug(drugName: string): DrugCategory {
   const lower = drugName.toLowerCase();
-  return SUPPLY_KEYWORDS.some((kw) => lower.includes(kw));
+  if (SUPPLY_KEYWORDS.some((kw) => lower.includes(kw))) return DrugCategory.SUPPLY;
+  if (PRIMARY_GLP1_KEYWORDS.some((kw) => lower.includes(kw))) return DrugCategory.PRIMARY_GLP1;
+  if (ANTI_NAUSEA_KEYWORDS.some((kw) => lower.includes(kw))) return DrugCategory.ANTI_NAUSEA;
+  if (ADD_ON_KEYWORDS.some((kw) => lower.includes(kw))) return DrugCategory.ADD_ON;
+  return DrugCategory.UNKNOWN;
+}
+
+function isSupplyItem(drugName: string): boolean {
+  return classifyDrug(drugName) === DrugCategory.SUPPLY;
 }
 
 function parseNumeric(val: string | undefined | null): number | null {
@@ -407,14 +468,41 @@ function buildPatientSummaries(rows: CsvRow[], issues: Issue[]): PatientSummary[
   }
 
   return [...map.entries()]
-    .map(([key, { rows: rws, meds, orders }]) => ({
-      patientName: rws[0].patientName,
-      totalRows: rws.length,
-      uniqueMedications: [...meds],
-      totalBilled: rws.reduce((s, r) => s + (r.rxPrice ?? 0), 0),
-      orders: [...orders],
-      issueCount: issuesByPatient.get(key) ?? 0,
-    }))
+    .map(([key, { rows: rws, meds, orders }]) => {
+      const lineItems: PatientLineItem[] = rws.map((r) => ({
+        rowNumber: r.rowNumber,
+        rxNumber: r.rxNumber,
+        dateShipped: r.dateShipped,
+        drugName: r.drugName,
+        drugCategory: classifyDrug(r.drugName),
+        rxQty: r.rxQty,
+        dispensedQ: r.dispensedQ,
+        filledQty: r.filledQty,
+        rxPrice: r.rxPrice,
+        rxStatus: r.rxStatus,
+        orderId: r.orderId,
+      }));
+
+      const addOnItems = lineItems.filter((li) => li.drugCategory === DrugCategory.ADD_ON);
+      const unknownItems = lineItems.filter((li) => li.drugCategory === DrugCategory.UNKNOWN);
+      const primaryItems = lineItems.filter((li) => li.drugCategory === DrugCategory.PRIMARY_GLP1);
+
+      const addOnDrugs = [...new Set([...addOnItems, ...unknownItems].map((li) => li.drugName))];
+      const primaryDrugs = [...new Set(primaryItems.map((li) => li.drugName))];
+
+      return {
+        patientName: rws[0].patientName,
+        totalRows: rws.length,
+        uniqueMedications: [...meds],
+        totalBilled: rws.reduce((s, r) => s + (r.rxPrice ?? 0), 0),
+        orders: [...orders],
+        issueCount: issuesByPatient.get(key) ?? 0,
+        lineItems,
+        hasAddOns: addOnDrugs.length > 0,
+        addOnDrugs,
+        primaryDrugs,
+      };
+    })
     .sort((a, b) => b.issueCount - a.issueCount || b.totalBilled - a.totalBilled);
 }
 
@@ -444,6 +532,7 @@ function buildMedicationSummaries(rows: CsvRow[]): MedicationSummary[] {
 
       return {
         drugName: rws[0].drugName,
+        drugCategory: classifyDrug(rws[0].drugName),
         totalRows: rws.length,
         totalQuantityDispensed: rws.reduce((s, r) => s + (r.dispensedQ ?? 0), 0),
         totalBilled: rws.reduce((s, r) => s + (r.rxPrice ?? 0), 0),

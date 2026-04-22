@@ -37,9 +37,11 @@ import { apiFetch } from '@/lib/api/fetch';
 import type {
   Issue,
   PatientSummary,
+  PatientLineItem,
   MedicationSummary,
   SummaryStats,
 } from '@/lib/billing-analysis/types';
+import { DrugCategory } from '@/lib/billing-analysis/types';
 
 // ── Types for API response ──
 
@@ -67,6 +69,14 @@ const SEVERITY_CONFIG = {
 } as const;
 
 const CHART_COLORS = ['#4fa77e', '#f59e0b', '#ef4444', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
+
+const DRUG_CATEGORY_CONFIG: Record<string, { label: string; bg: string; text: string; dot: string }> = {
+  [DrugCategory.PRIMARY_GLP1]: { label: 'GLP-1', bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500' },
+  [DrugCategory.ADD_ON]: { label: 'Add-On', bg: 'bg-purple-50', text: 'text-purple-700', dot: 'bg-purple-500' },
+  [DrugCategory.ANTI_NAUSEA]: { label: 'Anti-Nausea', bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-500' },
+  [DrugCategory.SUPPLY]: { label: 'Supply', bg: 'bg-gray-50', text: 'text-gray-500', dot: 'bg-gray-400' },
+  [DrugCategory.UNKNOWN]: { label: 'Other', bg: 'bg-orange-50', text: 'text-orange-700', dot: 'bg-orange-500' },
+};
 
 const TABS = ['Summary', 'Issues', 'By Patient', 'By Medication'] as const;
 type Tab = (typeof TABS)[number];
@@ -705,6 +715,18 @@ function IssuesTab({ issues }: { issues: Issue[] }) {
   );
 }
 
+// ── Drug Category Badge (shared) ──
+
+function DrugCategoryBadge({ category }: { category: string }) {
+  const cfg = DRUG_CATEGORY_CONFIG[category] ?? DRUG_CATEGORY_CONFIG[DrugCategory.UNKNOWN];
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${cfg.bg} ${cfg.text}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
+      {cfg.label}
+    </span>
+  );
+}
+
 // ── Patients Tab ──
 
 function PatientsTab({ patients }: { patients: PatientSummary[] }) {
@@ -712,16 +734,28 @@ function PatientsTab({ patients }: { patients: PatientSummary[] }) {
   const [sortField, setSortField] = useState<'issueCount' | 'totalBilled' | 'totalRows' | 'patientName'>('issueCount');
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc');
   const [page, setPage] = useState(0);
-  const [expandedPatient, setExpandedPatient] = useState<string | null>(null);
+  const [expandedPatients, setExpandedPatients] = useState<Set<string>>(new Set());
+  const [addOnFilter, setAddOnFilter] = useState<'all' | 'add-ons' | 'glp1-only'>('all');
+
+  const addOnStats = useMemo(() => {
+    const withAddOns = patients.filter((p) => p.hasAddOns).length;
+    return { withAddOns, withoutAddOns: patients.length - withAddOns };
+  }, [patients]);
 
   const filtered = useMemo(() => {
     let list = [...patients];
+    if (addOnFilter === 'add-ons') {
+      list = list.filter((p) => p.hasAddOns);
+    } else if (addOnFilter === 'glp1-only') {
+      list = list.filter((p) => !p.hasAddOns);
+    }
     if (search) {
       const q = search.toLowerCase();
       list = list.filter(
         (p) =>
           p.patientName.toLowerCase().includes(q) ||
-          p.uniqueMedications.some((m) => m.toLowerCase().includes(q))
+          p.uniqueMedications.some((m) => m.toLowerCase().includes(q)) ||
+          p.addOnDrugs.some((m) => m.toLowerCase().includes(q))
       );
     }
     list.sort((a, b) => {
@@ -734,10 +768,26 @@ function PatientsTab({ patients }: { patients: PatientSummary[] }) {
       return sortDir === 'asc' ? cmp : -cmp;
     });
     return list;
-  }, [patients, search, sortField, sortDir]);
+  }, [patients, search, sortField, sortDir, addOnFilter]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  const toggleExpand = (name: string) => {
+    setExpandedPatients((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  };
+
+  const expandAll = () => {
+    setExpandedPatients(new Set(paged.map((p) => p.patientName)));
+  };
+  const collapseAll = () => {
+    setExpandedPatients(new Set());
+  };
 
   const handleSort = (field: typeof sortField) => {
     if (sortField === field) {
@@ -760,12 +810,52 @@ function PatientsTab({ patients }: { patients: PatientSummary[] }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3">
+      {/* Add-On Summary Bar */}
+      <div className="flex flex-wrap items-center gap-3 rounded-xl bg-white p-4 shadow-sm">
+        <span className="text-sm font-medium text-gray-700">Drug Breakdown:</span>
+        <button
+          onClick={() => { setAddOnFilter('all'); setPage(0); }}
+          className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+            addOnFilter === 'all' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          All Patients ({patients.length})
+        </button>
+        <button
+          onClick={() => { setAddOnFilter('add-ons'); setPage(0); }}
+          className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+            addOnFilter === 'add-ons' ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-700 hover:bg-purple-100'
+          }`}
+        >
+          With Add-Ons ({addOnStats.withAddOns})
+        </button>
+        <button
+          onClick={() => { setAddOnFilter('glp1-only'); setPage(0); }}
+          className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+            addOnFilter === 'glp1-only' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+          }`}
+        >
+          GLP-1 Only ({addOnStats.withoutAddOns})
+        </button>
+
+        {/* Legend */}
+        <div className="ml-auto flex flex-wrap gap-2">
+          {Object.entries(DRUG_CATEGORY_CONFIG).map(([key, cfg]) => (
+            <span key={key} className="inline-flex items-center gap-1 text-xs text-gray-500">
+              <span className={`h-2 w-2 rounded-full ${cfg.dot}`} />
+              {cfg.label}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 md:max-w-xs">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
-            placeholder="Search patient or medication..."
+            placeholder="Search patient, medication, or add-on..."
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
@@ -774,97 +864,138 @@ function PatientsTab({ patients }: { patients: PatientSummary[] }) {
             className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-10 pr-4 text-sm focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
           />
         </div>
+        <button
+          onClick={expandAll}
+          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50"
+        >
+          Expand All
+        </button>
+        <button
+          onClick={collapseAll}
+          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50"
+        >
+          Collapse All
+        </button>
         <p className="ml-auto text-sm text-gray-500">{filtered.length} patients</p>
       </div>
 
-      <div className="overflow-x-auto rounded-xl bg-white shadow-sm">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-100 bg-gray-50/50">
-              <th className="w-8 px-4 py-3" />
-              <th
-                onClick={() => handleSort('patientName')}
-                className="cursor-pointer px-4 py-3 text-left font-medium text-gray-600"
+      {/* Patient List */}
+      <div className="space-y-3">
+        {paged.map((p) => {
+          const isExpanded = expandedPatients.has(p.patientName);
+          return (
+            <div key={p.patientName} className="overflow-hidden rounded-xl bg-white shadow-sm">
+              {/* Patient Header Row */}
+              <button
+                onClick={() => toggleExpand(p.patientName)}
+                className="flex w-full items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-gray-50"
               >
-                <span className="flex items-center gap-1">
-                  Patient <SortIcon field="patientName" />
+                <span className="text-gray-400">
+                  {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </span>
-              </th>
-              <th
-                onClick={() => handleSort('totalRows')}
-                className="cursor-pointer px-4 py-3 text-left font-medium text-gray-600"
-              >
-                <span className="flex items-center gap-1">
-                  Rows <SortIcon field="totalRows" />
-                </span>
-              </th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">Medications</th>
-              <th
-                onClick={() => handleSort('totalBilled')}
-                className="cursor-pointer px-4 py-3 text-left font-medium text-gray-600"
-              >
-                <span className="flex items-center gap-1">
-                  Total Billed <SortIcon field="totalBilled" />
-                </span>
-              </th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">Orders</th>
-              <th
-                onClick={() => handleSort('issueCount')}
-                className="cursor-pointer px-4 py-3 text-left font-medium text-gray-600"
-              >
-                <span className="flex items-center gap-1">
-                  Issues <SortIcon field="issueCount" />
-                </span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {paged.map((p) => {
-              const isExpanded = expandedPatient === p.patientName;
-              return (
-                <tr key={p.patientName} className="border-b border-gray-50">
-                  <td className="px-4 py-3">
-                    <button
-                      onClick={() => setExpandedPatient(isExpanded ? null : p.patientName)}
-                      className="text-gray-400 hover:text-gray-600"
-                    >
-                      {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                    </button>
-                  </td>
-                  <td className="px-4 py-3 font-medium text-gray-900">{p.patientName}</td>
-                  <td className="px-4 py-3 text-gray-700">{p.totalRows}</td>
-                  <td className="px-4 py-3 text-gray-700">
-                    {isExpanded ? (
-                      <ul className="space-y-1">
-                        {p.uniqueMedications.map((m) => (
-                          <li key={m} className="text-xs text-gray-600">
-                            {m}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <span>{p.uniqueMedications.length} medication{p.uniqueMedications.length !== 1 ? 's' : ''}</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 font-medium text-gray-900">${p.totalBilled.toLocaleString()}</td>
-                  <td className="px-4 py-3 text-gray-600">{p.orders.length}</td>
-                  <td className="px-4 py-3">
-                    {p.issueCount > 0 ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
-                        <AlertCircle className="h-3 w-3" />
-                        {p.issueCount}
-                      </span>
-                    ) : (
-                      <span className="text-green-600">
-                        <CheckCircle2 className="h-4 w-4" />
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                <div className="min-w-[180px]">
+                  <p className="text-sm font-semibold text-gray-900">{p.patientName}</p>
+                  <p className="text-xs text-gray-400">{p.totalRows} rows / {p.orders.length} order{p.orders.length !== 1 ? 's' : ''}</p>
+                </div>
+                <div className="flex flex-1 flex-wrap items-center gap-1.5">
+                  {p.primaryDrugs.length > 0 && (
+                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                      {p.primaryDrugs.length} GLP-1
+                    </span>
+                  )}
+                  {p.hasAddOns && (
+                    <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-bold text-purple-800">
+                      {p.addOnDrugs.length} Add-On{p.addOnDrugs.length !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                  {!isExpanded && p.addOnDrugs.length > 0 && (
+                    <span className="ml-1 text-xs text-purple-500">
+                      {p.addOnDrugs.map((d) => d.split(' ').slice(0, 2).join(' ')).join(', ')}
+                    </span>
+                  )}
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-bold text-gray-900">${p.totalBilled.toLocaleString()}</p>
+                </div>
+                <div className="w-16 text-center">
+                  {p.issueCount > 0 ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+                      <AlertCircle className="h-3 w-3" />
+                      {p.issueCount}
+                    </span>
+                  ) : (
+                    <CheckCircle2 className="mx-auto h-4 w-4 text-green-500" />
+                  )}
+                </div>
+              </button>
+
+              {/* Expanded: Line Items Table */}
+              {isExpanded && p.lineItems && (
+                <div className="border-t border-gray-100 bg-gray-50/30 px-5 pb-4 pt-2">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-left text-gray-500">
+                        <th className="px-2 py-2 font-medium">Category</th>
+                        <th className="px-2 py-2 font-medium">Drug Name</th>
+                        <th className="px-2 py-2 font-medium">Date Shipped</th>
+                        <th className="px-2 py-2 font-medium">Rx #</th>
+                        <th className="px-2 py-2 font-medium text-right">Rx Qty</th>
+                        <th className="px-2 py-2 font-medium text-right">Dispensed</th>
+                        <th className="px-2 py-2 font-medium text-right">Filled</th>
+                        <th className="px-2 py-2 font-medium text-right">Price</th>
+                        <th className="px-2 py-2 font-medium">Status</th>
+                        <th className="px-2 py-2 font-medium">Order ID</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {p.lineItems.map((li) => {
+                        const catCfg = DRUG_CATEGORY_CONFIG[li.drugCategory] ?? DRUG_CATEGORY_CONFIG[DrugCategory.UNKNOWN];
+                        const isAddOn = li.drugCategory === DrugCategory.ADD_ON || li.drugCategory === DrugCategory.UNKNOWN;
+                        return (
+                          <tr
+                            key={`${li.rowNumber}-${li.rxNumber}`}
+                            className={`border-t border-gray-100 ${isAddOn ? 'bg-purple-50/50' : ''}`}
+                          >
+                            <td className="px-2 py-2">
+                              <DrugCategoryBadge category={li.drugCategory} />
+                            </td>
+                            <td className="max-w-[250px] truncate px-2 py-2 font-medium text-gray-800" title={li.drugName}>
+                              {li.drugName}
+                            </td>
+                            <td className="px-2 py-2 text-gray-600">{li.dateShipped || '—'}</td>
+                            <td className="px-2 py-2 font-mono text-gray-600">{li.rxNumber}</td>
+                            <td className="px-2 py-2 text-right text-gray-700">{li.rxQty ?? '—'}</td>
+                            <td className="px-2 py-2 text-right text-gray-700">{li.dispensedQ ?? '—'}</td>
+                            <td className="px-2 py-2 text-right text-gray-700">{li.filledQty ?? '—'}</td>
+                            <td className={`px-2 py-2 text-right font-semibold ${isAddOn ? 'text-purple-700' : 'text-gray-900'}`}>
+                              {li.rxPrice != null ? `$${li.rxPrice}` : '—'}
+                            </td>
+                            <td className="px-2 py-2 text-gray-500">{li.rxStatus}</td>
+                            <td className="px-2 py-2 font-mono text-gray-500">{li.orderId}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t-2 border-gray-200 font-semibold text-gray-900">
+                        <td colSpan={7} className="px-2 py-2 text-right">Total</td>
+                        <td className="px-2 py-2 text-right">${p.totalBilled.toLocaleString()}</td>
+                        <td colSpan={2} />
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {paged.length === 0 && (
+          <div className="rounded-xl bg-white py-12 text-center shadow-sm">
+            <Users className="mx-auto mb-2 h-8 w-8 text-gray-300" />
+            <p className="text-sm text-gray-400">No patients match your filters</p>
+          </div>
+        )}
       </div>
 
       {totalPages > 1 && (
@@ -927,9 +1058,12 @@ function MedicationsTab({ medications }: { medications: MedicationSummary[] }) {
             key={med.drugName}
             className={`rounded-xl bg-white p-5 shadow-sm ${med.hasPriceVariance ? 'ring-2 ring-amber-300' : ''}`}
           >
-            <h4 className="mb-3 text-sm font-semibold text-gray-900" title={med.drugName}>
-              {med.drugName.length > 50 ? med.drugName.slice(0, 50) + '…' : med.drugName}
-            </h4>
+            <div className="mb-3 flex items-start justify-between gap-2">
+              <h4 className="text-sm font-semibold text-gray-900" title={med.drugName}>
+                {med.drugName.length > 45 ? med.drugName.slice(0, 45) + '…' : med.drugName}
+              </h4>
+              <DrugCategoryBadge category={med.drugCategory} />
+            </div>
             {med.hasPriceVariance && (
               <div className="mb-3 flex items-center gap-1.5 rounded-lg bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">
                 <AlertTriangle className="h-3 w-3" />
