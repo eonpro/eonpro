@@ -168,17 +168,18 @@ export const GET = withAuth(
         }
       }
 
-      // Fall back to local subscription data if no Stripe data
+      // Fall back to local subscription data if no Stripe data.
+      // Subscription.amount is stored in cents (Prisma Int); pass through unchanged.
       if (!subscription && patient.subscriptions.length > 0) {
         const localSub = patient.subscriptions[0];
         subscription = {
           id: localSub.id.toString(),
           planName: localSub.planName || 'Subscription',
-          amount: (localSub as any).price ? (localSub as any).price * 100 : (localSub.amount ?? 0),
-          interval: (localSub as any).interval || 'month',
+          amount: localSub.amount ?? 0,
+          interval: localSub.interval || 'month',
           status: localSub.status,
-          currentPeriodEnd: (localSub as any).currentPeriodEnd?.toISOString() || '',
-          cancelAtPeriodEnd: (localSub as any).cancelAtPeriodEnd || false,
+          currentPeriodEnd: localSub.currentPeriodEnd?.toISOString() || '',
+          cancelAtPeriodEnd: false,
         };
       }
 
@@ -194,16 +195,19 @@ export const GET = withAuth(
         }));
       }
 
-      // Format invoices from local data
+      // Format invoices from local data.
+      // Invoice.amount / amountPaid / amountDue are stored in cents (Prisma Int);
+      // the portal UI's formatCurrency divides by 100, so pass cents through unchanged.
+      // Prefer amountPaid for paid invoices, fall back to amount, then amountDue.
       const invoices = patient.invoices.map((inv: any) => ({
         id: inv.id.toString(),
-        number: inv.invoiceNumber || `INV-${inv.id}`,
-        amount: inv.amount ? inv.amount * 100 : 0,
+        number: inv.stripeInvoiceNumber || `INV-${inv.id}`,
+        amount: inv.amountPaid || inv.amount || inv.amountDue || 0,
         status: mapInvoiceStatus(inv.status),
         date: inv.createdAt.toISOString(),
         dueDate: inv.dueDate?.toISOString() || inv.createdAt.toISOString(),
         description: inv.description || 'Subscription',
-        pdfUrl: inv.pdfUrl,
+        pdfUrl: inv.stripePdfUrl || null,
       }));
 
       try {
