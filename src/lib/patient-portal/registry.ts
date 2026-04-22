@@ -143,7 +143,7 @@ export const NAV_MODULES: readonly PortalNavModule[] = [
   },
   {
     id: 'billing',
-    pathSuffix: '/subscription',
+    pathSuffix: '/billing',
     labelKey: 'navBilling',
     featureFlagKey: 'showBilling',
     navSlot: 'main',
@@ -163,14 +163,6 @@ export const NAV_MODULES: readonly PortalNavModule[] = [
     labelKey: 'navVisits',
     featureFlagKey: 'showTelehealth',
     navSlot: 'main',
-    defaultOn: true,
-  },
-  {
-    id: 'support',
-    pathSuffix: '/support',
-    labelKey: 'navSupport',
-    featureFlagKey: null,
-    navSlot: 'both',
     defaultOn: true,
   },
   {
