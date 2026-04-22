@@ -176,7 +176,7 @@ export default function PaymentForm({ submissionId }: PaymentFormProps) {
   if (!planDetails || !selectedProduct) {
     return (
       <div className="flex w-full flex-col gap-6 sm:gap-8">
-        <h2 className="text-center">Payment method</h2>
+        <h2 className="text-center text-lg sm:text-xl">Payment method</h2>
         <div className="card flex flex-col items-center gap-4 py-12 sm:gap-6">
           <p className="text-lg text-gray-600">Please select a plan to continue.</p>
         </div>
@@ -705,7 +705,7 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
   if (paymentCompleted) {
     return (
       <div className="flex w-full flex-col gap-6 sm:gap-8">
-        <h2 className="text-center">Payment method</h2>
+        <h2 className="text-center text-lg sm:text-xl">Payment method</h2>
         <div className="card flex flex-col items-center gap-4 py-12 sm:gap-6">
           <div className="border-primary h-12 w-12 animate-spin rounded-full border-4 border-t-transparent" />
           <p className="text-lg text-gray-600">Payment successful! Redirecting...</p>
@@ -716,13 +716,13 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
 
   return (
     <div className="flex w-full flex-col gap-6 sm:gap-8">
-      <h2 className="text-center">Payment method</h2>
+      <h2 className="text-center text-lg sm:text-xl">Payment method</h2>
 
       {/* Express Checkout — hidden entirely when unavailable */}
       {!expressCheckoutUnavailable && (
         <>
           <div className="card w-full bg-white sm:p-6">
-            <h3 className="mb-4 text-center text-base sm:mb-6 sm:text-xl">Express Checkout</h3>
+            <h3 className="mb-4 text-center text-sm sm:mb-6 sm:text-base">Express Checkout</h3>
 
             <ExpressCheckoutElement
               options={expressCheckoutOptions}

@@ -25,7 +25,7 @@ export default function PaymentStep({ uid }: PaymentStepProps) {
     return (
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 pb-6 pt-2 sm:pt-8">
         <div className="flex w-full flex-col gap-6 sm:gap-8">
-          <h3 className="text-center">Payment method</h3>
+          <h3 className="text-center text-lg sm:text-xl">Payment method</h3>
           <div className="card flex flex-col items-center gap-4 py-8 sm:gap-6">
             <div className="text-center text-amber-600">
               Please select a plan before proceeding to payment.

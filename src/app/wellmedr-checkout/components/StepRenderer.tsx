@@ -74,7 +74,7 @@ export default function StepRenderer({ uid, patientData }: StepRendererProps) {
           <PaymentStep uid={uid} />
         </div>
         <div className="order-1 lg:sticky lg:top-8 lg:order-2 lg:self-start">
-          <h2 className="mb-4 text-xl font-bold" style={{ color: '#101010' }}>
+          <h2 className="mb-4 text-lg font-bold" style={{ color: '#101010' }}>
             Order Summary
           </h2>
           <OrderSummary />

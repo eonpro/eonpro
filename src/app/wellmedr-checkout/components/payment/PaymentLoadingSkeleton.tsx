@@ -3,7 +3,7 @@
 export default function PaymentLoadingSkeleton() {
   return (
     <div className="flex w-full flex-col gap-6 sm:gap-8">
-      <h3 className="text-center">Payment method</h3>
+      <h3 className="text-center text-lg sm:text-xl">Payment method</h3>
 
       <div className="card flex flex-col gap-4 sm:gap-6">
         {/* Header skeleton */}

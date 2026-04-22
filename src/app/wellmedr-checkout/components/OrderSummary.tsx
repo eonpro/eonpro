@@ -84,28 +84,28 @@ export default function OrderSummary() {
         />
       </div>
 
-      <p className="mb-1 text-sm font-bold" style={{ color: '#101010' }}>
+      <p className="mb-1 text-xs font-bold" style={{ color: '#101010' }}>
         Same price for the life of your plan, no month-2 increases or future price hikes.
       </p>
-      <p className="mb-4 text-xs text-gray-500">
+      <p className="mb-4 text-[11px] text-gray-500">
         Used to a specific dose? No worries — your price stays the same at any prescribed dose.
       </p>
 
       {/* Line items */}
-      <div className="space-y-2 border-t pt-4 text-sm">
+      <div className="space-y-2 border-t pt-4 text-xs">
         <div className="flex justify-between gap-3">
           <div className="min-w-0 flex-1">
             <p className="font-medium">
               {months > 1 ? `${months}-Month` : 'Monthly'} Treatment Package
               {planDetails.isBestValue ? ' (Best Value)' : ''}
             </p>
-            <p className="text-xs text-gray-500">
+            <p className="text-[11px] text-gray-500">
               One-time payment · Covers {months > 1 ? `${months} months` : '1 month'} of medication
             </p>
           </div>
           <div className="shrink-0 text-right">
             {planDetails.originalPrice && (
-              <span className="mr-1 text-xs text-gray-400 line-through">
+              <span className="mr-1 text-[11px] text-gray-400 line-through">
                 ${planDetails.originalPrice * months}
               </span>
             )}
@@ -116,7 +116,7 @@ export default function OrderSummary() {
         <div className="flex justify-between gap-3">
           <div className="min-w-0 flex-1">
             <p className="font-medium">Care Coordination Fee</p>
-            <p className="text-xs text-gray-500">
+            <p className="text-[11px] text-gray-500">
               Priority clinician review, injection supplies, and direct access to our care team
             </p>
           </div>
@@ -131,12 +131,12 @@ export default function OrderSummary() {
         <div className="flex justify-between">
           <p className="font-medium">Overnight Shipping</p>
           <div className="text-right">
-            <span className="mr-1 text-xs text-gray-400 line-through">$19.99</span>
+            <span className="mr-1 text-[11px] text-gray-400 line-through">$19.99</span>
             <span className="font-bold text-green-600">FREE</span>
           </div>
         </div>
 
-        <div className="flex justify-between text-xs">
+        <div className="flex justify-between text-[11px]">
           <p>Protected by Weight Loss Warranty</p>
           <span className="font-medium text-green-600">Activated</span>
         </div>
@@ -145,16 +145,16 @@ export default function OrderSummary() {
       {/* Total */}
       <div className="mt-4 flex items-baseline justify-between border-t pt-4">
         <div>
-          <p className="text-lg font-bold">Total Due Today</p>
-          <p className="text-xs font-medium text-green-600">You save $150!</p>
+          <p className="text-base font-bold">Total Due Today</p>
+          <p className="text-[11px] font-medium text-green-600">You save $150!</p>
         </div>
         <div className="text-right">
           {planDetails.originalPrice && (
-            <span className="mr-2 text-sm text-gray-400 line-through">
+            <span className="mr-2 text-xs text-gray-400 line-through">
               ${(planDetails.totalPayToday + 150).toLocaleString()}
             </span>
           )}
-          <span className="text-2xl font-bold">
+          <span className="text-xl font-bold">
             $
             {subtotal > 0
               ? subtotal.toLocaleString(undefined, {
@@ -163,7 +163,7 @@ export default function OrderSummary() {
                 })
               : '0'}
           </span>
-          <p className="text-xs text-gray-500">${perDay}/day</p>
+          <p className="text-[11px] text-gray-500">${perDay}/day</p>
         </div>
       </div>
 
