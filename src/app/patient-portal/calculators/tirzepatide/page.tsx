@@ -5,7 +5,8 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
-import { ArrowLeft, Syringe, Droplets, Check, ChevronRight } from 'lucide-react';
+import { usePatientDoseSchedule } from '@/hooks/usePatientDoseSchedule';
+import { ArrowLeft, Syringe, Droplets, Check, ChevronRight, User } from 'lucide-react';
 
 const TirzepatideSupportPanels = dynamic(() => import('./TirzepatideSupportPanels'), {
   ssr: false,
@@ -39,7 +40,7 @@ const concentrations = [
   },
 ];
 
-const dosingSchedule = [
+const standardTitrationSchedule = [
   { week: '1-4', dose: 2.5, label: 'Weeks 1-4', desc: 'Starting dose' },
   { week: '5-8', dose: 5, label: 'Weeks 5-8', desc: 'First increase' },
   { week: '9-12', dose: 7.5, label: 'Weeks 9-12', desc: 'Building up' },
@@ -53,9 +54,14 @@ export default function TirzepatideDoseCalculatorPage() {
   const primaryColor = branding?.primaryColor || '#4fa77e';
   const accentColor = branding?.accentColor || '#d3f931';
 
+  const { schedule: personalSchedule, loading: scheduleLoading } =
+    usePatientDoseSchedule('tirzepatide');
+  const dosingSchedule = personalSchedule || standardTitrationSchedule;
+  const hasPersonalSchedule = personalSchedule !== null && personalSchedule.length > 0;
+
   const [units, setUnits] = useState('');
   const [concentration, setConcentration] = useState(10);
-  const [selectedWeek, setSelectedWeek] = useState<(typeof dosingSchedule)[0] | null>(null);
+  const [selectedWeek, setSelectedWeek] = useState<(typeof standardTitrationSchedule)[0] | null>(null);
   const [, startTransition] = useTransition();
 
   const handleUnitsChange = useCallback(
@@ -489,53 +495,84 @@ export default function TirzepatideDoseCalculatorPage() {
           {/* Quick Dose Selection */}
           <div className="overflow-hidden rounded-3xl bg-white shadow-xl shadow-gray-200/50">
             <div className="border-b border-gray-100 p-6">
-              <h2 className="text-lg font-semibold text-gray-900">Or Select Your Week</h2>
-              <p className="mt-1 text-sm text-gray-500">Auto-calculates units for your dose</p>
+              <div className="flex items-center gap-2">
+                {hasPersonalSchedule && (
+                  <User className="h-5 w-5" style={{ color: primaryColor }} />
+                )}
+                <h2 className="text-lg font-semibold text-gray-900">
+                  {hasPersonalSchedule ? 'Your Dosing Schedule' : 'Or Select Your Week'}
+                </h2>
+              </div>
+              <p className="mt-1 text-sm text-gray-500">
+                {hasPersonalSchedule
+                  ? 'Based on your current prescription'
+                  : 'Auto-calculates units for your dose'}
+              </p>
             </div>
 
-            <div className="divide-y divide-gray-100">
-              {dosingSchedule.map((schedule, i) => {
-                const scheduleUnits = Math.round((schedule.dose / concentration) * 100 * 10) / 10;
-                const isSelected = selectedWeek?.week === schedule.week;
-                return (
-                  <button
-                    key={schedule.week}
-                    onClick={() => {
-                      setSelectedWeek(schedule);
-                      setUnits(scheduleUnits.toString());
-                    }}
-                    className={`group flex w-full items-center justify-between p-5 text-left transition-colors duration-150 ${
-                      isSelected ? 'bg-gray-50' : 'hover:bg-gray-50'
-                    }`}
-                  >
-                    <div className="flex items-center gap-4">
-                      <div
-                        className={`flex h-10 w-10 items-center justify-center rounded-xl font-semibold transition-all ${
-                          isSelected
-                            ? 'bg-gray-900 text-white'
-                            : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200'
-                        }`}
-                      >
-                        {i + 1}
+            {scheduleLoading ? (
+              <div className="space-y-2 p-5">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-16 animate-pulse rounded-xl bg-gray-100" />
+                ))}
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {dosingSchedule.map((schedule, i) => {
+                  const scheduleUnits =
+                    Math.round((schedule.dose / concentration) * 100 * 10) / 10;
+                  const isSelected = selectedWeek?.week === schedule.week;
+                  return (
+                    <button
+                      key={schedule.week}
+                      onClick={() => {
+                        setSelectedWeek(schedule);
+                        setUnits(scheduleUnits.toString());
+                      }}
+                      className={`group flex w-full items-center justify-between p-5 text-left transition-colors duration-150 ${
+                        isSelected ? 'bg-gray-50' : 'hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div
+                          className={`flex h-10 w-10 items-center justify-center rounded-xl font-semibold transition-all ${
+                            isSelected
+                              ? 'text-white'
+                              : hasPersonalSchedule
+                                ? 'text-white'
+                                : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200'
+                          }`}
+                          style={
+                            isSelected || hasPersonalSchedule
+                              ? { backgroundColor: primaryColor }
+                              : undefined
+                          }
+                        >
+                          {i + 1}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-gray-900">{schedule.label}</p>
+                          <p className="text-sm text-gray-500">{schedule.desc}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-semibold text-gray-900">{schedule.label}</p>
-                        <p className="text-sm text-gray-500">{schedule.desc}</p>
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <p className="text-lg font-semibold text-gray-900">
+                            {schedule.dose} mg
+                          </p>
+                          <p className="text-sm font-medium text-gray-500">
+                            {scheduleUnits} units
+                          </p>
+                        </div>
+                        <ChevronRight
+                          className={`h-5 w-5 transition-transform ${isSelected ? 'text-gray-900' : 'text-gray-300 group-hover:translate-x-1'}`}
+                        />
                       </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="text-right">
-                        <p className="text-lg font-semibold text-gray-900">{schedule.dose} mg</p>
-                        <p className="text-sm font-medium text-gray-500">{scheduleUnits} units</p>
-                      </div>
-                      <ChevronRight
-                        className={`h-5 w-5 transition-transform ${isSelected ? 'text-gray-900' : 'text-gray-300 group-hover:translate-x-1'}`}
-                      />
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
@@ -585,7 +622,7 @@ export default function TirzepatideDoseCalculatorPage() {
 
           <TirzepatideSupportPanels
             concentration={concentration}
-            dosingSchedule={dosingSchedule}
+            dosingSchedule={standardTitrationSchedule}
             primaryColor={primaryColor}
           />
         </div>

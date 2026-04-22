@@ -252,4 +252,10 @@ export const LOGOS_PRODUCTS: LogosProduct[] = [
     form: 'Injectable',
     strength: '30MG/20MG/ML',
   },
+  {
+    id: 204971258,
+    name: 'GLUTATHIONE 200MG/ML (5ML VIAL)',
+    form: 'Injectable',
+    strength: '200MG/ML',
+  },
 ];

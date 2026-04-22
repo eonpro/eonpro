@@ -30,6 +30,7 @@ import {
   Calendar,
   MapPin,
   Phone,
+  CreditCard,
 } from 'lucide-react';
 import { useClinicBranding, usePortalFeatures } from '@/lib/contexts/ClinicBrandingContext';
 import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
@@ -133,6 +134,13 @@ export default function PatientPortalDashboard() {
       status: string;
     }>
   >([]);
+  const [membershipPlan, setMembershipPlan] = useState<{
+    planName: string;
+    status: string;
+    amount: number;
+    interval: string;
+    nextBillingDate: string | null;
+  } | null>(null);
 
   const primaryColor = branding?.primaryColor || '#4fa77e';
   const accentColor = branding?.accentColor || '#d3f931';
@@ -263,6 +271,26 @@ export default function PatientPortalDashboard() {
           portalFetch('/api/patient-portal/tracking').catch(() => null),
           portalFetch('/api/patient-portal/photos').catch(() => null),
         ]);
+
+        portalFetch('/api/patient-portal/billing')
+          .then(async (res) => {
+            if (!res.ok) return;
+            const data = await safeParseJson(res);
+            if (data && typeof data === 'object' && 'subscription' in data) {
+              const sub = (data as { subscription?: Record<string, unknown> }).subscription;
+              if (sub) {
+                const amountCents = typeof sub.amount === 'number' ? sub.amount : 0;
+                setMembershipPlan({
+                  planName: String(sub.planName || 'Subscription'),
+                  status: String(sub.status || 'active'),
+                  amount: amountCents / 100,
+                  interval: String(sub.interval || 'month'),
+                  nextBillingDate: (sub.currentPeriodEnd || sub.nextBillingDate || null) as string | null,
+                });
+              }
+            }
+          })
+          .catch(() => {});
 
         portalFetch('/api/patient-portal/appointments?upcoming=true&type=VIDEO&limit=1')
           .then(async (res) => {
@@ -1034,6 +1062,90 @@ export default function PatientPortalDashboard() {
               </a>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Membership / Plan Status */}
+      {features.showBilling && (
+        <div className="mb-6">
+          {membershipPlan ? (
+            <Link
+              href={`${PATIENT_PORTAL_PATH}/billing`}
+              className="block overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-all hover:shadow-md"
+            >
+              <div
+                className="px-4 py-3 sm:px-5 sm:py-4"
+                style={{
+                  background: `linear-gradient(135deg, ${primaryColor}, ${primaryColor}dd)`,
+                }}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
+                      <CreditCard className="h-5 w-5 text-white" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-white/70">Your Membership</p>
+                      <h3 className="truncate text-lg font-bold text-white">
+                        {membershipPlan.planName}
+                      </h3>
+                    </div>
+                  </div>
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-semibold uppercase ${
+                      membershipPlan.status.toUpperCase() === 'ACTIVE' || membershipPlan.status === 'active'
+                        ? 'bg-white/20 text-white'
+                        : membershipPlan.status.toUpperCase() === 'PAUSED'
+                          ? 'bg-amber-400/30 text-amber-100'
+                          : membershipPlan.status.toUpperCase() === 'PAST_DUE'
+                            ? 'bg-red-400/30 text-red-100'
+                            : 'bg-white/15 text-white/80'
+                    }`}
+                  >
+                    {membershipPlan.status.toUpperCase() === 'PAST_DUE'
+                      ? 'Past Due'
+                      : membershipPlan.status.charAt(0).toUpperCase() + membershipPlan.status.slice(1).toLowerCase()}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between px-4 py-3 sm:px-5">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-600">
+                  <span className="font-semibold text-gray-900">
+                    ${membershipPlan.amount}/{membershipPlan.interval === 'year' ? 'yr' : 'mo'}
+                  </span>
+                  {membershipPlan.nextBillingDate && (
+                    <span className="flex items-center gap-1">
+                      <Calendar className="h-3.5 w-3.5 text-gray-400" />
+                      Next billing{' '}
+                      {(() => {
+                        const d = new Date(membershipPlan.nextBillingDate);
+                        return isNaN(d.getTime())
+                          ? '—'
+                          : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                      })()}
+                    </span>
+                  )}
+                </div>
+                <span className="flex items-center gap-1 text-xs font-medium" style={{ color: primaryColor }}>
+                  Manage <ChevronRight className="h-3.5 w-3.5" />
+                </span>
+              </div>
+            </Link>
+          ) : !dashboardLoading ? (
+            <Link
+              href={`${PATIENT_PORTAL_PATH}/billing`}
+              className="flex items-center gap-4 rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50/50 p-4 transition-colors hover:border-gray-300 hover:bg-gray-50"
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-100">
+                <CreditCard className="h-5 w-5 text-gray-400" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-gray-700">No Active Membership</p>
+                <p className="text-xs text-gray-500">Tap to view billing &amp; plan options</p>
+              </div>
+              <ChevronRight className="h-5 w-5 shrink-0 text-gray-300" />
+            </Link>
+          ) : null}
         </div>
       )}
 

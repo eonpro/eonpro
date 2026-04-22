@@ -21,6 +21,7 @@ import {
   FileText,
   Timer,
   Mail,
+  FileSearch,
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/stores/authStore';
 import { isBrowser, safeLocalStorage } from '@/lib/utils/ssr-safe';
@@ -51,6 +52,7 @@ const navItems = [
   { icon: FileText, path: '/super-admin/wellmedr-invoices', label: 'WellMedR Invoices' },
   { icon: Timer, path: '/super-admin/ot-invoices', label: 'OT Invoices' },
   { icon: Mail, path: '/super-admin/email-logs', label: 'Email Logs' },
+  { icon: FileSearch, path: '/super-admin/csv-analyzer', label: 'CSV Analyzer' },
   { icon: Settings, path: '/super-admin/settings', label: 'Settings' },
 ];
 

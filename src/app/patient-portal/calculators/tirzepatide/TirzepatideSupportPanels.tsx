@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Syringe, ChevronRight } from 'lucide-react';
+import { Syringe, ChevronRight, Info } from 'lucide-react';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 
 interface DosingScheduleItem {
@@ -46,16 +46,23 @@ export default function TirzepatideSupportPanels({
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-3xl bg-white p-6 shadow-xl shadow-gray-200/50">
-        <h3 className="mb-3 text-lg font-semibold text-gray-900">Standard Titration Schedule</h3>
+      <div className="overflow-hidden rounded-3xl border border-gray-200 bg-gray-50/50 p-6">
+        <div className="mb-1 flex items-center gap-2">
+          <Info className="h-4 w-4 shrink-0 text-gray-400" />
+          <h3 className="text-lg font-semibold text-gray-500">General Reference Only</h3>
+        </div>
+        <p className="mb-4 text-xs leading-relaxed text-gray-400">
+          This is the standard FDA titration schedule for new patients starting from the lowest dose.
+          Your actual dosing may differ — always follow your provider&apos;s prescription.
+        </p>
         <div className="space-y-2">
           {dosingSchedule.map((s) => (
             <div
               key={s.week}
-              className="flex items-center justify-between border-b border-gray-100 py-2.5 text-sm last:border-0"
+              className="flex items-center justify-between border-b border-gray-200/60 py-2.5 text-sm last:border-0"
             >
-              <span className="text-gray-600">{s.label}</span>
-              <span className="font-semibold text-gray-900">{s.dose} mg</span>
+              <span className="text-gray-400">{s.label}</span>
+              <span className="font-semibold text-gray-400">{s.dose} mg</span>
             </div>
           ))}
         </div>

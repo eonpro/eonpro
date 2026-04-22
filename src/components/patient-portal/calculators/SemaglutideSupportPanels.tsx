@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
-import { AlertTriangle, Syringe, Check, ChevronRight } from 'lucide-react';
+import { AlertTriangle, Syringe, Check, ChevronRight, Info } from 'lucide-react';
 
 const dosingSchedule = [
   { week: '1-4', dose: 0.25, label: 'Weeks 1-4', desc: 'Starting dose' },
@@ -63,35 +63,41 @@ export default function SemaglutideSupportPanels({
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-3xl bg-white shadow-xl shadow-gray-200/50">
-        <div className="border-b border-gray-100 p-6">
-          <h3 className="text-lg font-semibold text-gray-900">Standard Titration</h3>
-          <p className="mt-1 text-sm text-gray-500">Typical dosing schedule</p>
+      <div className="overflow-hidden rounded-3xl border border-gray-200 bg-gray-50/50">
+        <div className="border-b border-gray-200/60 p-6">
+          <div className="flex items-center gap-2">
+            <Info className="h-4 w-4 shrink-0 text-gray-400" />
+            <h3 className="text-lg font-semibold text-gray-500">General Reference Only</h3>
+          </div>
+          <p className="mt-1 text-xs leading-relaxed text-gray-400">
+            Standard FDA titration for new patients starting from the lowest dose. Your actual dosing
+            may differ — always follow your provider&apos;s prescription.
+          </p>
         </div>
 
         <div className="p-6">
           <div className="relative">
-            <div className="absolute bottom-0 left-5 top-0 w-0.5 bg-gray-100" />
+            <div className="absolute bottom-0 left-5 top-0 w-0.5 bg-gray-200/60" />
 
             <div className="space-y-4">
               {dosingSchedule.map((s, i) => (
                 <div key={s.week} className="relative flex items-center gap-4 pl-12">
                   <div
-                    className={`absolute left-0 flex h-10 w-10 items-center justify-center rounded-full border-4 border-white text-sm font-semibold shadow ${
+                    className={`absolute left-0 flex h-10 w-10 items-center justify-center rounded-full border-4 border-gray-50 text-sm font-semibold ${
                       i === dosingSchedule.length - 1
-                        ? 'bg-gray-900 text-white'
-                        : 'bg-gray-100 text-gray-600'
+                        ? 'bg-gray-400 text-white'
+                        : 'bg-gray-200 text-gray-400'
                     }`}
                   >
                     {i + 1}
                   </div>
-                  <div className="flex flex-1 items-center justify-between rounded-2xl bg-gray-50 p-4">
+                  <div className="flex flex-1 items-center justify-between rounded-2xl bg-white/60 p-4">
                     <div>
-                      <p className="font-semibold text-gray-900">{s.label}</p>
-                      <p className="text-sm text-gray-500">{s.desc}</p>
+                      <p className="font-semibold text-gray-400">{s.label}</p>
+                      <p className="text-sm text-gray-300">{s.desc}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-xl font-semibold text-gray-900">{s.dose} mg</p>
+                      <p className="text-xl font-semibold text-gray-400">{s.dose} mg</p>
                     </div>
                   </div>
                 </div>

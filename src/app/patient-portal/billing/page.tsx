@@ -7,6 +7,7 @@
  */
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import { getCardNetworkLogo } from '@/lib/constants/brand-assets';
 import {
   CreditCard,
@@ -25,6 +26,8 @@ import {
   XCircle,
   Pill,
   RefreshCw,
+  Plus,
+  Loader2,
 } from 'lucide-react';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
@@ -38,6 +41,20 @@ import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import { safeParseJson } from '@/lib/utils/safe-json';
 import { logger } from '@/lib/logger';
 import { BillingPageSkeleton } from '@/components/patient-portal/PortalSkeletons';
+import { usePatientId } from '@/hooks/usePatientId';
+
+const LazyAddCardStripeElements = dynamic(
+  () => import('../subscription/AddCardStripeElements'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center gap-2 py-8 text-sm text-gray-500">
+        <Loader2 className="h-5 w-5 animate-spin" />
+        Loading secure payment form…
+      </div>
+    ),
+  }
+);
 
 interface PaymentMethod {
   id: string;
@@ -139,11 +156,17 @@ export default function BillingPage() {
   const brandLocale = ((branding as Record<string, unknown> | null)?.locale as string) || 'en-US';
   const brandCurrency = ((branding as Record<string, unknown> | null)?.currency as string) || 'USD';
 
+  const { patientId, loading: patientIdLoading, error: patientIdError } = usePatientId();
+
   const [data, setData] = useState<BillingData | null>(null);
   const [subDetails, setSubDetails] = useState<SubscriptionDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'methods'>('overview');
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Add card state
+  const [showAddCard, setShowAddCard] = useState(false);
+  const [addCardError, setAddCardError] = useState<string | null>(null);
 
   // Subscription action state
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
@@ -834,6 +857,29 @@ export default function BillingPage() {
       {/* Payment Methods Tab */}
       {activeTab === 'methods' && (
         <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-gray-900">{t('billingPaymentMethods')}</h3>
+              <div className="flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
+                <Shield className="h-3 w-3" />
+                Secure
+              </div>
+            </div>
+            {!showAddCard && (
+              <button
+                onClick={() => {
+                  setAddCardError(null);
+                  setShowAddCard(true);
+                }}
+                className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium text-white transition-colors hover:opacity-90"
+                style={{ backgroundColor: primaryColor }}
+              >
+                <Plus className="h-4 w-4" />
+                Add Card
+              </button>
+            )}
+          </div>
+
           {data?.paymentMethods?.map((method) => (
             <div key={method.id} className="rounded-xl bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between">
@@ -868,10 +914,62 @@ export default function BillingPage() {
             </div>
           ))}
 
-          {(!data?.paymentMethods || data.paymentMethods.length === 0) && (
+          {(!data?.paymentMethods || data.paymentMethods.length === 0) && !showAddCard && (
             <div className="rounded-xl bg-gray-50 py-12 text-center">
               <CreditCard className="mx-auto mb-3 h-12 w-12 text-gray-300" />
               <p className="text-gray-600">{t('billingNoPaymentMethods')}</p>
+              <button
+                onClick={() => {
+                  setAddCardError(null);
+                  setShowAddCard(true);
+                }}
+                className="mt-2 text-sm font-medium hover:underline"
+                style={{ color: primaryColor }}
+              >
+                Add your first card
+              </button>
+            </div>
+          )}
+
+          {showAddCard && (
+            <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+              <h4 className="mb-3 text-sm font-semibold text-gray-800">Add New Card</h4>
+              {addCardError && (
+                <div className="mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                  {addCardError}
+                </div>
+              )}
+              {patientIdLoading ? (
+                <div className="flex items-center gap-2 py-6 text-sm text-gray-500">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Preparing payment form…
+                </div>
+              ) : patientId == null ? (
+                <>
+                  <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                    {patientIdError || 'Could not verify your account. Please refresh or log in again.'}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddCard(false);
+                      setAddCardError(null);
+                    }}
+                    className="mt-3 rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <LazyAddCardStripeElements
+                  patientId={patientId}
+                  paymentMethodsLength={data?.paymentMethods?.length ?? 0}
+                  primaryColor={primaryColor}
+                  setShowAddCard={setShowAddCard}
+                  setAddCardError={setAddCardError}
+                  onCardSaved={fetchAllData}
+                />
+              )}
             </div>
           )}
 
@@ -880,7 +978,7 @@ export default function BillingPage() {
             className="flex w-full items-center justify-center gap-2 rounded-xl py-3 font-medium text-white"
             style={{ backgroundColor: primaryColor }}
           >
-            <CreditCard className="h-5 w-5" />
+            <ExternalLink className="h-4 w-4" />
             {t('billingUpdatePayment')}
           </button>
         </div>
