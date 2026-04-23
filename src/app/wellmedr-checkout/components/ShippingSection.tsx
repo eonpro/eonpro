@@ -71,7 +71,7 @@ export default function ShippingSection() {
             type="text"
             autoComplete="off"
           />
-          <p className="!text-[10px] mt-1.5 leading-snug text-gray-400 sm:!text-[11px]">
+          <p className="!text-[10px] !leading-tight mt-1.5 text-gray-400 sm:!text-[11px]">
             If you live in an apartment, condo, or multi-unit building, please include your unit
             number.
           </p>
