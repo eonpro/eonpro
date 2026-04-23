@@ -283,6 +283,7 @@ interface QueueItem {
     strength: string;
     sig: string;
     dose: number | null;
+    prescribedAt?: string | null;
   } | null;
   // Hold status (provider needs more information)
   holdReason?: string | null;
@@ -2895,9 +2896,15 @@ export default function PrescriptionQueuePage() {
                                 {/* GLP-1 History / Previous Prescription */}
                                 {item.hasPreviousRx && item.lastRxDetails ? (
                                   <div className="rounded-lg border border-gray-100 bg-white p-3">
-                                    <div className="mb-1 flex items-center gap-2 font-medium text-gray-600">
+                                    <div className="mb-1 flex flex-wrap items-center gap-2 font-medium text-gray-600">
                                       <FileText className="h-4 w-4" />
-                                      Previous Prescription Sent
+                                      <span>Previous Prescription Sent</span>
+                                      {item.lastRxDetails.prescribedAt && (
+                                        <span className="ml-auto flex items-center gap-1 text-[11px] font-semibold text-gray-500">
+                                          <Clock className="h-3 w-3" />
+                                          {formatDate(item.lastRxDetails.prescribedAt)}
+                                        </span>
+                                      )}
                                     </div>
                                     <div className="space-y-1.5 text-gray-600">
                                       <div>
@@ -4286,11 +4293,22 @@ export default function PrescriptionQueuePage() {
                         {/* Previous Dosage / Previous Prescription Card */}
                         {prescriptionPanel.item.hasPreviousRx ? (
                           <div className="overflow-hidden rounded-xl border border-[#e8fa87]/60 bg-[#e8fa87]/10 shadow-sm">
-                            <div className="border-b border-[#e8fa87]/50 bg-[#e8fa87]/20 px-4 py-2.5">
+                            <div className="flex items-center justify-between gap-2 border-b border-[#e8fa87]/50 bg-[#e8fa87]/20 px-4 py-2.5">
                               <h3 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#5a7a30]">
                                 <FileText className="h-3.5 w-3.5" />
                                 Previous Prescription
                               </h3>
+                              {prescriptionPanel.item.lastRxDetails?.prescribedAt && (
+                                <span
+                                  className="flex items-center gap-1 text-[10px] font-semibold text-[#5a7a30]"
+                                  title="Date previous prescription was sent"
+                                >
+                                  <Clock className="h-3 w-3" />
+                                  {formatDate(
+                                    prescriptionPanel.item.lastRxDetails.prescribedAt
+                                  )}
+                                </span>
+                              )}
                             </div>
                             <div className="p-4">
                               {(() => {
@@ -4318,6 +4336,12 @@ export default function PrescriptionQueuePage() {
                                           {rxDetails.sig}
                                         </p>
                                       </div>
+                                      {rxDetails.prescribedAt && (
+                                        <p className="flex items-center gap-1 text-xs font-medium text-[#5a7a30]">
+                                          <Clock className="h-3 w-3" />
+                                          Last prescribed {formatDate(rxDetails.prescribedAt)}
+                                        </p>
+                                      )}
                                       {prescriptionPanel.item.glp1Source ===
                                         'last_prescription' && (
                                         <p className="text-xs font-medium text-[#66a682]">
@@ -5080,7 +5104,7 @@ export default function PrescriptionQueuePage() {
                     {/* Card 1: Previous Prescription / GLP-1 History */}
                     {prescriptionPanel.item.hasPreviousRx ? (
                       <div className="overflow-hidden rounded-xl border border-[#e8fa87]/60 bg-[#e8fa87]/10">
-                        <div className="flex items-center gap-2 border-b border-[#e8fa87]/50 bg-[#e8fa87]/20 px-4 py-2.5">
+                        <div className="flex flex-wrap items-center gap-2 border-b border-[#e8fa87]/50 bg-[#e8fa87]/20 px-4 py-2.5">
                           <FileText className="h-4 w-4 text-[#5a7a30]" />
                           <h3 className="text-sm font-semibold text-gray-900">
                             Previous Prescription
@@ -5088,6 +5112,12 @@ export default function PrescriptionQueuePage() {
                           <span className="rounded-full bg-[#e8fa87]/25 px-2 py-0.5 text-[10px] font-bold text-[#5a7a30]">
                             REFILL
                           </span>
+                          {prescriptionPanel.item.lastRxDetails?.prescribedAt && (
+                            <span className="ml-auto flex items-center gap-1 text-[10px] font-semibold text-[#5a7a30]">
+                              <Clock className="h-3 w-3" />
+                              {formatDate(prescriptionPanel.item.lastRxDetails.prescribedAt)}
+                            </span>
+                          )}
                         </div>
                         <div className="px-4 py-3">
                           {prescriptionPanel.item.lastRxDetails ? (

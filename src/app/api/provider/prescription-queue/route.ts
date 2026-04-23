@@ -1016,7 +1016,13 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     // not the original intake form data. This enables correct dose escalation recommendations.
     const lastOrderRxMap = new Map<
       number,
-      { medName: string; strength: string; sig: string; dose: number | null }
+      {
+        medName: string;
+        strength: string;
+        sig: string;
+        dose: number | null;
+        prescribedAt: Date | null;
+      }
     >();
     {
       const lastOrderIds = (refills as any[])
@@ -1032,6 +1038,9 @@ async function handleGet(req: NextRequest, user: AuthUser) {
               medName: true,
               strength: true,
               sig: true,
+              order: {
+                select: { createdAt: true },
+              },
             },
           });
 
@@ -1044,6 +1053,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
               strength: rx.strength,
               sig: rx.sig,
               dose,
+              prescribedAt: rx.order?.createdAt ?? null,
             });
           }
 
@@ -1616,6 +1626,9 @@ async function handleGet(req: NextRequest, user: AuthUser) {
               strength: lastRxData.strength,
               sig: lastRxData.sig,
               dose: lastRxData.dose,
+              prescribedAt: lastRxData.prescribedAt
+                ? lastRxData.prescribedAt.toISOString()
+                : null,
             }
           : null,
         // SOAP Note status
@@ -1751,6 +1764,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           strength: string;
           sig: string;
           dose: number | null;
+          prescribedAt: string | null;
         } | null;
       }
     >();
@@ -1784,7 +1798,8 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         for (const pid of queuePatientIds) {
           const orders = grouped.get(pid) || [];
           if (orders.length > 0) {
-            const latestRx = orders[0].rxs?.[0] || null;
+            const latestOrder = orders[0];
+            const latestRx = latestOrder.rxs?.[0] || null;
             let rxDetails = null;
             if (latestRx) {
               const doseMatch = latestRx.sig.match(/(?:inject|administer)\s+([\d.]+)\s*mg/i);
@@ -1793,6 +1808,9 @@ async function handleGet(req: NextRequest, user: AuthUser) {
                 strength: latestRx.strength,
                 sig: latestRx.sig,
                 dose: doseMatch ? parseFloat(doseMatch[1]) : null,
+                prescribedAt: latestOrder.createdAt
+                  ? new Date(latestOrder.createdAt).toISOString()
+                  : null,
               };
             }
             previousRxMap.set(pid, { hasPreviousRx: true, lastRxDetails: rxDetails });
