@@ -22,6 +22,7 @@ import Stripe from 'stripe';
 import { logger } from '@/lib/logger';
 import { prisma, runWithClinicContext } from '@/lib/db';
 import { OT_STRIPE_CONFIG } from '@/lib/stripe/config';
+import { getInvoicePaymentIntentId } from '@/services/stripe/invoiceFieldExtractors';
 import { StripePaymentService } from '@/services/stripe/paymentService';
 
 // OT clinic subdomain for identification
@@ -396,7 +397,10 @@ async function processOTWebhookEvent(
         // Extract payment data and add OT clinic ID
         // Pass OT Stripe client so charge expansion uses OT's account (not legacy EonMeds)
         const otStripeForExtract = getOTStripe();
-        const intentPaymentData = await extractPaymentDataFromPaymentIntent(paymentIntent, otStripeForExtract);
+        const intentPaymentData = await extractPaymentDataFromPaymentIntent(
+          paymentIntent,
+          otStripeForExtract
+        );
         intentPaymentData.metadata = {
           ...intentPaymentData.metadata,
           clinicId: clinicId.toString(),
@@ -701,11 +705,12 @@ async function processOTWebhookEvent(
             success: true,
             details: {
               skipped: true,
-              reason: session.payment_status !== 'paid'
-                ? 'Not paid'
-                : session.subscription
-                  ? 'Subscription checkout — handled by invoice.payment_succeeded'
-                  : 'Has invoice',
+              reason:
+                session.payment_status !== 'paid'
+                  ? 'Not paid'
+                  : session.subscription
+                    ? 'Subscription checkout — handled by invoice.payment_succeeded'
+                    : 'Has invoice',
             },
           };
         }
@@ -960,9 +965,9 @@ async function processOTWebhookEvent(
         // have a local invoice yet, extract payment data from the PI and run the
         // full matching pipeline so the invoice appears in the provider Rx queue.
         if (!dbInvoice && invoice.status === 'paid') {
-          const rawPi = (invoice as unknown as Record<string, unknown>).payment_intent;
-          const piId =
-            typeof rawPi === 'string' ? rawPi : (rawPi as Stripe.PaymentIntent | null)?.id;
+          // Dahlia-aware extraction (API 2026-03-25+):
+          // invoice.payment_intent was removed; now nested under payments.data.
+          const piId = getInvoicePaymentIntentId(invoice);
 
           if (piId) {
             logger.info(
@@ -1128,10 +1133,7 @@ async function processOTWebhookEvent(
             const amountPaidCents = invoice.amount_paid || 0;
 
             if (amountPaidCents > 0) {
-              const paymentIntentId =
-                typeof (invoice as any).payment_intent === 'string'
-                  ? (invoice as any).payment_intent
-                  : (invoice as any).payment_intent?.id;
+              const paymentIntentId = getInvoicePaymentIntentId(invoice);
 
               const isFirstPayment = checkIfFirstPayment
                 ? await checkIfFirstPayment(dbInvoice.patientId, paymentIntentId || undefined)
@@ -1180,10 +1182,7 @@ async function processOTWebhookEvent(
           try {
             const amountPaidCents = invoice.amount_paid || 0;
             if (amountPaidCents > 0) {
-              const paymentIntentId =
-                typeof (invoice as any).payment_intent === 'string'
-                  ? (invoice as any).payment_intent
-                  : (invoice as any).payment_intent?.id;
+              const paymentIntentId = getInvoicePaymentIntentId(invoice);
               const isFirst = checkIfFirstPaymentForSalesRep
                 ? await checkIfFirstPaymentForSalesRep(
                     dbInvoice.patientId,

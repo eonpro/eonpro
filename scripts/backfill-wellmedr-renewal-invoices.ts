@@ -98,17 +98,27 @@ function parseArgs(): Args {
   return { execute, since, outputDir };
 }
 
+type CoverageReason =
+  | 'stripe_invoice_id_match'     // exact: local Invoice.stripeInvoiceId = this Stripe invoice
+  | 'payment_method_match'        // Airtable-created Invoice with same stripePaymentMethodId ±2d
+  | 'recent_order'                // patient received a Lifefile Order ±14d of paidAt
+  | 'recent_refill_queue'         // RefillQueue entry for this patient ±2d of paidAt
+  | 'none';
+
 interface ReportRow {
   stripeInvoiceId: string;
   stripeCustomerId: string;
   stripeSubscriptionId: string;
+  stripePaymentMethodId: string;
   billingReason: string;
   amountPaidCents: number;
   paidAt: string;
-  localInvoiceExisted: 'yes' | 'no';
-  action: 'skipped_existing' | 'would_create' | 'created' | 'replay_no_patient' | 'replay_error';
-  localInvoiceId: string;
   patientId: string;
+  coverageReason: CoverageReason;
+  existingInvoiceId: string;        // populated when coverageReason points to an Invoice
+  existingOrderId: string;          // populated when coverageReason=recent_order
+  existingRefillQueueId: string;    // populated when coverageReason=recent_refill_queue
+  action: 'skipped_covered' | 'would_create' | 'created' | 'replay_no_patient' | 'replay_error';
   errorMessage: string;
 }
 
@@ -125,13 +135,16 @@ function writeCsv(rows: ReportRow[], filePath: string): void {
     'stripeInvoiceId',
     'stripeCustomerId',
     'stripeSubscriptionId',
+    'stripePaymentMethodId',
     'billingReason',
     'amountPaidCents',
     'paidAt',
-    'localInvoiceExisted',
-    'action',
-    'localInvoiceId',
     'patientId',
+    'coverageReason',
+    'existingInvoiceId',
+    'existingOrderId',
+    'existingRefillQueueId',
+    'action',
     'errorMessage',
   ];
   const lines = [
@@ -140,6 +153,8 @@ function writeCsv(rows: ReportRow[], filePath: string): void {
   ];
   fs.writeFileSync(filePath, lines.join('\n'), 'utf8');
 }
+
+/* Extraction uses @/services/stripe/invoiceFieldExtractors (dahlia-aware). */
 
 async function main() {
   const args = parseArgs();
@@ -155,6 +170,15 @@ async function main() {
   const { StripeInvoiceService } = await import('../src/services/stripe/invoiceService');
   const { isRenewalBillingReason } = await import(
     '../src/services/stripe/connectInvoiceGuard'
+  );
+  const {
+    getInvoicePaymentIntentId,
+    getInvoicePaymentMethodIdFromExpanded,
+    getInvoiceSubscriptionId,
+    resolveInvoicePaymentMethodId,
+  } = await import('../src/services/stripe/invoiceFieldExtractors');
+  const { findPatientByEmail } = await import(
+    '../src/services/stripe/paymentMatchingService'
   );
 
   const clinic = await prisma.clinic.findFirst({
@@ -199,6 +223,9 @@ async function main() {
         status: 'paid',
         created: { gte: since },
         limit: 100,
+        // Dahlia: invoice.payments is included without explicit expansion;
+        // resolution of payment_method still requires a per-PI retrieve, which
+        // we defer until layer 2 is actually reached for a given row.
         ...(startingAfter ? { starting_after: startingAfter } : {}),
       },
       connectOpts
@@ -212,92 +239,237 @@ async function main() {
       const paidAtSeconds =
         stripeInvoice.status_transitions?.paid_at ?? stripeInvoice.created;
       const paidAt = new Date(paidAtSeconds * 1000);
+      const stripeSubId = getInvoiceSubscriptionId(stripeInvoice) ?? '';
+      const stripeCustomerId =
+        typeof stripeInvoice.customer === 'string'
+          ? stripeInvoice.customer
+          : stripeInvoice.customer?.id || '';
+      // Dahlia API: charge/payment_intent no longer expandable at list-time.
+      // Only retrieve the payment method when we actually need it for layer 2
+      // (to minimize 575× additional API calls).
+      let paymentMethodId = getInvoicePaymentMethodIdFromExpanded(stripeInvoice) ?? '';
+      const resolvePaymentMethodLazy = async (): Promise<string> => {
+        if (paymentMethodId) return paymentMethodId;
+        const id = await resolveInvoicePaymentMethodId(
+          stripeInvoice,
+          stripeContext.stripe,
+          connectOpts
+        );
+        paymentMethodId = id ?? '';
+        return paymentMethodId;
+      };
+      // Record PI id (helpful in the CSV even if PM stays unresolved).
+      void getInvoicePaymentIntentId(stripeInvoice);
 
       const row: ReportRow = {
         stripeInvoiceId: stripeInvoice.id,
-        stripeCustomerId:
-          typeof stripeInvoice.customer === 'string'
-            ? stripeInvoice.customer
-            : stripeInvoice.customer?.id || '',
-        stripeSubscriptionId:
-          typeof (stripeInvoice as any).subscription === 'string'
-            ? (stripeInvoice as any).subscription
-            : (stripeInvoice as any).subscription?.id || '',
+        stripeCustomerId,
+        stripeSubscriptionId: stripeSubId,
+        stripePaymentMethodId: paymentMethodId,
         billingReason: stripeInvoice.billing_reason || '',
         amountPaidCents: stripeInvoice.amount_paid,
         paidAt: paidAt.toISOString(),
-        localInvoiceExisted: 'no',
-        action: 'would_create',
-        localInvoiceId: '',
         patientId: '',
+        coverageReason: 'none',
+        existingInvoiceId: '',
+        existingOrderId: '',
+        existingRefillQueueId: '',
+        action: 'would_create',
         errorMessage: '',
       };
 
       try {
-        const existing = await prisma.invoice.findUnique({
-          where: { stripeInvoiceId: stripeInvoice.id },
-          select: { id: true, patientId: true },
-        });
-
-        if (existing) {
-          row.localInvoiceExisted = 'yes';
-          row.action = 'skipped_existing';
-          row.localInvoiceId = String(existing.id);
-          row.patientId = String(existing.patientId);
-          rows.push(row);
-          continue;
-        }
-
-        if (!args.execute) {
-          rows.push(row);
-          continue;
-        }
-
-        // EXECUTE path: tag the Stripe invoice's metadata so the auto-create
-        // path marks the resulting local invoice as a historical backfill.
-        // This is purely advisory (metadata only); the live webhook flow is
-        // unaffected by this script running.
-        //
-        // We cannot mutate the Stripe invoice itself here (it belongs to
-        // WellMedR's Connect account and we shouldn't touch their records),
-        // so we instead re-use updateFromWebhook and then tag the resulting
-        // local Invoice.metadata.historicalBackfill = true + suppress-email.
         await runWithClinicContext(clinic.id, async () => {
+          // ── Layer 1: exact match by stripeInvoiceId ─────────────────────
+          const exactMatch = await prisma.invoice.findUnique({
+            where: { stripeInvoiceId: stripeInvoice.id },
+            select: { id: true, patientId: true },
+          });
+          if (exactMatch) {
+            row.coverageReason = 'stripe_invoice_id_match';
+            row.existingInvoiceId = String(exactMatch.id);
+            row.patientId = String(exactMatch.patientId);
+            row.action = 'skipped_covered';
+            return;
+          }
+
+          // Resolve patient through the same cascade the live webhook uses:
+          //   1. Subscription.stripeSubscriptionId → patientId (fastest)
+          //   2. Patient.stripeCustomerId (fast, but many legacy WellMedR
+          //      patients lack this link)
+          //   3. Email via findPatientByEmail (searchIndex / plaintext /
+          //      encrypted-decrypt cascade). Email source: subscription
+          //      metadata → Stripe customer retrieve.
+          let patientId: number | null = null;
+
+          if (stripeSubId) {
+            const localSub = await prisma.subscription.findUnique({
+              where: { stripeSubscriptionId: stripeSubId },
+              select: { patientId: true },
+            });
+            if (localSub) patientId = localSub.patientId;
+          }
+
+          if (!patientId && stripeCustomerId) {
+            const patientByCust = await prisma.patient.findFirst({
+              where: { stripeCustomerId },
+              select: { id: true },
+            });
+            if (patientByCust) patientId = patientByCust.id;
+          }
+
+          if (!patientId) {
+            // Dahlia invoices carry subscription metadata with checkout email
+            // at parent.subscription_details.metadata.email. Free to read.
+            const invAny = stripeInvoice as unknown as {
+              parent?: { subscription_details?: { metadata?: Record<string, string> } };
+              customer_email?: string | null;
+            };
+            let emailForLookup =
+              invAny.parent?.subscription_details?.metadata?.email?.toLowerCase().trim() ||
+              invAny.customer_email?.toLowerCase().trim() ||
+              '';
+            // Final fallback: retrieve the Stripe customer for its email.
+            if (!emailForLookup && stripeCustomerId) {
+              try {
+                const cust = await stripeContext.stripe.customers.retrieve(
+                  stripeCustomerId,
+                  {},
+                  connectOpts
+                );
+                if (
+                  cust &&
+                  !(cust as Stripe.DeletedCustomer).deleted &&
+                  'email' in cust &&
+                  cust.email
+                ) {
+                  emailForLookup = cust.email.toLowerCase().trim();
+                }
+              } catch {
+                /* Customer retrieve failed — leave email unresolved. */
+              }
+            }
+            if (emailForLookup) {
+              const patientByEmail = await findPatientByEmail(emailForLookup, clinic.id);
+              if (patientByEmail) patientId = patientByEmail.id;
+            }
+          }
+
+          if (patientId) row.patientId = String(patientId);
+
+          // ── Layer 2: Airtable-created Invoice match via payment_method ──
+          // Window: paidAt ± 2 days. Airtable-created Invoices have
+          // stripeInvoiceId=null and metadata.stripePaymentMethodId set.
+          // Retrieve the Stripe payment method lazily (requires an extra API
+          // call on dahlia since charge/payment_intent aren't on invoice).
+          const pmForLayer2 = await resolvePaymentMethodLazy();
+          row.stripePaymentMethodId = pmForLayer2;
+          if (pmForLayer2) {
+            const windowStart = new Date(paidAt.getTime() - 2 * 24 * 60 * 60 * 1000);
+            const windowEnd = new Date(paidAt.getTime() + 2 * 24 * 60 * 60 * 1000);
+            const pmMatch = await prisma.invoice.findFirst({
+              where: {
+                stripeInvoiceId: null,
+                createdAt: { gte: windowStart, lte: windowEnd },
+                metadata: { path: ['stripePaymentMethodId'], equals: pmForLayer2 },
+                ...(patientId ? { patientId } : {}),
+              },
+              select: { id: true, patientId: true },
+              orderBy: { createdAt: 'desc' },
+            });
+            if (pmMatch) {
+              row.coverageReason = 'payment_method_match';
+              row.existingInvoiceId = String(pmMatch.id);
+              row.patientId = String(pmMatch.patientId);
+              row.action = 'skipped_covered';
+              return;
+            }
+          }
+
+          // ── Layer 3: patient has a recent Lifefile Order (actual Rx) ────
+          // Window: paidAt - 7d to paidAt + 14d. A prescription written within
+          // this window covers the renewal clinically, even if the Invoice
+          // was never created (provider issued Rx via another route).
+          if (patientId) {
+            const orderWindowStart = new Date(paidAt.getTime() - 7 * 24 * 60 * 60 * 1000);
+            const orderWindowEnd = new Date(paidAt.getTime() + 14 * 24 * 60 * 60 * 1000);
+            const recentOrder = await prisma.order.findFirst({
+              where: {
+                patientId,
+                createdAt: { gte: orderWindowStart, lte: orderWindowEnd },
+              },
+              select: { id: true, createdAt: true, primaryMedName: true },
+              orderBy: { createdAt: 'desc' },
+            });
+            if (recentOrder) {
+              row.coverageReason = 'recent_order';
+              row.existingOrderId = String(recentOrder.id);
+              row.action = 'skipped_covered';
+              return;
+            }
+          }
+
+          // ── Layer 4: patient has a recent RefillQueue entry ─────────────
+          if (patientId) {
+            const rqWindowStart = new Date(paidAt.getTime() - 2 * 24 * 60 * 60 * 1000);
+            const rqWindowEnd = new Date(paidAt.getTime() + 2 * 24 * 60 * 60 * 1000);
+            const recentRefill = await prisma.refillQueue.findFirst({
+              where: {
+                patientId,
+                OR: [
+                  { paymentVerifiedAt: { gte: rqWindowStart, lte: rqWindowEnd } },
+                  { createdAt: { gte: rqWindowStart, lte: rqWindowEnd } },
+                ],
+              },
+              select: { id: true, status: true, paymentVerifiedAt: true },
+              orderBy: { createdAt: 'desc' },
+            });
+            if (recentRefill) {
+              row.coverageReason = 'recent_refill_queue';
+              row.existingRefillQueueId = String(recentRefill.id);
+              row.action = 'skipped_covered';
+              return;
+            }
+          }
+
+          // ── No coverage found: genuinely missed ─────────────────────────
+          if (!args.execute) {
+            row.action = 'would_create';
+            return;
+          }
+
+          // EXECUTE: replay via updateFromWebhook (same code path as live webhook)
           await StripeInvoiceService.updateFromWebhook(stripeInvoice, {
             stripeAccountId: stripeContext.stripeAccountId || undefined,
             clinicId: clinic.id,
           });
-        });
 
-        const created = await prisma.invoice.findUnique({
-          where: { stripeInvoiceId: stripeInvoice.id },
-          select: { id: true, patientId: true, metadata: true },
-        });
-
-        if (created) {
-          row.action = 'created';
-          row.localInvoiceId = String(created.id);
-          row.patientId = String(created.patientId);
-
-          // Tag the invoice so downstream systems can tell this came from
-          // the backfill (for auditing + receipt-email suppression).
-          const existingMeta = (created.metadata as Record<string, unknown>) || {};
-          await prisma.invoice.update({
-            where: { id: created.id },
-            data: {
-              metadata: {
-                ...existingMeta,
-                historicalBackfill: true,
-                backfillSource: 'backfill-wellmedr-renewal-invoices.ts',
-                backfillRunAt: new Date().toISOString(),
-              },
-            },
+          const created = await prisma.invoice.findUnique({
+            where: { stripeInvoiceId: stripeInvoice.id },
+            select: { id: true, patientId: true, metadata: true },
           });
-        } else {
-          row.action = 'replay_no_patient';
-          row.errorMessage =
-            'updateFromWebhook completed but no Invoice row appeared — patient likely unresolvable on Connect account';
-        }
+          if (created) {
+            row.action = 'created';
+            row.existingInvoiceId = String(created.id);
+            row.patientId = String(created.patientId);
+            const existingMeta = (created.metadata as Record<string, unknown>) || {};
+            await prisma.invoice.update({
+              where: { id: created.id },
+              data: {
+                metadata: {
+                  ...existingMeta,
+                  historicalBackfill: true,
+                  backfillSource: 'backfill-wellmedr-renewal-invoices.ts',
+                  backfillRunAt: new Date().toISOString(),
+                },
+              },
+            });
+          } else {
+            row.action = 'replay_no_patient';
+            row.errorMessage =
+              'updateFromWebhook completed but no Invoice row appeared — patient likely unresolvable on Connect account';
+          }
+        });
       } catch (err) {
         row.action = 'replay_error';
         row.errorMessage = err instanceof Error ? err.message : 'Unknown';

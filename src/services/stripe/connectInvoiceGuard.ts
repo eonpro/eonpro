@@ -30,9 +30,12 @@ import type Stripe from 'stripe';
  *
  * Source: https://stripe.com/docs/api/invoices/object#invoice_object-billing_reason
  */
-const RENEWAL_BILLING_REASONS: ReadonlySet<Stripe.Invoice.BillingReason> = new Set<
-  Stripe.Invoice.BillingReason
->(['subscription_cycle', 'subscription_update', 'subscription_threshold']);
+const RENEWAL_BILLING_REASONS: ReadonlySet<Stripe.Invoice.BillingReason> =
+  new Set<Stripe.Invoice.BillingReason>([
+    'subscription_cycle',
+    'subscription_update',
+    'subscription_threshold',
+  ]);
 
 export function isRenewalBillingReason(
   reason: Stripe.Invoice.BillingReason | null | undefined

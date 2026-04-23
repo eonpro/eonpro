@@ -29,9 +29,7 @@ import { verifyCronAuth } from '@/lib/cron/tenant-isolation';
 import { prisma, runWithClinicContext } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { alertWarning } from '@/lib/observability/slack-alerts';
-import {
-  isRenewalBillingReason,
-} from '@/services/stripe/connectInvoiceGuard';
+import { isRenewalBillingReason } from '@/services/stripe/connectInvoiceGuard';
 import { StripeInvoiceService } from '@/services/stripe/invoiceService';
 
 import type Stripe from 'stripe';
@@ -74,8 +72,7 @@ async function reconcileInvoice(
   stripeAccountId: string,
   totals: RunTotals
 ): Promise<void> {
-  const paidAtSeconds =
-    stripeInvoice.status_transitions?.paid_at ?? stripeInvoice.created;
+  const paidAtSeconds = stripeInvoice.status_transitions?.paid_at ?? stripeInvoice.created;
   const paidAt = new Date(paidAtSeconds * 1000);
 
   const recordSample = (outcome: GapSample['outcome'], error?: string): void => {

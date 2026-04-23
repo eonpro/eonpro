@@ -17,6 +17,10 @@ import type Stripe from 'stripe';
 import { WebhookStatus } from '@prisma/client';
 import { logger } from '@/lib/logger';
 import { prisma, runWithClinicContext } from '@/lib/db';
+import {
+  getInvoicePaymentIntentId,
+  getInvoiceSubscriptionId,
+} from '@/services/stripe/invoiceFieldExtractors';
 
 // Critical payment event types that trigger prescriptions
 const CRITICAL_PAYMENT_EVENTS = [
@@ -456,11 +460,11 @@ async function processWebhookEvent(
           });
         }
 
-        // If this invoice is for a subscription renewal, trigger Rx refill
-        const invoiceSubscriptionId =
-          typeof (invoice as any).subscription === 'string'
-            ? (invoice as any).subscription
-            : (invoice as any).subscription?.id;
+        // If this invoice is for a subscription renewal, trigger Rx refill.
+        // Stripe 2026-03-25 (dahlia) moved the subscription ID under
+        // `parent.subscription_details.subscription`. Use the dahlia-aware
+        // extractor to survive both old and new API shapes.
+        const invoiceSubscriptionId = getInvoiceSubscriptionId(invoice);
 
         let refillTriggered = false;
 
@@ -539,10 +543,9 @@ async function processWebhookEvent(
               // Derive stripePaymentId from the invoice's payment intent so
               // RefillQueue.stripePaymentId is populated (used by finance
               // reconciliation + affiliate commission reversal on refunds).
-              const stripePaymentId =
-                typeof (invoice as any).payment_intent === 'string'
-                  ? ((invoice as any).payment_intent as string)
-                  : (invoice as any).payment_intent?.id;
+              // Dahlia-aware: reads `payments.data[].payment.payment_intent`
+              // first, falls back to legacy `invoice.payment_intent`.
+              const stripePaymentId = getInvoicePaymentIntentId(invoice) ?? undefined;
 
               const refill = await triggerRefillForSubscriptionPayment(
                 localSub.id,
@@ -821,10 +824,7 @@ async function processWebhookEvent(
               }
 
               if (invPatientId && invClinicId) {
-                const paymentIntentId =
-                  typeof (invoice as any).payment_intent === 'string'
-                    ? (invoice as any).payment_intent
-                    : (invoice as any).payment_intent?.id;
+                const paymentIntentId = getInvoicePaymentIntentId(invoice);
                 const isFirst = checkIfFirstPaymentForSalesRep
                   ? await checkIfFirstPaymentForSalesRep(invPatientId, paymentIntentId || undefined)
                   : true;
@@ -1332,11 +1332,12 @@ async function processWebhookEvent(
             success: true,
             details: {
               skipped: true,
-              reason: session.payment_status !== 'paid'
-                ? 'Not paid'
-                : session.subscription
-                  ? 'Subscription checkout — handled by invoice.payment_succeeded'
-                  : 'Has invoice',
+              reason:
+                session.payment_status !== 'paid'
+                  ? 'Not paid'
+                  : session.subscription
+                    ? 'Subscription checkout — handled by invoice.payment_succeeded'
+                    : 'Has invoice',
             },
           };
         }

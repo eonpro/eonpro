@@ -15,6 +15,11 @@ import {
   shouldAutoCreateConnectInvoice,
   isRenewalBillingReason,
 } from '@/services/stripe/connectInvoiceGuard';
+import {
+  getInvoicePaymentIntentId,
+  getInvoicePaymentMethodIdFromExpanded,
+  getInvoiceSubscriptionId,
+} from '@/services/stripe/invoiceFieldExtractors';
 import * as Sentry from '@sentry/nextjs';
 
 function safeDecryptField(value: string | null | undefined): string {
@@ -437,7 +442,12 @@ export class StripeInvoiceService {
       }
     }
 
-    if (!invoice && stripeInvoice.status === 'paid' && isConnectInvoice && connectShouldAutoCreate) {
+    if (
+      !invoice &&
+      stripeInvoice.status === 'paid' &&
+      isConnectInvoice &&
+      connectShouldAutoCreate
+    ) {
       // Belt-and-suspenders dedup: if Airtable (or any other path) already created
       // an Invoice for the same patient using the same Stripe PaymentMethod within
       // the last 24h, skip auto-create. The primary dedup is the stripeInvoiceId
@@ -487,19 +497,21 @@ export class StripeInvoiceService {
       }
     }
 
-    if (!invoice && stripeInvoice.status === 'paid' && isConnectInvoice && !connectShouldAutoCreate) {
+    if (
+      !invoice &&
+      stripeInvoice.status === 'paid' &&
+      isConnectInvoice &&
+      !connectShouldAutoCreate
+    ) {
       // Expected skip (subscription_create / manual) — Airtable owns this path.
       // Log at DEBUG so production noise is minimal; unexpected skips (a renewal
       // reaching this branch) are impossible given the predicate, but the surprise
       // case below catches any future regression.
-      logger.debug(
-        '[STRIPE] Connect invoice skipped by design (owned by external automation)',
-        {
-          stripeInvoiceId: stripeInvoice.id,
-          billingReason: stripeInvoice.billing_reason,
-          connectAccountId: connectContext?.stripeAccountId?.substring(0, 12),
-        }
-      );
+      logger.debug('[STRIPE] Connect invoice skipped by design (owned by external automation)', {
+        stripeInvoiceId: stripeInvoice.id,
+        billingReason: stripeInvoice.billing_reason,
+        connectAccountId: connectContext?.stripeAccountId?.substring(0, 12),
+      });
 
       // Regression tripwire: if billing_reason indicates a renewal but the
       // predicate returned false (e.g. someone narrowed RENEWAL_BILLING_REASONS
@@ -729,23 +741,12 @@ export class StripeInvoiceService {
   private static async findRecentConnectDuplicate(
     stripeInvoice: Stripe.Invoice
   ): Promise<{ id: number; metadata: unknown } | null> {
-    const charge = (stripeInvoice as Stripe.Invoice & { charge?: Stripe.Charge | string | null })
-      .charge;
-    const chargePaymentMethod =
-      charge && typeof charge !== 'string' ? charge.payment_method : null;
-    const pi = (
-      stripeInvoice as Stripe.Invoice & { payment_intent?: Stripe.PaymentIntent | string | null }
-    ).payment_intent;
-    const piPaymentMethod =
-      pi && typeof pi !== 'string' && pi.payment_method
-        ? typeof pi.payment_method === 'string'
-          ? pi.payment_method
-          : pi.payment_method.id
-        : null;
-    const paymentMethodId =
-      chargePaymentMethod && typeof chargePaymentMethod === 'string'
-        ? chargePaymentMethod
-        : piPaymentMethod;
+    // Dahlia-aware: reads from expanded charge/payment_intent regardless of
+    // whether the caller used legacy (pre-2026-03-25) or dahlia expansion.
+    // When nothing is expanded we skip the dedup — a conservative choice
+    // that accepts a small duplicate risk in exchange for simplicity (the
+    // stripeInvoiceId unique index still provides primary idempotency).
+    const paymentMethodId = getInvoicePaymentMethodIdFromExpanded(stripeInvoice);
 
     if (!paymentMethodId) return null;
 
@@ -802,11 +803,12 @@ export class StripeInvoiceService {
           metaClinicRaw != null && metaClinicRaw !== '' ? parseInt(String(metaClinicRaw), 10) : NaN;
 
         // Determine the effective clinicId: metadata > connectContext > none
-        const effectiveClinicId = Number.isFinite(metaClinicId) && metaClinicId > 0
-          ? metaClinicId
-          : connectContext?.clinicId && connectContext.clinicId > 0
-            ? connectContext.clinicId
-            : NaN;
+        const effectiveClinicId =
+          Number.isFinite(metaClinicId) && metaClinicId > 0
+            ? metaClinicId
+            : connectContext?.clinicId && connectContext.clinicId > 0
+              ? connectContext.clinicId
+              : NaN;
 
         let stripeClient: Stripe;
         let stripeOpts: Stripe.RequestOptions | undefined;
@@ -868,10 +870,7 @@ export class StripeInvoiceService {
         logger.warn('[STRIPE] Email fallback for invoice auto-create failed (non-blocking)', {
           stripeInvoiceId: stripeInvoice.id,
           connectAccountId: connectContext?.stripeAccountId?.substring(0, 12),
-          error:
-            emailErr instanceof Error
-              ? emailErr.message
-              : 'Unknown',
+          error: emailErr instanceof Error ? emailErr.message : 'Unknown',
         });
       }
     }
@@ -888,10 +887,7 @@ export class StripeInvoiceService {
       ? new Date(stripeInvoice.status_transitions.paid_at * 1000)
       : new Date();
 
-    const paymentIntentId =
-      typeof (stripeInvoice as any).payment_intent === 'string'
-        ? (stripeInvoice as any).payment_intent
-        : (stripeInvoice as any).payment_intent?.id;
+    const paymentIntentId = getInvoicePaymentIntentId(stripeInvoice);
 
     // ──────────────────────────────────────────────────────────────────────
     // DEDUP: Multiple paths can create invoices for the same payment:
@@ -917,10 +913,12 @@ export class StripeInvoiceService {
       });
       if (existingPayment?.invoice) {
         if (!existingPayment.invoice.stripeInvoiceId && stripeInvoice.id) {
-          await prisma.invoice.update({
-            where: { id: existingPayment.invoice.id },
-            data: { stripeInvoiceId: stripeInvoice.id },
-          }).catch(() => {});
+          await prisma.invoice
+            .update({
+              where: { id: existingPayment.invoice.id },
+              data: { stripeInvoiceId: stripeInvoice.id },
+            })
+            .catch(() => {});
         }
         logger.info(
           '[STRIPE] Skipping auto-create: Payment record already has invoice (PI dedup)',
@@ -953,10 +951,12 @@ export class StripeInvoiceService {
       });
 
       if (recentExistingInvoice) {
-        await prisma.invoice.update({
-          where: { id: recentExistingInvoice.id },
-          data: { stripeInvoiceId: stripeInvoice.id },
-        }).catch(() => {});
+        await prisma.invoice
+          .update({
+            where: { id: recentExistingInvoice.id },
+            data: { stripeInvoiceId: stripeInvoice.id },
+          })
+          .catch(() => {});
 
         logger.info(
           '[STRIPE] Skipping auto-create: recent PAID invoice exists (time-window dedup)',
@@ -972,10 +972,7 @@ export class StripeInvoiceService {
       }
     }
 
-    const subscriptionId =
-      typeof (stripeInvoice as any).subscription === 'string'
-        ? (stripeInvoice as any).subscription
-        : (stripeInvoice as any).subscription?.id;
+    const subscriptionId = getInvoiceSubscriptionId(stripeInvoice);
 
     // Compute refill month number for subscription renewals
     let renewalMonth: number | null = null;
@@ -1182,10 +1179,7 @@ export class StripeInvoiceService {
     const { processPaymentForCommission, checkIfFirstPayment } =
       await import('@/services/affiliate/affiliateCommissionService');
 
-    const paymentIntentId =
-      typeof (stripeInvoice as any).payment_intent === 'string'
-        ? (stripeInvoice as any).payment_intent
-        : (stripeInvoice as any).payment_intent?.id;
+    const paymentIntentId = getInvoicePaymentIntentId(stripeInvoice);
 
     const isFirstPayment = await checkIfFirstPayment(
       invoice.patientId,
