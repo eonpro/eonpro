@@ -71,11 +71,12 @@ export default function ShippingSection() {
             type="text"
             autoComplete="off"
           />
-          <p className="mt-1.5 text-[10px] leading-snug text-gray-400">
-            If you live in an apartment, condo, or multi-unit building, please include your unit number.
+          <p className="!text-[10px] mt-1.5 leading-snug text-gray-400 sm:!text-[11px]">
+            If you live in an apartment, condo, or multi-unit building, please include your unit
+            number.
           </p>
         </div>
-        <p className="text-xs font-semibold" style={{ color: '#ef4444' }}>
+        <p className="!text-xs font-semibold sm:!text-[13px]" style={{ color: '#ef4444' }}>
           Ensure your address is complete so we can ship out within 24-48 hours!
         </p>
 
