@@ -976,7 +976,26 @@ export default function PrescriptionQueuePage() {
         ?.medicationType;
       const isAddonOnlyInvoice = invoiceMedType === 'add-on';
 
-      const preselection = isAddonOnlyInvoice
+      // Defense-in-depth: some older add-on invoices lack `medicationType: 'add-on'`
+      // metadata. Detect them by product/treatment name so we don't auto-load a GLP-1
+      // dose schedule for a B12 / NAD+ / Sermorelin / Elite Bundle refill.
+      const treatmentLower = (item.treatment || '').toLowerCase();
+      const looksLikeAddonTreatment =
+        treatmentLower.includes('b12') ||
+        treatmentLower.includes('cyanocobalamin') ||
+        treatmentLower.includes('nad+') ||
+        /\bnad\b/.test(treatmentLower) ||
+        treatmentLower.includes('sermorelin') ||
+        treatmentLower.includes('elite bundle') ||
+        treatmentLower.includes('elite package') ||
+        treatmentLower.includes('glutathione') ||
+        treatmentLower.includes('mic + b') ||
+        treatmentLower.startsWith('mic ') ||
+        treatmentLower.includes('add-on') ||
+        treatmentLower.includes('addon');
+      const isAddonTreatment = isAddonOnlyInvoice || looksLikeAddonTreatment;
+
+      const preselection = isAddonTreatment
         ? null
         : getGlp1Preselection(item.treatment, preselectionGlp1Info);
 
@@ -1034,7 +1053,7 @@ export default function PrescriptionQueuePage() {
             console.error('[Preselection] Failed to fetch/apply order set:', err);
           }
         }
-      } else if (!isAddonOnlyInvoice) {
+      } else if (!isAddonTreatment) {
         // Non-GLP-1, non-addon medication: fall back to generic treatment matching
         autoSelectNonGlp1Medication(item.treatment, details);
       }
@@ -1043,7 +1062,36 @@ export default function PrescriptionQueuePage() {
       // All addon meds (including Elite Bundle) are included inline on the same
       // prescription form so GLP-1 + addons ship together as one pharmacy order.
       const invoiceMetadata = details.invoice?.metadata as Record<string, unknown> | null;
-      const selectedAddons = invoiceMetadata?.selectedAddons;
+      const metadataAddons = invoiceMetadata?.selectedAddons;
+      // Fallback: derive addon IDs from the treatment text when `selectedAddons`
+      // metadata is missing (older addon invoices and RefillQueue-sourced items
+      // don't always populate it, but the treatment display reliably names the
+      // product — e.g. "Cyanocobalamin (B12)", "B12 Injection", "NAD+ Injection",
+      // "Sermorelin Injection", "Elite Bundle"). Without this, a B12 refill opens
+      // with an empty medication list.
+      let selectedAddons: unknown = metadataAddons;
+      if (
+        (!Array.isArray(metadataAddons) || metadataAddons.length === 0) &&
+        isAddonTreatment
+      ) {
+        const derived: string[] = [];
+        if (/elite\s*(bundle|package)/.test(treatmentLower)) {
+          derived.push('elite_bundle');
+        } else {
+          if (treatmentLower.includes('b12') || treatmentLower.includes('cyanocobalamin')) {
+            derived.push('b12');
+          }
+          if (treatmentLower.includes('nad+') || /\bnad\b/.test(treatmentLower)) {
+            derived.push('nad_plus');
+          }
+          if (treatmentLower.includes('sermorelin')) {
+            derived.push('sermorelin');
+          }
+        }
+        if (derived.length > 0) {
+          selectedAddons = derived;
+        }
+      }
       const inlineAddonMeds: MedicationItem[] = [];
       let hasEliteBundle = false;
 
@@ -1103,7 +1151,10 @@ export default function PrescriptionQueuePage() {
 
       if (inlineAddonMeds.length > 0) {
         setPrescriptionForm((prev) => {
-          const existingMeds = isAddonOnlyInvoice
+          // For add-on-only refills, drop the empty placeholder row so the
+          // preloaded add-on medication (e.g. Cyanocobalamin (B12)) becomes
+          // Medication #1 instead of landing on Medication #2.
+          const existingMeds = isAddonTreatment
             ? prev.medications.filter((m) => m.medicationKey && m.medicationKey !== '')
             : prev.medications;
           return { ...prev, medications: [...existingMeds, ...inlineAddonMeds] };
@@ -4751,41 +4802,60 @@ export default function PrescriptionQueuePage() {
                               <label className="mb-1 block text-sm font-medium text-gray-700">
                                 Select Medication *
                               </label>
-                              {/* Expected medication type indicator */}
-                              {prescriptionPanel?.item.treatment && (
-                                <div className="mb-2">
-                                  {prescriptionPanel.item.treatment
-                                    .toLowerCase()
-                                    .includes('tirzepatide') && (
-                                    <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--brand-primary)] bg-[var(--brand-primary-light)] px-3 py-1 text-sm font-medium text-[var(--brand-primary)]">
-                                      🟣 Expected: Tirzepatide
-                                    </span>
-                                  )}
-                                  {prescriptionPanel.item.treatment
-                                    .toLowerCase()
-                                    .includes('semaglutide') && (
-                                    <span className="inline-flex items-center gap-1.5 rounded-full border border-[#66a682]/30 bg-[#66a682]/10 px-3 py-1 text-sm font-medium text-[#66a682]">
-                                      🟢 Expected: Semaglutide
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-                              <MedicationSelector
-                                value={medication.medicationKey}
-                                onChange={(key) => handleMedicationChange(index, key)}
-                                expectedMedicationType={
-                                  prescriptionPanel?.item.treatment
-                                    ?.toLowerCase()
-                                    .includes('tirzepatide')
-                                    ? 'Tirzepatide'
-                                    : prescriptionPanel?.item.treatment
-                                          ?.toLowerCase()
-                                          .includes('semaglutide')
-                                      ? 'Semaglutide'
-                                      : undefined
-                                }
-                                showCategoryBadge={true}
-                              />
+                              {/* Expected medication type indicator.
+                                  Skipped for add-on treatments (B12 / NAD+ / Sermorelin /
+                                  Elite Bundle) so we don't mislead the provider into
+                                  picking a GLP-1 for a $69 vitamin-injection refill. */}
+                              {(() => {
+                                const t = (
+                                  prescriptionPanel?.item.treatment || ''
+                                ).toLowerCase();
+                                const isAddon =
+                                  t.includes('b12') ||
+                                  t.includes('cyanocobalamin') ||
+                                  t.includes('nad+') ||
+                                  /\bnad\b/.test(t) ||
+                                  t.includes('sermorelin') ||
+                                  t.includes('elite bundle') ||
+                                  t.includes('elite package') ||
+                                  t.includes('glutathione') ||
+                                  t.includes('mic + b') ||
+                                  t.startsWith('mic ') ||
+                                  t.includes('add-on') ||
+                                  t.includes('addon');
+                                const isTirz = !isAddon && t.includes('tirzepatide');
+                                const isSema = !isAddon && t.includes('semaglutide');
+                                return (
+                                  <>
+                                    {(isTirz || isSema) && (
+                                      <div className="mb-2">
+                                        {isTirz && (
+                                          <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--brand-primary)] bg-[var(--brand-primary-light)] px-3 py-1 text-sm font-medium text-[var(--brand-primary)]">
+                                            🟣 Expected: Tirzepatide
+                                          </span>
+                                        )}
+                                        {isSema && (
+                                          <span className="inline-flex items-center gap-1.5 rounded-full border border-[#66a682]/30 bg-[#66a682]/10 px-3 py-1 text-sm font-medium text-[#66a682]">
+                                            🟢 Expected: Semaglutide
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
+                                    <MedicationSelector
+                                      value={medication.medicationKey}
+                                      onChange={(key) => handleMedicationChange(index, key)}
+                                      expectedMedicationType={
+                                        isTirz
+                                          ? 'Tirzepatide'
+                                          : isSema
+                                            ? 'Semaglutide'
+                                            : undefined
+                                      }
+                                      showCategoryBadge={true}
+                                    />
+                                  </>
+                                );
+                              })()}
                             </div>
 
                             {/* Quantity / Refills / Days Supply - always visible for all medications */}

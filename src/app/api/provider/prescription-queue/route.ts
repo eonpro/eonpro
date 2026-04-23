@@ -357,10 +357,16 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     // Check if product/treatment looks like plan-only (e.g. "1mo Injections", "3mo Injections", "1 month", "3 month")
     // without a medication name like tirzepatide or semaglutide.
     // Lenient: handles suffixes like "1mo Injections WM-202602-0151" (invoice numbers, etc.)
+    //
+    // IMPORTANT: This MUST return false for add-on products (B12, NAD+, Sermorelin,
+    // Elite Bundle, MIC, Glutathione). Otherwise downstream logic will prepend a
+    // GLP-1 medication name (e.g. "Semaglutide - B12 Injection") to the treatment
+    // display, causing providers to see "Expected: Semaglutide" for a $69 B12 add-on
+    // and load Semaglutide dosing templates in the refill modal.
     const looksLikePlanOnly = (text: string): boolean => {
       if (!text || typeof text !== 'string') return false;
       const lower = text.toLowerCase().trim().replace(/\s+/g, ' ');
-      // Has explicit medication name - not plan-only
+      // Has explicit GLP-1 medication name → not plan-only
       if (
         lower.includes('tirzepatide') ||
         lower.includes('semaglutide') ||
@@ -368,6 +374,25 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         lower.includes('zepbound') ||
         lower.includes('ozempic') ||
         lower.includes('wegovy')
+      ) {
+        return false;
+      }
+      // Known non-GLP-1 add-on / ancillary injectables → never plan-only.
+      // These legitimately contain the word "injection" in their product name but
+      // must not be coerced into a GLP-1 treatment display.
+      if (
+        lower.includes('b12') ||
+        lower.includes('cyanocobalamin') ||
+        lower.includes('nad') ||
+        lower.includes('sermorelin') ||
+        lower.includes('elite bundle') ||
+        lower.includes('elite package') ||
+        lower.includes('glutathione') ||
+        lower.includes('mic ') ||
+        lower.startsWith('mic') ||
+        lower.includes('testosterone') ||
+        lower.includes('add-on') ||
+        lower.includes('addon')
       ) {
         return false;
       }
@@ -389,13 +414,22 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     ): string | null => {
       if (!amountCents || amountCents <= 0) return null;
       const dollars = amountCents / 100;
+      // Guardrail: known WellMedR add-on prices (B12 $69, NAD+ $99, Sermorelin $99,
+      // Elite Bundle $199) must NEVER be derived as a GLP-1 medication. Without this
+      // guard, a $69 B12 add-on invoice would be classified as Semaglutide at 1-month.
+      const ADDON_PRICE_TOLERANCE = 0.05; // 5% — tight enough to avoid GLP-1 collisions
+      const KNOWN_ADDON_PRICES = [69, 99, 199];
+      for (const p of KNOWN_ADDON_PRICES) {
+        if (Math.abs(dollars - p) / p < ADDON_PRICE_TOLERANCE) return null;
+      }
       // Thresholds: midpoint between Semaglutide and Tirzepatide prices at each plan level
-      // 1mo: Sema=$149, Tirz=$249 → threshold $199
+      // 1mo: Sema=$149, Tirz=$249 → threshold $199 (floor $100 excludes sub-GLP-1 add-ons)
       // 3mo: Sema=$485, Tirz=$677 → threshold $581
       // 6mo: Sema=$820, Tirz=$1234 → threshold $1027
       // 12mo: Sema=$1290, Tirz=$2130 → threshold $1710
       switch (planMonths) {
         case 1:
+          if (dollars < 100) return null; // below any plausible 1mo GLP-1 plan
           return dollars < 199 ? 'Semaglutide' : 'Tirzepatide';
         case 3:
           return dollars < 581 ? 'Semaglutide' : 'Tirzepatide';
