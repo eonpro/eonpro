@@ -208,3 +208,36 @@ model UserNotificationPreference {
 
   @@index([userId])
 }
+
+// ==========================================================================
+// EMAIL / SMS AUTOMATION CONFIG
+// ==========================================================================
+// Per-clinic enable/disable toggles for patient-facing automations.
+// A row with clinicId = null represents the platform default that applies
+// when no clinic-specific override exists. Looked up by
+// `getAutomationConfig(trigger, clinicId)` in src/lib/email/automations.ts.
+model EmailAutomation {
+  id            Int      @id @default(autoincrement())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  clinicId      Int?
+  clinic        Clinic?  @relation(fields: [clinicId], references: [id])
+
+  /// AutomationTrigger enum value (string) — e.g. 'payment_received', 'prescription_ready'.
+  trigger       String
+
+  /// Master enable (controls email). Defaults to true.
+  enabled       Boolean  @default(true)
+  /// Optional delay before sending (minutes). 0 = immediate.
+  delayMinutes  Int      @default(0)
+  /// Custom subject override for the email channel.
+  customSubject String?
+  /// Per-trigger SMS enable. Defaults to true for most triggers; seeded to false
+  /// for PAYMENT_RECEIVED until legal/compliance approves the SMS copy.
+  smsEnabled    Boolean  @default(true)
+
+  @@unique([clinicId, trigger])
+  @@index([trigger])
+}
+

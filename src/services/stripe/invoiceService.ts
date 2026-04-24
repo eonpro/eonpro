@@ -582,41 +582,29 @@ export class StripeInvoiceService {
       logger.debug(`[STRIPE] Updated invoice ${stripeInvoice.id} from webhook`);
     }
 
-    // Send receipt email when invoice is paid. Suppress for historical backfills
-    // (tagged in metadata by `backfill-wellmedr-renewal-invoices.ts`) to avoid
-    // spamming patients with receipts for months-old charges during a cleanup run.
+    // Patient-facing comms on payment (portal invite + receipt email + receipt SMS).
+    // Suppress for historical backfills (tagged in metadata by
+    // `backfill-wellmedr-renewal-invoices.ts`) to avoid spamming patients with
+    // receipts for months-old charges during a cleanup run.
     const invoiceMetadata = (invoice.metadata as Record<string, unknown> | null) || null;
     const isHistoricalBackfill = invoiceMetadata?.historicalBackfill === true;
-    const receiptEmail = safeDecryptField(invoice.patient?.email);
-    if (wasPaid && wasNotPaidBefore && receiptEmail && !isHistoricalBackfill) {
+    if (wasPaid && wasNotPaidBefore && !isHistoricalBackfill) {
       try {
-        const decFirstName = safeDecryptField(invoice.patient?.firstName);
-        const decLastName = safeDecryptField(invoice.patient?.lastName);
-        const fullName = `${decFirstName} ${decLastName}`.trim();
-        await triggerAutomation({
-          trigger: AutomationTrigger.PAYMENT_RECEIVED,
-          recipientEmail: receiptEmail,
-          data: {
-            patientName: fullName,
-            customerName: fullName,
-            invoiceNumber: stripeInvoice.number || stripeInvoice.id,
-            amount: ((stripeInvoice.amount_paid || 0) / 100).toFixed(2),
-            currency: (stripeInvoice.currency || 'usd').toUpperCase(),
-            paidAt: new Date().toLocaleDateString(),
-            receiptUrl: stripeInvoice.invoice_pdf || stripeInvoice.hosted_invoice_url,
-            description: invoice.description || 'Medical Services',
-          },
-        });
-        logger.info(`[STRIPE] Receipt email sent for invoice ${stripeInvoice.id}`);
-      } catch (emailError) {
-        logger.warn(`[STRIPE] Failed to send receipt email`, {
+        const { notifyPaymentReceived } = await import('@/lib/notifications');
+        await notifyPaymentReceived({
+          patientId: invoice.patientId,
           invoiceId: invoice.id,
-          error:
-            emailError instanceof Error
-              ? emailError instanceof Error
-                ? emailError.message
-                : String(emailError)
-              : 'Unknown',
+          amountCents: stripeInvoice.amount_paid || 0,
+          paymentSource: 'stripe_platform_invoice',
+          invoiceNumber: stripeInvoice.number || stripeInvoice.id || undefined,
+          receiptUrl: stripeInvoice.invoice_pdf || stripeInvoice.hosted_invoice_url || undefined,
+          description: invoice.description || 'Medical Services',
+        });
+        logger.info(`[STRIPE] notifyPaymentReceived attempted for invoice ${stripeInvoice.id}`);
+      } catch (notifyErr) {
+        logger.warn(`[STRIPE] notifyPaymentReceived failed (non-fatal)`, {
+          invoiceId: invoice.id,
+          error: notifyErr instanceof Error ? notifyErr.message : 'Unknown',
         });
       }
     }
@@ -660,25 +648,10 @@ export class StripeInvoiceService {
         });
       }
 
-      // Auto-send portal invite on payment (always-on, all brands, non-blocking)
+      // Admin in-app notification on renewal payments (non-blocking).
+      // Patient-facing comms (portal invite + receipt email + receipt SMS) are
+      // already handled above via `notifyPaymentReceived`.
       if (wasAutoCreated) {
-        try {
-          const { triggerPortalInviteOnPayment } = await import('@/lib/portal-invite/service');
-          await triggerPortalInviteOnPayment(invoice.patientId);
-        } catch (inviteErr) {
-          logger.warn('[STRIPE] Portal invite on renewal payment failed (non-fatal)', {
-            invoiceId: invoice.id,
-            patientId: invoice.patientId,
-            error:
-              inviteErr instanceof Error
-                ? inviteErr instanceof Error
-                  ? inviteErr.message
-                  : String(inviteErr)
-                : 'Unknown',
-          });
-        }
-
-        // Notify admins of the renewal payment (non-blocking)
         try {
           const { notificationEvents } = await import('@/services/notification/notificationEvents');
           const amountDollars = (stripeInvoice.amount_paid || 0) / 100;

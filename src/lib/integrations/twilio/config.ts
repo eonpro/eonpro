@@ -113,6 +113,14 @@ export const SMS_TEMPLATES = {
   PAYMENT_REMINDER: (patientName: string, amount: string, dueDate: string) =>
     `Hi ${patientName}, this is a reminder that your payment of $${amount} is due on ${dueDate}. Please log in to your patient portal to pay.`,
 
+  PAYMENT_RECEIVED: (
+    patientName: string,
+    amountFormatted: string,
+    invoiceNumber: string,
+    clinicName?: string
+  ) =>
+    `${clinicName ? `${clinicName}: ` : ''}Hi ${patientName}, we received your payment of $${amountFormatted} (Invoice #${invoiceNumber}). You'll get another message once your prescription is approved. Reply STOP to opt out.`,
+
   CUSTOM: (message: string) => message,
 };
 

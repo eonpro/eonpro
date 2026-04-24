@@ -1107,19 +1107,21 @@ export async function POST(req: NextRequest) {
               select: { stripeCustomerId: true },
             });
             if (!existingPatient?.stripeCustomerId) {
-              await prisma.patient.update({
-                where: { id: verifiedPatient.id },
-                data: { stripeCustomerId: subCustomerId },
-              }).catch((linkErr) => {
-                // P2002 = another patient already has this stripeCustomerId — not fatal
-                if ((linkErr as any)?.code !== 'P2002') {
-                  logger.warn(`[WELLMEDR-INVOICE ${requestId}] Failed to link stripeCustomerId`, {
-                    patientId: verifiedPatient.id,
-                    customerId: subCustomerId,
-                    error: linkErr instanceof Error ? linkErr.message : String(linkErr),
-                  });
-                }
-              });
+              await prisma.patient
+                .update({
+                  where: { id: verifiedPatient.id },
+                  data: { stripeCustomerId: subCustomerId },
+                })
+                .catch((linkErr) => {
+                  // P2002 = another patient already has this stripeCustomerId — not fatal
+                  if ((linkErr as any)?.code !== 'P2002') {
+                    logger.warn(`[WELLMEDR-INVOICE ${requestId}] Failed to link stripeCustomerId`, {
+                      patientId: verifiedPatient.id,
+                      customerId: subCustomerId,
+                      error: linkErr instanceof Error ? linkErr.message : String(linkErr),
+                    });
+                  }
+                });
               logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Linked stripeCustomerId to patient`, {
                 patientId: verifiedPatient.id,
                 stripeCustomerId: subCustomerId,
@@ -1160,19 +1162,21 @@ export async function POST(req: NextRequest) {
         if (!existingPatient?.stripeCustomerId) {
           const stripe = getWellMedrConnectStripe();
           const connectOpts = getWellMedrConnectOpts();
-          const customers = await stripe.customers.list(
-            { email, limit: 1 },
-            connectOpts
-          );
+          const customers = await stripe.customers.list({ email, limit: 1 }, connectOpts);
           if (customers.data.length > 0) {
-            await prisma.patient.update({
-              where: { id: verifiedPatient.id },
-              data: { stripeCustomerId: customers.data[0].id },
-            }).catch(() => {});
-            logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Linked stripeCustomerId via email lookup`, {
-              patientId: verifiedPatient.id,
-              stripeCustomerId: customers.data[0].id,
-            });
+            await prisma.patient
+              .update({
+                where: { id: verifiedPatient.id },
+                data: { stripeCustomerId: customers.data[0].id },
+              })
+              .catch(() => {});
+            logger.info(
+              `[WELLMEDR-INVOICE ${requestId}] ✓ Linked stripeCustomerId via email lookup`,
+              {
+                patientId: verifiedPatient.id,
+                stripeCustomerId: customers.data[0].id,
+              }
+            );
           }
         }
       } catch (custLinkErr) {
@@ -1782,6 +1786,28 @@ export async function POST(req: NextRequest) {
           patientId: verifiedPatient.id,
           invoiceId: invoice.id,
           error: (soapError as any).message,
+        });
+      }
+
+      // Patient-facing comms on payment (portal invite + receipt email + receipt SMS).
+      // Fire-and-forget; the shared orchestrator handles idempotency so we cannot
+      // double-notify a patient whose payment also arrives through the Stripe Connect
+      // webhook path (`payment_intent.succeeded`).
+      try {
+        const { notifyPaymentReceived } = await import('@/lib/notifications');
+        await notifyPaymentReceived({
+          patientId: verifiedPatient.id,
+          invoiceId: invoice.id,
+          amountCents: amountInCents,
+          paymentSource: 'airtable_wellmedr_invoice',
+          invoiceNumber,
+          description: productName,
+        });
+      } catch (notifyErr) {
+        logger.warn(`[WELLMEDR-INVOICE ${requestId}] notifyPaymentReceived failed (non-fatal)`, {
+          patientId: verifiedPatient.id,
+          invoiceId: invoice.id,
+          error: notifyErr instanceof Error ? notifyErr.message : 'Unknown',
         });
       }
 
