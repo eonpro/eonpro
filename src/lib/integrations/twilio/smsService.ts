@@ -845,6 +845,68 @@ export async function sendPrescriptionReady(
 }
 
 /**
+ * Send payment received (receipt) SMS to a patient.
+ *
+ * Respects `patient.smsConsent` and `patient.phone` availability.
+ * Uses the shared `SMS_TEMPLATES.PAYMENT_RECEIVED` copy so legal/compliance can
+ * iterate on a single source of truth.
+ */
+export async function sendPaymentReceivedSMS(
+  patientId: number,
+  params: { amountFormatted: string; invoiceNumber: string }
+): Promise<SMSResponse> {
+  try {
+    const patient = await prisma.patient.findUnique({
+      where: { id: patientId },
+      include: {
+        clinic: { select: { name: true } },
+      },
+    });
+
+    const decryptedPhone = safeDecrypt(patient?.phone);
+    const decryptedFirstName = safeDecrypt(patient?.firstName);
+
+    if (!patient || !decryptedPhone) {
+      return {
+        success: false,
+        error: 'Patient phone number not found',
+      };
+    }
+
+    if (patient.smsConsent === false) {
+      return {
+        success: false,
+        blocked: true,
+        blockReason: 'Patient has not consented to SMS',
+        error: 'SMS consent not given',
+      };
+    }
+
+    const message = SMS_TEMPLATES.PAYMENT_RECEIVED(
+      decryptedFirstName || 'Patient',
+      params.amountFormatted,
+      params.invoiceNumber,
+      patient.clinic?.name
+    );
+
+    return await sendSMS({
+      to: decryptedPhone,
+      body: message,
+      patientId: patient.id,
+      clinicId: patient.clinicId,
+      templateType: 'PAYMENT_RECEIVED',
+    });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('[PAYMENT_RECEIVED_SMS_ERROR]', { error: errorMessage, patientId });
+    return {
+      success: false,
+      error: errorMessage,
+    };
+  }
+}
+
+/**
  * Send lab results notification
  */
 export async function sendLabResultsReady(patientId: number): Promise<SMSResponse> {

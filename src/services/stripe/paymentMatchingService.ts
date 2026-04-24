@@ -1652,14 +1652,25 @@ export async function processStripePayment(
       clinicId: patient.clinicId,
     });
 
-    // Auto-send portal invite on payment (always-on, all brands)
+    // Patient-facing comms on payment success (portal invite + receipt email + receipt SMS).
+    // Fire-and-forget: never blocks payment reconciliation. Routed through the
+    // shared orchestrator so every payment path (Connect PI, platform invoice,
+    // Airtable wellmedr-invoice) delivers the same experience.
     try {
-      const { triggerPortalInviteOnPayment } = await import('@/lib/portal-invite/service');
-      await triggerPortalInviteOnPayment(patient.id);
-    } catch (inviteErr) {
-      logger.warn('[PaymentMatching] Portal invite on payment failed (non-fatal)', {
+      const { notifyPaymentReceived } = await import('@/lib/notifications');
+      await notifyPaymentReceived({
         patientId: patient.id,
-        error: inviteErr instanceof Error ? inviteErr.message : 'Unknown',
+        invoiceId: invoice.id,
+        amountCents: enhancedPaymentData.amount,
+        paymentSource: 'stripe_connect_pi',
+        invoiceNumber: invoice.stripeInvoiceNumber || undefined,
+        description: enhancedPaymentData.description || undefined,
+      });
+    } catch (notifyErr) {
+      logger.warn('[PaymentMatching] notifyPaymentReceived failed (non-fatal)', {
+        patientId: patient.id,
+        invoiceId: invoice.id,
+        error: notifyErr instanceof Error ? notifyErr.message : 'Unknown',
       });
     }
 
