@@ -20,11 +20,16 @@ import {
   CHAT_ATTACHMENT_MAX_PER_MESSAGE,
   CHAT_ATTACHMENT_SIGNED_URL_TTL_SECONDS,
   CHAT_ATTACHMENT_ACCEPTED_MIME_TYPES,
+  MMS_ALLOWED_MIME_TYPES,
+  MMS_MAX_BYTES,
+  MMS_MAX_PER_MESSAGE,
+  MMS_SIGNED_URL_TTL_SECONDS,
   buildAttachmentOnlyPreview,
   buildChatAttachmentS3Key,
   validateChatAttachmentS3Key,
   getExtensionForChatMime,
   isAcceptedChatAttachmentMime,
+  isMmsCompatibleAttachment,
 } from '@/lib/chat-attachments';
 
 describe('chat-attachments constants', () => {
@@ -144,6 +149,89 @@ describe('buildChatAttachmentS3Key', () => {
     const a = buildChatAttachmentS3Key({ clinicId: 1, patientId: 1, mime: 'image/png' });
     const b = buildChatAttachmentS3Key({ clinicId: 1, patientId: 1, mime: 'image/png' });
     expect(a).not.toEqual(b);
+  });
+});
+
+describe('MMS constants (Twilio carrier limits)', () => {
+  it('caps MMS files at 5 MB (Twilio US ceiling)', () => {
+    expect(MMS_MAX_BYTES).toBe(5 * 1024 * 1024);
+    expect(MMS_MAX_BYTES).toBeLessThan(CHAT_ATTACHMENT_MAX_BYTES);
+  });
+
+  it('caps MMS attachments per message at 5 (parity with web)', () => {
+    expect(MMS_MAX_PER_MESSAGE).toBe(5);
+  });
+
+  it('uses a 24h MMS-specific signed URL TTL to absorb Twilio retries', () => {
+    expect(MMS_SIGNED_URL_TTL_SECONDS).toBe(24 * 60 * 60);
+    expect(MMS_SIGNED_URL_TTL_SECONDS).toBeGreaterThan(CHAT_ATTACHMENT_SIGNED_URL_TTL_SECONDS);
+  });
+
+  it('restricts MMS to JPEG + PNG only (carriers strip everything else)', () => {
+    expect(MMS_ALLOWED_MIME_TYPES).toEqual(['image/jpeg', 'image/jpg', 'image/png']);
+  });
+});
+
+describe('isMmsCompatibleAttachment', () => {
+  const baseAttachment = {
+    id: 'aaa',
+    s3Key: 'chat-attachments/1/2/x.png',
+    name: 'x.png',
+    mime: 'image/png' as const,
+    size: 1024,
+    uploadedAt: '2026-04-27T00:00:00.000Z',
+  };
+
+  it('accepts an in-spec PNG', () => {
+    const out = isMmsCompatibleAttachment(baseAttachment);
+    expect(out.ok).toBe(true);
+  });
+
+  it('accepts an in-spec JPEG', () => {
+    const out = isMmsCompatibleAttachment({ ...baseAttachment, mime: 'image/jpeg' });
+    expect(out.ok).toBe(true);
+  });
+
+  it('rejects a PDF with a "switch to Web" reason string', () => {
+    const out = isMmsCompatibleAttachment({
+      ...baseAttachment,
+      mime: 'application/pdf',
+    });
+    expect(out.ok).toBe(false);
+    if (!out.ok) {
+      expect(out.reason).toMatch(/PDF/i);
+      expect(out.reason).toMatch(/Web/i);
+    }
+  });
+
+  it('rejects HEIC over MMS (carriers strip)', () => {
+    const out = isMmsCompatibleAttachment({
+      ...baseAttachment,
+      mime: 'image/heic' as never,
+    });
+    expect(out.ok).toBe(false);
+  });
+
+  it('rejects WebP over MMS (carriers strip)', () => {
+    const out = isMmsCompatibleAttachment({
+      ...baseAttachment,
+      mime: 'image/webp' as never,
+    });
+    expect(out.ok).toBe(false);
+  });
+
+  it('rejects an attachment over 5 MB even if MIME is allowed', () => {
+    const out = isMmsCompatibleAttachment({
+      ...baseAttachment,
+      size: 6 * 1024 * 1024,
+    });
+    expect(out.ok).toBe(false);
+    if (!out.ok) expect(out.reason).toMatch(/5\s*MB/i);
+  });
+
+  it('rejects 0 / negative size as malformed', () => {
+    const out = isMmsCompatibleAttachment({ ...baseAttachment, size: 0 });
+    expect(out.ok).toBe(false);
   });
 });
 

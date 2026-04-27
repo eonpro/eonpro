@@ -41,6 +41,34 @@ export const CHAT_ATTACHMENT_SIGNED_URL_TTL_SECONDS = 3600;
 /** TTL for PUT presigned URLs (clients must complete upload within this window). */
 export const CHAT_ATTACHMENT_UPLOAD_URL_TTL_SECONDS = 300;
 
+// ---------------------------------------------------------------------------
+// Twilio MMS sub-set of the chat-attachment allowlist
+//
+// US carriers (AT&T, Verizon, T-Mobile) impose stricter limits than what the
+// in-app web channel supports:
+//   - Only JPEG + PNG render reliably (PDFs, HEIC/HEIF, WebP, GIFs are often
+//     stripped or recoded into garbage by carrier MMSC).
+//   - 5 MB per file is the practical Twilio US ceiling.
+//   - We extend the signed-URL TTL to 24h specifically for MMS deliveries so
+//     Twilio's carrier-side retries (which can stretch out a few minutes on
+//     transient failures) don't expire mid-fetch. The 24h limit is still
+//     well below the file's persistence in S3.
+// ---------------------------------------------------------------------------
+
+/** MIME types that survive US-carrier MMS without being stripped/recoded. */
+export const MMS_ALLOWED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png'] as const;
+
+export type MmsAllowedMime = (typeof MMS_ALLOWED_MIME_TYPES)[number];
+
+/** Per-file size cap when delivering as MMS (Twilio US carrier ceiling). */
+export const MMS_MAX_BYTES = 5 * 1024 * 1024;
+
+/** Per-message attachment cap on MMS (kept at 5 for parity with web). */
+export const MMS_MAX_PER_MESSAGE = 5;
+
+/** Signed-URL TTL specifically for Twilio media fetches. */
+export const MMS_SIGNED_URL_TTL_SECONDS = 24 * 60 * 60;
+
 /**
  * Whitelisted MIME types for chat attachments. Order is preserved so the test
  * snapshot stays stable; do NOT add `application/msword`, `text/html`, `video/*`
@@ -124,6 +152,40 @@ export function isAcceptedChatAttachmentMime(mime: string): mime is ChatAttachme
   if (typeof mime !== 'string' || mime.length === 0) return false;
   const lower = mime.toLowerCase();
   return (CHAT_ATTACHMENT_ACCEPTED_MIME_TYPES as readonly string[]).includes(lower);
+}
+
+/**
+ * Returns whether a persisted attachment can safely be sent over Twilio
+ * MMS (US carriers). Returns a structured `{ ok, reason }` so the route
+ * handler can surface a helpful, user-facing error string when staff try
+ * to text a PDF or an oversized image.
+ */
+export function isMmsCompatibleAttachment(
+  attachment: Pick<ChatAttachmentRecord, 'mime' | 'size' | 'name'>
+): { ok: true } | { ok: false; reason: string } {
+  if (!attachment || typeof attachment.size !== 'number' || attachment.size <= 0) {
+    return { ok: false, reason: 'Attachment is empty or malformed' };
+  }
+  if (attachment.size > MMS_MAX_BYTES) {
+    return {
+      ok: false,
+      reason: `Photos texted over SMS must be under ${MMS_MAX_BYTES / 1024 / 1024} MB. For larger files, send via Web instead.`,
+    };
+  }
+  const mime = (attachment.mime || '').toLowerCase();
+  if (!(MMS_ALLOWED_MIME_TYPES as readonly string[]).includes(mime)) {
+    if (mime === 'application/pdf') {
+      return {
+        ok: false,
+        reason: "PDFs can't be texted reliably — most carriers strip them. Send via Web instead.",
+      };
+    }
+    return {
+      ok: false,
+      reason: 'Only JPEG and PNG photos can be texted (SMS). Send other formats via Web.',
+    };
+  }
+  return { ok: true };
 }
 
 /**
