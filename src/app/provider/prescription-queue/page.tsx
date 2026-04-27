@@ -1070,10 +1070,7 @@ export default function PrescriptionQueuePage() {
       // "Sermorelin Injection", "Elite Bundle"). Without this, a B12 refill opens
       // with an empty medication list.
       let selectedAddons: unknown = metadataAddons;
-      if (
-        (!Array.isArray(metadataAddons) || metadataAddons.length === 0) &&
-        isAddonTreatment
-      ) {
+      if ((!Array.isArray(metadataAddons) || metadataAddons.length === 0) && isAddonTreatment) {
         const derived: string[] = [];
         if (/elite\s*(bundle|package)/.test(treatmentLower)) {
           derived.push('elite_bundle');
@@ -4355,9 +4352,7 @@ export default function PrescriptionQueuePage() {
                                   title="Date previous prescription was sent"
                                 >
                                   <Clock className="h-3 w-3" />
-                                  {formatDate(
-                                    prescriptionPanel.item.lastRxDetails.prescribedAt
-                                  )}
+                                  {formatDate(prescriptionPanel.item.lastRxDetails.prescribedAt)}
                                 </span>
                               )}
                             </div>
@@ -4807,9 +4802,7 @@ export default function PrescriptionQueuePage() {
                                   Elite Bundle) so we don't mislead the provider into
                                   picking a GLP-1 for a $69 vitamin-injection refill. */}
                               {(() => {
-                                const t = (
-                                  prescriptionPanel?.item.treatment || ''
-                                ).toLowerCase();
+                                const t = (prescriptionPanel?.item.treatment || '').toLowerCase();
                                 const isAddon =
                                   t.includes('b12') ||
                                   t.includes('cyanocobalamin') ||
@@ -4845,11 +4838,7 @@ export default function PrescriptionQueuePage() {
                                       value={medication.medicationKey}
                                       onChange={(key) => handleMedicationChange(index, key)}
                                       expectedMedicationType={
-                                        isTirz
-                                          ? 'Tirzepatide'
-                                          : isSema
-                                            ? 'Semaglutide'
-                                            : undefined
+                                        isTirz ? 'Tirzepatide' : isSema ? 'Semaglutide' : undefined
                                       }
                                       showCategoryBadge={true}
                                     />

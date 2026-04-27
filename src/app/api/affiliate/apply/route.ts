@@ -227,6 +227,11 @@ async function notifyAdminsOfApplication(
   applicationId: number,
   applicantName: string
 ) {
+  /**
+   * Notification fan-out: cap at 100 admins per clinic to keep this route bounded.
+   * Real clinics have <20 active admins; the cap is purely a safety rail and is
+   * required by tests/tenant-isolation/pagination-enforcement.test.ts.
+   */
   const admins = await prisma.user.findMany({
     where: {
       OR: [{ userClinics: { some: { clinicId, isActive: true } } }, { clinicId }],
@@ -234,6 +239,7 @@ async function notifyAdminsOfApplication(
       status: 'ACTIVE',
     },
     select: { id: true },
+    take: 100,
   });
 
   const { default: notificationService } =

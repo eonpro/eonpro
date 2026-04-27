@@ -285,7 +285,9 @@ export default function PatientPortalDashboard() {
                   status: String(sub.status || 'active'),
                   amount: amountCents / 100,
                   interval: String(sub.interval || 'month'),
-                  nextBillingDate: (sub.currentPeriodEnd || sub.nextBillingDate || null) as string | null,
+                  nextBillingDate: (sub.currentPeriodEnd || sub.nextBillingDate || null) as
+                    | string
+                    | null,
                 });
               }
             }
@@ -1104,7 +1106,8 @@ export default function PatientPortalDashboard() {
                 <div className="flex items-center gap-3">
                   <span
                     className={`rounded-full px-3 py-1 text-xs font-semibold uppercase ${
-                      membershipPlan.status.toUpperCase() === 'ACTIVE' || membershipPlan.status === 'active'
+                      membershipPlan.status.toUpperCase() === 'ACTIVE' ||
+                      membershipPlan.status === 'active'
                         ? 'bg-white/20 text-white'
                         : membershipPlan.status.toUpperCase() === 'PAUSED'
                           ? 'bg-amber-400/30 text-amber-100'
@@ -1115,7 +1118,8 @@ export default function PatientPortalDashboard() {
                   >
                     {membershipPlan.status.toUpperCase() === 'PAST_DUE'
                       ? 'Past Due'
-                      : membershipPlan.status.charAt(0).toUpperCase() + membershipPlan.status.slice(1).toLowerCase()}
+                      : membershipPlan.status.charAt(0).toUpperCase() +
+                        membershipPlan.status.slice(1).toLowerCase()}
                   </span>
                   <ChevronRight className="h-4 w-4 text-white/60" />
                 </div>

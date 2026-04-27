@@ -118,7 +118,9 @@ export default async function IntakeLandingPage({ params }: Props) {
 
   if (startStep) {
     const headersList = await headers();
-    const host = (headersList.get('x-forwarded-host') || headersList.get('host') || '').split(':')[0].toLowerCase();
+    const host = (headersList.get('x-forwarded-host') || headersList.get('host') || '')
+      .split(':')[0]
+      .toLowerCase();
     const isIntakeDomain = host in INTAKE_CUSTOM_DOMAINS;
     const redirectPath = isIntakeDomain
       ? `/${templateSlug}/${startStep}`

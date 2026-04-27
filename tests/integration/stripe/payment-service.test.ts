@@ -19,6 +19,7 @@ const mockPrisma = vi.hoisted(() => {
       findFirst: vi.fn(),
     },
     invoice: {
+      findUnique: vi.fn().mockResolvedValue({ amount: 999_999, amountPaid: 0 }),
       update: vi.fn(),
     },
     patient: {
@@ -114,6 +115,16 @@ describe('Stripe Payment Service', () => {
     mockGetOrCreateCustomer.mockResolvedValue({ id: 'cus_test123' });
     mockGetOrCreateCustomerForContext.mockResolvedValue({ id: 'cus_test123' });
     vi.mocked(prisma.patient.findUnique).mockResolvedValue({ clinicId: 1 } as any);
+    /**
+     * `updatePaymentFromIntent` does a safety read of the invoice before incrementing
+     * `amountPaid` to prevent over-billing on duplicate webhook events. Default the
+     * mock here so every test gets a sane "open invoice" baseline; specific tests
+     * can override with their own mockResolvedValue.
+     */
+    vi.mocked(prisma.invoice.findUnique).mockResolvedValue({
+      amount: 999_999,
+      amountPaid: 0,
+    } as any);
     vi.mocked(prisma.paymentMethod.findFirst).mockResolvedValue({
       clinicId: 1,
       patient: { clinicId: 1 },
@@ -586,7 +597,12 @@ describe('Stripe Payment Service', () => {
       // Access private method via testing
       const mapStripeStatus = (StripePaymentService as any).mapStripeStatus;
 
-      expect(mapStripeStatus('requires_payment_method')).toBe('PENDING');
+      /**
+       * `requires_payment_method` means the card was declined — must map to FAILED so a
+       * late webhook can't regress a correctly-FAILED payment back to PENDING.
+       * See `src/services/stripe/paymentService.ts:mapStripeStatus`.
+       */
+      expect(mapStripeStatus('requires_payment_method')).toBe('FAILED');
       expect(mapStripeStatus('requires_confirmation')).toBe('PENDING');
       expect(mapStripeStatus('requires_action')).toBe('PENDING');
       expect(mapStripeStatus('processing')).toBe('PROCESSING');

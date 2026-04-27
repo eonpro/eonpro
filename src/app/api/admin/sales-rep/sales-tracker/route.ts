@@ -112,12 +112,18 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         prisma.payment.count({ where: paymentWhere }),
       ]);
 
-      // Get all commission events linked to these payments (via metadata.paymentId)
+      // Get commission events linked to the current page's payments (scoped by paymentId
+      // via metadata `source: 'sales_tracker'`). Capped at 2x the payment page size as a
+      // safety rail — there should be at most one commission event per payment, so 2x
+      // covers any legacy duplicates without scanning the whole ledger.
       const paymentIds = payments.map((p: any) => p.id);
       const commissionEvents = await prisma.salesRepCommissionEvent.findMany({
         where: {
           isManual: true,
           metadata: { path: ['source'], equals: 'sales_tracker' },
+          OR: paymentIds.map((id: number) => ({
+            metadata: { path: ['paymentId'], equals: id },
+          })),
           ...(clinicId ? { clinicId } : {}),
         },
         select: {
@@ -134,6 +140,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           commissionPlanId: true,
           salesRep: { select: { id: true, firstName: true, lastName: true } },
         },
+        take: Math.max(limit * 2, 200),
       });
 
       // Build a lookup: paymentId → commission event
@@ -459,6 +466,8 @@ async function handleGetReps(req: NextRequest, user: AuthUser) {
         },
         select: { id: true, firstName: true, lastName: true, role: true },
         orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+        /** Dropdown safety cap; far above realistic clinic rep counts. */
+        take: 500,
       });
       return reps;
     };

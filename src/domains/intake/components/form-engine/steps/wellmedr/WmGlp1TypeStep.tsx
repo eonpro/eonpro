@@ -22,7 +22,9 @@ export default function WmGlp1TypeStep({
   const { setResponse, markStepCompleted, setCurrentStep } = useIntakeActions();
 
   const [mounted, setMounted] = useState(false);
-  useEffect(() => { requestAnimationFrame(() => setMounted(true)); }, []);
+  useEffect(() => {
+    requestAnimationFrame(() => setMounted(true));
+  }, []);
 
   const [selected, setSelected] = useState(String(responses.glp1_type || ''));
   const [dose, setDose] = useState(String(responses.glp1_dose || ''));
@@ -117,7 +119,8 @@ export default function WmGlp1TypeStep({
         style={{
           opacity: mounted ? 1 : 0,
           transform: mounted ? 'translateY(0)' : 'translateY(8px)',
-          transition: 'opacity 0.45s cubic-bezier(0.16,1,0.3,1), transform 0.45s cubic-bezier(0.16,1,0.3,1)',
+          transition:
+            'opacity 0.45s cubic-bezier(0.16,1,0.3,1), transform 0.45s cubic-bezier(0.16,1,0.3,1)',
         }}
       >
         <h1

@@ -22,7 +22,9 @@ export default function WmPatternInfoStep({
   const { markStepCompleted, setCurrentStep } = useIntakeActions();
 
   const [mounted, setMounted] = useState(false);
-  useEffect(() => { requestAnimationFrame(() => setMounted(true)); }, []);
+  useEffect(() => {
+    requestAnimationFrame(() => setMounted(true));
+  }, []);
 
   const weight = Number(responses.current_weight) || 200;
   const goalWeight = Number(responses.ideal_weight) || 150;
@@ -72,7 +74,8 @@ export default function WmPatternInfoStep({
         style={{
           opacity: mounted ? 1 : 0,
           transform: mounted ? 'translateY(0)' : 'translateY(8px)',
-          transition: 'opacity 0.45s cubic-bezier(0.16,1,0.3,1), transform 0.45s cubic-bezier(0.16,1,0.3,1)',
+          transition:
+            'opacity 0.45s cubic-bezier(0.16,1,0.3,1), transform 0.45s cubic-bezier(0.16,1,0.3,1)',
         }}
       >
         <div

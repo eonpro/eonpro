@@ -95,8 +95,18 @@ export default function ShippingSidebar() {
           ].map((item) => (
             <div key={item} className="flex items-center gap-2.5">
               <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-500">
-                <svg className="h-3 w-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                <svg
+                  className="h-3 w-3 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={3}
+                    d="M5 13l4 4L19 7"
+                  />
                 </svg>
               </div>
               <span className="text-[13px] font-medium" style={{ color: '#1a1a1a' }}>
@@ -127,7 +137,11 @@ export default function ShippingSidebar() {
           {/* TrustPilot-style green stars */}
           <div className="mb-3 flex gap-0.5">
             {[...Array(5)].map((_, i) => (
-              <div key={i} className="flex h-5 w-5 items-center justify-center rounded-sm" style={{ backgroundColor: '#00b67a' }}>
+              <div
+                key={i}
+                className="flex h-5 w-5 items-center justify-center rounded-sm"
+                style={{ backgroundColor: '#00b67a' }}
+              >
                 <TrustPilotStar className="h-3.5 w-3.5 text-white" />
               </div>
             ))}
@@ -139,7 +153,10 @@ export default function ShippingSidebar() {
           </p>
 
           {/* Review text */}
-          <p className="mb-4 text-[11px] leading-relaxed" style={{ color: '#555', lineHeight: '1.55' }}>
+          <p
+            className="mb-4 text-[11px] leading-relaxed"
+            style={{ color: '#555', lineHeight: '1.55' }}
+          >
             {review.text}
           </p>
 
@@ -156,9 +173,22 @@ export default function ShippingSidebar() {
                 {review.name}
               </p>
               <div className="flex items-center gap-1">
-                <div className="flex h-3 w-3 items-center justify-center rounded-full" style={{ backgroundColor: '#00b67a' }}>
-                  <svg className="h-1.5 w-1.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                <div
+                  className="flex h-3 w-3 items-center justify-center rounded-full"
+                  style={{ backgroundColor: '#00b67a' }}
+                >
+                  <svg
+                    className="h-1.5 w-1.5 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={3}
+                      d="M5 13l4 4L19 7"
+                    />
                   </svg>
                 </div>
                 <span className="text-[10px] font-medium" style={{ color: '#00b67a' }}>
@@ -181,8 +211,18 @@ export default function ShippingSidebar() {
           style={{ borderColor: 'rgba(0,0,0,0.06)' }}
           aria-label="Previous review"
         >
-          <svg className="h-3.5 w-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+          <svg
+            className="h-3.5 w-3.5 text-gray-500"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2.5}
+              d="M15 19l-7-7 7-7"
+            />
           </svg>
         </button>
         <button
@@ -191,7 +231,12 @@ export default function ShippingSidebar() {
           style={{ borderColor: 'rgba(0,0,0,0.06)' }}
           aria-label="Next review"
         >
-          <svg className="h-3.5 w-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg
+            className="h-3.5 w-3.5 text-gray-500"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
           </svg>
         </button>

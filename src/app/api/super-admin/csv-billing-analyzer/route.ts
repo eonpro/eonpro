@@ -36,10 +36,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, _user: AuthUser)
 
     const fileName = file.name.toLowerCase();
     if (!fileName.endsWith('.csv') && !fileName.endsWith('.txt')) {
-      return NextResponse.json(
-        { error: 'Only CSV or TXT files are accepted' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Only CSV or TXT files are accepted' }, { status: 400 });
     }
 
     const text = await file.text();

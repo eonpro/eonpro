@@ -22,7 +22,9 @@ export default function WmGlp1HistoryStep({
   const { setResponse, markStepCompleted, setCurrentStep } = useIntakeActions();
 
   const [mounted, setMounted] = useState(false);
-  useEffect(() => { requestAnimationFrame(() => setMounted(true)); }, []);
+  useEffect(() => {
+    requestAnimationFrame(() => setMounted(true));
+  }, []);
 
   const [answer, setAnswer] = useState<string>(String(responses.glp1_history_recent || ''));
 
@@ -84,7 +86,8 @@ export default function WmGlp1HistoryStep({
         style={{
           opacity: mounted ? 1 : 0,
           transform: mounted ? 'translateY(0)' : 'translateY(8px)',
-          transition: 'opacity 0.45s cubic-bezier(0.16,1,0.3,1), transform 0.45s cubic-bezier(0.16,1,0.3,1)',
+          transition:
+            'opacity 0.45s cubic-bezier(0.16,1,0.3,1), transform 0.45s cubic-bezier(0.16,1,0.3,1)',
         }}
       >
         <h2
@@ -92,7 +95,9 @@ export default function WmGlp1HistoryStep({
           style={{ color: '#101010' }}
         >
           Have you taken medication for weight loss within the past 4 weeks?
-          <span className="ml-1" style={{ color: '#ef4444' }}>*</span>
+          <span className="ml-1" style={{ color: '#ef4444' }}>
+            *
+          </span>
         </h2>
 
         <div className="w-full space-y-3">

@@ -46,7 +46,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   // can suppress platform chrome (header, session handlers) during SSR and hydration.
   const { headers: getHeaders } = await import('next/headers');
   const headersList = await getHeaders();
-  const requestHost = (headersList.get('x-forwarded-host') || headersList.get('host') || '').split(':')[0].toLowerCase();
+  const requestHost = (headersList.get('x-forwarded-host') || headersList.get('host') || '')
+    .split(':')[0]
+    .toLowerCase();
   const CUSTOM_DOMAINS = ['join.otmens.com', 'intake.otmens.com'];
   const isCustomDomain = CUSTOM_DOMAINS.includes(requestHost);
 
@@ -58,7 +60,11 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
         <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
       </head>
-      <body className={sofiaPro.className} data-custom-domain={isCustomDomain ? 'true' : undefined} suppressHydrationWarning>
+      <body
+        className={sofiaPro.className}
+        data-custom-domain={isCustomDomain ? 'true' : undefined}
+        suppressHydrationWarning
+      >
         <ErrorBoundary>
           <ClientProviders>
             <QueryProvider>

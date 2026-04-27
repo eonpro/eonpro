@@ -64,6 +64,9 @@ export async function POST(req: NextRequest) {
     logger.error('[PMD] Failed to register domain', {
       error: err?.message,
     });
-    return NextResponse.json({ error: err?.message || 'Failed to register domain' }, { status: 500 });
+    return NextResponse.json(
+      { error: err?.message || 'Failed to register domain' },
+      { status: 500 }
+    );
   }
 }

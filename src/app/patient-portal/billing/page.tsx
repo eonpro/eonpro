@@ -43,18 +43,15 @@ import { logger } from '@/lib/logger';
 import { BillingPageSkeleton } from '@/components/patient-portal/PortalSkeletons';
 import { usePatientId } from '@/hooks/usePatientId';
 
-const LazyAddCardStripeElements = dynamic(
-  () => import('../subscription/AddCardStripeElements'),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex items-center gap-2 py-8 text-sm text-gray-500">
-        <Loader2 className="h-5 w-5 animate-spin" />
-        Loading secure payment form…
-      </div>
-    ),
-  }
-);
+const LazyAddCardStripeElements = dynamic(() => import('../subscription/AddCardStripeElements'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center gap-2 py-8 text-sm text-gray-500">
+      <Loader2 className="h-5 w-5 animate-spin" />
+      Loading secure payment form…
+    </div>
+  ),
+});
 
 interface PaymentMethod {
   id: string;
@@ -947,7 +944,8 @@ export default function BillingPage() {
               ) : patientId == null ? (
                 <>
                   <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                    {patientIdError || 'Could not verify your account. Please refresh or log in again.'}
+                    {patientIdError ||
+                      'Could not verify your account. Please refresh or log in again.'}
                   </div>
                   <button
                     type="button"
