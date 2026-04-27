@@ -213,7 +213,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
 
           {/* Main Content */}
           <main
-            className={`flex-1 transition-all duration-300 ${sidebarExpanded ? 'ml-56' : 'ml-20'}`}
+            className={`min-w-0 flex-1 transition-all duration-300 ${sidebarExpanded ? 'ml-56' : 'ml-20'}`}
           >
             {/* Top Left Notification Bar */}
             <div className="sticky top-0 z-40 border-b border-gray-200/50 bg-[#efece7]/95 px-6 py-3 backdrop-blur-sm">
