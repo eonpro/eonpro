@@ -1800,11 +1800,27 @@ export async function handleStripeRefund(
     const isFullRefund = refundData.amount >= payment.amount;
     const newStatus = isFullRefund ? 'REFUNDED' : 'PARTIALLY_REFUNDED';
 
-    // Update payment status
+    /**
+     * IMPORTANT: write `refundedAmount` and `refundedAt` to the columns, not just metadata.
+     *
+     * Every revenue/reconciliation report (OT clinic statement, sales transactions report,
+     * revenue analytics) computes net cash as `Payment.amount - Payment.refundedAmount`.
+     * If we only stamp `metadata.refund.amount`, those reports treat refunded rows as
+     * full-gross collected and silently overstate cash by the refunded amount.
+     *
+     * The manual refund path (`POST /api/stripe/refunds`) already writes both columns;
+     * Stripe-Dashboard-initiated refunds arrive here via webhook and must match.
+     *
+     * For partial refunds Stripe sends `amount_refunded` as the cumulative total, so this
+     * write is idempotent across multiple refund events on the same charge — we always
+     * overwrite with the latest cumulative total.
+     */
     await prisma.payment.update({
       where: { id: payment.id },
       data: {
         status: newStatus,
+        refundedAmount: refundData.amount,
+        refundedAt: refundData.refundedAt,
         metadata: {
           ...((payment.metadata as Record<string, unknown>) || {}),
           refund: {
