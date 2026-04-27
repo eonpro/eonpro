@@ -47,8 +47,10 @@ import {
   OtInvoiceConfigurationError,
   generateOtPharmacyCSV,
   generateOtCombinedCSV,
+  generateOtRefundsCSV,
   type OtDailyInvoices,
   type OtPharmacyInvoice,
+  type OtRefundLineItem,
 } from '@/services/invoices/otInvoiceGenerationService';
 import {
   OT_MERCHANT_PROCESSING_BPS,
@@ -95,6 +97,135 @@ describe('generateOtDailyInvoices (mocked DB)', () => {
   it('throws OtInvoiceConfigurationError when OT subdomain clinic is missing', async () => {
     mockBasePrisma.clinic.findFirst.mockResolvedValue(null);
     await expect(generateOtDailyInvoices('2026-03-20')).rejects.toThrow(OtInvoiceConfigurationError);
+  });
+
+  it('refunds: full + partial Payment rows produce refundLineItems, gross/net/refundsTotal math', async () => {
+    /**
+     * Three payments in the period:
+     *   - A: $1000 paid, $0 refunded → no refund row
+     *   - B: $500 paid, $500 refunded (full)
+     *   - C: $400 paid, $100 refunded (partial)
+     * Expected:
+     *   gross = 1900, refunds = 600, net = 1300
+     *   refundLineItems has 2 rows; B isFullyRefunded=true, C isFullyRefunded=false
+     */
+    wireInvoiceSequence([], [], [], [], { paymentBridgeRows: [] });
+    const refundedAtB = new Date(Date.UTC(2026, 2, 20, 18, 0, 0));
+    const refundedAtC = new Date(Date.UTC(2026, 2, 20, 19, 0, 0));
+    /**
+     * payment.findMany call order:
+     *   1. Period payments (loadOtSucceededPaymentsForPeriod)
+     *   2. Refunded-at lookup (new — only when there are refunded rows)
+     *   3. Net cents per invoice (loadOtPaymentNetCentsByInvoiceId)
+     */
+    mockBasePrisma.payment.findMany
+      .mockResolvedValueOnce([
+        {
+          id: 11,
+          amount: 100_000,
+          refundedAmount: 0,
+          paidAt: PAID_AT,
+          createdAt: PAID_AT,
+          patientId: 100,
+          invoiceId: null,
+          description: 'A',
+          stripePaymentIntentId: 'pi_a',
+          stripeChargeId: 'ch_a',
+        },
+        {
+          id: 12,
+          amount: 50_000,
+          refundedAmount: 50_000,
+          paidAt: PAID_AT,
+          createdAt: PAID_AT,
+          patientId: 100,
+          invoiceId: null,
+          description: 'B',
+          stripePaymentIntentId: 'pi_b',
+          stripeChargeId: 'ch_b',
+        },
+        {
+          id: 13,
+          amount: 40_000,
+          refundedAmount: 10_000,
+          paidAt: PAID_AT,
+          createdAt: PAID_AT,
+          patientId: 100,
+          invoiceId: null,
+          description: 'C',
+          stripePaymentIntentId: 'pi_c',
+          stripeChargeId: 'ch_c',
+        },
+      ])
+      .mockResolvedValueOnce([
+        { id: 12, refundedAt: refundedAtB },
+        { id: 13, refundedAt: refundedAtC },
+      ])
+      .mockResolvedValueOnce([]);
+    mockBasePrisma.patient.findMany.mockResolvedValue([
+      { id: 100, firstName: 'Pat', lastName: 'One' },
+    ]);
+
+    const data = await generateOtDailyInvoices('2026-03-20');
+
+    expect(data.paymentsCollectedGrossCents).toBe(190_000);
+    expect(data.refundsTotalCents).toBe(60_000);
+    expect(data.paymentsCollectedNetCents).toBe(130_000);
+    /** Invariant: net === gross − refunds (must always hold). */
+    expect(data.paymentsCollectedNetCents).toBe(
+      data.paymentsCollectedGrossCents - data.refundsTotalCents,
+    );
+
+    expect(data.refundLineItems).toHaveLength(2);
+    const fullRefund = data.refundLineItems.find((r) => r.paymentId === 12)!;
+    expect(fullRefund.refundedAmountCents).toBe(50_000);
+    expect(fullRefund.isFullyRefunded).toBe(true);
+    expect(fullRefund.refundedAt).toBe(refundedAtB.toISOString());
+
+    const partial = data.refundLineItems.find((r) => r.paymentId === 13)!;
+    expect(partial.refundedAmountCents).toBe(10_000);
+    expect(partial.isFullyRefunded).toBe(false);
+
+    /** PaymentCollections rows expose the refund column inline. */
+    const aRow = data.paymentCollections.find((r) => r.paymentId === 11)!;
+    expect(aRow.refundedAmountCents).toBe(0);
+    expect(aRow.isFullyRefunded).toBe(false);
+    const bRow = data.paymentCollections.find((r) => r.paymentId === 12)!;
+    expect(bRow.refundedAmountCents).toBe(50_000);
+    expect(bRow.netCollectedCents).toBe(0);
+    expect(bRow.isFullyRefunded).toBe(true);
+  });
+
+  it('refunds: skips refundedAt lookup entirely when there are no refunded rows', async () => {
+    wireInvoiceSequence([], [], [], [], { paymentBridgeRows: [] });
+    mockBasePrisma.payment.findMany
+      .mockResolvedValueOnce([
+        {
+          id: 21,
+          amount: 25_000,
+          refundedAmount: null,
+          paidAt: PAID_AT,
+          createdAt: PAID_AT,
+          patientId: 100,
+          invoiceId: null,
+          description: 'no refund',
+          stripePaymentIntentId: 'pi_x',
+          stripeChargeId: 'ch_x',
+        },
+      ])
+      .mockResolvedValueOnce([]);
+
+    const data = await generateOtDailyInvoices('2026-03-20');
+    expect(data.refundLineItems).toEqual([]);
+    expect(data.refundsTotalCents).toBe(0);
+    expect(data.paymentsCollectedGrossCents).toBe(25_000);
+    expect(data.paymentsCollectedNetCents).toBe(25_000);
+    /**
+     * payment.findMany is called once for the period rows. The refundedAt lookup
+     * is skipped (no refunded rows). The net-cents-by-invoice lookup is also
+     * skipped because no orders → no invoice ids to net.
+     */
+    expect(mockBasePrisma.payment.findMany).toHaveBeenCalledTimes(1);
   });
 
   it('single Semaglutide sale: pharmacy + premium shipping + sync doctor fee; cash basis fees match 4%/10% of net cash', async () => {
@@ -922,6 +1053,8 @@ describe('OT invoice CSV reporting accuracy', () => {
           recordedAt: '2026-03-20T15:00:00.000Z',
           amountCents: 100_000,
           netCollectedCents: 100_000,
+          refundedAmountCents: 0,
+          isFullyRefunded: false,
           patientId: 1,
           patientName: 'Doe, Jane',
           description: 'pmt',
@@ -931,6 +1064,9 @@ describe('OT invoice CSV reporting accuracy', () => {
         },
       ],
       paymentsCollectedNetCents: 100_000,
+      paymentsCollectedGrossCents: 100_000,
+      refundsTotalCents: 0,
+      refundLineItems: [],
       matchedPrescriptionInvoiceGrossCents: 95_000,
       feesUseCashCollectedBasis: true,
       paymentsWithoutPharmacyCogs: [],
@@ -944,5 +1080,82 @@ describe('OT invoice CSV reporting accuracy', () => {
     expect(csv).toContain(`$${(grand / 100).toFixed(2)}`); // total deductions
     expect(csv).toContain(`$${((gross - grand) / 100).toFixed(2)}`); // net payable
     expect(csv).toContain('ALL PAYMENTS COLLECTED');
+    expect(csv).toContain('Gross collected (1 payments)');
+    expect(csv).toContain('Less — Refunds (0 refunded payments)');
+    expect(csv).toContain('REFUNDS (OT PATIENTS)');
+  });
+
+  it('generateOtRefundsCSV emits headers, rows, and total when refunds are present', () => {
+    const refundLineItems: OtRefundLineItem[] = [
+      {
+        paymentId: 1,
+        paidAt: '2026-03-20T15:00:00.000Z',
+        refundedAt: '2026-03-20T18:00:00.000Z',
+        patientId: 1,
+        patientName: 'Doe, Jane',
+        amountCents: 50_000,
+        refundedAmountCents: 50_000,
+        isFullyRefunded: true,
+        description: 'pmt',
+        invoiceId: 1,
+        stripePaymentIntentId: 'pi_full',
+        stripeChargeId: 'ch_full',
+      },
+      {
+        paymentId: 2,
+        paidAt: '2026-03-20T16:00:00.000Z',
+        refundedAt: '2026-03-20T19:00:00.000Z',
+        patientId: 2,
+        patientName: 'Smith, John',
+        amountCents: 40_000,
+        refundedAmountCents: 10_000,
+        isFullyRefunded: false,
+        description: 'pmt',
+        invoiceId: 2,
+        stripePaymentIntentId: 'pi_partial',
+        stripeChargeId: 'ch_partial',
+      },
+    ];
+    const data = {
+      pharmacy: {
+        invoiceType: 'pharmacy' as const,
+        clinicId: 1,
+        clinicName: 'OT',
+        invoiceDate: '2026-03-20T12:00:00.000Z',
+        periodStart: '2026-03-20T05:00:00.000Z',
+        periodEnd: '2026-03-21T04:59:59.999Z',
+        lineItems: [],
+        shippingLineItems: [],
+        prescriptionFeeLineItems: [],
+        trtTelehealthLineItems: [],
+        subtotalMedicationsCents: 0,
+        subtotalShippingCents: 0,
+        subtotalPrescriptionFeesCents: 0,
+        subtotalTrtTelehealthCents: 0,
+        totalCents: 0,
+        orderCount: 0,
+        vialCount: 0,
+        missingPriceCount: 0,
+        estimatedPriceCount: 0,
+      },
+      paymentCollections: [],
+      paymentsCollectedGrossCents: 90_000,
+      paymentsCollectedNetCents: 30_000,
+      refundsTotalCents: 60_000,
+      refundLineItems,
+    } as unknown as OtDailyInvoices;
+
+    const csv = generateOtRefundsCSV(data);
+    expect(csv).toContain('Refund count,2');
+    expect(csv).toContain('Refunds total,$600.00');
+    /** Cash math line spells out gross − refunds = net. */
+    expect(csv).toContain('Gross collected = $900.00');
+    expect(csv).toContain('Cash collected (net) = $300.00');
+    /** Both rows present, type column distinguishes them. */
+    expect(csv).toContain('pi_full');
+    expect(csv).toContain('full');
+    expect(csv).toContain('pi_partial');
+    expect(csv).toContain('partial');
+    expect(csv).toContain('TOTAL,,,,,,$600.00');
   });
 });

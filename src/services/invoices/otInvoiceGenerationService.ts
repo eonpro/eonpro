@@ -342,8 +342,35 @@ export interface OtPaymentCollectionRow {
   amountCents: number;
   /** After subtracting `refundedAmount` when present. */
   netCollectedCents: number;
+  /** `Payment.refundedAmount` (cumulative cents refunded across all refunds on the charge); 0 when none. */
+  refundedAmountCents: number;
+  /** True when `refundedAmount >= amount` (i.e. status went to REFUNDED, not PARTIALLY_REFUNDED). */
+  isFullyRefunded: boolean;
   patientId: number;
   patientName: string;
+  description: string | null;
+  invoiceId: number | null;
+  stripePaymentIntentId: string | null;
+  stripeChargeId: string | null;
+}
+
+/**
+ * One row per refunded `Payment` (full or partial) in the period.
+ *
+ * The OT page treats refunds as a first-class category so they appear on the
+ * report (a tile + tab), not just baked silently into `Cash collected (net)`.
+ * `refundedAmountCents` is what we subtract from gross to get the "Cash
+ * collected (net)" total; `paymentsCollectedNetCents` stays correct.
+ */
+export interface OtRefundLineItem {
+  paymentId: number;
+  paidAt: string | null;
+  refundedAt: string | null;
+  patientId: number;
+  patientName: string;
+  amountCents: number;
+  refundedAmountCents: number;
+  isFullyRefunded: boolean;
   description: string | null;
   invoiceId: number | null;
   stripePaymentIntentId: string | null;
@@ -368,8 +395,14 @@ export interface OtDailyInvoices {
   perSaleReconciliation: OtPerSaleReconciliationLine[];
   /** All DB `Payment` rows (OT patients) settled in the period — source of truth for cash in. */
   paymentCollections: OtPaymentCollectionRow[];
-  /** Sum of `netCollectedCents` across `paymentCollections`. */
+  /** Sum of `netCollectedCents` across `paymentCollections` (== gross − refunds). */
   paymentsCollectedNetCents: number;
+  /** Sum of `amountCents` across `paymentCollections` (before refund subtraction). */
+  paymentsCollectedGrossCents: number;
+  /** Sum of `refundedAmountCents` across `paymentCollections` — equals gross − net. */
+  refundsTotalCents: number;
+  /** One row per refunded payment (full or partial) in the period; sorted by refund time. */
+  refundLineItems: OtRefundLineItem[];
   /** Gross from matched prescription invoices only (subset of cash); for comparison to Stripe-matched Rx workflow. */
   matchedPrescriptionInvoiceGrossCents: number;
   /** When true, 4%/10% fees use `paymentsCollectedNetCents`; when false, per matched-sale rounding (legacy). */
@@ -731,27 +764,73 @@ export async function generateOtDailyInvoices(
     }
   }
 
+  const refundedAtById = new Map<number, string | null>();
   const paymentCollections: OtPaymentCollectionRow[] = rawPeriodPayments
     .map((p) => {
-      const refunded = p.refundedAmount ?? 0;
+      const refunded = Math.max(0, p.refundedAmount ?? 0);
       const netCollectedCents = Math.max(0, p.amount - refunded);
+      const isFullyRefunded = refunded > 0 && refunded >= p.amount;
+      /**
+       * `Payment.refundedAt` is read alongside `refundedAmount` from the same row but
+       * was excluded from this select to keep the original payload narrow. We pull it
+       * separately below for the refund line items.
+       */
       return {
         paymentId: p.id,
         paidAt: p.paidAt?.toISOString() ?? null,
         recordedAt: p.createdAt.toISOString(),
         amountCents: p.amount,
         netCollectedCents,
+        refundedAmountCents: refunded,
+        isFullyRefunded,
         patientId: p.patientId,
         patientName: paymentPatientNameById.get(p.patientId) ?? `Patient #${p.patientId}`,
         description: p.description,
         invoiceId: p.invoiceId,
         stripePaymentIntentId: p.stripePaymentIntentId,
         stripeChargeId: p.stripeChargeId,
-      };
+      } satisfies OtPaymentCollectionRow;
     })
     .sort((a, b) => {
       const ta = new Date(a.paidAt ?? a.recordedAt).getTime();
       const tb = new Date(b.paidAt ?? b.recordedAt).getTime();
+      if (ta !== tb) return ta - tb;
+      return a.paymentId - b.paymentId;
+    });
+
+  const refundedPaymentIds = paymentCollections
+    .filter((r) => r.refundedAmountCents > 0)
+    .map((r) => r.paymentId);
+  if (refundedPaymentIds.length > 0) {
+    const refundedAtRows = await basePrisma.payment.findMany({
+      where: { id: { in: refundedPaymentIds } },
+      select: { id: true, refundedAt: true },
+    });
+    for (const r of refundedAtRows) {
+      refundedAtById.set(r.id, r.refundedAt?.toISOString() ?? null);
+    }
+  }
+
+  const refundLineItems: OtRefundLineItem[] = paymentCollections
+    .filter((r) => r.refundedAmountCents > 0)
+    .map((r) => ({
+      paymentId: r.paymentId,
+      paidAt: r.paidAt,
+      refundedAt: refundedAtById.get(r.paymentId) ?? null,
+      patientId: r.patientId,
+      patientName: r.patientName,
+      amountCents: r.amountCents,
+      refundedAmountCents: r.refundedAmountCents,
+      isFullyRefunded: r.isFullyRefunded,
+      description: r.description,
+      invoiceId: r.invoiceId,
+      stripePaymentIntentId: r.stripePaymentIntentId,
+      stripeChargeId: r.stripeChargeId,
+    }))
+    .sort((a, b) => {
+      /** Order by when the refund occurred (refundedAt), falling back to original paidAt. */
+      const ta = new Date(a.refundedAt ?? a.paidAt ?? 0).getTime();
+      const tb = new Date(b.refundedAt ?? b.paidAt ?? 0).getTime();
       if (ta !== tb) return ta - tb;
       return a.paymentId - b.paymentId;
     });
@@ -1516,7 +1595,14 @@ export async function generateOtDailyInvoices(
   );
 
   const matchedPrescriptionInvoiceGrossCents = grossSalesCents;
+  const paymentsCollectedGrossCents = paymentCollections.reduce((s, r) => s + r.amountCents, 0);
+  const refundsTotalCents = paymentCollections.reduce((s, r) => s + r.refundedAmountCents, 0);
   const paymentsCollectedNetCents = paymentCollections.reduce((s, r) => s + r.netCollectedCents, 0);
+  /**
+   * Sanity invariant — should always hold by construction:
+   *   paymentsCollectedNetCents === paymentsCollectedGrossCents − refundsTotalCents
+   * Net is what `feesUseCashCollectedBasis` already drives 4%/10% off of.
+   */
   const feesUseCashCollectedBasis = paymentsCollectedNetCents > 0;
 
   let merchantFee: number;
@@ -1712,6 +1798,9 @@ export async function generateOtDailyInvoices(
     perSaleReconciliation,
     paymentCollections,
     paymentsCollectedNetCents,
+    paymentsCollectedGrossCents,
+    refundsTotalCents,
+    refundLineItems,
     matchedPrescriptionInvoiceGrossCents,
     feesUseCashCollectedBasis,
     paymentsWithoutPharmacyCogs,
@@ -1970,6 +2059,7 @@ export function generateOtPaymentCollectionsCSV(data: OtDailyInvoices): string {
       'Patient ID',
       'Patient',
       'Amount',
+      'Refunded',
       'Net collected',
       'Invoice DB id',
       'Stripe payment intent',
@@ -1988,6 +2078,7 @@ export function generateOtPaymentCollectionsCSV(data: OtDailyInvoices): string {
         r.patientId,
         r.patientName,
         `$${centsToDisplay(r.amountCents)}`,
+        `$${centsToDisplay(r.refundedAmountCents)}`,
         `$${centsToDisplay(r.netCollectedCents)}`,
         r.invoiceId ?? '',
         r.stripePaymentIntentId ?? '',
@@ -1997,6 +2088,70 @@ export function generateOtPaymentCollectionsCSV(data: OtDailyInvoices): string {
         .map(escapeCSV)
         .join(',')
     );
+  }
+  return lines.join('\r\n');
+}
+
+export function generateOtRefundsCSV(data: OtDailyInvoices): string {
+  const BOM = '\uFEFF';
+  const lines: string[] = [
+    BOM,
+    'OT / EONPRO — REFUNDS (Stripe-issued or admin-issued)',
+    `Clinic,${escapeCSV(data.pharmacy.clinicName)}`,
+    `Period,${new Date(data.pharmacy.periodStart).toLocaleDateString('en-US')} - ${new Date(data.pharmacy.periodEnd).toLocaleDateString('en-US')}`,
+    `Generated,${new Date(data.pharmacy.invoiceDate).toLocaleString('en-US')}`,
+    `Refund count,${data.refundLineItems.length}`,
+    `Refunds total,$${centsToDisplay(data.refundsTotalCents)}`,
+    '',
+    'Cash math: Gross collected = $' +
+      centsToDisplay(data.paymentsCollectedGrossCents) +
+      ' − Refunds = $' +
+      centsToDisplay(data.refundsTotalCents) +
+      ' → Cash collected (net) = $' +
+      centsToDisplay(data.paymentsCollectedNetCents),
+    '',
+  ];
+  lines.push(
+    [
+      'Refunded (ISO)',
+      'Originally paid (ISO)',
+      'Payment ID',
+      'Patient ID',
+      'Patient',
+      'Original amount',
+      'Refunded amount',
+      'Type',
+      'Invoice DB id',
+      'Stripe payment intent',
+      'Stripe charge',
+      'Description',
+    ]
+      .map(escapeCSV)
+      .join(',')
+  );
+  for (const r of data.refundLineItems) {
+    lines.push(
+      [
+        r.refundedAt ?? '',
+        r.paidAt ?? '',
+        r.paymentId,
+        r.patientId,
+        r.patientName,
+        `$${centsToDisplay(r.amountCents)}`,
+        `$${centsToDisplay(r.refundedAmountCents)}`,
+        r.isFullyRefunded ? 'full' : 'partial',
+        r.invoiceId ?? '',
+        r.stripePaymentIntentId ?? '',
+        r.stripeChargeId ?? '',
+        r.description ?? '',
+      ]
+        .map(escapeCSV)
+        .join(',')
+    );
+  }
+  if (data.refundLineItems.length > 0) {
+    lines.push('');
+    lines.push(`TOTAL,,,,,,$${centsToDisplay(data.refundsTotalCents)},,,,,`);
   }
   return lines.join('\r\n');
 }
@@ -2176,6 +2331,8 @@ export function generateOtCombinedCSV(data: OtDailyInvoices): string {
     `Clinic,${escapeCSV(data.pharmacy.clinicName)}`,
     `Period,${new Date(data.pharmacy.periodStart).toLocaleDateString('en-US')} - ${new Date(data.pharmacy.periodEnd).toLocaleDateString('en-US')}`,
     '',
+    `Gross collected (${data.paymentCollections.length} payments),$${centsToDisplay(data.paymentsCollectedGrossCents)}`,
+    `Less — Refunds (${data.refundLineItems.length} refunded payments),$${centsToDisplay(data.refundsTotalCents)}`,
     `${grossTopLabel},$${centsToDisplay(data.platformCompensation.grossSalesCents)}`,
     `Less — Pharmacy (meds + shipping + TRT telehealth when applicable),$${centsToDisplay(data.pharmacy.totalCents)}`,
     `Less — Doctor / Rx fee ($30; $0 refill <90d after prior paid Rx),$${centsToDisplay(data.doctorApprovals.totalCents)}`,
@@ -2196,6 +2353,9 @@ export function generateOtCombinedCSV(data: OtDailyInvoices): string {
       : []),
     '--- ALL PAYMENTS COLLECTED (OT PATIENTS) ---',
     stripCsvBom(generateOtPaymentCollectionsCSV(data)),
+    '',
+    '--- REFUNDS (OT PATIENTS) ---',
+    stripCsvBom(generateOtRefundsCSV(data)),
     '',
     '--- PER-SALE: FULL BREAKDOWN (EVERY SALE) ---',
     stripCsvBom(generateOtPerSaleReconciliationCSV(data)),
@@ -2320,7 +2480,22 @@ export async function generateOtSummaryPDF(data: OtDailyInvoices): Promise<Uint8
     'Reference — matched Rx invoice gross',
     `$${centsToDisplay(data.matchedPrescriptionInvoiceGrossCents)}`,
   ];
+  const refundsRow: [string, string][] =
+    data.refundsTotalCents > 0
+      ? [
+          [
+            `Gross collected (${data.paymentCollections.length} payments)`,
+            `$${centsToDisplay(data.paymentsCollectedGrossCents)}`,
+          ],
+          [
+            `Less — Refunds (${data.refundLineItems.length})`,
+            `$${centsToDisplay(data.refundsTotalCents)}`,
+          ],
+        ]
+      : [];
+
   const rows: [string, string][] = [
+    ...refundsRow,
     [grossLabel, `$${centsToDisplay(data.platformCompensation.grossSalesCents)}`],
     ...(data.feesUseCashCollectedBasis ? [referenceGrossRow] : []),
     [

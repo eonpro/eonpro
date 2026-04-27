@@ -23,6 +23,7 @@ import {
   Banknote,
   ChevronDown,
   ChevronRight,
+  RotateCcw,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 import { OtMedicationPricingCatalog } from '@/components/invoices/OtMedicationPricingCatalog';
@@ -182,8 +183,26 @@ interface OtPaymentCollectionRow {
   recordedAt: string;
   amountCents: number;
   netCollectedCents: number;
+  /** Cumulative cents refunded against this payment (0 when none). */
+  refundedAmountCents?: number;
+  isFullyRefunded?: boolean;
   patientId: number;
   patientName: string;
+  description: string | null;
+  invoiceId: number | null;
+  stripePaymentIntentId: string | null;
+  stripeChargeId: string | null;
+}
+
+interface OtRefundLineItem {
+  paymentId: number;
+  paidAt: string | null;
+  refundedAt: string | null;
+  patientId: number;
+  patientName: string;
+  amountCents: number;
+  refundedAmountCents: number;
+  isFullyRefunded: boolean;
   description: string | null;
   invoiceId: number | null;
   stripePaymentIntentId: string | null;
@@ -217,6 +236,12 @@ interface OtInvoiceData {
   /** Every succeeded / partial / full-refund Payment for OT patients in the date window (cash ledger). */
   paymentCollections?: OtPaymentCollectionRow[];
   paymentsCollectedNetCents?: number;
+  /** Sum of `amountCents` (gross, before refund subtraction). Present after API deploy. */
+  paymentsCollectedGrossCents?: number;
+  /** Sum of `refundedAmountCents` across the period. Present after API deploy. */
+  refundsTotalCents?: number;
+  /** One row per refunded payment in the period. Present after API deploy. */
+  refundLineItems?: OtRefundLineItem[];
   matchedPrescriptionInvoiceGrossCents?: number;
   feesUseCashCollectedBasis?: boolean;
   /** Payments whose invoice did not map to a loaded pharmacy line (subset for debugging). */
@@ -229,6 +254,7 @@ interface OtInvoiceData {
 type ActiveTab =
   | 'pharmacy'
   | 'all_payments'
+  | 'refunds'
   | 'doctor_approvals'
   | 'fulfillment'
   | 'per_sale'
@@ -289,6 +315,7 @@ export default function OtInvoicesPage() {
       | 'fulfillment'
       | 'per_sale'
       | 'all_payments'
+      | 'refunds'
       | 'combined'
       | 'summary',
     format: 'csv' | 'pdf'
@@ -419,6 +446,13 @@ export default function OtInvoicesPage() {
           badge={data ? String(data.paymentCollections?.length ?? 0) : '—'}
         />
         <TabButton
+          active={activeTab === 'refunds'}
+          onClick={() => setActiveTab('refunds')}
+          icon={<RotateCcw className="h-4 w-4" />}
+          label="Refunds"
+          badge={data ? String(data.refundLineItems?.length ?? 0) : '—'}
+        />
+        <TabButton
           active={activeTab === 'doctor_approvals'}
           onClick={() => setActiveTab('doctor_approvals')}
           icon={<Receipt className="h-4 w-4" />}
@@ -473,8 +507,23 @@ export default function OtInvoicesPage() {
               icon={<Banknote className="h-5 w-5 text-teal-700" />}
               label="Cash collected (net)"
               value={centsToDisplay(data.paymentsCollectedNetCents ?? 0)}
-              subvalue={`${data.paymentCollections?.length ?? 0} Payment rows · All payments tab`}
+              subvalue={
+                (data.refundsTotalCents ?? 0) > 0
+                  ? `${centsToDisplay(data.paymentsCollectedGrossCents ?? 0)} gross − ${centsToDisplay(data.refundsTotalCents ?? 0)} refunds`
+                  : `${data.paymentCollections?.length ?? 0} Payment rows · All payments tab`
+              }
               bg="bg-teal-50"
+            />
+            <SummaryCard
+              icon={<RotateCcw className="h-5 w-5 text-rose-700" />}
+              label="Refunds"
+              value={centsToDisplay(data.refundsTotalCents ?? 0)}
+              subvalue={
+                (data.refundLineItems?.length ?? 0) > 0
+                  ? `${data.refundLineItems?.length} refunded payments · already netted out`
+                  : 'No refunds in period'
+              }
+              bg="bg-rose-50"
             />
             <SummaryCard
               icon={<Pill className="h-5 w-5 text-purple-600" />}
@@ -651,6 +700,14 @@ export default function OtInvoicesPage() {
               feesUseCashCollectedBasis={data.feesUseCashCollectedBasis ?? false}
             />
           )}
+          {activeTab === 'refunds' && (
+            <RefundsTable
+              rows={data.refundLineItems ?? []}
+              grossCents={data.paymentsCollectedGrossCents ?? 0}
+              refundsTotalCents={data.refundsTotalCents ?? 0}
+              netCents={data.paymentsCollectedNetCents ?? 0}
+            />
+          )}
           {activeTab === 'doctor_approvals' && <DoctorTable invoice={data.doctorApprovals} />}
           {activeTab === 'fulfillment' && <FulfillmentTable invoice={data.fulfillment} />}
           {activeTab === 'per_sale' && (
@@ -814,7 +871,7 @@ function PaymentCollectionsTable({
   const totalNet = rows.reduce((s, r) => s + r.netCollectedCents, 0);
   return (
     <div className="max-w-full overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
-      <table className="w-full min-w-[1280px] text-sm">
+      <table className="w-full min-w-[1380px] text-sm">
         <thead>
           <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
             <th className="whitespace-nowrap px-4 py-3">Paid (ET)</th>
@@ -822,6 +879,7 @@ function PaymentCollectionsTable({
             <th className="whitespace-nowrap px-4 py-3 font-mono">Pay #</th>
             <th className="whitespace-nowrap px-4 py-3">Patient</th>
             <th className="whitespace-nowrap px-4 py-3 text-right">Amount</th>
+            <th className="whitespace-nowrap px-4 py-3 text-right">Refunded</th>
             <th className="whitespace-nowrap px-4 py-3 text-right">Net</th>
             <th className="whitespace-nowrap px-4 py-3 font-mono">Invoice</th>
             <th className="whitespace-nowrap px-4 py-3 font-mono">Stripe PI</th>
@@ -831,7 +889,7 @@ function PaymentCollectionsTable({
         <tbody className="divide-y divide-gray-50">
           {rows.length === 0 ? (
             <tr>
-              <td colSpan={9} className="px-4 py-10 text-center text-gray-500">
+              <td colSpan={10} className="px-4 py-10 text-center text-gray-500">
                 No payments found for this period.
               </td>
             </tr>
@@ -863,6 +921,21 @@ function PaymentCollectionsTable({
                 <td className="whitespace-nowrap px-4 py-2 text-right tabular-nums">
                   {centsToDisplay(r.amountCents)}
                 </td>
+                <td className="whitespace-nowrap px-4 py-2 text-right tabular-nums">
+                  {(r.refundedAmountCents ?? 0) > 0 ? (
+                    <span
+                      className={`rounded-md px-1.5 py-0.5 text-xs font-semibold ${
+                        r.isFullyRefunded
+                          ? 'bg-rose-100 text-rose-900'
+                          : 'bg-amber-100 text-amber-900'
+                      }`}
+                    >
+                      −{centsToDisplay(r.refundedAmountCents ?? 0)}
+                    </span>
+                  ) : (
+                    <span className="text-gray-400">—</span>
+                  )}
+                </td>
                 <td className="whitespace-nowrap px-4 py-2 text-right font-semibold tabular-nums">
                   {centsToDisplay(r.netCollectedCents)}
                 </td>
@@ -892,6 +965,158 @@ function PaymentCollectionsTable({
           <span>{centsToDisplay(totalNet)}</span>
         </div>
       )}
+    </div>
+  );
+}
+
+function RefundsTable({
+  rows,
+  grossCents,
+  refundsTotalCents,
+  netCents,
+}: {
+  rows: OtRefundLineItem[];
+  grossCents: number;
+  refundsTotalCents: number;
+  netCents: number;
+}) {
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <RefundsHeaderTile
+          label="Gross collected"
+          value={centsToDisplay(grossCents)}
+          tone="neutral"
+        />
+        <RefundsHeaderTile
+          label={`Refunds (${rows.length})`}
+          value={`−${centsToDisplay(refundsTotalCents)}`}
+          tone="negative"
+        />
+        <RefundsHeaderTile
+          label="Cash collected (net)"
+          value={centsToDisplay(netCents)}
+          tone="positive"
+        />
+      </div>
+      <p className="text-xs text-gray-500">
+        Refunds are subtracted from gross to produce{' '}
+        <span className="font-semibold">Cash collected (net)</span>, which feeds the 4% merchant and
+        10% EONPro fees and the OT clinic payout.
+      </p>
+      <div className="max-w-full overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
+        <table className="w-full min-w-[1280px] text-sm">
+          <thead>
+            <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              <th className="whitespace-nowrap px-4 py-3">Refunded (ET)</th>
+              <th className="whitespace-nowrap px-4 py-3">Originally paid (ET)</th>
+              <th className="whitespace-nowrap px-4 py-3 font-mono">Pay #</th>
+              <th className="whitespace-nowrap px-4 py-3">Patient</th>
+              <th className="whitespace-nowrap px-4 py-3 text-right">Original</th>
+              <th className="whitespace-nowrap px-4 py-3 text-right">Refunded</th>
+              <th className="whitespace-nowrap px-4 py-3">Type</th>
+              <th className="whitespace-nowrap px-4 py-3 font-mono">Invoice</th>
+              <th className="whitespace-nowrap px-4 py-3 font-mono">Stripe PI</th>
+              <th className="whitespace-nowrap px-4 py-3">Description</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={10} className="px-4 py-10 text-center text-gray-500">
+                  No refunds in this period.
+                </td>
+              </tr>
+            ) : (
+              rows.map((r) => (
+                <tr key={r.paymentId} className="hover:bg-gray-50">
+                  <td className="whitespace-nowrap px-4 py-2 text-xs text-rose-700">
+                    {r.refundedAt ? formatDateTime(r.refundedAt) : '—'}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-2 text-xs text-gray-600">
+                    {r.paidAt ? formatDateTime(r.paidAt) : '—'}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-2 font-mono text-xs">{r.paymentId}</td>
+                  <td
+                    className="max-w-[200px] truncate whitespace-nowrap px-4 py-2 font-medium"
+                    title={r.patientName}
+                  >
+                    <a
+                      href={`/admin/patients/${r.patientId}`}
+                      className="text-[#4fa77e] hover:underline"
+                    >
+                      {r.patientName}
+                    </a>
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-2 text-right tabular-nums text-gray-600">
+                    {centsToDisplay(r.amountCents)}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-2 text-right font-semibold tabular-nums text-rose-700">
+                    −{centsToDisplay(r.refundedAmountCents)}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-2">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                        r.isFullyRefunded
+                          ? 'bg-rose-100 text-rose-900'
+                          : 'bg-amber-100 text-amber-900'
+                      }`}
+                    >
+                      {r.isFullyRefunded ? 'Full' : 'Partial'}
+                    </span>
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-2 font-mono text-xs text-gray-500">
+                    {r.invoiceId ?? '—'}
+                  </td>
+                  <td
+                    className="whitespace-nowrap px-4 py-2 font-mono text-xs text-violet-800"
+                    title={r.stripePaymentIntentId ?? ''}
+                  >
+                    {r.stripePaymentIntentId ?? '—'}
+                  </td>
+                  <td
+                    className="max-w-[420px] truncate px-4 py-2 text-gray-700"
+                    title={r.description ?? ''}
+                  >
+                    {r.description ?? '—'}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+        {rows.length > 0 && (
+          <div className="sticky bottom-0 left-0 flex justify-between border-t border-gray-200 bg-gray-50 px-4 py-3 font-semibold tabular-nums text-rose-700">
+            <span>
+              Refunds total ({rows.length} {rows.length === 1 ? 'payment' : 'payments'})
+            </span>
+            <span>−{centsToDisplay(refundsTotalCents)}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RefundsHeaderTile({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: 'neutral' | 'negative' | 'positive';
+}) {
+  const valueColor =
+    tone === 'negative'
+      ? 'text-rose-700'
+      : tone === 'positive'
+        ? 'text-[#4fa77e]'
+        : 'text-gray-900';
+  return (
+    <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+      <p className="text-xs font-medium uppercase tracking-wider text-gray-500">{label}</p>
+      <p className={`mt-1 text-2xl font-bold tabular-nums ${valueColor}`}>{value}</p>
     </div>
   );
 }

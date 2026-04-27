@@ -10,6 +10,7 @@ import {
   generateOtCombinedCSV,
   generateOtPaymentCollectionsCSV,
   generateOtPerSaleReconciliationCSV,
+  generateOtRefundsCSV,
   generateOtSummaryPDF,
   OtInvoiceConfigurationError,
 } from '@/services/invoices/otInvoiceGenerationService';
@@ -45,6 +46,7 @@ const exportSchema = z.object({
     'fulfillment',
     'per_sale',
     'all_payments',
+    'refunds',
     'combined',
     'summary',
   ]),
@@ -117,6 +119,10 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
       case 'all_payments':
         csv = generateOtPaymentCollectionsCSV(data);
         filename = `ot-all-payments-${dateSlug}.csv`;
+        break;
+      case 'refunds':
+        csv = generateOtRefundsCSV(data);
+        filename = `ot-refunds-${dateSlug}.csv`;
         break;
       case 'combined':
         csv = generateOtCombinedCSV(data);
