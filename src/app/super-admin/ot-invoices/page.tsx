@@ -744,11 +744,11 @@ function nonRxKindLabel(kind: OtNonPharmacyChargeKind): string {
 
 function NonRxChargesTable({ rows }: { rows: OtNonRxChargeLineItem[] }) {
   return (
-    <div className="overflow-x-auto rounded-2xl border border-indigo-100 bg-white shadow-sm">
+    <div className="max-w-full overflow-x-auto rounded-2xl border border-indigo-100 bg-white shadow-sm">
       <p className="border-b border-indigo-100 bg-indigo-50/60 px-4 py-3 text-sm font-medium text-gray-700">
         Non-Rx charges
       </p>
-      <table className="w-full text-sm">
+      <table className="w-full min-w-[960px] text-sm">
         <thead>
           <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
             <th className="px-4 py-3">Paid (ET)</th>
@@ -813,19 +813,19 @@ function PaymentCollectionsTable({
 }) {
   const totalNet = rows.reduce((s, r) => s + r.netCollectedCents, 0);
   return (
-    <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
-      <table className="w-full text-sm">
+    <div className="max-w-full overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
+      <table className="w-full min-w-[1280px] text-sm">
         <thead>
           <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-            <th className="px-4 py-3">Paid (ET)</th>
-            <th className="px-4 py-3">Recorded (ET)</th>
-            <th className="px-4 py-3 font-mono">Pay #</th>
-            <th className="px-4 py-3">Patient</th>
-            <th className="px-4 py-3 text-right">Amount</th>
-            <th className="px-4 py-3 text-right">Net</th>
-            <th className="px-4 py-3 font-mono">Invoice</th>
-            <th className="px-4 py-3 font-mono">Stripe PI</th>
-            <th className="px-4 py-3">Description</th>
+            <th className="whitespace-nowrap px-4 py-3">Paid (ET)</th>
+            <th className="whitespace-nowrap px-4 py-3">Recorded (ET)</th>
+            <th className="whitespace-nowrap px-4 py-3 font-mono">Pay #</th>
+            <th className="whitespace-nowrap px-4 py-3">Patient</th>
+            <th className="whitespace-nowrap px-4 py-3 text-right">Amount</th>
+            <th className="whitespace-nowrap px-4 py-3 text-right">Net</th>
+            <th className="whitespace-nowrap px-4 py-3 font-mono">Invoice</th>
+            <th className="whitespace-nowrap px-4 py-3 font-mono">Stripe PI</th>
+            <th className="whitespace-nowrap px-4 py-3">Description</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-50">
@@ -844,8 +844,11 @@ function PaymentCollectionsTable({
                 <td className="whitespace-nowrap px-4 py-2 text-xs text-gray-600">
                   {formatDateTime(r.recordedAt)}
                 </td>
-                <td className="px-4 py-2 font-mono text-xs">{r.paymentId}</td>
-                <td className="max-w-[160px] truncate px-4 py-2 font-medium" title={r.patientName}>
+                <td className="whitespace-nowrap px-4 py-2 font-mono text-xs">{r.paymentId}</td>
+                <td
+                  className="max-w-[200px] truncate whitespace-nowrap px-4 py-2 font-medium"
+                  title={r.patientName}
+                >
                   {patientAdminLinks ? (
                     <a
                       href={`/admin/patients/${r.patientId}`}
@@ -857,21 +860,23 @@ function PaymentCollectionsTable({
                     r.patientName
                   )}
                 </td>
-                <td className="whitespace-nowrap px-4 py-2 text-right">
+                <td className="whitespace-nowrap px-4 py-2 text-right tabular-nums">
                   {centsToDisplay(r.amountCents)}
                 </td>
-                <td className="whitespace-nowrap px-4 py-2 text-right font-semibold">
+                <td className="whitespace-nowrap px-4 py-2 text-right font-semibold tabular-nums">
                   {centsToDisplay(r.netCollectedCents)}
                 </td>
-                <td className="px-4 py-2 font-mono text-xs text-gray-500">{r.invoiceId ?? '—'}</td>
+                <td className="whitespace-nowrap px-4 py-2 font-mono text-xs text-gray-500">
+                  {r.invoiceId ?? '—'}
+                </td>
                 <td
-                  className="max-w-[140px] truncate px-4 py-2 font-mono text-xs text-violet-800"
+                  className="whitespace-nowrap px-4 py-2 font-mono text-xs text-violet-800"
                   title={r.stripePaymentIntentId ?? ''}
                 >
                   {r.stripePaymentIntentId ?? '—'}
                 </td>
                 <td
-                  className="max-w-md truncate px-4 py-2 text-gray-700"
+                  className="max-w-[420px] truncate px-4 py-2 text-gray-700"
                   title={r.description ?? ''}
                 >
                   {r.description ?? '—'}
@@ -882,7 +887,7 @@ function PaymentCollectionsTable({
         </tbody>
       </table>
       {rows.length > 0 && (
-        <div className="flex justify-between border-t border-gray-200 bg-gray-50 px-4 py-3 font-semibold">
+        <div className="sticky bottom-0 left-0 flex justify-between border-t border-gray-200 bg-gray-50 px-4 py-3 font-semibold tabular-nums">
           <span>Net collected ({rows.length} payments)</span>
           <span>{centsToDisplay(totalNet)}</span>
         </div>
@@ -1044,8 +1049,8 @@ function PharmacyTable({
   }
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
-      <table className="w-full text-sm">
+    <div className="max-w-full overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
+      <table className="w-full min-w-[1280px] text-sm">
         <thead>
           <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
             <th className="w-10 px-2 py-3" aria-label="Expand row" />
@@ -1277,7 +1282,7 @@ function PharmacyTable({
           })}
         </tbody>
       </table>
-      <div className="flex justify-between border-t border-gray-200 bg-gray-50 px-4 py-3 font-semibold">
+      <div className="sticky bottom-0 left-0 flex justify-between border-t border-gray-200 bg-gray-50 px-4 py-3 font-semibold tabular-nums">
         <span>Pharmacy total</span>
         <span>{centsToDisplay(invoice.totalCents)}</span>
       </div>
@@ -1287,8 +1292,8 @@ function PharmacyTable({
 
 function DoctorTable({ invoice }: { invoice: OtDoctorApprovalsInvoice }) {
   return (
-    <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
-      <table className="w-full text-sm">
+    <div className="max-w-full overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
+      <table className="w-full min-w-[1100px] text-sm">
         <thead>
           <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
             <th className="px-4 py-3">Paid (ET)</th>
@@ -1337,7 +1342,7 @@ function DoctorTable({ invoice }: { invoice: OtDoctorApprovalsInvoice }) {
           ))}
         </tbody>
       </table>
-      <div className="flex justify-between border-t border-gray-200 bg-gray-50 px-4 py-3 font-semibold">
+      <div className="sticky bottom-0 left-0 flex justify-between border-t border-gray-200 bg-gray-50 px-4 py-3 font-semibold tabular-nums">
         <span>Approvals total</span>
         <span>{centsToDisplay(invoice.totalCents)}</span>
       </div>
@@ -1347,8 +1352,8 @@ function DoctorTable({ invoice }: { invoice: OtDoctorApprovalsInvoice }) {
 
 function FulfillmentTable({ invoice }: { invoice: OtFulfillmentInvoice }) {
   return (
-    <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
-      <table className="w-full text-sm">
+    <div className="max-w-full overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
+      <table className="w-full min-w-[1100px] text-sm">
         <thead>
           <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
             <th className="px-4 py-3">Paid (ET)</th>
@@ -1388,7 +1393,7 @@ function FulfillmentTable({ invoice }: { invoice: OtFulfillmentInvoice }) {
           )}
         </tbody>
       </table>
-      <div className="flex justify-between border-t border-gray-200 bg-gray-50 px-4 py-3 font-semibold">
+      <div className="sticky bottom-0 left-0 flex justify-between border-t border-gray-200 bg-gray-50 px-4 py-3 font-semibold tabular-nums">
         <span>Fulfillment total</span>
         <span>{centsToDisplay(invoice.totalCents)}</span>
       </div>
@@ -1411,7 +1416,7 @@ function PerSaleReconciliationTable({ rows }: { rows: OtPerSaleReconciliationLin
   }
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
+    <div className="max-w-full overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
       <table className="w-full min-w-[1960px] text-sm">
         <thead>
           <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
