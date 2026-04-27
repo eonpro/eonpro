@@ -28,7 +28,9 @@ import {
   CHAT_ATTACHMENT_MAX_BYTES,
   CHAT_ATTACHMENT_MAX_PER_MESSAGE,
   CHAT_ATTACHMENT_SIGNED_URL_TTL_SECONDS,
+  MMS_SIGNED_URL_TTL_SECONDS,
   buildAttachmentOnlyPreview,
+  isMmsCompatibleAttachment,
   validateChatAttachmentS3Key,
   type ChatAttachmentMime,
   type ChatAttachmentRecord,
@@ -423,6 +425,29 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
         size: att.size,
         uploadedAt: nowIso,
       }));
+
+      // ----------------------------------------------------------------
+      // MMS gate: when staff send `channel: 'SMS'` with attachments, US
+      // carriers only deliver JPEG/PNG ≤ 5 MB reliably. Validate every
+      // attachment up-front; one bad attachment poisons the whole send,
+      // so reject before persistence rather than silently dropping the
+      // attachment list.
+      // ----------------------------------------------------------------
+      if (channel === 'SMS') {
+        for (const att of persistedAttachments) {
+          const compat = isMmsCompatibleAttachment(att);
+          if (!compat.ok) {
+            return NextResponse.json(
+              {
+                error: compat.reason,
+                code: 'MMS_INCOMPATIBLE_ATTACHMENT',
+                attachmentName: att.name,
+              },
+              { status: 400 }
+            );
+          }
+        }
+      }
     }
 
     const patient = {
@@ -499,9 +524,26 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
     if (channel === 'SMS' && direction === 'OUTBOUND' && patient.phone) {
       try {
         const formattedPhone = formatPhoneNumber(patient.phone);
+
+        // For MMS: mint a Twilio-fetchable signed URL per attachment.
+        // We use a longer-lived (24h) TTL than the 1h web-GET TTL so
+        // Twilio carrier-side retries (which can stretch a few minutes
+        // on transient failures) don't expire mid-fetch.
+        let mediaUrls: string[] | undefined;
+        if (persistedAttachments && persistedAttachments.length > 0) {
+          mediaUrls = await Promise.all(
+            persistedAttachments.map((att) =>
+              generateSignedUrl(att.s3Key, 'GET', MMS_SIGNED_URL_TTL_SECONDS)
+            )
+          );
+        }
+
         const smsResult = await sendSMS({
           to: formattedPhone,
           body: message,
+          patientId,
+          clinicId: clinicId ?? undefined,
+          ...(mediaUrls && mediaUrls.length > 0 ? { mediaUrl: mediaUrls } : {}),
         });
 
         if (smsResult.success) {
