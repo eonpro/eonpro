@@ -112,14 +112,26 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         prisma.payment.count({ where: paymentWhere }),
       ]);
 
-      // Get all commission events linked to these payments (via metadata.paymentId)
+      // Get commission events linked to the current payment page. Scope to the
+      // payment IDs we just fetched (max 100 per page) so this query stays
+      // bounded — previously this scanned ALL `sales_tracker` commission
+      // events in the clinic and filtered in JS, which fails the pagination
+      // enforcement test and is O(n) on clinic history.
       const paymentIds = payments.map((p: any) => p.id);
       const commissionEvents = await prisma.salesRepCommissionEvent.findMany({
         where: {
           isManual: true,
           metadata: { path: ['source'], equals: 'sales_tracker' },
           ...(clinicId ? { clinicId } : {}),
+          // Belt-and-braces: also filter on metadata.paymentId so even when
+          // the in-page count exceeds limits we still skip irrelevant events.
+          OR: paymentIds.map((pid: number) => ({
+            metadata: { path: ['paymentId'], equals: pid },
+          })),
         },
+        // Cap at 2x the page size (or the test ceiling, whichever is smaller)
+        // so a future increase in `limit` doesn't silently violate enforcement.
+        take: Math.min(Math.max(limit * 2, 200), 1000),
         select: {
           id: true,
           metadata: true,
@@ -459,6 +471,10 @@ async function handleGetReps(req: NextRequest, user: AuthUser) {
         },
         select: { id: true, firstName: true, lastName: true, role: true },
         orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+        // Bounded for pagination enforcement: 500 reps per clinic is well
+        // beyond any realistic clinic headcount today; if a clinic ever
+        // hits this ceiling we'd need a typeahead-style picker anyway.
+        take: 500,
       });
       return reps;
     };

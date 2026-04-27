@@ -456,7 +456,10 @@ export async function POST(req: NextRequest) {
       const { processStripePayment, extractPaymentDataFromPaymentIntent } =
         await import('@/services/stripe/paymentMatchingService');
 
-      const paymentData = await extractPaymentDataFromPaymentIntent(paymentIntent, stripeContext.stripe);
+      const paymentData = await extractPaymentDataFromPaymentIntent(
+        paymentIntent,
+        stripeContext.stripe
+      );
       // Inject clinicId when missing (EonMeds/IntakeQ payments from Payment Links lack metadata)
       if (resolved.clinicId > 0 && !paymentData.metadata?.clinicId) {
         paymentData.metadata = { ...paymentData.metadata, clinicId: String(resolved.clinicId) };

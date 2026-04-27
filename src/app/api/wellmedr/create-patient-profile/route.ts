@@ -324,12 +324,14 @@ function buildIntakeSections(params: {
     { id: 'dob', label: 'Date of Birth', value: dob },
     { id: 'sex', label: 'Sex', value: sex },
   ].filter((e) => e.value);
-  if (patientEntries.length) sections.push({ title: 'Patient Information', entries: patientEntries });
+  if (patientEntries.length)
+    sections.push({ title: 'Patient Information', entries: patientEntries });
 
   // Body Metrics
   const bodyEntries: SectionEntry[] = [];
   if (weight) bodyEntries.push({ id: 'weight', label: 'Weight (lbs)', value: weight });
-  if (goalWeight) bodyEntries.push({ id: 'goal-weight', label: 'Goal Weight (lbs)', value: goalWeight });
+  if (goalWeight)
+    bodyEntries.push({ id: 'goal-weight', label: 'Goal Weight (lbs)', value: goalWeight });
   if (heightFeet && heightInches != null) {
     bodyEntries.push({ id: 'feet', label: 'Height (ft)', value: heightFeet });
     bodyEntries.push({ id: 'inches', label: 'Height (in)', value: String(heightInches) });
@@ -340,7 +342,13 @@ function buildIntakeSections(params: {
   if (bodyEntries.length) sections.push({ title: 'Body Metrics', entries: bodyEntries });
 
   // Shipping Address
-  const addrParts = [shippingAddress.address, shippingAddress.apt, shippingAddress.city, shippingAddress.state, shippingAddress.zipCode].filter(Boolean);
+  const addrParts = [
+    shippingAddress.address,
+    shippingAddress.apt,
+    shippingAddress.city,
+    shippingAddress.state,
+    shippingAddress.zipCode,
+  ].filter(Boolean);
   if (addrParts.length) {
     sections.push({
       title: 'Shipping Address',
@@ -349,14 +357,31 @@ function buildIntakeSections(params: {
   }
 
   // Medical History (from raw responses)
-  const medicalKeys = ['health_conditions', 'blood_pressure', 'heart_rate', 'opioid_use', 'opioid_use_detail', 'surgeries', 'surgeries_detail', 'safety_pregnancy'];
+  const medicalKeys = [
+    'health_conditions',
+    'blood_pressure',
+    'heart_rate',
+    'opioid_use',
+    'opioid_use_detail',
+    'surgeries',
+    'surgeries_detail',
+    'safety_pregnancy',
+  ];
   const medEntries = medicalKeys
     .filter((k) => r[k] != null && r[k] !== '')
     .map((k) => ({ id: k, label: LABEL_MAP[k] || k, value: formatValue(r[k]) }));
   if (medEntries.length) sections.push({ title: 'Medical History', entries: medEntries });
 
   // Medication History
-  const medKeys = ['glp1_history_recent', 'glp1_type', 'glp1_dose', 'glp1_type_other', 'glp1_dose_other', 'current_medications', 'current_medications_detail'];
+  const medKeys = [
+    'glp1_history_recent',
+    'glp1_type',
+    'glp1_dose',
+    'glp1_type_other',
+    'glp1_dose_other',
+    'current_medications',
+    'current_medications_detail',
+  ];
   const medRxEntries = medKeys
     .filter((k) => r[k] != null && r[k] !== '')
     .map((k) => ({ id: k, label: LABEL_MAP[k] || k, value: formatValue(r[k]) }));
@@ -367,10 +392,17 @@ function buildIntakeSections(params: {
   const riskEntries = riskKeys
     .filter((k) => r[k] != null && r[k] !== '')
     .map((k) => ({ id: k, label: LABEL_MAP[k] || k, value: formatValue(r[k]) }));
-  if (riskEntries.length) sections.push({ title: 'Allergies & Risk Factors', entries: riskEntries });
+  if (riskEntries.length)
+    sections.push({ title: 'Allergies & Risk Factors', entries: riskEntries });
 
   // Lifestyle
-  const lifestyleKeys = ['sleep_quality', 'weight_pace', 'motivation_reason', 'motivation_level', 'med_priority'];
+  const lifestyleKeys = [
+    'sleep_quality',
+    'weight_pace',
+    'motivation_reason',
+    'motivation_level',
+    'med_priority',
+  ];
   const lifeEntries = lifestyleKeys
     .filter((k) => r[k] != null && r[k] !== '')
     .map((k) => ({ id: k, label: LABEL_MAP[k] || k, value: formatValue(r[k]) }));

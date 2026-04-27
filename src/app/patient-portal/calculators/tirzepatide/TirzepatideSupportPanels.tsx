@@ -52,8 +52,8 @@ export default function TirzepatideSupportPanels({
           <h3 className="text-lg font-semibold text-gray-500">General Reference Only</h3>
         </div>
         <p className="mb-4 text-xs leading-relaxed text-gray-400">
-          This is the standard FDA titration schedule for new patients starting from the lowest dose.
-          Your actual dosing may differ — always follow your provider&apos;s prescription.
+          This is the standard FDA titration schedule for new patients starting from the lowest
+          dose. Your actual dosing may differ — always follow your provider&apos;s prescription.
         </p>
         <div className="space-y-2">
           {dosingSchedule.map((s) => (

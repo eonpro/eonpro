@@ -48,7 +48,15 @@ interface DropdownProps {
   error?: string;
 }
 
-function Dropdown({ label, placeholder, value, displayValue, options, onSelect, error }: DropdownProps) {
+function Dropdown({
+  label,
+  placeholder,
+  value,
+  displayValue,
+  options,
+  onSelect,
+  error,
+}: DropdownProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -126,17 +134,15 @@ function Dropdown({ label, placeholder, value, displayValue, options, onSelect, 
         )}
       </div>
       {error && (
-        <span className="text-xs font-medium" style={{ color: '#ef4444' }}>{error}</span>
+        <span className="text-xs font-medium" style={{ color: '#ef4444' }}>
+          {error}
+        </span>
       )}
     </div>
   );
 }
 
-export default function WmDobStep({
-  basePath,
-  nextStep,
-  progressPercent,
-}: WmDobStepProps) {
+export default function WmDobStep({ basePath, nextStep, progressPercent }: WmDobStepProps) {
   const router = useRouter();
   const responses = useIntakeStore((s) => s.responses);
   const { setResponse, markStepCompleted, setCurrentStep } = useIntakeActions();
@@ -173,10 +179,11 @@ export default function WmDobStep({
   }, [maxDay, day]);
 
   const dayOptions = useMemo(
-    () => Array.from({ length: maxDay }, (_, i) => ({
-      value: String(i + 1),
-      label: String(i + 1),
-    })),
+    () =>
+      Array.from({ length: maxDay }, (_, i) => ({
+        value: String(i + 1),
+        label: String(i + 1),
+      })),
     [maxDay]
   );
 
@@ -237,7 +244,17 @@ export default function WmDobStep({
     markStepCompleted('dob');
     setCurrentStep(nextStep);
     router.push(`${basePath}/${nextStep}`);
-  }, [month, day, year, setResponse, markStepCompleted, setCurrentStep, nextStep, router, basePath]);
+  }, [
+    month,
+    day,
+    year,
+    setResponse,
+    markStepCompleted,
+    setCurrentStep,
+    nextStep,
+    router,
+    basePath,
+  ]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -361,7 +378,10 @@ export default function WmDobStep({
 
         {/* Error message */}
         {error && (
-          <div className="mt-4 rounded-xl px-4 py-3 text-center text-sm font-medium" style={{ backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}>
+          <div
+            className="mt-4 rounded-xl px-4 py-3 text-center text-sm font-medium"
+            style={{ backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}
+          >
             {error}
           </div>
         )}

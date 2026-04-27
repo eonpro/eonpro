@@ -22,7 +22,9 @@ export default function WmGoalWeightStep({
   const { setResponse, markStepCompleted, setCurrentStep } = useIntakeActions();
 
   const [mounted, setMounted] = useState(false);
-  useEffect(() => { requestAnimationFrame(() => setMounted(true)); }, []);
+  useEffect(() => {
+    requestAnimationFrame(() => setMounted(true));
+  }, []);
 
   const [weight, setWeight] = useState(
     String(responses.ideal_weight || responses.idealWeight || '')
@@ -110,7 +112,8 @@ export default function WmGoalWeightStep({
         style={{
           opacity: mounted ? 1 : 0,
           transform: mounted ? 'translateY(0)' : 'translateY(8px)',
-          transition: 'opacity 0.45s cubic-bezier(0.16,1,0.3,1), transform 0.45s cubic-bezier(0.16,1,0.3,1)',
+          transition:
+            'opacity 0.45s cubic-bezier(0.16,1,0.3,1), transform 0.45s cubic-bezier(0.16,1,0.3,1)',
         }}
       >
         {w > 0 && (

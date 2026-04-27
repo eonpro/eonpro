@@ -425,7 +425,8 @@ export default function AffiliateDashboardLayout({ children }: { children: React
               </a>
               {branding && (
                 <p className="mt-4 flex items-center gap-1.5 whitespace-nowrap px-4 text-xs text-gray-400">
-                  Powered by <img src={EONPRO_LOGO} alt="EONPRO" className="h-[21px] w-auto opacity-60" />
+                  Powered by{' '}
+                  <img src={EONPRO_LOGO} alt="EONPRO" className="h-[21px] w-auto opacity-60" />
                 </p>
               )}
             </div>

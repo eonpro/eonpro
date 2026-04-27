@@ -19,6 +19,7 @@ const mockPrisma = vi.hoisted(() => {
       findFirst: vi.fn(),
     },
     invoice: {
+      findUnique: vi.fn(),
       update: vi.fn(),
     },
     patient: {
@@ -308,6 +309,15 @@ describe('Stripe Payment Service', () => {
         invoiceId: 100,
       } as any);
 
+      // `updatePaymentFromIntent` reads the current invoice inside its
+      // transaction to guard against amountPaid over-increment when a
+      // duplicate Stripe webhook arrives. Provide a sane default so the
+      // safety read returns numbers rather than undefined.
+      vi.mocked(prisma.invoice.findUnique).mockResolvedValue({
+        amount: 15000,
+        amountPaid: 0,
+      } as any);
+
       const paymentIntent: Partial<Stripe.PaymentIntent> = {
         id: 'pi_invoice123',
         status: 'succeeded',
@@ -586,7 +596,11 @@ describe('Stripe Payment Service', () => {
       // Access private method via testing
       const mapStripeStatus = (StripePaymentService as any).mapStripeStatus;
 
-      expect(mapStripeStatus('requires_payment_method')).toBe('PENDING');
+      // `requires_payment_method` was intentionally remapped from PENDING
+      // → FAILED on 2026-04-16 (commit ee0788ac) so that a late, out-of-
+      // order Stripe webhook can never regress an already-FAILED payment
+      // back to PENDING. See `paymentService.ts > mapStripeStatus`.
+      expect(mapStripeStatus('requires_payment_method')).toBe('FAILED');
       expect(mapStripeStatus('requires_confirmation')).toBe('PENDING');
       expect(mapStripeStatus('requires_action')).toBe('PENDING');
       expect(mapStripeStatus('processing')).toBe('PROCESSING');

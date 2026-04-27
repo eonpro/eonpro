@@ -50,10 +50,7 @@ const STEP_DESCRIPTIONS = [
  *   Weeks 5-8: 12.5 mg (First increase)
  *   Weeks 9-12+: 15 mg (Maintenance dose)
  */
-function buildTitrationFromDose(
-  startDoseMg: number,
-  ladder: number[]
-): DoseScheduleItem[] | null {
+function buildTitrationFromDose(startDoseMg: number, ladder: number[]): DoseScheduleItem[] | null {
   let startIdx = ladder.findIndex((d) => d === startDoseMg);
 
   if (startIdx === -1) {
@@ -96,18 +93,17 @@ function buildTitrationFromDose(
  * ladder from there. Returns null when no matching prescription is found
  * (callers should fall back to the full standard titration).
  */
-export function usePatientDoseSchedule(
-  medicationType: 'tirzepatide' | 'semaglutide'
-): { schedule: DoseScheduleItem[] | null; loading: boolean } {
+export function usePatientDoseSchedule(medicationType: 'tirzepatide' | 'semaglutide'): {
+  schedule: DoseScheduleItem[] | null;
+  loading: boolean;
+} {
   const [schedule, setSchedule] = useState<DoseScheduleItem[] | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     const ladder =
-      medicationType === 'tirzepatide'
-        ? TIRZEPATIDE_TITRATION_DOSES
-        : SEMAGLUTIDE_TITRATION_DOSES;
+      medicationType === 'tirzepatide' ? TIRZEPATIDE_TITRATION_DOSES : SEMAGLUTIDE_TITRATION_DOSES;
 
     portalFetch('/api/patient-portal/prescriptions')
       .then(async (res) => {
@@ -119,8 +115,7 @@ export function usePatientDoseSchedule(
           (data as { prescriptions?: Prescription[] }).prescriptions || [];
 
         const sorted = [...prescriptions].sort(
-          (a, b) =>
-            new Date(b.prescribedDate).getTime() - new Date(a.prescribedDate).getTime()
+          (a, b) => new Date(b.prescribedDate).getTime() - new Date(a.prescribedDate).getTime()
         );
 
         for (const rx of sorted) {

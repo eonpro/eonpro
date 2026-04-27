@@ -169,7 +169,8 @@ function IntakeStepContent() {
     return formConfig.steps.find((s) => s.id === stepId);
   }, [formConfig, stepId]);
 
-  const isIntakeDomain = typeof window !== 'undefined' && ['intake.otmens.com'].includes(window.location.hostname);
+  const isIntakeDomain =
+    typeof window !== 'undefined' && ['intake.otmens.com'].includes(window.location.hostname);
   const basePath = isIntakeDomain ? `/${templateSlug}` : `/intake/${clinicSlug}/${templateSlug}`;
 
   const handleNavigate = useCallback(

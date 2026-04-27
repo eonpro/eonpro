@@ -6,15 +6,12 @@
  * dose calculators) to build dosing schedules.
  */
 
-export function parseDoseFromDirections(
-  directions: string
-): { mg: string; units: string } | null {
+export function parseDoseFromDirections(directions: string): { mg: string; units: string } | null {
   if (!directions) return null;
   const match = directions.match(/inject\s+([\d.]+)\s*mg\s*\([^)]*?(\d+)\s*units?\)/i);
   if (match?.[1] && match?.[2]) return { mg: match[1], units: match[2] };
   const unitsWithMg = directions.match(/inject\s+(\d+)\s*units?\s*\(([\d.]+)\s*mg\)/i);
-  if (unitsWithMg?.[1] && unitsWithMg?.[2])
-    return { mg: unitsWithMg[2], units: unitsWithMg[1] };
+  if (unitsWithMg?.[1] && unitsWithMg?.[2]) return { mg: unitsWithMg[2], units: unitsWithMg[1] };
   const mgOnly = directions.match(/inject\s+([\d.]+)\s*mg/i);
   if (mgOnly?.[1]) return { mg: mgOnly[1], units: '' };
   const unitsOnly = directions.match(/inject\s+(\d+)\s*units?/i);
@@ -73,10 +70,7 @@ export function parseMultiMonthDirections(directions: string): Array<{
 export function isSupplyMedication(name: string): boolean {
   const n = (name || '').toLowerCase();
   return (
-    n.includes('syringe') ||
-    n.includes('alcohol pad') ||
-    n.includes('needle') ||
-    n.includes('kit')
+    n.includes('syringe') || n.includes('alcohol pad') || n.includes('needle') || n.includes('kit')
   );
 }
 
@@ -92,9 +86,7 @@ export function isInjectableMedication(name: string): boolean {
   );
 }
 
-export function extractMlValue(
-  ...inputs: Array<string | null | undefined>
-): string | null {
+export function extractMlValue(...inputs: Array<string | null | undefined>): string | null {
   for (const input of inputs) {
     if (!input) continue;
     const m = input.match(/(\d+(?:\.\d+)?)\s*ml/i);

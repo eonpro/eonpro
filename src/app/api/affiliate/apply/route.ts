@@ -234,6 +234,10 @@ async function notifyAdminsOfApplication(
       status: 'ACTIVE',
     },
     select: { id: true },
+    // Cap admin notification fan-out — clinics with hundreds of admins are
+    // unrealistic; this both satisfies the pagination enforcement test and
+    // protects against pathological notification spam.
+    take: 100,
   });
 
   const { default: notificationService } =
