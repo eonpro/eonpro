@@ -5,6 +5,13 @@ import { logger } from '@/lib/logger';
 import { OT_CLINIC_SUBDOMAIN } from '@/lib/invoices/ot-pricing';
 import { COMMISSION_ELIGIBLE_ROLES } from '@/lib/constants/commission-eligible-roles';
 
+/**
+ * Roles eligible to be assigned as the OT-clinic sales rep on the manual
+ * reconciliation editor. PHARMACY_REP is excluded — pharmacy reps don't earn
+ * sales commission on OT clinic payouts (they're on the fulfillment side).
+ */
+const OT_SALES_REP_ROLES = COMMISSION_ELIGIBLE_ROLES.filter((r) => r !== 'PHARMACY_REP');
+
 function withSuperAdminAuth(handler: (req: NextRequest, user: AuthUser) => Promise<Response>) {
   return withAuth(handler, { roles: ['super_admin'] });
 }
@@ -27,7 +34,7 @@ export const GET = withSuperAdminAuth(async (_req: NextRequest, user: AuthUser) 
     }
     const reps = await basePrisma.user.findMany({
       where: {
-        role: { in: [...COMMISSION_ELIGIBLE_ROLES] },
+        role: { in: [...OT_SALES_REP_ROLES] },
         status: 'ACTIVE',
         OR: [
           { clinicId: clinic.id },
