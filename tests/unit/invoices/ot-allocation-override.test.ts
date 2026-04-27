@@ -56,7 +56,15 @@ function makeMed(overrides: Partial<OtPharmacyLineItem> = {}): OtPharmacyLineIte
   };
 }
 
-function makeSale(overrides: Partial<OtPerSaleReconciliationLine> = {}): OtPerSaleReconciliationLine {
+function makeSale(
+  overrides: Partial<OtPerSaleReconciliationLine> = {}
+): OtPerSaleReconciliationLine {
+  /**
+   * Default fixture: $249 gross with a deliberately non-matching description so the
+   * tier-aware matcher in `buildDefaultOverridePayload` returns null and the test
+   * exercises the pharmacyLines fallback. Tests that want to validate the matcher
+   * path explicitly set productDescription to a real package name.
+   */
   return {
     orderId: 200,
     invoiceDbId: 500,
@@ -64,7 +72,7 @@ function makeSale(overrides: Partial<OtPerSaleReconciliationLine> = {}): OtPerSa
     orderDate: '2026-04-13T10:00:00.000Z',
     paidAt: '2026-04-13T10:00:00.000Z',
     patientName: 'Doe, Jane',
-    productDescription: 'Semaglutide 2.5mg',
+    productDescription: 'NoCatalogMatchProductXyz',
     patientGrossCents: 24900,
     patientGrossSource: 'stripe_payments',
     stripeBillingNameMatch: 'match',
@@ -92,7 +100,10 @@ function makeSale(overrides: Partial<OtPerSaleReconciliationLine> = {}): OtPerSa
   };
 }
 
-function makeData(perSale: OtPerSaleReconciliationLine[], pharmacy: OtPharmacyLineItem[]): OtDailyInvoices {
+function makeData(
+  perSale: OtPerSaleReconciliationLine[],
+  pharmacy: OtPharmacyLineItem[]
+): OtDailyInvoices {
   return {
     pharmacy: {
       invoiceType: 'pharmacy',
@@ -336,6 +347,56 @@ describe('buildDefaultOverridePayload', () => {
     expect(payload.meds).toHaveLength(1);
     expect(payload.meds[0].name).toBe('Semaglutide');
   });
+
+  it('uses tier-matched package COST when patient gross matches a catalog tier (the primary user fix)', () => {
+    /**
+     * Reproduces the exact production bug: patient paid $249 (1mo Enclomiphene retail).
+     * The `pharmacyByOrderId` map had stale per-SKU pricing showing $135 (which is
+     * actually the 3-month cost for the same SKU). With tier matching the editor
+     * pre-fills $45 — the correct 1-month cost.
+     */
+    const sale = makeSale({
+      productDescription: 'Enclomiphene Citrate 25 mg',
+      patientGrossCents: 24900,
+    });
+    /** Stale pharmacy line — what the bug looks like in the underlying data. */
+    const stalePharmacyLine = makeMed({
+      medicationName: 'ENCLOMIPHENE CITRATE',
+      strength: '25 mg',
+      vialSize: 'CAP',
+      unitPriceCents: 13500,
+      lineTotalCents: 13500,
+      pricingStatus: 'priced',
+    });
+    const payload = buildDefaultOverridePayload(sale, [stalePharmacyLine]);
+    expect(payload.meds).toHaveLength(1);
+    expect(payload.meds[0].name.toLowerCase()).toContain('enclomiphene');
+    /** Cost defaults to the 1-month tier ($45), not the stale $135. */
+    expect(payload.meds[0].unitPriceCents).toBe(4500);
+    expect(payload.meds[0].lineTotalCents).toBe(4500);
+    /** Vial slot is repurposed to label the matched tier so the PDF reads "1 month" not a vial size. */
+    expect(payload.meds[0].vialSize).toBe('1 month');
+    /** Shipping + consult also pulled from the catalog defaults for that package. */
+    expect(payload.shippingCents).toBe(2000);
+    expect(payload.doctorRxFeeCents).toBe(3000);
+  });
+
+  it('falls back to pharmacyLines when patient gross does not match any catalog tier', () => {
+    const sale = makeSale({
+      productDescription: 'Enclomiphene Citrate 25 mg',
+      /** $250 is not a catalog tier — closest is $249 1mo. With tolerance=0 → no match. */
+      patientGrossCents: 25000,
+    });
+    const stalePharmacyLine = makeMed({
+      medicationName: 'ENCLOMIPHENE CITRATE',
+      strength: '25 mg',
+      unitPriceCents: 13500,
+      lineTotalCents: 13500,
+    });
+    const payload = buildDefaultOverridePayload(sale, [stalePharmacyLine]);
+    /** Falls back to the (stale) pharmacy line because no catalog tier matched. */
+    expect(payload.meds[0].unitPriceCents).toBe(13500);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -354,7 +415,10 @@ describe('applyOtAllocationOverrides', () => {
     });
     const data = makeData(
       [sale1, sale2],
-      [makeMed({ orderId: 200 }), makeMed({ orderId: 201, lineTotalCents: 6200, unitPriceCents: 6200 })]
+      [
+        makeMed({ orderId: 200 }),
+        makeMed({ orderId: 201, lineTotalCents: 6200, unitPriceCents: 6200 }),
+      ]
     );
 
     const overrides = new Map<number, OtAllocationOverrideMeta>();

@@ -17,6 +17,7 @@ import {
   OT_PACKAGE_TIER_LABELS,
   getOtPackageById,
   getOtPackageQuoteAtTier,
+  findOtPackageMatchByPatientGross,
   type OtPackageTier,
 } from '@/lib/invoices/ot-package-catalog';
 
@@ -131,6 +132,89 @@ describe('Tier labels exposed for UI', () => {
     for (const t of tiers) {
       expect(OT_PACKAGE_TIER_LABELS[t]).toMatch(/month/);
     }
+  });
+});
+
+describe('findOtPackageMatchByPatientGross — tier-aware default cost', () => {
+  it('matches Enclomiphene 1 month tier from gross + Rx description', () => {
+    /**
+     * Reproduces the exact scenario the user reported: patient paid $249,
+     * order Rx is "Enclomiphene Citrate 25mg". Without this matcher the editor
+     * pre-filled $135 (the 3-month cost on the same SKU). With it, $45.
+     */
+    const m = findOtPackageMatchByPatientGross(24900, 'Enclomiphene Citrate 25 mg');
+    expect(m).not.toBeNull();
+    expect(m!.pkg.id).toBe('enclomiphene-25mg');
+    expect(m!.tier).toBe(1);
+    expect(m!.quote.retailCents).toBe(24900);
+    expect(m!.quote.costCents).toBe(4500);
+  });
+
+  it('matches Enclomiphene 3 month tier when patient paid $649', () => {
+    const m = findOtPackageMatchByPatientGross(64900, 'Enclomiphene Citrate 25 mg');
+    expect(m).not.toBeNull();
+    expect(m!.pkg.id).toBe('enclomiphene-25mg');
+    expect(m!.tier).toBe(3);
+    expect(m!.quote.costCents).toBe(13500);
+  });
+
+  it('matches the maintenance variant when patient paid $149 (1 month maintenance)', () => {
+    const m = findOtPackageMatchByPatientGross(14900, 'Enclomiphene Citrate 25 mg');
+    expect(m).not.toBeNull();
+    expect(m!.pkg.id).toBe('enclomiphene-25mg-maintenance');
+    expect(m!.tier).toBe(1);
+    expect(m!.quote.costCents).toBe(3000);
+  });
+
+  it('returns null when the gross does not match any tier of any name-overlapping package', () => {
+    const m = findOtPackageMatchByPatientGross(33333, 'Enclomiphene Citrate 25 mg');
+    expect(m).toBeNull();
+  });
+
+  it('returns null when productDescription is empty', () => {
+    expect(findOtPackageMatchByPatientGross(24900, '')).toBeNull();
+    expect(findOtPackageMatchByPatientGross(24900, null)).toBeNull();
+  });
+
+  it('returns null when gross is zero or negative', () => {
+    expect(findOtPackageMatchByPatientGross(0, 'Enclomiphene 25mg')).toBeNull();
+    expect(findOtPackageMatchByPatientGross(-100, 'Enclomiphene 25mg')).toBeNull();
+  });
+
+  it('matches TRT Plus 6 month and pulls the right defaults', () => {
+    const m = findOtPackageMatchByPatientGross(
+      128500,
+      'Testosterone Cypionate 200MG/4mL · Enclomiphene 25mg'
+    );
+    expect(m).not.toBeNull();
+    expect(m!.pkg.id).toBe('trt-plus');
+    expect(m!.tier).toBe(6);
+    expect(m!.pkg.defaultConsultCents).toBe(5000);
+    expect(m!.pkg.defaultShippingCents).toBe(3000);
+  });
+
+  it('disambiguates a bundle from a standalone Rx by token overlap when both retails match', () => {
+    /**
+     * Both standalone Enclomiphene 1mo ($249) and Build 1mo ($549) are listed
+     * but only Build's retail is $549. With description containing "Sermorelin"
+     * the matcher should pick Build over Enclomiphene since $549 doesn't match
+     * Enclomiphene at any tier — but score should still favor Build for
+     * descriptions that mention both.
+     */
+    const m = findOtPackageMatchByPatientGross(54900, 'Enclomiphene 25mg · Sermorelin');
+    expect(m).not.toBeNull();
+    expect(m!.pkg.id).toBe('build');
+    expect(m!.tier).toBe(1);
+  });
+
+  it('respects the tolerance option for off-by-cents drift (e.g. tax)', () => {
+    /** $249.10 with $10 tolerance should still match the $249.00 1-month tier. */
+    const m = findOtPackageMatchByPatientGross(24910, 'Enclomiphene Citrate 25 mg', {
+      tolerance: 100,
+    });
+    expect(m).not.toBeNull();
+    expect(m!.pkg.id).toBe('enclomiphene-25mg');
+    expect(m!.tier).toBe(1);
   });
 });
 

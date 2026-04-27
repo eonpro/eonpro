@@ -45,6 +45,10 @@ import {
   type OtAllocationOverrideStatus,
   type OtAllocationOverrideTotals,
 } from '@/services/invoices/otAllocationOverrideTypes';
+import {
+  findOtPackageMatchByPatientGross,
+  OT_PACKAGE_TIER_LABELS,
+} from '@/lib/invoices/ot-package-catalog';
 
 const CLINIC_TZ = 'America/New_York';
 
@@ -2635,26 +2639,56 @@ export function buildDefaultOverridePayload(
   line: OtPerSaleReconciliationLine,
   pharmacyLines: OtPharmacyLineItem[]
 ): OtAllocationOverridePayload {
-  const orderMeds = pharmacyLines
-    .filter((p) => p.orderId === line.orderId)
-    .map((p) => ({
-      medicationKey: p.medicationKey || null,
-      name: p.medicationName,
-      strength: p.strength,
-      vialSize: p.vialSize,
-      quantity: Math.max(1, p.quantity || 1),
-      unitPriceCents: Math.max(0, p.unitPriceCents),
-      lineTotalCents: Math.max(0, p.lineTotalCents),
-      source: (p.pricingStatus === 'priced' ? 'catalog' : 'custom') as 'catalog' | 'custom',
-      /** Default: no per-line rate. Admin opts-in by selecting a rep + a chip. */
-      commissionRateBps: null,
-    }));
+  /**
+   * Tier-aware default: when patient gross matches a known package retail
+   * tier AND the product description names a matching package, replace the
+   * pharmacy lines (which only know per-SKU price, not per-tier price) with a
+   * single line at the tier's catalog cost. Also use the package's default
+   * shipping + consult.
+   *
+   * Example: patient paid $249 for "Enclomiphene Citrate 25 mg". The matcher
+   * resolves to "Enclomiphene 25mg (28/84) @ 1 month" → cost $45, not $135
+   * (which is the 3-month tier cost in the same SKU's `OT_PRODUCT_PRICES`).
+   */
+  const tierMatch = findOtPackageMatchByPatientGross(
+    line.patientGrossCents,
+    line.productDescription
+  );
+
+  const meds = tierMatch
+    ? [
+        {
+          medicationKey: null,
+          name: tierMatch.pkg.name,
+          strength: tierMatch.pkg.subtitle ?? '',
+          vialSize: OT_PACKAGE_TIER_LABELS[tierMatch.tier],
+          quantity: 1,
+          unitPriceCents: tierMatch.quote.costCents,
+          lineTotalCents: tierMatch.quote.costCents,
+          source: 'catalog' as const,
+          /** Default: no per-line rate. Admin opts-in by selecting a rep + a chip. */
+          commissionRateBps: null,
+        },
+      ]
+    : pharmacyLines
+        .filter((p) => p.orderId === line.orderId)
+        .map((p) => ({
+          medicationKey: p.medicationKey || null,
+          name: p.medicationName,
+          strength: p.strength,
+          vialSize: p.vialSize,
+          quantity: Math.max(1, p.quantity || 1),
+          unitPriceCents: Math.max(0, p.unitPriceCents),
+          lineTotalCents: Math.max(0, p.lineTotalCents),
+          source: (p.pricingStatus === 'priced' ? 'catalog' : 'custom') as 'catalog' | 'custom',
+          commissionRateBps: null,
+        }));
 
   return {
-    meds: orderMeds,
-    shippingCents: line.shippingCents,
+    meds,
+    shippingCents: tierMatch ? tierMatch.pkg.defaultShippingCents : line.shippingCents,
     trtTelehealthCents: line.trtTelehealthCents,
-    doctorRxFeeCents: line.doctorApprovalCents,
+    doctorRxFeeCents: tierMatch ? tierMatch.pkg.defaultConsultCents : line.doctorApprovalCents,
     fulfillmentFeesCents: line.fulfillmentFeesCents,
     customLineItems: [],
     notes: null,

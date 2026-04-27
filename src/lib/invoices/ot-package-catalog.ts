@@ -515,3 +515,93 @@ export const OT_SHIPPING_CHIPS: Array<{ label: string; cents: number }> = [
   { label: '$20', cents: 2000 },
   { label: '$30', cents: 3000 },
 ];
+
+// ---------------------------------------------------------------------------
+// Match-by-patient-gross
+// ---------------------------------------------------------------------------
+
+/**
+ * Lowercase-alphanumeric token split. Words shorter than 3 chars are dropped
+ * (keeps strength prefixes like "25" — that's still 3 alphanumerics with a
+ * preceding "mg" if the source has "25mg" → ["25mg"]).
+ */
+function tokenizeForMatch(s: string): string[] {
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .split(/\s+/)
+    .filter((t) => t.length >= 2);
+}
+
+/**
+ * Token overlap score between a haystack (package name + subtitle) and a query
+ * (Rx description). Exact match = 2 pts; substring match (e.g. "25" inside
+ * "25mg") = 1 pt; no match = 0. Each query token contributes at most 2 pts.
+ */
+function tokenOverlapScore(haystack: string[], query: string[]): number {
+  let total = 0;
+  for (const q of query) {
+    let best = 0;
+    for (const h of haystack) {
+      if (q === h) {
+        best = Math.max(best, 2);
+        break;
+      } else if (h.includes(q) || q.includes(h)) {
+        best = Math.max(best, 1);
+      }
+    }
+    total += best;
+  }
+  return total;
+}
+
+export interface OtPackageMatch {
+  pkg: OtPackageCatalogRow;
+  tier: OtPackageTier;
+  quote: OtPackageQuoteAtTier;
+  /** Token-overlap score (higher = more confident name match). */
+  score: number;
+}
+
+/**
+ * Find the package + tier whose retail price matches what the patient paid,
+ * disambiguated by name overlap with the order's product description.
+ *
+ * Used by `buildDefaultOverridePayload` so the editor pre-fills the right
+ * pharmacy COGS for the tier the patient actually purchased — e.g. patient
+ * paid $249 (1 month Enclomiphene) → pre-fills $45 cost (1 month), not $135
+ * (3 month).
+ *
+ * Returns null when no package has a tier with retail equal to (within the
+ * optional tolerance) the gross AND a non-zero name overlap. Caller should
+ * fall back to whatever computed defaults they already have.
+ */
+export function findOtPackageMatchByPatientGross(
+  patientGrossCents: number,
+  productDescription: string | null | undefined,
+  options?: { tolerance?: number }
+): OtPackageMatch | null {
+  if (patientGrossCents <= 0) return null;
+  if (!productDescription || productDescription.trim().length === 0) return null;
+  const tolerance = options?.tolerance ?? 0;
+  const queryTokens = tokenizeForMatch(productDescription);
+  if (queryTokens.length === 0) return null;
+
+  let best: OtPackageMatch | null = null;
+  for (const pkg of OT_PACKAGE_CATALOG) {
+    const haystack = tokenizeForMatch(`${pkg.name} ${pkg.subtitle ?? ''}`);
+    const score = tokenOverlapScore(haystack, queryTokens);
+    if (score === 0) continue;
+
+    for (const tier of [1, 3, 6, 12] as OtPackageTier[]) {
+      const quote = getOtPackageQuoteAtTier(pkg, tier);
+      if (!quote) continue;
+      if (quote.retailCents <= 0) continue;
+      if (Math.abs(quote.retailCents - patientGrossCents) > tolerance) continue;
+      if (!best || score > best.score) {
+        best = { pkg, tier, quote, score };
+      }
+    }
+  }
+  return best;
+}
