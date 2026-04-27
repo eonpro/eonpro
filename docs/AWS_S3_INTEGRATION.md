@@ -245,9 +245,43 @@ bucket/
 ├── providers/
 ├── appointments/
 ├── prescriptions/
+├── chat-attachments/
+│   └── {clinicId}/
+│       └── {patientId}/
+│           └── {timestamp}-{uuid}.{ext}
 ├── temp/
 └── archived/
 ```
+
+### Chat attachments path
+
+Patient ↔ clinic chat attachments (introduced 2026-04-26) live under
+`chat-attachments/{clinicId}/{patientId}/`. Rationale for reusing the
+documents bucket rather than provisioning a dedicated bucket:
+
+- The bucket already has BAA, KMS, versioning, CORS, and 7-year HIPAA
+  lifecycle policies wired up — duplicating those for a new bucket adds
+  ops surface (IAM, KMS rotation, lifecycle review) without compliance
+  benefit.
+- Path-prefix isolation is the established pattern (`patient-photos`,
+  `branding`, `profile-pictures`, etc. all share this bucket).
+- All reads happen via short-lived (1 hour) signed URLs minted server-side.
+  Clients never see the raw `s3Key`.
+- Cross-tenant key submission is blocked structurally by
+  `validateChatAttachmentS3Key` in `src/lib/chat-attachments/`, which
+  parses the key, checks the prefix + clinic + patient segments, rejects
+  `..` traversal, and enforces the MIME-derived extension allowlist.
+
+Policy constants for chat attachments (single source of truth in
+`src/lib/chat-attachments/`):
+
+| Constant | Value |
+|---|---|
+| `CHAT_ATTACHMENT_MAX_BYTES` | 15 MB |
+| `CHAT_ATTACHMENT_MAX_PER_MESSAGE` | 5 |
+| `CHAT_ATTACHMENT_SIGNED_URL_TTL_SECONDS` | 3600 |
+| `CHAT_ATTACHMENT_UPLOAD_URL_TTL_SECONDS` | 300 |
+| `CHAT_ATTACHMENT_ACCEPTED_MIME_TYPES` | `image/jpeg`, `image/jpg`, `image/png`, `image/webp`, `image/heic`, `image/heif`, `application/pdf` |
 
 ## Cost Optimization
 

@@ -13,6 +13,15 @@ import { logger } from '@/lib/logger';
 import { useWebSocket, EventType } from '@/hooks/useWebSocket';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import {
+  uploadChatAttachment,
+  classifyChatAttachmentFile,
+  CHAT_ATTACHMENT_ACCEPT_ATTR,
+  CHAT_ATTACHMENT_MAX_PER_MESSAGE,
+  CHAT_ATTACHMENT_MAX_BYTES,
+  type ChatAttachmentSendable,
+} from '@/lib/chat-attachments/client';
+import type { ChatAttachmentResolved } from '@/lib/chat-attachments';
+import {
   Send,
   ArrowLeft,
   Check,
@@ -23,6 +32,9 @@ import {
   Smile,
   Paperclip,
   MoreVertical,
+  X as XIcon,
+  FileText,
+  Loader2,
 } from 'lucide-react';
 
 interface ChatMessage {
@@ -40,6 +52,21 @@ interface ChatMessage {
     message: string;
     senderName: string;
   } | null;
+  attachments?: ChatAttachmentResolved[] | null;
+}
+
+interface PendingAttachment {
+  /** Local-only id; replaced by server-issued uuid once sent. */
+  localId: string;
+  file: File;
+  name: string;
+  size: number;
+  mime: string;
+  /** 0..1 */
+  progress: number;
+  /** Set once the file has finished uploading to S3. */
+  sendable?: ChatAttachmentSendable;
+  error?: string;
 }
 
 export default function PatientChatPage() {
@@ -54,6 +81,8 @@ export default function PatientChatPage() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
+  const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!patientIdLoading && !patientId) {
@@ -183,11 +212,92 @@ export default function PatientChatPage() {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-  const handleSendMessage = async () => {
-    if (!newMessage.trim() || !patientId || sending) return;
+  // ------------------------------------------------------------------
+  // Attachment upload pipeline.
+  // Uploads kick off as soon as files are picked so the user can keep
+  // typing. Send button stays disabled while any upload is in-flight.
+  // ------------------------------------------------------------------
+  const isUploading = pendingAttachments.some((a) => !a.sendable && !a.error);
+  const readyAttachments = pendingAttachments.filter((a) => a.sendable);
 
+  const removePendingAttachment = useCallback((localId: string) => {
+    setPendingAttachments((prev) => prev.filter((a) => a.localId !== localId));
+  }, []);
+
+  const handleAttachClick = useCallback(() => {
+    if (sending) return;
+    fileInputRef.current?.click();
+  }, [sending]);
+
+  const handleFilesSelected = useCallback(
+    async (files: FileList | null) => {
+      if (!files || files.length === 0 || !patientId) return;
+      setError('');
+
+      // Cap total selected to CHAT_ATTACHMENT_MAX_PER_MESSAGE
+      const remaining = CHAT_ATTACHMENT_MAX_PER_MESSAGE - pendingAttachments.length;
+      const incoming = Array.from(files).slice(0, Math.max(0, remaining));
+      if (Array.from(files).length > remaining) {
+        setError(`You can attach up to ${CHAT_ATTACHMENT_MAX_PER_MESSAGE} files per message.`);
+      }
+
+      const queued: PendingAttachment[] = [];
+      for (const file of incoming) {
+        const cls = classifyChatAttachmentFile(file);
+        if (!cls.ok) {
+          setError(cls.reason);
+          continue;
+        }
+        queued.push({
+          localId: `local_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+          file,
+          name: file.name,
+          size: file.size,
+          mime: cls.mime,
+          progress: 0,
+        });
+      }
+      if (queued.length === 0) return;
+
+      setPendingAttachments((prev) => [...prev, ...queued]);
+
+      // Kick off uploads in parallel; update progress per-file.
+      await Promise.all(
+        queued.map(async (entry) => {
+          try {
+            const sendable = await uploadChatAttachment(entry.file, {
+              onProgress: (loaded, total) => {
+                if (!total) return;
+                const pct = Math.min(1, loaded / total);
+                setPendingAttachments((prev) =>
+                  prev.map((a) => (a.localId === entry.localId ? { ...a, progress: pct } : a))
+                );
+              },
+            });
+            setPendingAttachments((prev) =>
+              prev.map((a) => (a.localId === entry.localId ? { ...a, progress: 1, sendable } : a))
+            );
+          } catch (err) {
+            const message = err instanceof Error ? err.message : 'Upload failed';
+            logger.error('Chat attachment upload failed', { error: message });
+            setPendingAttachments((prev) =>
+              prev.map((a) => (a.localId === entry.localId ? { ...a, error: message } : a))
+            );
+          }
+        })
+      );
+    },
+    [patientId, pendingAttachments.length]
+  );
+
+  const handleSendMessage = async () => {
+    if (!patientId || sending || isUploading) return;
     const messageText = newMessage.trim();
+    if (messageText.length === 0 && readyAttachments.length === 0) return;
+
     setNewMessage('');
+    const sendingAttachments = [...readyAttachments];
+    setPendingAttachments((prev) => prev.filter((a) => !a.sendable)); // keep failed ones for retry
     setSending(true);
     setError('');
 
@@ -202,6 +312,14 @@ export default function PatientChatPage() {
       senderName: 'You',
       status: 'PENDING',
       readAt: null,
+      attachments: sendingAttachments.map((p) => ({
+        id: p.localId,
+        name: p.name,
+        mime: p.mime as ChatAttachmentResolved['mime'],
+        size: p.size,
+        uploadedAt: new Date().toISOString(),
+        // No URL yet — server will return signed URL on next refresh.
+      })),
     };
     setMessages((prev) => [...prev, tempMessage]);
 
@@ -213,6 +331,9 @@ export default function PatientChatPage() {
           patientId,
           message: messageText,
           channel: 'WEB',
+          ...(sendingAttachments.length > 0
+            ? { attachments: sendingAttachments.map((a) => a.sendable!) }
+            : {}),
         }),
       });
 
@@ -227,9 +348,10 @@ export default function PatientChatPage() {
       if (sentMessage) {
         setMessages((prev) => prev.map((m) => (m.id === tempMessage.id ? sentMessage : m)));
       }
+      // Pull a fresh page so signed URLs for the new attachments come back.
+      if (sendingAttachments.length > 0) fetchMessages();
     } catch (err) {
       setError(t('chatSendFailed'));
-      // Mark temp message as failed
       setMessages((prev) =>
         prev.map((m) => (m.id === tempMessage.id ? { ...m, status: 'FAILED' as const } : m))
       );
@@ -470,11 +592,63 @@ export default function PatientChatPage() {
                           )}
 
                           {/* Message Content */}
-                          <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">
-                            {linkifyText(decodeHtmlEntities(message.message), {
-                              className: `underline break-all ${isOutgoing ? 'text-white/90 hover:text-white' : 'text-blue-600 hover:text-blue-800'}`,
-                            })}
-                          </p>
+                          {message.message && message.message.length > 0 && (
+                            <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">
+                              {linkifyText(decodeHtmlEntities(message.message), {
+                                className: `underline break-all ${isOutgoing ? 'text-white/90 hover:text-white' : 'text-blue-600 hover:text-blue-800'}`,
+                              })}
+                            </p>
+                          )}
+
+                          {/* Attachments */}
+                          {message.attachments && message.attachments.length > 0 && (
+                            <div
+                              className={`flex flex-wrap gap-2 ${
+                                message.message && message.message.length > 0 ? 'mt-2' : ''
+                              }`}
+                            >
+                              {message.attachments.map((att) => {
+                                const isImage = att.mime.startsWith('image/');
+                                if (isImage && att.url) {
+                                  return (
+                                    <a
+                                      key={att.id}
+                                      href={att.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="block overflow-hidden rounded-lg"
+                                      style={{ maxWidth: 220 }}
+                                    >
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img
+                                        src={att.url}
+                                        alt={att.name}
+                                        className="block max-h-60 w-full rounded-lg object-cover"
+                                      />
+                                    </a>
+                                  );
+                                }
+                                return (
+                                  <a
+                                    key={att.id}
+                                    href={att.url || '#'}
+                                    target={att.url ? '_blank' : undefined}
+                                    rel="noopener noreferrer"
+                                    className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs ${
+                                      isOutgoing
+                                        ? 'bg-white/15 text-white'
+                                        : 'bg-gray-100 text-gray-700'
+                                    } ${!att.url ? 'pointer-events-none opacity-70' : ''}`}
+                                  >
+                                    <FileText className="h-4 w-4" />
+                                    <span className="line-clamp-1 max-w-[160px] font-medium">
+                                      {att.name}
+                                    </span>
+                                  </a>
+                                );
+                              })}
+                            </div>
+                          )}
 
                           {/* Time and Status */}
                           <div
@@ -512,12 +686,70 @@ export default function PatientChatPage() {
 
       {/* Input Area */}
       <div className="border-t border-gray-200 bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]">
+        {/* Pending attachment chips */}
+        {pendingAttachments.length > 0 && (
+          <div className="mb-3 flex flex-wrap gap-2">
+            {pendingAttachments.map((att) => (
+              <div
+                key={att.localId}
+                className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs ${
+                  att.error
+                    ? 'border-red-200 bg-red-50 text-red-700'
+                    : att.sendable
+                      ? 'border-gray-200 bg-gray-50 text-gray-700'
+                      : 'border-gray-200 bg-white text-gray-500'
+                }`}
+              >
+                {att.mime.startsWith('image/') ? (
+                  <span className="font-medium">{att.name}</span>
+                ) : (
+                  <>
+                    <FileText className="h-4 w-4" />
+                    <span className="font-medium">{att.name}</span>
+                  </>
+                )}
+                {!att.sendable && !att.error && (
+                  <span className="flex items-center gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    {Math.round(att.progress * 100)}%
+                  </span>
+                )}
+                {att.error && <span className="text-red-700">— {att.error}</span>}
+                <button
+                  type="button"
+                  aria-label={`Remove ${att.name}`}
+                  className="ml-1 flex h-5 w-5 items-center justify-center rounded-full text-gray-400 hover:bg-gray-200 hover:text-gray-600"
+                  onClick={() => removePendingAttachment(att.localId)}
+                >
+                  <XIcon className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="flex items-end gap-3">
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept={CHAT_ATTACHMENT_ACCEPT_ATTR}
+            className="hidden"
+            onChange={(e) => {
+              void handleFilesSelected(e.target.files);
+              if (e.target) e.target.value = '';
+            }}
+          />
+
           {/* Attachment Button */}
           <button
             aria-label="Attach file"
-            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-gray-400 active:bg-gray-100"
-            disabled
+            type="button"
+            onClick={handleAttachClick}
+            disabled={sending || pendingAttachments.length >= CHAT_ATTACHMENT_MAX_PER_MESSAGE}
+            title={`Up to ${CHAT_ATTACHMENT_MAX_PER_MESSAGE} files, ${CHAT_ATTACHMENT_MAX_BYTES / 1024 / 1024}MB each`}
+            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-gray-500 active:bg-gray-100 disabled:opacity-50"
           >
             <Paperclip className="h-5 w-5" />
           </button>
@@ -545,7 +777,9 @@ export default function PatientChatPage() {
           {/* Send Button */}
           <button
             onClick={handleSendMessage}
-            disabled={!newMessage.trim() || sending}
+            disabled={
+              sending || isUploading || (!newMessage.trim() && readyAttachments.length === 0)
+            }
             aria-label="Send message"
             className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-white transition-all disabled:opacity-50"
             style={{ backgroundColor: primaryColor }}
