@@ -1,0 +1,76 @@
+name: Run Database Migrations
+
+# Standalone migration runner that doesn't share state with the broken-API
+# `deploy.yml` workflow_dispatch (GitHub Actions is rejecting that one with
+# 422). Run this manually after pushing a migration:
+#
+#   gh workflow run migrate.yml
+#
+# Or trigger from the GitHub UI (Actions tab → Run Database Migrations → Run).
+# Targets the production database only (matches the prod-only secrets used
+# elsewhere in this repo).
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'If true, prints `prisma migrate status` without applying anything'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  migrate:
+    name: Apply pending Prisma migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Show pending migrations
+        run: |
+          echo "📋 Migration status BEFORE deploy:"
+          npx prisma migrate status || true
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}
+
+      - name: Apply migrations
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: |
+          echo "🔄 Applying pending migrations..."
+          npx prisma migrate deploy
+          echo "✅ Migrations applied"
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}
+
+      - name: Verify migration status
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: |
+          echo "📋 Migration status AFTER deploy:"
+          npx prisma migrate status
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}
