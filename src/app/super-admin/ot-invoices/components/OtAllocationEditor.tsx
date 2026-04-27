@@ -30,9 +30,19 @@ import {
   ChevronRight,
   Download,
   AlertCircle,
+  Package as PackageIcon,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 import { OT_PRODUCT_PRICES } from '@/lib/invoices/ot-pricing';
+import {
+  OT_PACKAGE_CATALOG,
+  OT_PACKAGE_TIER_LABELS,
+  OT_DOCTOR_CONSULT_CHIPS,
+  OT_SHIPPING_CHIPS,
+  getOtPackageQuoteAtTier,
+  type OtPackageCatalogRow,
+  type OtPackageTier,
+} from '@/lib/invoices/ot-package-catalog';
 import {
   computeOtAllocationOverrideTotals,
   reconcileOtAllocationMedLineTotals,
@@ -606,6 +616,7 @@ function OtAllocationRow({
         <div className="border-t border-gray-100 px-4 py-4">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <div className="flex flex-col gap-5 lg:col-span-2">
+              <PackageQuickFill payload={payload} onMutate={onMutate} />
               <MedicationsEditor payload={payload} onMutate={onMutate} />
               <FeesEditor payload={payload} onMutate={onMutate} />
               <CustomLinesEditor payload={payload} onMutate={onMutate} />
@@ -632,6 +643,201 @@ function OtAllocationRow({
 // ---------------------------------------------------------------------------
 // Sub-editors
 // ---------------------------------------------------------------------------
+
+/**
+ * One-click pre-fill from the OT package catalog. Selecting `<package> @ <tier>`
+ * REPLACES the meds row with a single line at the package's pharmacy cost,
+ * and sets shipping + doctor consult to the package's defaults. Custom line
+ * items, notes, and patient gross are left alone.
+ */
+function PackageQuickFill({
+  payload,
+  onMutate,
+}: {
+  payload: OtAllocationOverridePayload;
+  onMutate: (m: (p: OtAllocationOverridePayload) => OtAllocationOverridePayload) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [selectedPkg, setSelectedPkg] = useState<OtPackageCatalogRow | null>(null);
+
+  const matches = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return OT_PACKAGE_CATALOG.slice(0, 30);
+    return OT_PACKAGE_CATALOG.filter((p) =>
+      `${p.name} ${p.subtitle ?? ''} ${p.category}`.toLowerCase().includes(q)
+    ).slice(0, 30);
+  }, [query]);
+
+  const applyAtTier = (pkg: OtPackageCatalogRow, tier: OtPackageTier) => {
+    const quote = getOtPackageQuoteAtTier(pkg, tier);
+    if (!quote) return;
+    onMutate((p) => ({
+      ...p,
+      meds: [
+        {
+          medicationKey: null,
+          name: pkg.name,
+          strength: pkg.subtitle ?? '',
+          vialSize: OT_PACKAGE_TIER_LABELS[tier],
+          quantity: 1,
+          unitPriceCents: quote.costCents,
+          lineTotalCents: quote.costCents,
+          source: 'catalog' as const,
+        },
+      ],
+      shippingCents: pkg.defaultShippingCents,
+      doctorRxFeeCents: pkg.defaultConsultCents,
+    }));
+    setOpen(false);
+    setSelectedPkg(null);
+    setQuery('');
+  };
+
+  return (
+    <section className="rounded-lg border border-emerald-100 bg-emerald-50/40 p-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <PackageIcon className="h-4 w-4 text-emerald-700" />
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-emerald-900">
+            Apply package
+          </h4>
+          <span className="text-[11px] text-emerald-800/80">
+            One-click prefill from the OT pricing sheet
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setOpen((v) => !v);
+            setSelectedPkg(null);
+            setQuery('');
+          }}
+          className="rounded-lg border border-emerald-300 bg-white px-2 py-1 text-xs font-medium text-emerald-800 hover:bg-emerald-50"
+        >
+          {open ? 'Close' : 'Choose package…'}
+        </button>
+      </div>
+      {open && (
+        <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+          <div>
+            <input
+              type="text"
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search packages, bundles, or research peptides…"
+              className="mb-2 w-full rounded-md border border-gray-200 px-2 py-1 text-xs focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
+            />
+            <div className="max-h-72 overflow-y-auto rounded-md border border-gray-100 bg-white">
+              {matches.length === 0 ? (
+                <p className="px-3 py-3 text-xs text-gray-500">No matches.</p>
+              ) : (
+                <ul className="flex flex-col">
+                  {matches.map((pkg) => (
+                    <li key={pkg.id}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedPkg(pkg)}
+                        className={`flex w-full flex-col items-start gap-0.5 px-2.5 py-1.5 text-left text-xs hover:bg-emerald-50 ${
+                          selectedPkg?.id === pkg.id ? 'bg-emerald-100' : ''
+                        }`}
+                      >
+                        <span className="font-medium text-gray-900">{pkg.name}</span>
+                        {pkg.subtitle && (
+                          <span className="text-[11px] text-gray-500">{pkg.subtitle}</span>
+                        )}
+                        <span className="text-[10px] uppercase tracking-wider text-emerald-800/70">
+                          {pkg.category}
+                          {pkg.researchOnly ? ' · research only' : ''}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+          <div className="rounded-md border border-gray-100 bg-white p-3">
+            {selectedPkg ? (
+              <PackageTierSelector pkg={selectedPkg} onApply={applyAtTier} />
+            ) : (
+              <p className="text-xs text-gray-500">
+                Select a package on the left to choose a tier and apply.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function PackageTierSelector({
+  pkg,
+  onApply,
+}: {
+  pkg: OtPackageCatalogRow;
+  onApply: (pkg: OtPackageCatalogRow, tier: OtPackageTier) => void;
+}) {
+  const tiers: OtPackageTier[] = [1, 3, 6, 12];
+  return (
+    <div className="flex flex-col gap-2">
+      <div>
+        <p className="text-xs font-semibold text-gray-900">{pkg.name}</p>
+        {pkg.subtitle && <p className="text-[11px] text-gray-500">{pkg.subtitle}</p>}
+        <p className="mt-1 text-[11px] text-gray-500">
+          Defaults: doctor {centsToDisplay(pkg.defaultConsultCents)} · shipping{' '}
+          {centsToDisplay(pkg.defaultShippingCents)}
+        </p>
+      </div>
+      <ul className="flex flex-col gap-1">
+        {tiers.map((tier) => {
+          const quote = getOtPackageQuoteAtTier(pkg, tier);
+          const offered = quote != null;
+          return (
+            <li key={tier}>
+              <button
+                type="button"
+                disabled={!offered}
+                onClick={() => offered && onApply(pkg, tier)}
+                className={`flex w-full items-center justify-between gap-2 rounded-md border px-2 py-1.5 text-xs ${
+                  offered
+                    ? 'border-emerald-200 bg-white hover:border-emerald-400 hover:bg-emerald-50'
+                    : 'cursor-not-allowed border-gray-100 bg-gray-50 text-gray-400'
+                }`}
+              >
+                <span className="font-semibold">{OT_PACKAGE_TIER_LABELS[tier]}</span>
+                {offered ? (
+                  <span className="flex items-center gap-3 tabular-nums">
+                    <span className="text-gray-700">
+                      Retail{' '}
+                      <span className="font-semibold text-gray-900">
+                        {centsToDisplay(quote.retailCents)}
+                      </span>
+                    </span>
+                    <span className="text-gray-700">
+                      Cost{' '}
+                      <span className="font-semibold text-emerald-700">
+                        {centsToDisplay(quote.costCents)}
+                      </span>
+                    </span>
+                  </span>
+                ) : (
+                  <span className="text-[11px] uppercase">Not offered</span>
+                )}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="text-[10px] text-gray-500">
+        Applying replaces the medications list with one line at the package&apos;s pharmacy cost and
+        sets shipping + doctor consult to the package defaults. Patient gross is unchanged.
+      </p>
+    </div>
+  );
+}
 
 function MedicationsEditor({
   payload,
@@ -856,30 +1062,22 @@ function FeesEditor({
         <FeeWithChips
           label="Shipping"
           value={payload.shippingCents}
-          chips={[
-            { label: 'Standard $20', cents: 2000 },
-            { label: 'Premium $30', cents: 3000 },
-            { label: 'Free $0', cents: 0 },
-          ]}
+          chips={OT_SHIPPING_CHIPS}
           onChange={(c) => onMutate((p) => ({ ...p, shippingCents: c }))}
         />
         <FeeWithChips
           label="TRT telehealth"
           value={payload.trtTelehealthCents}
           chips={[
-            { label: 'TRT $50', cents: 5000 },
-            { label: 'None $0', cents: 0 },
+            { label: '$50', cents: 5000 },
+            { label: '$0', cents: 0 },
           ]}
           onChange={(c) => onMutate((p) => ({ ...p, trtTelehealthCents: c }))}
         />
         <FeeWithChips
-          label="Doctor / Rx fee"
+          label="Doctor consult"
           value={payload.doctorRxFeeCents}
-          chips={[
-            { label: 'Async $30', cents: 3000 },
-            { label: 'Sync $50', cents: 5000 },
-            { label: 'Waived $0', cents: 0 },
-          ]}
+          chips={OT_DOCTOR_CONSULT_CHIPS}
           onChange={(c) => onMutate((p) => ({ ...p, doctorRxFeeCents: c }))}
         />
         <FeeWithChips
