@@ -325,6 +325,12 @@ describe('generateOtDailyInvoices (mocked DB)', () => {
     expect(sale!.patientGrossSource).toBe('stripe_payments');
     expect(sale!.merchantProcessingCents).toBe(m);
     expect(sale!.platformCompensationCents).toBe(p);
+    /**
+     * productDescription should be derived from the order's Rx list — what the
+     * patient actually paid for. The manual reconciliation editor shows this on
+     * each row so admins can see the package without expanding.
+     */
+    expect(sale!.productDescription).toContain('Semaglutide');
   });
 
   it('payment→invoice bridge: cash in period but Invoice.paidAt outside window still loads Rx COGS / per-sale', async () => {

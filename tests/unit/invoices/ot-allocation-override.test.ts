@@ -16,6 +16,7 @@ import {
   otAllocationOverridePayloadSchema,
   otAllocationOverrideUpsertSchema,
   computeOtAllocationOverrideTotals,
+  computeOtSalesRepCommissionCents,
   reconcileOtAllocationMedLineTotals,
   type OtAllocationOverridePayload,
 } from '@/services/invoices/otAllocationOverrideTypes';
@@ -63,6 +64,7 @@ function makeSale(overrides: Partial<OtPerSaleReconciliationLine> = {}): OtPerSa
     orderDate: '2026-04-13T10:00:00.000Z',
     paidAt: '2026-04-13T10:00:00.000Z',
     patientName: 'Doe, Jane',
+    productDescription: 'Semaglutide 2.5mg',
     patientGrossCents: 24900,
     patientGrossSource: 'stripe_payments',
     stripeBillingNameMatch: 'match',
@@ -430,6 +432,141 @@ describe('applyOtAllocationOverrides', () => {
 // PDF smoke test — proves the multi-page generator produces a non-empty PDF
 // without throwing on realistic fixtures.
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Sales rep + per-line commission
+// ---------------------------------------------------------------------------
+
+describe('computeOtSalesRepCommissionCents', () => {
+  it('returns 0 when no rep is assigned, regardless of rates', () => {
+    const p: OtAllocationOverridePayload = {
+      ...validPayload(),
+      salesRepId: null,
+      meds: [
+        {
+          ...validPayload().meds[0],
+          commissionRateBps: 800,
+        },
+      ],
+    };
+    expect(computeOtSalesRepCommissionCents(p)).toBe(0);
+  });
+
+  it('sums per-line cents at each lines rate when rep is assigned and no override', () => {
+    /**
+     * 2 meds @ 8% on $100 each + 1 med @ 1% on $200.
+     * = 800 + 800 + 200 = 1800 cents (rounded per line).
+     */
+    const p: OtAllocationOverridePayload = {
+      ...validPayload(),
+      salesRepId: 7,
+      salesRepName: 'Rep A',
+      salesRepCommissionCentsOverride: null,
+      meds: [
+        {
+          medicationKey: 'a',
+          name: 'A',
+          strength: '',
+          vialSize: '',
+          quantity: 1,
+          unitPriceCents: 10000,
+          lineTotalCents: 10000,
+          source: 'catalog',
+          commissionRateBps: 800,
+        },
+        {
+          medicationKey: 'b',
+          name: 'B',
+          strength: '',
+          vialSize: '',
+          quantity: 1,
+          unitPriceCents: 10000,
+          lineTotalCents: 10000,
+          source: 'catalog',
+          commissionRateBps: 800,
+        },
+        {
+          medicationKey: 'c',
+          name: 'C',
+          strength: '',
+          vialSize: '',
+          quantity: 1,
+          unitPriceCents: 20000,
+          lineTotalCents: 20000,
+          source: 'catalog',
+          commissionRateBps: 100,
+        },
+      ],
+    };
+    expect(computeOtSalesRepCommissionCents(p)).toBe(800 + 800 + 200);
+  });
+
+  it('uses the manual override when present, ignoring per-line rates', () => {
+    const p: OtAllocationOverridePayload = {
+      ...validPayload(),
+      salesRepId: 7,
+      salesRepCommissionCentsOverride: 5000,
+      meds: [
+        {
+          ...validPayload().meds[0],
+          commissionRateBps: 800,
+        },
+      ],
+    };
+    expect(computeOtSalesRepCommissionCents(p)).toBe(5000);
+  });
+
+  it('flows commission into total deductions and net', () => {
+    const p: OtAllocationOverridePayload = {
+      ...validPayload(),
+      salesRepId: 7,
+      salesRepCommissionCentsOverride: 1000,
+    };
+    const t = computeOtAllocationOverrideTotals(p);
+    expect(t.salesRepCommissionCents).toBe(1000);
+    /** total = meds(3500) + ship(2000) + trt(0) + dr(3000) + fulf(0) + custom(0) + commission(1000) = 9500 */
+    expect(t.totalDeductionsCents).toBe(9500);
+    expect(t.netToOtClinicCents).toBe(24900 - 9500);
+  });
+});
+
+describe('Zod schema — rep + commission fields', () => {
+  it('defaults rep fields to null when omitted', () => {
+    const p = otAllocationOverridePayloadSchema.parse({
+      meds: [],
+      shippingCents: 0,
+      trtTelehealthCents: 0,
+      doctorRxFeeCents: 0,
+      fulfillmentFeesCents: 0,
+      customLineItems: [],
+      notes: null,
+      patientGrossCents: 10000,
+    });
+    expect(p.salesRepId).toBeNull();
+    expect(p.salesRepName).toBeNull();
+    expect(p.salesRepCommissionCentsOverride).toBeNull();
+  });
+
+  it('rejects commissionRateBps > 5000 (50% sanity cap)', () => {
+    const r = otAllocationOverridePayloadSchema.safeParse({
+      ...validPayload(),
+      meds: [
+        {
+          medicationKey: 'a',
+          name: 'A',
+          strength: '',
+          vialSize: '',
+          quantity: 1,
+          unitPriceCents: 10000,
+          lineTotalCents: 10000,
+          source: 'catalog',
+          commissionRateBps: 9999,
+        },
+      ],
+    });
+    expect(r.success).toBe(false);
+  });
+});
 
 describe('generateOtCustomReconciliationPDF', () => {
   it('returns non-empty PDF bytes for a small period', async () => {

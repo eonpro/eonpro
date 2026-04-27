@@ -298,6 +298,14 @@ export interface OtPerSaleReconciliationLine {
   orderDate: string;
   paidAt: string | null;
   patientName: string;
+  /**
+   * Human-readable description of what the patient paid for. Derived from the
+   * order's primary medication (name + strength + form), with a fallback to the
+   * concatenated invoice line item descriptions when the order has none.
+   * Surfaced on the manual reconciliation editor row header so admins can see
+   * the package without expanding every row.
+   */
+  productDescription: string | null;
   /** Stripe invoice gross (amount paid, or amount due fallback). */
   patientGrossCents: number;
   /** `stripe_payments` = sum of net succeeded `Payment` rows; `invoice_sync` = invoice record only. */
@@ -1537,6 +1545,28 @@ export async function generateOtDailyInvoices(
       salesRepCommissionCents +
       managerOverrideTotalCentsForOrder;
 
+    /**
+     * Patient-facing product description.
+     * Prefer the order's Rx list (already loaded) — that's what was actually shipped.
+     * Fall back to invoice line items when the order has no rxs (consult / lab-only sales).
+     * Truncated to 160 chars so the editor row header doesn't wrap into multiple lines.
+     */
+    const rxNames = order.rxs.map((rx) => {
+      const parts = [rx.medName, rx.strength].filter((p) => p && p.length > 0);
+      return parts.join(' ');
+    });
+    let productDescription: string | null = null;
+    if (rxNames.length > 0) {
+      productDescription = [...new Set(rxNames)].join(' · ');
+    } else if (invMeta?.lineItems) {
+      const lines = parseInvoiceLineItemsJson(invMeta.lineItems);
+      const descs = lines.map((l) => l.description?.trim() ?? '').filter((d) => d.length > 0);
+      productDescription = descs.length > 0 ? [...new Set(descs)].join(' · ') : null;
+    }
+    if (productDescription && productDescription.length > 160) {
+      productDescription = productDescription.slice(0, 157) + '…';
+    }
+
     perSaleReconciliation.push({
       orderId: order.id,
       invoiceDbId: invMeta?.invoiceDbId ?? null,
@@ -1544,6 +1574,7 @@ export async function generateOtDailyInvoices(
       orderDate,
       paidAt,
       patientName,
+      productDescription,
       patientGrossCents,
       patientGrossSource: grossResolved.source,
       stripeBillingNameMatch,
@@ -2615,6 +2646,8 @@ export function buildDefaultOverridePayload(
       unitPriceCents: Math.max(0, p.unitPriceCents),
       lineTotalCents: Math.max(0, p.lineTotalCents),
       source: (p.pricingStatus === 'priced' ? 'catalog' : 'custom') as 'catalog' | 'custom',
+      /** Default: no per-line rate. Admin opts-in by selecting a rep + a chip. */
+      commissionRateBps: null,
     }));
 
   return {
@@ -2626,6 +2659,17 @@ export function buildDefaultOverridePayload(
     customLineItems: [],
     notes: null,
     patientGrossCents: line.patientGrossCents,
+    /**
+     * Pre-fill the rep from the auto-assignment ledger when present so admins can leave
+     * it alone unless they want to change it.
+     */
+    salesRepId: line.salesRepId ?? null,
+    salesRepName: line.salesRepName ?? null,
+    /** Use the ledger's commission $ as the starting "manual override" so totals match defaults. */
+    salesRepCommissionCentsOverride:
+      line.salesRepId != null && line.salesRepCommissionCents > 0
+        ? line.salesRepCommissionCents
+        : null,
   };
 }
 
@@ -2634,6 +2678,8 @@ export interface OtCustomReconciliationLine {
   invoiceDbId: number | null;
   paidAt: string | null;
   patientName: string;
+  /** Patient-facing product description (what they paid for). */
+  productDescription: string | null;
   stripePaymentIntentId: string | null;
   /** Snapshot status — DRAFT (saved in editor), FINALIZED (locked), or null (computed-only, never edited). */
   overrideStatus: OtAllocationOverrideStatus | null;
@@ -2655,6 +2701,7 @@ export interface OtCustomReconciliationGrandTotals {
   doctorRxFeeCents: number;
   fulfillmentFeesCents: number;
   customLineItemsCents: number;
+  salesRepCommissionCents: number;
   totalDeductionsCents: number;
   netToOtClinicCents: number;
 }
@@ -2687,6 +2734,7 @@ export function applyOtAllocationOverrides(
       invoiceDbId: sale.invoiceDbId,
       paidAt: sale.paidAt,
       patientName: sale.patientName,
+      productDescription: sale.productDescription,
       stripePaymentIntentId: null,
       overrideStatus: meta?.status ?? null,
       overrideUpdatedAt: meta?.updatedAt ?? null,
@@ -2709,6 +2757,7 @@ export function applyOtAllocationOverrides(
       acc.doctorRxFeeCents += l.totals.doctorRxFeeCents;
       acc.fulfillmentFeesCents += l.totals.fulfillmentFeesCents;
       acc.customLineItemsCents += l.totals.customLineItemsCents;
+      acc.salesRepCommissionCents += l.totals.salesRepCommissionCents;
       acc.totalDeductionsCents += l.totals.totalDeductionsCents;
       acc.netToOtClinicCents += l.totals.netToOtClinicCents;
       return acc;
@@ -2725,6 +2774,7 @@ export function applyOtAllocationOverrides(
       doctorRxFeeCents: 0,
       fulfillmentFeesCents: 0,
       customLineItemsCents: 0,
+      salesRepCommissionCents: 0,
       totalDeductionsCents: 0,
       netToOtClinicCents: 0,
     }
@@ -2848,9 +2898,10 @@ export async function generateOtCustomReconciliationPDF(
   summaryRow('Less — Medications', reconciliation.totals.medicationsCents);
   summaryRow('Less — Shipping', reconciliation.totals.shippingCents);
   summaryRow('Less — TRT telehealth', reconciliation.totals.trtTelehealthCents);
-  summaryRow('Less — Doctor / Rx fee', reconciliation.totals.doctorRxFeeCents);
+  summaryRow('Less — Doctor consult', reconciliation.totals.doctorRxFeeCents);
   summaryRow('Less — Fulfillment fees', reconciliation.totals.fulfillmentFeesCents);
   summaryRow('Less — Custom line items', reconciliation.totals.customLineItemsCents);
+  summaryRow('Less — Sales rep commission', reconciliation.totals.salesRepCommissionCents);
   y -= 4;
   page.drawLine({
     start: { x: M, y: y + 4 },
@@ -2914,6 +2965,11 @@ export async function generateOtCustomReconciliationPDF(
       font,
       mid
     );
+    /** Product description on a 2nd header line so reviewers see what was actually paid for. */
+    if (sale.productDescription) {
+      y -= 12;
+      drawText(`Paid for: ${sale.productDescription}`, M + 6, 8, font, mid);
+    }
     const statusLbl =
       sale.overrideStatus === 'FINALIZED'
         ? 'FINAL'
@@ -2952,10 +3008,13 @@ export async function generateOtCustomReconciliationPDF(
     }
     lineRow('Shipping', sale.payload.shippingCents);
     lineRow('TRT telehealth', sale.payload.trtTelehealthCents);
-    lineRow('Doctor / Rx fee', sale.payload.doctorRxFeeCents);
+    lineRow('Doctor consult', sale.payload.doctorRxFeeCents);
     lineRow('Fulfillment fees', sale.payload.fulfillmentFeesCents);
     for (const c of sale.payload.customLineItems) {
       lineRow(`Custom — ${c.description}`, c.amountCents);
+    }
+    if (sale.totals.salesRepCommissionCents > 0 && sale.payload.salesRepName) {
+      lineRow(`Sales rep — ${sale.payload.salesRepName}`, sale.totals.salesRepCommissionCents);
     }
 
     // Totals bar

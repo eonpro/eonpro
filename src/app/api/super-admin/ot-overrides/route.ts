@@ -94,7 +94,15 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
   const orderStart = new Date(periodStart.getTime() - 45 * 86_400_000);
   const orderEnd = new Date(periodEnd.getTime() + 14 * 86_400_000);
 
-  let rows;
+  let rows: Array<{
+    id: number;
+    orderId: number;
+    overridePayload: Prisma.JsonValue;
+    status: 'DRAFT' | 'FINALIZED';
+    updatedAt: Date;
+    finalizedAt: Date | null;
+    lastEditedByUserId: number | null;
+  }>;
   try {
     rows = await basePrisma.otSaleAllocationOverride.findMany({
       where: {
@@ -119,17 +127,37 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
       take: 1000,
     });
   } catch (err) {
+    /**
+     * Graceful fallback: if the table doesn't exist yet (deploy/migrate window) or the
+     * relation is unrecognized (Prisma client mid-rollout), return an empty list with a
+     * 200 instead of erroring the whole tab. The editor still works against computed
+     * defaults; admins lose only the saved-overrides overlay until the deploy finishes.
+     */
     const e = err instanceof Error ? err : new Error(String(err));
-    const prismaLog =
-      err instanceof Prisma.PrismaClientKnownRequestError
-        ? { code: err.code, meta: err.meta }
-        : undefined;
+    const prismaCode = err instanceof Prisma.PrismaClientKnownRequestError ? err.code : undefined;
+    const prismaMeta = err instanceof Prisma.PrismaClientKnownRequestError ? err.meta : undefined;
+    /** P2021 = table does not exist; P2022 = column does not exist; P2025 = record not found. */
+    const isMissingSchema =
+      prismaCode === 'P2021' ||
+      prismaCode === 'P2022' ||
+      e.message.includes('does not exist') ||
+      e.message.includes('Unknown arg `order`') ||
+      e.message.includes('does not exist in the current database');
     logger.error('[OT overrides] load failed', {
       message: e.message,
       userId: user.id,
       clinicId,
-      prisma: prismaLog,
+      prismaCode,
+      prismaMeta,
+      gracefulFallback: isMissingSchema,
     });
+    if (isMissingSchema) {
+      return NextResponse.json({
+        overrides: [],
+        warning:
+          'OT overrides table or schema not yet migrated on this environment. Showing computed defaults only.',
+      });
+    }
     return NextResponse.json({ error: 'Failed to load OT overrides' }, { status: 500 });
   }
 

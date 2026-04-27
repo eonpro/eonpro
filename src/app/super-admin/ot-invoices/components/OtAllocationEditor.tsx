@@ -61,8 +61,16 @@ export interface OtAllocationEditorPerSaleSeed {
   paidAt: string | null;
   patientName: string;
   patientId: number;
+  /** Patient-facing product description (what they paid for). */
+  productDescription: string | null;
   /** Computed defaults used when no override exists. */
   defaultPayload: OtAllocationOverridePayload;
+}
+
+interface SalesRepOption {
+  id: number;
+  name: string;
+  role: string;
 }
 
 interface OtAllocationEditorProps {
@@ -89,6 +97,8 @@ interface OverrideListResponse {
     finalizedAt: string | null;
     lastEditedByUserId: number | null;
   }>;
+  /** Set when the API returned an empty list because the schema isn't migrated yet. */
+  warning?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -153,7 +163,27 @@ export function OtAllocationEditor({
   const [bulkSaving, setBulkSaving] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [reps, setReps] = useState<SalesRepOption[]>([]);
+
+  /** Load the sales rep dropdown options once on mount. */
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await apiFetch('/api/super-admin/ot-overrides/sales-reps');
+        if (!res.ok) return;
+        const json = (await res.json()) as { reps: SalesRepOption[] };
+        if (!cancelled) setReps(json.reps);
+      } catch {
+        /* silent — rep dropdown stays empty; admin can still type a custom name */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   /** Initialize rowsState from seeds whenever the seed set changes. */
   useEffect(() => {
@@ -173,6 +203,7 @@ export function OtAllocationEditor({
     if (seeds.length === 0) return;
     setLoading(true);
     setError(null);
+    setWarning(null);
     (async () => {
       try {
         const params = new URLSearchParams({ date: startDate });
@@ -184,6 +215,7 @@ export function OtAllocationEditor({
         }
         const json = (await res.json()) as OverrideListResponse;
         if (cancelled) return;
+        if (json.warning) setWarning(json.warning);
         const meta: Record<number, SavedMeta> = {};
         const saved: Record<number, OtAllocationOverridePayload> = {};
         const overlays: Record<number, OtAllocationOverridePayload> = {};
@@ -458,6 +490,12 @@ export function OtAllocationEditor({
           {error}
         </div>
       )}
+      {warning && (
+        <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+          {warning}
+        </div>
+      )}
 
       <div className="flex flex-col gap-2">
         {seeds.map((seed) => {
@@ -476,6 +514,7 @@ export function OtAllocationEditor({
               isDirty={isDirty}
               isSaving={savingOrderId === seed.orderId}
               isExpanded={!!expanded[seed.orderId]}
+              reps={reps}
               onToggleExpand={() =>
                 setExpanded((prev) => ({ ...prev, [seed.orderId]: !prev[seed.orderId] }))
               }
@@ -532,6 +571,7 @@ interface OtAllocationRowProps {
   isDirty: boolean;
   isSaving: boolean;
   isExpanded: boolean;
+  reps: SalesRepOption[];
   onToggleExpand: () => void;
   onMutate: (m: (p: OtAllocationOverridePayload) => OtAllocationOverridePayload) => void;
   onReset: () => void;
@@ -547,6 +587,7 @@ function OtAllocationRow({
   isDirty,
   isSaving,
   isExpanded,
+  reps,
   onToggleExpand,
   onMutate,
   onReset,
@@ -584,6 +625,14 @@ function OtAllocationRow({
               {formatPaidEt(seed.paidAt)} · Order #{seed.orderId}
               {seed.invoiceDbId ? ` · Inv ${seed.invoiceDbId}` : ''}
             </p>
+            {seed.productDescription && (
+              <p
+                className="mt-0.5 truncate text-xs font-medium text-emerald-800"
+                title={seed.productDescription}
+              >
+                Paid for: {seed.productDescription}
+              </p>
+            )}
           </div>
         </div>
         <div className="flex flex-shrink-0 items-center gap-3">
@@ -619,6 +668,7 @@ function OtAllocationRow({
               <PackageQuickFill payload={payload} onMutate={onMutate} />
               <MedicationsEditor payload={payload} onMutate={onMutate} />
               <FeesEditor payload={payload} onMutate={onMutate} />
+              <SalesRepEditor payload={payload} onMutate={onMutate} reps={reps} />
               <CustomLinesEditor payload={payload} onMutate={onMutate} />
               <NotesEditor payload={payload} onMutate={onMutate} />
             </div>
@@ -684,6 +734,7 @@ function PackageQuickFill({
           unitPriceCents: quote.costCents,
           lineTotalCents: quote.costCents,
           source: 'catalog' as const,
+          commissionRateBps: null,
         },
       ],
       shippingCents: pkg.defaultShippingCents,
@@ -873,6 +924,7 @@ function MedicationsEditor({
           unitPriceCents: row.priceCents,
           lineTotalCents: row.priceCents,
           source: 'catalog',
+          commissionRateBps: null,
         },
       ],
     }));
@@ -894,6 +946,7 @@ function MedicationsEditor({
           unitPriceCents: 0,
           lineTotalCents: 0,
           source: 'custom',
+          commissionRateBps: null,
         },
       ],
     }));
@@ -987,63 +1040,242 @@ function MedicationsEditor({
           {payload.meds.map((m, idx) => (
             <li
               key={idx}
-              className="grid grid-cols-12 items-center gap-2 rounded-lg border border-gray-100 bg-gray-50/50 px-3 py-2"
+              className="flex flex-col gap-1.5 rounded-lg border border-gray-100 bg-gray-50/50 px-3 py-2"
             >
-              <input
-                type="text"
-                value={m.name}
-                onChange={(e) => updateMedAt(idx, { name: e.target.value })}
-                className="col-span-3 rounded-md border border-gray-200 px-2 py-1 text-xs"
-                placeholder="Name"
+              <div className="grid grid-cols-12 items-center gap-2">
+                <input
+                  type="text"
+                  value={m.name}
+                  onChange={(e) => updateMedAt(idx, { name: e.target.value })}
+                  className="col-span-3 rounded-md border border-gray-200 px-2 py-1 text-xs"
+                  placeholder="Name"
+                />
+                <input
+                  type="text"
+                  value={m.strength}
+                  onChange={(e) => updateMedAt(idx, { strength: e.target.value })}
+                  className="col-span-2 rounded-md border border-gray-200 px-2 py-1 text-xs"
+                  placeholder="Strength"
+                />
+                <input
+                  type="text"
+                  value={m.vialSize}
+                  onChange={(e) => updateMedAt(idx, { vialSize: e.target.value })}
+                  className="col-span-2 rounded-md border border-gray-200 px-2 py-1 text-xs"
+                  placeholder="Vial"
+                />
+                <input
+                  type="number"
+                  min={1}
+                  value={m.quantity}
+                  onChange={(e) =>
+                    updateMedAt(idx, { quantity: Math.max(1, parseInt(e.target.value, 10) || 1) })
+                  }
+                  className="col-span-1 rounded-md border border-gray-200 px-2 py-1 text-right text-xs tabular-nums"
+                />
+                <input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={centsToInputValue(m.unitPriceCents)}
+                  onChange={(e) =>
+                    updateMedAt(idx, { unitPriceCents: dollarsInputToCents(e.target.value) })
+                  }
+                  className="col-span-2 rounded-md border border-gray-200 px-2 py-1 text-right text-xs tabular-nums"
+                />
+                <span className="col-span-1 text-right text-xs font-semibold tabular-nums text-gray-900">
+                  {centsToDisplay(m.lineTotalCents)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removeMed(idx)}
+                  className="col-span-1 flex justify-end text-rose-500 hover:text-rose-700"
+                  aria-label="Remove medication"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <MedCommissionRateRow
+                med={m}
+                onSetRate={(bps) => updateMedAt(idx, { commissionRateBps: bps })}
               />
-              <input
-                type="text"
-                value={m.strength}
-                onChange={(e) => updateMedAt(idx, { strength: e.target.value })}
-                className="col-span-2 rounded-md border border-gray-200 px-2 py-1 text-xs"
-                placeholder="Strength"
-              />
-              <input
-                type="text"
-                value={m.vialSize}
-                onChange={(e) => updateMedAt(idx, { vialSize: e.target.value })}
-                className="col-span-2 rounded-md border border-gray-200 px-2 py-1 text-xs"
-                placeholder="Vial"
-              />
-              <input
-                type="number"
-                min={1}
-                value={m.quantity}
-                onChange={(e) =>
-                  updateMedAt(idx, { quantity: Math.max(1, parseInt(e.target.value, 10) || 1) })
-                }
-                className="col-span-1 rounded-md border border-gray-200 px-2 py-1 text-right text-xs tabular-nums"
-              />
-              <input
-                type="number"
-                min={0}
-                step={0.01}
-                value={centsToInputValue(m.unitPriceCents)}
-                onChange={(e) =>
-                  updateMedAt(idx, { unitPriceCents: dollarsInputToCents(e.target.value) })
-                }
-                className="col-span-2 rounded-md border border-gray-200 px-2 py-1 text-right text-xs tabular-nums"
-              />
-              <span className="col-span-1 text-right text-xs font-semibold tabular-nums text-gray-900">
-                {centsToDisplay(m.lineTotalCents)}
-              </span>
-              <button
-                type="button"
-                onClick={() => removeMed(idx)}
-                className="col-span-1 flex justify-end text-rose-500 hover:text-rose-700"
-                aria-label="Remove medication"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
             </li>
           ))}
         </ul>
       )}
+    </section>
+  );
+}
+
+/**
+ * Per-medication commission rate row. Displayed as a thin band beneath each med
+ * line so the admin can opt-in to a rep commission % per item without inflating
+ * the main row. "—" = no rate set; the line contributes $0 to commission.
+ */
+function MedCommissionRateRow({
+  med,
+  onSetRate,
+}: {
+  med: OtAllocationOverrideMedLine;
+  onSetRate: (bps: number | null) => void;
+}) {
+  const chips: Array<{ label: string; bps: number | null }> = [
+    { label: 'No %', bps: null },
+    { label: '1%', bps: 100 },
+    { label: '8%', bps: 800 },
+  ];
+  const lineCommissionCents =
+    med.commissionRateBps != null && med.commissionRateBps > 0
+      ? Math.round((med.lineTotalCents * med.commissionRateBps) / 10_000)
+      : 0;
+  return (
+    <div className="flex flex-wrap items-center gap-2 pl-1 text-[11px] text-gray-600">
+      <span className="font-medium uppercase tracking-wider text-gray-400">Rep %</span>
+      {chips.map((c) => {
+        const active =
+          (c.bps == null && med.commissionRateBps == null) ||
+          (c.bps != null && med.commissionRateBps === c.bps);
+        return (
+          <button
+            key={c.label}
+            type="button"
+            onClick={() => onSetRate(c.bps)}
+            className={`rounded-full px-2 py-0.5 ${
+              active
+                ? 'bg-cyan-600 text-white'
+                : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            {c.label}
+          </button>
+        );
+      })}
+      <input
+        type="number"
+        min={0}
+        max={50}
+        step={0.5}
+        value={med.commissionRateBps != null ? (med.commissionRateBps / 100).toFixed(2) : ''}
+        placeholder="custom %"
+        onChange={(e) => {
+          const v = e.target.value.trim();
+          if (v === '') {
+            onSetRate(null);
+            return;
+          }
+          const pct = parseFloat(v);
+          if (!Number.isFinite(pct) || pct < 0) return;
+          onSetRate(Math.round(Math.min(pct, 50) * 100));
+        }}
+        className="w-16 rounded-md border border-gray-200 px-2 py-0.5 text-right text-[11px] tabular-nums"
+      />
+      {lineCommissionCents > 0 && (
+        <span className="ml-auto font-semibold text-cyan-700">
+          = {centsToDisplay(lineCommissionCents)}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function SalesRepEditor({
+  payload,
+  onMutate,
+  reps,
+}: {
+  payload: OtAllocationOverridePayload;
+  onMutate: (m: (p: OtAllocationOverridePayload) => OtAllocationOverridePayload) => void;
+  reps: SalesRepOption[];
+}) {
+  const totalLineCommission = payload.meds.reduce((s, m) => {
+    if (m.commissionRateBps == null || m.commissionRateBps <= 0) return s;
+    return s + Math.round((m.lineTotalCents * m.commissionRateBps) / 10_000);
+  }, 0);
+  const usingManualOverride = payload.salesRepCommissionCentsOverride != null;
+  const effectiveCommission = usingManualOverride
+    ? payload.salesRepCommissionCentsOverride!
+    : totalLineCommission;
+
+  return (
+    <section className="rounded-lg border border-cyan-100 bg-cyan-50/30 p-3">
+      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-cyan-900">
+        Sales rep & commission
+      </h4>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div>
+          <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-gray-500">
+            Assigned rep
+          </label>
+          <select
+            value={payload.salesRepId ?? ''}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v === '') {
+                onMutate((p) => ({ ...p, salesRepId: null, salesRepName: null }));
+                return;
+              }
+              const id = parseInt(v, 10);
+              const match = reps.find((r) => r.id === id);
+              onMutate((p) => ({
+                ...p,
+                salesRepId: id,
+                salesRepName: match?.name ?? p.salesRepName ?? `User #${id}`,
+              }));
+            }}
+            className="w-full rounded-md border border-gray-200 px-2 py-1 text-xs"
+          >
+            <option value="">— No rep assigned —</option>
+            {reps.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name} ({r.role})
+              </option>
+            ))}
+          </select>
+          {payload.salesRepId != null && payload.salesRepName && (
+            <p className="mt-1 text-[10px] text-gray-500">Saved: {payload.salesRepName}</p>
+          )}
+        </div>
+        <div>
+          <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-gray-500">
+            Commission $ {usingManualOverride ? '(manual)' : '(from per-line %)'}
+          </label>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min={0}
+              step={0.01}
+              disabled={payload.salesRepId == null}
+              value={
+                usingManualOverride
+                  ? centsToInputValue(payload.salesRepCommissionCentsOverride!)
+                  : centsToInputValue(totalLineCommission)
+              }
+              onChange={(e) => {
+                const cents = dollarsInputToCents(e.target.value);
+                onMutate((p) => ({ ...p, salesRepCommissionCentsOverride: cents }));
+              }}
+              className="w-32 rounded-md border border-gray-200 px-2 py-1 text-right text-xs tabular-nums disabled:bg-gray-100"
+            />
+            {usingManualOverride && (
+              <button
+                type="button"
+                onClick={() => onMutate((p) => ({ ...p, salesRepCommissionCentsOverride: null }))}
+                className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Use per-line %
+              </button>
+            )}
+          </div>
+          {payload.salesRepId == null && (
+            <p className="mt-1 text-[10px] text-gray-500">Select a rep to enable commission.</p>
+          )}
+          {payload.salesRepId != null && (
+            <p className="mt-1 text-[10px] text-cyan-800">
+              Effective commission this sale: {centsToDisplay(effectiveCommission)}
+            </p>
+          )}
+        </div>
+      </div>
     </section>
   );
 }
@@ -1272,9 +1504,10 @@ function TotalsPanel({
         <RowKv label="Medications" value={totals.medicationsCents} negative />
         <RowKv label="Shipping" value={totals.shippingCents} negative />
         <RowKv label="TRT telehealth" value={totals.trtTelehealthCents} negative />
-        <RowKv label="Doctor / Rx fee" value={totals.doctorRxFeeCents} negative />
+        <RowKv label="Doctor consult" value={totals.doctorRxFeeCents} negative />
         <RowKv label="Fulfillment" value={totals.fulfillmentFeesCents} negative />
         <RowKv label="Custom lines" value={totals.customLineItemsCents} negative />
+        <RowKv label="Sales rep commission" value={totals.salesRepCommissionCents} negative />
         <div className="my-1 h-px bg-gray-200" />
         <RowKv label="Total deductions" value={totals.totalDeductionsCents} bold negative />
         <RowKv

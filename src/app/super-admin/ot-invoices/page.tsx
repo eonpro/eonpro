@@ -158,6 +158,7 @@ interface OtPerSaleReconciliationLine {
   orderDate: string;
   paidAt: string | null;
   patientName: string;
+  productDescription?: string | null;
   patientGrossCents: number;
   patientGrossSource?: 'stripe_payments' | 'invoice_sync';
   stripeBillingNameMatch?: 'match' | 'mismatch' | 'unknown';
@@ -294,6 +295,7 @@ function buildAllocationSeedsFromData(data: OtInvoiceData): OtAllocationEditorPe
       unitPriceCents: Math.max(0, p.unitPriceCents),
       lineTotalCents: Math.max(0, p.lineTotalCents),
       source: (p.pricingStatus === 'priced' ? 'catalog' : 'custom') as 'catalog' | 'custom',
+      commissionRateBps: null,
     }));
     const defaultPayload: OtAllocationOverridePayload = {
       meds,
@@ -304,12 +306,19 @@ function buildAllocationSeedsFromData(data: OtInvoiceData): OtAllocationEditorPe
       customLineItems: [],
       notes: null,
       patientGrossCents: sale.patientGrossCents,
+      salesRepId: sale.salesRepId ?? null,
+      salesRepName: sale.salesRepName ?? null,
+      salesRepCommissionCentsOverride:
+        sale.salesRepId != null && (sale.salesRepCommissionCents ?? 0) > 0
+          ? (sale.salesRepCommissionCents ?? 0)
+          : null,
     };
     return {
       orderId: sale.orderId,
       invoiceDbId: sale.invoiceDbId,
       paidAt: sale.paidAt,
       patientName: sale.patientName,
+      productDescription: sale.productDescription ?? null,
       /** Page already loads patient ids via per-sale; not strictly needed by editor but kept for future link-outs. */
       patientId: 0,
       defaultPayload,
