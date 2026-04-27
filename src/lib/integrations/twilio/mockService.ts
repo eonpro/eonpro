@@ -15,6 +15,8 @@ const mockMessages: Array<{
   body: string;
   status: string;
   timestamp: Date;
+  /** Captured for MMS test assertions; undefined for plain SMS. */
+  mediaUrl?: string[];
 }> = [];
 
 // Generate mock message ID
@@ -27,8 +29,11 @@ export async function mockSendSMS(message: SMSMessage): Promise<SMSResponse> {
   // Simulate network delay
   await new Promise((resolve) => setTimeout(resolve, 500));
 
-  // Simulate validation
-  if (!message.to || !message.body) {
+  // Validation: a message must have either a body OR at least one mediaUrl
+  // (MMS-only sends are valid — same posture as our chat send schema).
+  const hasBody = !!message.body && message.body.length > 0;
+  const hasMedia = Array.isArray(message.mediaUrl) && message.mediaUrl.length > 0;
+  if (!message.to || (!hasBody && !hasMedia)) {
     return {
       success: false,
       error: 'Missing required fields',
@@ -60,6 +65,7 @@ export async function mockSendSMS(message: SMSMessage): Promise<SMSResponse> {
     body: message.body,
     status: 'delivered',
     timestamp: new Date(),
+    ...(message.mediaUrl && message.mediaUrl.length > 0 ? { mediaUrl: message.mediaUrl } : {}),
   };
 
   // Store in mock storage
@@ -69,7 +75,8 @@ export async function mockSendSMS(message: SMSMessage): Promise<SMSResponse> {
   logger.debug('[MOCK_SMS] Message sent:', {
     id: mockMessageId,
     to: message.to,
-    body: message.body.substring(0, 50) + '...',
+    body: (message.body || '').substring(0, 50) + '...',
+    mediaCount: message.mediaUrl?.length ?? 0,
   });
 
   return {
