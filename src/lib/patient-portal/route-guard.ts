@@ -7,18 +7,17 @@ import { NAV_MODULES } from './registry';
 import type { NavModuleId } from './registry';
 
 /**
- * Legacy / alias path suffixes that should resolve to a canonical NAV_MODULES entry.
+ * Legacy / alias path suffixes that don't have their own `NAV_MODULES` entry but
+ * should still resolve to a module so the route guard doesn't misclassify them
+ * as "unknown" (which redirects to portal home).
  *
- * NAV_MODULES is the single source of truth for nav. When a path is exposed under a
- * different suffix (legacy URL, post-merge redirect, etc.) but should still gate on the
- * same feature flag, register it here instead of mutating NAV_MODULES — that keeps the
- * nav UI clean while still letting the route guard resolve the alias to its owner module.
- *
- *   /portal/subscription  →  'billing'   (Support tab removal, 2026-04-22)
+ * `/subscription` is the legacy path that pre-dates the rename to `/billing`;
+ * existing patient bookmarks, push-notification deep links, and the
+ * `Support` tab removal (2026-04-22) leave this URL in the wild for a while.
  */
-const PATH_SUFFIX_ALIASES: Record<string, NavModuleId> = {
-  '/subscription': 'billing',
-};
+const PATH_SUFFIX_ALIASES: ReadonlyArray<{ suffix: string; moduleId: NavModuleId }> = [
+  { suffix: '/subscription', moduleId: 'billing' },
+];
 
 /**
  * Resolves the current pathname to the owning nav module id (longest pathSuffix match).
@@ -45,14 +44,12 @@ export function getNavModuleIdForPath(pathname: string, basePath: string): NavMo
     }
   }
 
-  /**
-   * Final-pass alias check: paths not in NAV_MODULES but explicitly mapped to a module.
-   * Allows legacy URLs to keep gating against the right feature flag without polluting nav.
-   */
-  for (const [aliasSuffix, moduleId] of Object.entries(PATH_SUFFIX_ALIASES)) {
-    const aliasFull = basePath + aliasSuffix;
-    if (pathForMatch === aliasFull || pathForMatch.startsWith(aliasFull + '/')) {
-      return moduleId;
+  // No NAV_MODULES match — fall through to legacy alias map. Keep this
+  // narrow + explicit so dead URLs don't silently 200 to a parent module.
+  for (const alias of PATH_SUFFIX_ALIASES) {
+    const full = basePath + alias.suffix;
+    if (pathForMatch === full || pathForMatch.startsWith(full + '/')) {
+      return alias.moduleId;
     }
   }
 
