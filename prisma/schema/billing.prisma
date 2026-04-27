@@ -456,8 +456,8 @@ model ProductBundle {
   savingsPercent Float // Percentage saved
 
   // Products in Bundle
-  items                        ProductBundleItem[]
-  salesRepProductCommissions  SalesRepProductCommission[]
+  items                      ProductBundleItem[]
+  salesRepProductCommissions SalesRepProductCommission[]
 
   // Billing
   billingType     BillingType      @default(ONE_TIME)
@@ -590,4 +590,44 @@ enum ScheduledPaymentStatus {
   PROCESSED
   FAILED
   CANCELED
+}
+
+// ==========================================================================
+// OT (Overtime) Manual Reconciliation Allocation Override
+// ==========================================================================
+// Per-sale manual allocation snapshot for the OT clinic reconciliation page.
+// Super-admin can edit medications, shipping, TRT telehealth, doctor/Rx fee,
+// fulfillment, and add custom line items per Order, then save as DRAFT and
+// later FINALIZE the period to generate a branded PDF for OT clinic
+// management. Stored as a full snapshot (not sparse) so a saved draft reads
+// back identically even if the OT pricing catalog later changes.
+// ==========================================================================
+
+model OtSaleAllocationOverride {
+  id                 Int                            @id @default(autoincrement())
+  createdAt          DateTime                       @default(now())
+  updatedAt          DateTime                       @updatedAt
+  clinicId           Int
+  /// One override row per Order; @unique enforces 1-1 with Order while
+  /// @@unique([clinicId, orderId]) double-checks tenant scoping.
+  orderId            Int                            @unique
+  /// Full snapshot: meds[], shippingCents, trtTelehealthCents, doctorRxFeeCents,
+  /// fulfillmentFeesCents, customLineItems[], notes, patientGrossCents.
+  /// Shape enforced via Zod in the API layer.
+  overridePayload    Json
+  status             OtSaleAllocationOverrideStatus @default(DRAFT)
+  lastEditedByUserId Int?
+  finalizedAt        DateTime?
+
+  clinic       Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  order        Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  lastEditedBy User?  @relation("OtSaleAllocationOverrideEditor", fields: [lastEditedByUserId], references: [id])
+
+  @@unique([clinicId, orderId])
+  @@index([clinicId, status])
+}
+
+enum OtSaleAllocationOverrideStatus {
+  DRAFT
+  FINALIZED
 }

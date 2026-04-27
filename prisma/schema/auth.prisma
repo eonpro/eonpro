@@ -164,6 +164,9 @@ model User {
   // In-App Notifications
   notifications Notification[]
 
+  // OT clinic manual reconciliation overrides (super-admin tool)
+  otSaleAllocationOverridesEdited OtSaleAllocationOverride[] @relation("OtSaleAllocationOverrideEditor")
+
   // Email System Relations
   emailLogs               EmailLog[]
   scheduledEmails         ScheduledEmail[]

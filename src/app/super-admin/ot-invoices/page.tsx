@@ -24,10 +24,16 @@ import {
   ChevronDown,
   ChevronRight,
   RotateCcw,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 import { OtMedicationPricingCatalog } from '@/components/invoices/OtMedicationPricingCatalog';
 import { todayET } from '@/lib/utils/timezone';
+import {
+  OtAllocationEditor,
+  type OtAllocationEditorPerSaleSeed,
+} from '@/app/super-admin/ot-invoices/components/OtAllocationEditor';
+import type { OtAllocationOverridePayload } from '@/services/invoices/otAllocationOverrideTypes';
 
 interface OtPharmacyLineItem {
   orderId: number;
@@ -258,10 +264,57 @@ type ActiveTab =
   | 'doctor_approvals'
   | 'fulfillment'
   | 'per_sale'
+  | 'manual_reconciliation'
   | 'pricing_catalog';
 
 function centsToDisplay(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
+}
+
+/**
+ * Convert the page's `OtInvoiceData` into seeds the allocation editor needs.
+ * Mirrors `buildDefaultOverridePayload` server-side — kept inline so the
+ * editor doesn't have to round-trip through the server for the initial state.
+ */
+function buildAllocationSeedsFromData(data: OtInvoiceData): OtAllocationEditorPerSaleSeed[] {
+  const sales = data.perSaleReconciliation ?? [];
+  const pharmacyByOrderId = new Map<number, OtPharmacyLineItem[]>();
+  for (const li of data.pharmacy.lineItems) {
+    const arr = pharmacyByOrderId.get(li.orderId) ?? [];
+    arr.push(li);
+    pharmacyByOrderId.set(li.orderId, arr);
+  }
+  return sales.map((sale) => {
+    const meds = (pharmacyByOrderId.get(sale.orderId) ?? []).map((p) => ({
+      medicationKey: p.medicationKey || null,
+      name: p.medicationName,
+      strength: p.strength,
+      vialSize: p.vialSize,
+      quantity: Math.max(1, p.quantity || 1),
+      unitPriceCents: Math.max(0, p.unitPriceCents),
+      lineTotalCents: Math.max(0, p.lineTotalCents),
+      source: (p.pricingStatus === 'priced' ? 'catalog' : 'custom') as 'catalog' | 'custom',
+    }));
+    const defaultPayload: OtAllocationOverridePayload = {
+      meds,
+      shippingCents: sale.shippingCents,
+      trtTelehealthCents: sale.trtTelehealthCents,
+      doctorRxFeeCents: sale.doctorApprovalCents,
+      fulfillmentFeesCents: sale.fulfillmentFeesCents,
+      customLineItems: [],
+      notes: null,
+      patientGrossCents: sale.patientGrossCents,
+    };
+    return {
+      orderId: sale.orderId,
+      invoiceDbId: sale.invoiceDbId,
+      paidAt: sale.paidAt,
+      patientName: sale.patientName,
+      /** Page already loads patient ids via per-sale; not strictly needed by editor but kept for future link-outs. */
+      patientId: 0,
+      defaultPayload,
+    };
+  });
 }
 
 function formatDateTime(iso: string): string {
@@ -474,6 +527,13 @@ export default function OtInvoicesPage() {
           badge={data ? String(data.perSaleReconciliation?.length ?? 0) : '—'}
         />
         <TabButton
+          active={activeTab === 'manual_reconciliation'}
+          onClick={() => setActiveTab('manual_reconciliation')}
+          icon={<SlidersHorizontal className="h-4 w-4" />}
+          label="Manual reconciliation"
+          badge={data ? String(data.perSaleReconciliation?.length ?? 0) : '—'}
+        />
+        <TabButton
           active={activeTab === 'pricing_catalog'}
           onClick={() => setActiveTab('pricing_catalog')}
           icon={<BookOpen className="h-4 w-4" />}
@@ -617,19 +677,25 @@ export default function OtInvoicesPage() {
           </div>
 
           <div className="mb-4 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => handleExport(activeTab, 'csv')}
-              disabled={exporting !== null}
-              className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-50"
-            >
-              {exporting === `${activeTab}_csv` ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="h-4 w-4" />
-              )}
-              Export tab CSV
-            </button>
+            {/**
+             * "Export tab CSV" only applies to tabs that have a backing CSV generator.
+             * Manual reconciliation has its own branded PDF download in the editor itself.
+             */}
+            {activeTab !== 'manual_reconciliation' && (
+              <button
+                type="button"
+                onClick={() => handleExport(activeTab, 'csv')}
+                disabled={exporting !== null}
+                className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-50"
+              >
+                {exporting === `${activeTab}_csv` ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+                Export tab CSV
+              </button>
+            )}
             <button
               type="button"
               onClick={() => handleExport('combined', 'csv')}
@@ -712,6 +778,14 @@ export default function OtInvoicesPage() {
           {activeTab === 'fulfillment' && <FulfillmentTable invoice={data.fulfillment} />}
           {activeTab === 'per_sale' && (
             <PerSaleReconciliationTable rows={data.perSaleReconciliation ?? []} />
+          )}
+          {activeTab === 'manual_reconciliation' && (
+            <OtAllocationEditor
+              startDate={startDate}
+              endDate={endDate}
+              useRange={useRange}
+              seeds={buildAllocationSeedsFromData(data)}
+            />
           )}
         </>
       )}

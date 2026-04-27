@@ -39,6 +39,12 @@ import {
   compareStripeBillingNameToPatient,
   resolveOtPatientGrossCents,
 } from '@/lib/invoices/ot-stripe-sale-alignment';
+import {
+  computeOtAllocationOverrideTotals,
+  type OtAllocationOverridePayload,
+  type OtAllocationOverrideStatus,
+  type OtAllocationOverrideTotals,
+} from '@/services/invoices/otAllocationOverrideTypes';
 
 const CLINIC_TZ = 'America/New_York';
 
@@ -2573,5 +2579,421 @@ export async function generateOtSummaryPDF(data: OtDailyInvoices): Promise<Uint8
     mid
   );
 
+  return doc.save();
+}
+
+// ===========================================================================
+// OT MANUAL RECONCILIATION — defaults builder, override merger, branded PDF
+// ===========================================================================
+//
+// These functions back the "Manual reconciliation" tab on /super-admin/ot-invoices.
+// Given an `OtDailyInvoices` snapshot for the period and a per-Order map of admin
+// overrides, they produce:
+//   - default-populated payloads for sales that haven't been edited yet
+//   - a flat list of merged rows (override-substituted where present)
+//   - a multi-page branded PDF formatted for OT clinic management.
+// ===========================================================================
+
+/**
+ * Convert the computed per-sale reconciliation row into the editor's starting
+ * payload. The admin will then tweak from this baseline. Pharmacy line items
+ * are pulled from the same `OtDailyInvoices.pharmacy.lineItems` data the page
+ * already has.
+ */
+export function buildDefaultOverridePayload(
+  line: OtPerSaleReconciliationLine,
+  pharmacyLines: OtPharmacyLineItem[]
+): OtAllocationOverridePayload {
+  const orderMeds = pharmacyLines
+    .filter((p) => p.orderId === line.orderId)
+    .map((p) => ({
+      medicationKey: p.medicationKey || null,
+      name: p.medicationName,
+      strength: p.strength,
+      vialSize: p.vialSize,
+      quantity: Math.max(1, p.quantity || 1),
+      unitPriceCents: Math.max(0, p.unitPriceCents),
+      lineTotalCents: Math.max(0, p.lineTotalCents),
+      source: (p.pricingStatus === 'priced' ? 'catalog' : 'custom') as 'catalog' | 'custom',
+    }));
+
+  return {
+    meds: orderMeds,
+    shippingCents: line.shippingCents,
+    trtTelehealthCents: line.trtTelehealthCents,
+    doctorRxFeeCents: line.doctorApprovalCents,
+    fulfillmentFeesCents: line.fulfillmentFeesCents,
+    customLineItems: [],
+    notes: null,
+    patientGrossCents: line.patientGrossCents,
+  };
+}
+
+export interface OtCustomReconciliationLine {
+  orderId: number;
+  invoiceDbId: number | null;
+  paidAt: string | null;
+  patientName: string;
+  stripePaymentIntentId: string | null;
+  /** Snapshot status — DRAFT (saved in editor), FINALIZED (locked), or null (computed-only, never edited). */
+  overrideStatus: OtAllocationOverrideStatus | null;
+  overrideUpdatedAt: string | null;
+  overrideLastEditedByUserId: number | null;
+  payload: OtAllocationOverridePayload;
+  totals: OtAllocationOverrideTotals;
+}
+
+export interface OtCustomReconciliationGrandTotals {
+  saleCount: number;
+  draftCount: number;
+  finalizedCount: number;
+  computedCount: number;
+  patientGrossCents: number;
+  medicationsCents: number;
+  shippingCents: number;
+  trtTelehealthCents: number;
+  doctorRxFeeCents: number;
+  fulfillmentFeesCents: number;
+  customLineItemsCents: number;
+  totalDeductionsCents: number;
+  netToOtClinicCents: number;
+}
+
+export interface OtAllocationOverrideMeta {
+  status: OtAllocationOverrideStatus;
+  updatedAt: string;
+  lastEditedByUserId: number | null;
+  finalizedAt: string | null;
+  payload: OtAllocationOverridePayload;
+}
+
+/**
+ * Merge each per-sale row with its override (if any). For sales with no
+ * override, the default payload is used (admin sees the computed values
+ * pre-populated when they open the editor).
+ *
+ * Pure — does not mutate `data` or the override map.
+ */
+export function applyOtAllocationOverrides(
+  data: OtDailyInvoices,
+  overridesByOrderId: Map<number, OtAllocationOverrideMeta>
+): { lines: OtCustomReconciliationLine[]; totals: OtCustomReconciliationGrandTotals } {
+  const lines: OtCustomReconciliationLine[] = data.perSaleReconciliation.map((sale) => {
+    const meta = overridesByOrderId.get(sale.orderId) ?? null;
+    const payload = meta?.payload ?? buildDefaultOverridePayload(sale, data.pharmacy.lineItems);
+    const totals = computeOtAllocationOverrideTotals(payload);
+    return {
+      orderId: sale.orderId,
+      invoiceDbId: sale.invoiceDbId,
+      paidAt: sale.paidAt,
+      patientName: sale.patientName,
+      stripePaymentIntentId: null,
+      overrideStatus: meta?.status ?? null,
+      overrideUpdatedAt: meta?.updatedAt ?? null,
+      overrideLastEditedByUserId: meta?.lastEditedByUserId ?? null,
+      payload,
+      totals,
+    };
+  });
+
+  const totals: OtCustomReconciliationGrandTotals = lines.reduce(
+    (acc, l) => {
+      acc.saleCount += 1;
+      if (l.overrideStatus === 'DRAFT') acc.draftCount += 1;
+      else if (l.overrideStatus === 'FINALIZED') acc.finalizedCount += 1;
+      else acc.computedCount += 1;
+      acc.patientGrossCents += l.payload.patientGrossCents;
+      acc.medicationsCents += l.totals.medicationsCents;
+      acc.shippingCents += l.totals.shippingCents;
+      acc.trtTelehealthCents += l.totals.trtTelehealthCents;
+      acc.doctorRxFeeCents += l.totals.doctorRxFeeCents;
+      acc.fulfillmentFeesCents += l.totals.fulfillmentFeesCents;
+      acc.customLineItemsCents += l.totals.customLineItemsCents;
+      acc.totalDeductionsCents += l.totals.totalDeductionsCents;
+      acc.netToOtClinicCents += l.totals.netToOtClinicCents;
+      return acc;
+    },
+    {
+      saleCount: 0,
+      draftCount: 0,
+      finalizedCount: 0,
+      computedCount: 0,
+      patientGrossCents: 0,
+      medicationsCents: 0,
+      shippingCents: 0,
+      trtTelehealthCents: 0,
+      doctorRxFeeCents: 0,
+      fulfillmentFeesCents: 0,
+      customLineItemsCents: 0,
+      totalDeductionsCents: 0,
+      netToOtClinicCents: 0,
+    }
+  );
+
+  return { lines, totals };
+}
+
+/**
+ * Branded multi-page PDF for the OT manual reconciliation. Modelled on
+ * WellMedR's `need(h) / newPg()` pagination so 200+ sales render reliably.
+ *
+ * Layout:
+ *   - Page 1 starts with EONPro logo, title, period, summary tiles.
+ *   - Each sale renders as a stacked block: header band (paid, patient, gross),
+ *     line items (one row per med + shipping + TRT + doctor + fulfillment + custom),
+ *     totals row, and notes footer when present.
+ *   - Final page repeats grand totals and a draft-vs-finalized count.
+ *   - Footer on every page: "EONPro -> OT clinic reconciliation | Page N | Generated <ISO>".
+ */
+export async function generateOtCustomReconciliationPDF(
+  data: OtDailyInvoices,
+  reconciliation: { lines: OtCustomReconciliationLine[]; totals: OtCustomReconciliationGrandTotals }
+): Promise<Uint8Array> {
+  const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
+  const doc = await PDFDocument.create();
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
+
+  let logo = null as Awaited<ReturnType<typeof doc.embedPng>> | null;
+  try {
+    const b = await loadLogoBytes();
+    if (b) logo = await doc.embedPng(b);
+  } catch {
+    /* skip */
+  }
+
+  const PW = 612;
+  const PH = 792;
+  const M = 48;
+  const TW = PW - 2 * M;
+
+  const dark = rgb(0.12, 0.12, 0.12);
+  const mid = rgb(0.4, 0.4, 0.4);
+  const light = rgb(0.6, 0.6, 0.6);
+  const green = rgb(0.06, 0.45, 0.31);
+  const rose = rgb(0.65, 0.12, 0.12);
+  const greenBg = rgb(0.94, 0.97, 0.95);
+  const draftBg = rgb(0.99, 0.95, 0.85);
+  const finalizedBg = rgb(0.91, 0.96, 0.92);
+
+  let page = doc.addPage([PW, PH]);
+  let y = PH - M;
+  let pageNum = 1;
+
+  function drawText(s: string, x: number, sz: number, f = font, c = dark) {
+    page.drawText(sanitizeForPdf(s), { x, y, size: sz, font: f, color: c });
+  }
+  function footer() {
+    page.drawLine({
+      start: { x: M, y: 28 },
+      end: { x: PW - M, y: 28 },
+      thickness: 0.4,
+      color: rgb(0.88, 0.88, 0.88),
+    });
+    page.drawText(
+      sanitizeForPdf(
+        `EONPro -> OT clinic reconciliation  |  Page ${pageNum}  |  Generated ${new Date().toLocaleString('en-US')}`
+      ),
+      { x: M, y: 16, size: 6.5, font, color: light }
+    );
+  }
+  function newPage() {
+    footer();
+    page = doc.addPage([PW, PH]);
+    y = PH - M;
+    pageNum += 1;
+  }
+  function need(h: number) {
+    if (y - h < M + 22) newPage();
+  }
+
+  // ---- HEADER (page 1) ---------------------------------------------------
+  if (logo) {
+    const sc = 36 / logo.height;
+    page.drawImage(logo, { x: M, y: y - 10, width: logo.width * sc, height: 36 });
+  }
+  y -= 4;
+  drawText('OT CLINIC MANUAL RECONCILIATION', PW - M - 280, 13, fontBold, green);
+  y -= 22;
+  page.drawRectangle({ x: M, y, width: TW, height: 2, color: green });
+  y -= 18;
+
+  drawText(data.pharmacy.clinicName, M, 11, fontBold);
+  drawText(
+    `${new Date(data.pharmacy.periodStart).toLocaleDateString('en-US')} — ${new Date(data.pharmacy.periodEnd).toLocaleDateString('en-US')}`,
+    PW - M - 200,
+    9,
+    font,
+    mid
+  );
+  y -= 14;
+  drawText(
+    `${reconciliation.totals.saleCount} sales  |  ${reconciliation.totals.finalizedCount} finalized  |  ${reconciliation.totals.draftCount} draft  |  ${reconciliation.totals.computedCount} computed-only`,
+    M,
+    8,
+    font,
+    mid
+  );
+  drawText('Allocations elected by super-admin', PW - M - 200, 7.5, font, light);
+  y -= 18;
+
+  // ---- SUMMARY TILES -----------------------------------------------------
+  function summaryRow(label: string, amt: number, bold = false) {
+    need(16);
+    drawText(label, M, 9.5, bold ? fontBold : font);
+    drawText(`$${centsToDisplay(amt)}`, PW - M - 90, 9.5, bold ? fontBold : font);
+    y -= 14;
+  }
+  summaryRow('Patient gross (sum)', reconciliation.totals.patientGrossCents);
+  summaryRow('Less — Medications', reconciliation.totals.medicationsCents);
+  summaryRow('Less — Shipping', reconciliation.totals.shippingCents);
+  summaryRow('Less — TRT telehealth', reconciliation.totals.trtTelehealthCents);
+  summaryRow('Less — Doctor / Rx fee', reconciliation.totals.doctorRxFeeCents);
+  summaryRow('Less — Fulfillment fees', reconciliation.totals.fulfillmentFeesCents);
+  summaryRow('Less — Custom line items', reconciliation.totals.customLineItemsCents);
+  y -= 4;
+  page.drawLine({
+    start: { x: M, y: y + 4 },
+    end: { x: PW - M, y: y + 4 },
+    thickness: 0.6,
+    color: green,
+  });
+  y -= 4;
+  summaryRow('Total deductions', reconciliation.totals.totalDeductionsCents, true);
+  const netColor = reconciliation.totals.netToOtClinicCents < 0 ? rose : green;
+  need(20);
+  drawText('Net to OT clinic', M, 12, fontBold, netColor);
+  drawText(
+    `$${centsToDisplay(reconciliation.totals.netToOtClinicCents)}`,
+    PW - M - 100,
+    12,
+    fontBold,
+    netColor
+  );
+  y -= 22;
+
+  // ---- PER-SALE BLOCKS ---------------------------------------------------
+  if (reconciliation.lines.length > 0) {
+    need(20);
+    drawText('PER-SALE ALLOCATIONS', M, 10, fontBold, green);
+    y -= 16;
+  }
+
+  for (const sale of reconciliation.lines) {
+    const lineCount = sale.payload.meds.length + sale.payload.customLineItems.length + 4; // +4 for ship/trt/dr/fulfillment headers
+    /** Estimate block height: header (24) + per-row * 13 + totals (28) + notes (varies). */
+    const notesH = sale.payload.notes ? 22 : 0;
+    const blockH = 24 + 13 * (lineCount + 2) + 28 + notesH + 8;
+    need(blockH);
+
+    // Header band
+    const statusBg =
+      sale.overrideStatus === 'FINALIZED'
+        ? finalizedBg
+        : sale.overrideStatus === 'DRAFT'
+          ? draftBg
+          : greenBg;
+    page.drawRectangle({ x: M, y: y - 18, width: TW, height: 22, color: statusBg });
+    drawText(sale.patientName, M + 6, 10, fontBold);
+    const paidLbl = sale.paidAt
+      ? new Date(sale.paidAt).toLocaleString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+          timeZone: 'America/New_York',
+        })
+      : '—';
+    drawText(paidLbl, M + 200, 8.5, font, mid);
+    drawText(
+      `Order #${sale.orderId}${sale.invoiceDbId ? ' · Inv ' + sale.invoiceDbId : ''}`,
+      M + 360,
+      8.5,
+      font,
+      mid
+    );
+    const statusLbl =
+      sale.overrideStatus === 'FINALIZED'
+        ? 'FINAL'
+        : sale.overrideStatus === 'DRAFT'
+          ? 'DRAFT'
+          : 'COMPUTED';
+    const statusC =
+      sale.overrideStatus === 'FINALIZED'
+        ? green
+        : sale.overrideStatus === 'DRAFT'
+          ? rgb(0.6, 0.42, 0.05)
+          : light;
+    drawText(statusLbl, PW - M - 50, 8.5, fontBold, statusC);
+    y -= 24;
+
+    // Line items
+    function lineRow(label: string, amt: number, opts: { sub?: string; muted?: boolean } = {}) {
+      need(13);
+      drawText(label, M + 6, 9, font, opts.muted ? light : dark);
+      if (opts.sub) drawText(opts.sub, M + 280, 8, font, light);
+      drawText(`$${centsToDisplay(amt)}`, PW - M - 90, 9, font, dark);
+      y -= 12;
+    }
+
+    drawText('Patient gross', M + 6, 9, fontBold);
+    drawText(`$${centsToDisplay(sale.payload.patientGrossCents)}`, PW - M - 90, 9, fontBold);
+    y -= 14;
+
+    if (sale.payload.meds.length === 0) {
+      lineRow('Medications', 0, { muted: true });
+    } else {
+      for (const m of sale.payload.meds) {
+        const sub = `${m.strength}${m.vialSize ? ' · ' + m.vialSize : ''} · qty ${m.quantity} @ $${centsToDisplay(m.unitPriceCents)}${m.source === 'custom' ? ' (custom)' : ''}`;
+        lineRow(`Med — ${m.name}`, m.lineTotalCents, { sub });
+      }
+    }
+    lineRow('Shipping', sale.payload.shippingCents);
+    lineRow('TRT telehealth', sale.payload.trtTelehealthCents);
+    lineRow('Doctor / Rx fee', sale.payload.doctorRxFeeCents);
+    lineRow('Fulfillment fees', sale.payload.fulfillmentFeesCents);
+    for (const c of sale.payload.customLineItems) {
+      lineRow(`Custom — ${c.description}`, c.amountCents);
+    }
+
+    // Totals bar
+    need(22);
+    page.drawLine({
+      start: { x: M, y: y + 6 },
+      end: { x: PW - M, y: y + 6 },
+      thickness: 0.4,
+      color: rgb(0.88, 0.88, 0.88),
+    });
+    y -= 2;
+    drawText('Total deductions', M + 6, 9.5, fontBold);
+    drawText(`$${centsToDisplay(sale.totals.totalDeductionsCents)}`, PW - M - 90, 9.5, fontBold);
+    y -= 14;
+    const saleNetColor = sale.totals.netToOtClinicCents < 0 ? rose : green;
+    drawText('Net to OT clinic', M + 6, 10, fontBold, saleNetColor);
+    drawText(
+      `$${centsToDisplay(sale.totals.netToOtClinicCents)}`,
+      PW - M - 90,
+      10,
+      fontBold,
+      saleNetColor
+    );
+    y -= 16;
+
+    if (sale.payload.notes) {
+      need(20);
+      drawText('Notes:', M + 6, 7.5, fontBold, mid);
+      const noteText =
+        sale.payload.notes.length > 220
+          ? sale.payload.notes.slice(0, 217) + '...'
+          : sale.payload.notes;
+      drawText(noteText, M + 36, 7.5, font, mid);
+      y -= 14;
+    }
+    y -= 6;
+  }
+
+  footer();
   return doc.save();
 }
