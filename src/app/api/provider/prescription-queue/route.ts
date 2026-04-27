@@ -1660,9 +1660,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
               strength: lastRxData.strength,
               sig: lastRxData.sig,
               dose: lastRxData.dose,
-              prescribedAt: lastRxData.prescribedAt
-                ? lastRxData.prescribedAt.toISOString()
-                : null,
+              prescribedAt: lastRxData.prescribedAt ? lastRxData.prescribedAt.toISOString() : null,
             }
           : null,
         // SOAP Note status

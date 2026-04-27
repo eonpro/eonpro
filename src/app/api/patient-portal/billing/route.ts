@@ -214,7 +214,7 @@ export const GET = withAuth(
       // almost certainly the same charge represented by multiple DB records
       // (e.g. invoice + payment + subscription-creation). Keep the one with
       // the most descriptive text and prefer entries with a PDF link.
-      const seen = new Map<string, typeof rawInvoices[number]>();
+      const seen = new Map<string, (typeof rawInvoices)[number]>();
       for (const inv of rawInvoices) {
         const dateKey = inv.date.slice(0, 10);
         const key = `${dateKey}|${inv.amount}|${inv.status}`;

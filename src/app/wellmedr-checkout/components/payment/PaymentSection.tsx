@@ -403,7 +403,6 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
     []
   );
 
-
   /** Express Checkout Element confirm handler */
   const handleExpressCheckoutConfirm = useCallback(
     async (_event: StripeExpressCheckoutElementConfirmEvent) => {

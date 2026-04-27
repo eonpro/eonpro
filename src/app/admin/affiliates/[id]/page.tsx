@@ -139,49 +139,55 @@ export default function AffiliateDetailPage() {
   const [patientsLoading, setPatientsLoading] = useState(false);
   const PATIENTS_PAGE_SIZE = 20;
 
-  const fetchAffiliate = useCallback(async (patientPage = 1) => {
-    setLoading(true);
-    setError(null);
+  const fetchAffiliate = useCallback(
+    async (patientPage = 1) => {
+      setLoading(true);
+      setError(null);
 
-    try {
-      const response = await apiFetch(
-        `/api/admin/affiliates/${affiliateId}?patientsPage=${patientPage}&patientsPageSize=${PATIENTS_PAGE_SIZE}`
-      );
+      try {
+        const response = await apiFetch(
+          `/api/admin/affiliates/${affiliateId}?patientsPage=${patientPage}&patientsPageSize=${PATIENTS_PAGE_SIZE}`
+        );
 
-      if (response.ok) {
-        const data = await response.json();
-        setAffiliate(data);
-      } else if (response.status === 404) {
-        setError('Affiliate not found');
-      } else {
+        if (response.ok) {
+          const data = await response.json();
+          setAffiliate(data);
+        } else if (response.status === 404) {
+          setError('Affiliate not found');
+        } else {
+          setError('Failed to load affiliate details');
+        }
+      } catch (err) {
+        console.error('Error fetching affiliate:', err);
         setError('Failed to load affiliate details');
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      console.error('Error fetching affiliate:', err);
-      setError('Failed to load affiliate details');
-    } finally {
-      setLoading(false);
-    }
-  }, [affiliateId]);
+    },
+    [affiliateId]
+  );
 
-  const fetchPatientsPage = useCallback(async (page: number) => {
-    if (!affiliate) return;
-    setPatientsLoading(true);
-    try {
-      const response = await apiFetch(
-        `/api/admin/affiliates/${affiliateId}?patientsPage=${page}&patientsPageSize=${PATIENTS_PAGE_SIZE}`
-      );
-      if (response.ok) {
-        const data = await response.json();
-        setAffiliate(data);
-        setPatientsPage(page);
+  const fetchPatientsPage = useCallback(
+    async (page: number) => {
+      if (!affiliate) return;
+      setPatientsLoading(true);
+      try {
+        const response = await apiFetch(
+          `/api/admin/affiliates/${affiliateId}?patientsPage=${page}&patientsPageSize=${PATIENTS_PAGE_SIZE}`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          setAffiliate(data);
+          setPatientsPage(page);
+        }
+      } catch (err) {
+        console.error('Error fetching patients page:', err);
+      } finally {
+        setPatientsLoading(false);
       }
-    } catch (err) {
-      console.error('Error fetching patients page:', err);
-    } finally {
-      setPatientsLoading(false);
-    }
-  }, [affiliate, affiliateId]);
+    },
+    [affiliate, affiliateId]
+  );
 
   useEffect(() => {
     fetchAffiliate();
@@ -811,8 +817,7 @@ export default function AffiliateDetailPage() {
                 {affiliate.attributedPatientsPagination?.total ?? affiliate.stats.totalIntakes ?? 0}
               </span>
             </div>
-            {!affiliate.attributedPatients ||
-            affiliate.attributedPatients.length === 0 ? (
+            {!affiliate.attributedPatients || affiliate.attributedPatients.length === 0 ? (
               <p className="text-gray-500">No patients attributed yet</p>
             ) : (
               <>
@@ -828,7 +833,9 @@ export default function AffiliateDetailPage() {
                           #{p.patientId}
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-900">Patient #{p.patientId}</p>
+                          <p className="text-sm font-medium text-gray-900">
+                            Patient #{p.patientId}
+                          </p>
                           <p className="text-xs text-gray-500">{formatDate(p.attributedAt)}</p>
                         </div>
                       </div>
@@ -841,58 +848,74 @@ export default function AffiliateDetailPage() {
                   ))}
                 </div>
 
-                {affiliate.attributedPatientsPagination && affiliate.attributedPatientsPagination.totalPages > 1 && (
-                  <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-4">
-                    <p className="text-sm text-gray-500">
-                      Showing {((patientsPage - 1) * PATIENTS_PAGE_SIZE) + 1}–{Math.min(patientsPage * PATIENTS_PAGE_SIZE, affiliate.attributedPatientsPagination.total)} of {affiliate.attributedPatientsPagination.total}
-                    </p>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => fetchPatientsPage(patientsPage - 1)}
-                        disabled={patientsPage <= 1 || patientsLoading}
-                        className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        Previous
-                      </button>
-                      {Array.from({ length: affiliate.attributedPatientsPagination.totalPages }, (_, i) => i + 1)
-                        .filter((p) => {
-                          if (affiliate.attributedPatientsPagination!.totalPages <= 7) return true;
-                          if (p === 1 || p === affiliate.attributedPatientsPagination!.totalPages) return true;
-                          return Math.abs(p - patientsPage) <= 1;
-                        })
-                        .reduce<(number | 'ellipsis')[]>((acc, p, i, arr) => {
-                          if (i > 0 && p - (arr[i - 1] as number) > 1) acc.push('ellipsis');
-                          acc.push(p);
-                          return acc;
-                        }, [])
-                        .map((item, idx) =>
-                          item === 'ellipsis' ? (
-                            <span key={`ellipsis-${idx}`} className="px-1 text-gray-400">...</span>
-                          ) : (
-                            <button
-                              key={item}
-                              onClick={() => fetchPatientsPage(item)}
-                              disabled={patientsLoading}
-                              className={`rounded-md px-3 py-1.5 text-sm font-medium ${
-                                item === patientsPage
-                                  ? 'bg-[var(--brand-primary)] text-white'
-                                  : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
-                              } disabled:opacity-40`}
-                            >
-                              {item}
-                            </button>
-                          )
-                        )}
-                      <button
-                        onClick={() => fetchPatientsPage(patientsPage + 1)}
-                        disabled={patientsPage >= affiliate.attributedPatientsPagination.totalPages || patientsLoading}
-                        className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        Next
-                      </button>
+                {affiliate.attributedPatientsPagination &&
+                  affiliate.attributedPatientsPagination.totalPages > 1 && (
+                    <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-4">
+                      <p className="text-sm text-gray-500">
+                        Showing {(patientsPage - 1) * PATIENTS_PAGE_SIZE + 1}–
+                        {Math.min(
+                          patientsPage * PATIENTS_PAGE_SIZE,
+                          affiliate.attributedPatientsPagination.total
+                        )}{' '}
+                        of {affiliate.attributedPatientsPagination.total}
+                      </p>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => fetchPatientsPage(patientsPage - 1)}
+                          disabled={patientsPage <= 1 || patientsLoading}
+                          className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Previous
+                        </button>
+                        {Array.from(
+                          { length: affiliate.attributedPatientsPagination.totalPages },
+                          (_, i) => i + 1
+                        )
+                          .filter((p) => {
+                            if (affiliate.attributedPatientsPagination!.totalPages <= 7)
+                              return true;
+                            if (p === 1 || p === affiliate.attributedPatientsPagination!.totalPages)
+                              return true;
+                            return Math.abs(p - patientsPage) <= 1;
+                          })
+                          .reduce<(number | 'ellipsis')[]>((acc, p, i, arr) => {
+                            if (i > 0 && p - (arr[i - 1] as number) > 1) acc.push('ellipsis');
+                            acc.push(p);
+                            return acc;
+                          }, [])
+                          .map((item, idx) =>
+                            item === 'ellipsis' ? (
+                              <span key={`ellipsis-${idx}`} className="px-1 text-gray-400">
+                                ...
+                              </span>
+                            ) : (
+                              <button
+                                key={item}
+                                onClick={() => fetchPatientsPage(item)}
+                                disabled={patientsLoading}
+                                className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+                                  item === patientsPage
+                                    ? 'bg-[var(--brand-primary)] text-white'
+                                    : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                                } disabled:opacity-40`}
+                              >
+                                {item}
+                              </button>
+                            )
+                          )}
+                        <button
+                          onClick={() => fetchPatientsPage(patientsPage + 1)}
+                          disabled={
+                            patientsPage >= affiliate.attributedPatientsPagination.totalPages ||
+                            patientsLoading
+                          }
+                          className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Next
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
               </>
             )}
           </div>

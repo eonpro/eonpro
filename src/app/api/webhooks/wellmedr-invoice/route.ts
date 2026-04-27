@@ -1107,19 +1107,21 @@ export async function POST(req: NextRequest) {
               select: { stripeCustomerId: true },
             });
             if (!existingPatient?.stripeCustomerId) {
-              await prisma.patient.update({
-                where: { id: verifiedPatient.id },
-                data: { stripeCustomerId: subCustomerId },
-              }).catch((linkErr) => {
-                // P2002 = another patient already has this stripeCustomerId — not fatal
-                if ((linkErr as any)?.code !== 'P2002') {
-                  logger.warn(`[WELLMEDR-INVOICE ${requestId}] Failed to link stripeCustomerId`, {
-                    patientId: verifiedPatient.id,
-                    customerId: subCustomerId,
-                    error: linkErr instanceof Error ? linkErr.message : String(linkErr),
-                  });
-                }
-              });
+              await prisma.patient
+                .update({
+                  where: { id: verifiedPatient.id },
+                  data: { stripeCustomerId: subCustomerId },
+                })
+                .catch((linkErr) => {
+                  // P2002 = another patient already has this stripeCustomerId — not fatal
+                  if ((linkErr as any)?.code !== 'P2002') {
+                    logger.warn(`[WELLMEDR-INVOICE ${requestId}] Failed to link stripeCustomerId`, {
+                      patientId: verifiedPatient.id,
+                      customerId: subCustomerId,
+                      error: linkErr instanceof Error ? linkErr.message : String(linkErr),
+                    });
+                  }
+                });
               logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Linked stripeCustomerId to patient`, {
                 patientId: verifiedPatient.id,
                 stripeCustomerId: subCustomerId,
@@ -1160,19 +1162,21 @@ export async function POST(req: NextRequest) {
         if (!existingPatient?.stripeCustomerId) {
           const stripe = getWellMedrConnectStripe();
           const connectOpts = getWellMedrConnectOpts();
-          const customers = await stripe.customers.list(
-            { email, limit: 1 },
-            connectOpts
-          );
+          const customers = await stripe.customers.list({ email, limit: 1 }, connectOpts);
           if (customers.data.length > 0) {
-            await prisma.patient.update({
-              where: { id: verifiedPatient.id },
-              data: { stripeCustomerId: customers.data[0].id },
-            }).catch(() => {});
-            logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Linked stripeCustomerId via email lookup`, {
-              patientId: verifiedPatient.id,
-              stripeCustomerId: customers.data[0].id,
-            });
+            await prisma.patient
+              .update({
+                where: { id: verifiedPatient.id },
+                data: { stripeCustomerId: customers.data[0].id },
+              })
+              .catch(() => {});
+            logger.info(
+              `[WELLMEDR-INVOICE ${requestId}] ✓ Linked stripeCustomerId via email lookup`,
+              {
+                patientId: verifiedPatient.id,
+                stripeCustomerId: customers.data[0].id,
+              }
+            );
           }
         }
       } catch (custLinkErr) {

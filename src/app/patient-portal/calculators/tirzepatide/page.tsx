@@ -61,7 +61,9 @@ export default function TirzepatideDoseCalculatorPage() {
 
   const [units, setUnits] = useState('');
   const [concentration, setConcentration] = useState(10);
-  const [selectedWeek, setSelectedWeek] = useState<(typeof standardTitrationSchedule)[0] | null>(null);
+  const [selectedWeek, setSelectedWeek] = useState<(typeof standardTitrationSchedule)[0] | null>(
+    null
+  );
   const [, startTransition] = useTransition();
 
   const handleUnitsChange = useCallback(
@@ -519,8 +521,7 @@ export default function TirzepatideDoseCalculatorPage() {
             ) : (
               <div className="divide-y divide-gray-100">
                 {dosingSchedule.map((schedule, i) => {
-                  const scheduleUnits =
-                    Math.round((schedule.dose / concentration) * 100 * 10) / 10;
+                  const scheduleUnits = Math.round((schedule.dose / concentration) * 100 * 10) / 10;
                   const isSelected = selectedWeek?.week === schedule.week;
                   return (
                     <button
@@ -557,12 +558,8 @@ export default function TirzepatideDoseCalculatorPage() {
                       </div>
                       <div className="flex items-center gap-3">
                         <div className="text-right">
-                          <p className="text-lg font-semibold text-gray-900">
-                            {schedule.dose} mg
-                          </p>
-                          <p className="text-sm font-medium text-gray-500">
-                            {scheduleUnits} units
-                          </p>
+                          <p className="text-lg font-semibold text-gray-900">{schedule.dose} mg</p>
+                          <p className="text-sm font-medium text-gray-500">{scheduleUnits} units</p>
                         </div>
                         <ChevronRight
                           className={`h-5 w-5 transition-transform ${isSelected ? 'text-gray-900' : 'text-gray-300 group-hover:translate-x-1'}`}

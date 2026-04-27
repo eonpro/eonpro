@@ -1,6 +1,6 @@
 /**
  * AUTO-GENERATED — DO NOT EDIT MANUALLY
- * Generated from prisma/schema.prisma on 2026-04-07
+ * Generated from prisma/schema.prisma on 2026-04-27
  * Run: node scripts/generate-prisma-enums.js
  *
  * Client-safe Prisma enum types. Use these in 'use client' components instead of
@@ -17,10 +17,11 @@ export const ReconciliationStatus = {
   SKIPPED: 'SKIPPED' as const,
 } as const;
 
-export type ProfileStatus = 'ACTIVE' | 'PENDING_COMPLETION' | 'MERGED' | 'ARCHIVED';
+export type ProfileStatus = 'ACTIVE' | 'LEAD' | 'PENDING_COMPLETION' | 'MERGED' | 'ARCHIVED';
 
 export const ProfileStatus = {
   ACTIVE: 'ACTIVE' as const,
+  LEAD: 'LEAD' as const,
   PENDING_COMPLETION: 'PENDING_COMPLETION' as const,
   MERGED: 'MERGED' as const,
   ARCHIVED: 'ARCHIVED' as const,
@@ -1512,6 +1513,22 @@ export const PatientPhotoVerificationStatus = {
   VERIFIED: 'VERIFIED' as const,
   REJECTED: 'REJECTED' as const,
   EXPIRED: 'EXPIRED' as const,
+} as const;
+
+export type ScheduledPaymentType = 'AUTO_CHARGE' | 'REMINDER';
+
+export const ScheduledPaymentType = {
+  AUTO_CHARGE: 'AUTO_CHARGE' as const,
+  REMINDER: 'REMINDER' as const,
+} as const;
+
+export type ScheduledPaymentStatus = 'PENDING' | 'PROCESSED' | 'FAILED' | 'CANCELED';
+
+export const ScheduledPaymentStatus = {
+  PENDING: 'PENDING' as const,
+  PROCESSED: 'PROCESSED' as const,
+  FAILED: 'FAILED' as const,
+  CANCELED: 'CANCELED' as const,
 } as const;
 
 export type DraftStatus = 'IN_PROGRESS' | 'COMPLETED' | 'EXPIRED' | 'ABANDONED';

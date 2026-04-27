@@ -63,19 +63,74 @@ interface ApiResponse {
 // ── Constants ──
 
 const SEVERITY_CONFIG = {
-  error: { icon: AlertCircle, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200', badge: 'bg-red-100 text-red-700' },
-  warning: { icon: AlertTriangle, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200', badge: 'bg-amber-100 text-amber-700' },
-  info: { icon: Info, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200', badge: 'bg-blue-100 text-blue-700' },
+  error: {
+    icon: AlertCircle,
+    color: 'text-red-600',
+    bg: 'bg-red-50',
+    border: 'border-red-200',
+    badge: 'bg-red-100 text-red-700',
+  },
+  warning: {
+    icon: AlertTriangle,
+    color: 'text-amber-600',
+    bg: 'bg-amber-50',
+    border: 'border-amber-200',
+    badge: 'bg-amber-100 text-amber-700',
+  },
+  info: {
+    icon: Info,
+    color: 'text-blue-600',
+    bg: 'bg-blue-50',
+    border: 'border-blue-200',
+    badge: 'bg-blue-100 text-blue-700',
+  },
 } as const;
 
-const CHART_COLORS = ['#4fa77e', '#f59e0b', '#ef4444', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
+const CHART_COLORS = [
+  '#4fa77e',
+  '#f59e0b',
+  '#ef4444',
+  '#3b82f6',
+  '#8b5cf6',
+  '#ec4899',
+  '#14b8a6',
+  '#f97316',
+];
 
-const DRUG_CATEGORY_CONFIG: Record<string, { label: string; bg: string; text: string; dot: string }> = {
-  [DrugCategory.PRIMARY_GLP1]: { label: 'GLP-1', bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500' },
-  [DrugCategory.ADD_ON]: { label: 'Add-On', bg: 'bg-purple-50', text: 'text-purple-700', dot: 'bg-purple-500' },
-  [DrugCategory.ANTI_NAUSEA]: { label: 'Anti-Nausea', bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-500' },
-  [DrugCategory.SUPPLY]: { label: 'Supply', bg: 'bg-gray-50', text: 'text-gray-500', dot: 'bg-gray-400' },
-  [DrugCategory.UNKNOWN]: { label: 'Other', bg: 'bg-orange-50', text: 'text-orange-700', dot: 'bg-orange-500' },
+const DRUG_CATEGORY_CONFIG: Record<
+  string,
+  { label: string; bg: string; text: string; dot: string }
+> = {
+  [DrugCategory.PRIMARY_GLP1]: {
+    label: 'GLP-1',
+    bg: 'bg-emerald-50',
+    text: 'text-emerald-700',
+    dot: 'bg-emerald-500',
+  },
+  [DrugCategory.ADD_ON]: {
+    label: 'Add-On',
+    bg: 'bg-purple-50',
+    text: 'text-purple-700',
+    dot: 'bg-purple-500',
+  },
+  [DrugCategory.ANTI_NAUSEA]: {
+    label: 'Anti-Nausea',
+    bg: 'bg-blue-50',
+    text: 'text-blue-700',
+    dot: 'bg-blue-500',
+  },
+  [DrugCategory.SUPPLY]: {
+    label: 'Supply',
+    bg: 'bg-gray-50',
+    text: 'text-gray-500',
+    dot: 'bg-gray-400',
+  },
+  [DrugCategory.UNKNOWN]: {
+    label: 'Other',
+    bg: 'bg-orange-50',
+    text: 'text-orange-700',
+    dot: 'bg-orange-500',
+  },
 };
 
 const TABS = ['Summary', 'Issues', 'By Patient', 'By Medication'] as const;
@@ -169,7 +224,9 @@ export default function CsvAnalyzerPage() {
           }`}
         >
           <input {...getInputProps()} />
-          <FileSpreadsheet className={`mx-auto mb-4 h-16 w-16 ${isDragActive ? 'text-[#4fa77e]' : 'text-gray-300'}`} />
+          <FileSpreadsheet
+            className={`mx-auto mb-4 h-16 w-16 ${isDragActive ? 'text-[#4fa77e]' : 'text-gray-300'}`}
+          />
           <p className="text-lg font-medium text-gray-700">
             {isDragActive ? 'Drop CSV file here' : 'Drag & drop a CSV file, or click to browse'}
           </p>
@@ -203,7 +260,9 @@ export default function CsvAnalyzerPage() {
         </div>
       )}
 
-      {result && <AnalysisDashboard result={result} activeTab={activeTab} setActiveTab={setActiveTab} />}
+      {result && (
+        <AnalysisDashboard result={result} activeTab={activeTab} setActiveTab={setActiveTab} />
+      )}
     </div>
   );
 }
@@ -227,7 +286,11 @@ function AnalysisDashboard({
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
         <StatCard icon={Hash} label="Total Rows" value={summary.totalRows.toLocaleString()} />
         <StatCard icon={Users} label="Patients" value={summary.uniquePatients.toLocaleString()} />
-        <StatCard icon={Pill} label="Medications" value={summary.uniqueMedications.toLocaleString()} />
+        <StatCard
+          icon={Pill}
+          label="Medications"
+          value={summary.uniqueMedications.toLocaleString()}
+        />
         <StatCard
           icon={DollarSign}
           label="Total Billed"
@@ -277,7 +340,12 @@ function AnalysisDashboard({
 
       {/* Tab Content */}
       {activeTab === 'Summary' && (
-        <SummaryTab summary={summary} issues={issues} medications={medications} meta={result.meta} />
+        <SummaryTab
+          summary={summary}
+          issues={issues}
+          medications={medications}
+          meta={result.meta}
+        />
       )}
       {activeTab === 'Issues' && <IssuesTab issues={issues} />}
       {activeTab === 'By Patient' && <PatientsTab patients={patients} />}
@@ -305,17 +373,27 @@ function StatCard({
         <Icon className={`h-4 w-4 ${accent ? 'text-red-500' : 'text-gray-400'}`} />
         <span className="text-xs font-medium text-gray-500">{label}</span>
       </div>
-      <p className={`mt-2 text-xl font-bold ${accent ? 'text-red-600' : 'text-gray-900'}`}>{value}</p>
+      <p className={`mt-2 text-xl font-bold ${accent ? 'text-red-600' : 'text-gray-900'}`}>
+        {value}
+      </p>
     </div>
   );
 }
 
-function SeverityBadge({ severity, count }: { severity: 'error' | 'warning' | 'info'; count: number }) {
+function SeverityBadge({
+  severity,
+  count,
+}: {
+  severity: 'error' | 'warning' | 'info';
+  count: number;
+}) {
   if (count === 0) return null;
   const cfg = SEVERITY_CONFIG[severity];
   const Icon = cfg.icon;
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium ${cfg.badge}`}>
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium ${cfg.badge}`}
+    >
       <Icon className="h-3.5 w-3.5" />
       {count} {severity === 'error' ? 'Error' : severity === 'warning' ? 'Warning' : 'Info'}
       {count !== 1 ? 's' : ''}
@@ -342,7 +420,11 @@ function SummaryTab({
       map.set(issue.rule, (map.get(issue.rule) ?? 0) + 1);
     }
     return [...map.entries()]
-      .map(([name, value]) => ({ name: name.length > 30 ? name.slice(0, 30) + '…' : name, fullName: name, value }))
+      .map(([name, value]) => ({
+        name: name.length > 30 ? name.slice(0, 30) + '…' : name,
+        fullName: name,
+        value,
+      }))
       .sort((a, b) => b.value - a.value);
   }, [issues]);
 
@@ -418,7 +500,9 @@ function SummaryTab({
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                 <XAxis type="number" tickFormatter={(v) => `$${v.toLocaleString()}`} />
                 <YAxis type="category" dataKey="name" width={160} tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(value) => [`$${Number(value).toLocaleString()}`, 'Total Billed']} />
+                <Tooltip
+                  formatter={(value) => [`$${Number(value).toLocaleString()}`, 'Total Billed']}
+                />
                 <Bar dataKey="billed" fill="#3b82f6" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -429,7 +513,9 @@ function SummaryTab({
       {/* Severity Pie Chart */}
       {summary.totalIssues > 0 && (
         <div className="mx-auto max-w-md rounded-xl bg-white p-5 shadow-sm">
-          <h3 className="mb-4 text-center text-sm font-semibold text-gray-700">Issue Severity Breakdown</h3>
+          <h3 className="mb-4 text-center text-sm font-semibold text-gray-700">
+            Issue Severity Breakdown
+          </h3>
           <ResponsiveContainer width="100%" height={250}>
             <PieChart>
               <Pie
@@ -663,10 +749,15 @@ function IssuesTab({ issues }: { issues: Issue[] }) {
                   </td>
                   <td className="px-4 py-3 font-medium text-gray-800">{issue.rule}</td>
                   <td className="px-4 py-3 text-gray-700">{issue.patientName || '—'}</td>
-                  <td className="max-w-[200px] truncate px-4 py-3 text-gray-700" title={issue.drugName}>
+                  <td
+                    className="max-w-[200px] truncate px-4 py-3 text-gray-700"
+                    title={issue.drugName}
+                  >
                     {issue.drugName || '—'}
                   </td>
-                  <td className="px-4 py-3 font-mono text-xs text-gray-600">{issue.rxNumber || '—'}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-gray-600">
+                    {issue.rxNumber || '—'}
+                  </td>
                   <td className="px-4 py-3 font-mono text-xs text-gray-500">
                     {issue.rowNumbers.slice(0, 5).join(', ')}
                     {issue.rowNumbers.length > 5 && `… +${issue.rowNumbers.length - 5}`}
@@ -679,7 +770,9 @@ function IssuesTab({ issues }: { issues: Issue[] }) {
               <tr>
                 <td colSpan={7} className="px-4 py-12 text-center text-gray-400">
                   <CheckCircle2 className="mx-auto mb-2 h-8 w-8 text-green-400" />
-                  {issues.length === 0 ? 'No issues detected — data looks clean!' : 'No issues match your filters'}
+                  {issues.length === 0
+                    ? 'No issues detected — data looks clean!'
+                    : 'No issues match your filters'}
                 </td>
               </tr>
             )}
@@ -720,7 +813,9 @@ function IssuesTab({ issues }: { issues: Issue[] }) {
 function DrugCategoryBadge({ category }: { category: string }) {
   const cfg = DRUG_CATEGORY_CONFIG[category] ?? DRUG_CATEGORY_CONFIG[DrugCategory.UNKNOWN];
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${cfg.bg} ${cfg.text}`}>
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${cfg.bg} ${cfg.text}`}
+    >
       <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
       {cfg.label}
     </span>
@@ -731,7 +826,9 @@ function DrugCategoryBadge({ category }: { category: string }) {
 
 function PatientsTab({ patients }: { patients: PatientSummary[] }) {
   const [search, setSearch] = useState('');
-  const [sortField, setSortField] = useState<'issueCount' | 'totalBilled' | 'totalRows' | 'patientName'>('issueCount');
+  const [sortField, setSortField] = useState<
+    'issueCount' | 'totalBilled' | 'totalRows' | 'patientName'
+  >('issueCount');
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc');
   const [page, setPage] = useState(0);
   const [expandedPatients, setExpandedPatients] = useState<Set<string>>(new Set());
@@ -814,25 +911,40 @@ function PatientsTab({ patients }: { patients: PatientSummary[] }) {
       <div className="flex flex-wrap items-center gap-3 rounded-xl bg-white p-4 shadow-sm">
         <span className="text-sm font-medium text-gray-700">Drug Breakdown:</span>
         <button
-          onClick={() => { setAddOnFilter('all'); setPage(0); }}
+          onClick={() => {
+            setAddOnFilter('all');
+            setPage(0);
+          }}
           className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-            addOnFilter === 'all' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            addOnFilter === 'all'
+              ? 'bg-gray-900 text-white'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
           }`}
         >
           All Patients ({patients.length})
         </button>
         <button
-          onClick={() => { setAddOnFilter('add-ons'); setPage(0); }}
+          onClick={() => {
+            setAddOnFilter('add-ons');
+            setPage(0);
+          }}
           className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-            addOnFilter === 'add-ons' ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-700 hover:bg-purple-100'
+            addOnFilter === 'add-ons'
+              ? 'bg-purple-600 text-white'
+              : 'bg-purple-50 text-purple-700 hover:bg-purple-100'
           }`}
         >
           With Add-Ons ({addOnStats.withAddOns})
         </button>
         <button
-          onClick={() => { setAddOnFilter('glp1-only'); setPage(0); }}
+          onClick={() => {
+            setAddOnFilter('glp1-only');
+            setPage(0);
+          }}
           className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-            addOnFilter === 'glp1-only' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+            addOnFilter === 'glp1-only'
+              ? 'bg-emerald-600 text-white'
+              : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
           }`}
         >
           GLP-1 Only ({addOnStats.withoutAddOns})
@@ -891,11 +1003,17 @@ function PatientsTab({ patients }: { patients: PatientSummary[] }) {
                 className="flex w-full items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-gray-50"
               >
                 <span className="text-gray-400">
-                  {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  {isExpanded ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
                 </span>
                 <div className="min-w-[180px]">
                   <p className="text-sm font-semibold text-gray-900">{p.patientName}</p>
-                  <p className="text-xs text-gray-400">{p.totalRows} rows / {p.orders.length} order{p.orders.length !== 1 ? 's' : ''}</p>
+                  <p className="text-xs text-gray-400">
+                    {p.totalRows} rows / {p.orders.length} order{p.orders.length !== 1 ? 's' : ''}
+                  </p>
                 </div>
                 <div className="flex flex-1 flex-wrap items-center gap-1.5">
                   {p.primaryDrugs.length > 0 && (
@@ -915,7 +1033,9 @@ function PatientsTab({ patients }: { patients: PatientSummary[] }) {
                   )}
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-bold text-gray-900">${p.totalBilled.toLocaleString()}</p>
+                  <p className="text-sm font-bold text-gray-900">
+                    ${p.totalBilled.toLocaleString()}
+                  </p>
                 </div>
                 <div className="w-16 text-center">
                   {p.issueCount > 0 ? (
@@ -939,18 +1059,22 @@ function PatientsTab({ patients }: { patients: PatientSummary[] }) {
                         <th className="px-2 py-2 font-medium">Drug Name</th>
                         <th className="px-2 py-2 font-medium">Date Shipped</th>
                         <th className="px-2 py-2 font-medium">Rx #</th>
-                        <th className="px-2 py-2 font-medium text-right">Rx Qty</th>
-                        <th className="px-2 py-2 font-medium text-right">Dispensed</th>
-                        <th className="px-2 py-2 font-medium text-right">Filled</th>
-                        <th className="px-2 py-2 font-medium text-right">Price</th>
+                        <th className="px-2 py-2 text-right font-medium">Rx Qty</th>
+                        <th className="px-2 py-2 text-right font-medium">Dispensed</th>
+                        <th className="px-2 py-2 text-right font-medium">Filled</th>
+                        <th className="px-2 py-2 text-right font-medium">Price</th>
                         <th className="px-2 py-2 font-medium">Status</th>
                         <th className="px-2 py-2 font-medium">Order ID</th>
                       </tr>
                     </thead>
                     <tbody>
                       {p.lineItems.map((li) => {
-                        const catCfg = DRUG_CATEGORY_CONFIG[li.drugCategory] ?? DRUG_CATEGORY_CONFIG[DrugCategory.UNKNOWN];
-                        const isAddOn = li.drugCategory === DrugCategory.ADD_ON || li.drugCategory === DrugCategory.UNKNOWN;
+                        const catCfg =
+                          DRUG_CATEGORY_CONFIG[li.drugCategory] ??
+                          DRUG_CATEGORY_CONFIG[DrugCategory.UNKNOWN];
+                        const isAddOn =
+                          li.drugCategory === DrugCategory.ADD_ON ||
+                          li.drugCategory === DrugCategory.UNKNOWN;
                         return (
                           <tr
                             key={`${li.rowNumber}-${li.rxNumber}`}
@@ -959,15 +1083,26 @@ function PatientsTab({ patients }: { patients: PatientSummary[] }) {
                             <td className="px-2 py-2">
                               <DrugCategoryBadge category={li.drugCategory} />
                             </td>
-                            <td className="max-w-[250px] truncate px-2 py-2 font-medium text-gray-800" title={li.drugName}>
+                            <td
+                              className="max-w-[250px] truncate px-2 py-2 font-medium text-gray-800"
+                              title={li.drugName}
+                            >
                               {li.drugName}
                             </td>
                             <td className="px-2 py-2 text-gray-600">{li.dateShipped || '—'}</td>
                             <td className="px-2 py-2 font-mono text-gray-600">{li.rxNumber}</td>
-                            <td className="px-2 py-2 text-right text-gray-700">{li.rxQty ?? '—'}</td>
-                            <td className="px-2 py-2 text-right text-gray-700">{li.dispensedQ ?? '—'}</td>
-                            <td className="px-2 py-2 text-right text-gray-700">{li.filledQty ?? '—'}</td>
-                            <td className={`px-2 py-2 text-right font-semibold ${isAddOn ? 'text-purple-700' : 'text-gray-900'}`}>
+                            <td className="px-2 py-2 text-right text-gray-700">
+                              {li.rxQty ?? '—'}
+                            </td>
+                            <td className="px-2 py-2 text-right text-gray-700">
+                              {li.dispensedQ ?? '—'}
+                            </td>
+                            <td className="px-2 py-2 text-right text-gray-700">
+                              {li.filledQty ?? '—'}
+                            </td>
+                            <td
+                              className={`px-2 py-2 text-right font-semibold ${isAddOn ? 'text-purple-700' : 'text-gray-900'}`}
+                            >
                               {li.rxPrice != null ? `$${li.rxPrice}` : '—'}
                             </td>
                             <td className="px-2 py-2 text-gray-500">{li.rxStatus}</td>
@@ -978,7 +1113,9 @@ function PatientsTab({ patients }: { patients: PatientSummary[] }) {
                     </tbody>
                     <tfoot>
                       <tr className="border-t-2 border-gray-200 font-semibold text-gray-900">
-                        <td colSpan={7} className="px-2 py-2 text-right">Total</td>
+                        <td colSpan={7} className="px-2 py-2 text-right">
+                          Total
+                        </td>
                         <td className="px-2 py-2 text-right">${p.totalBilled.toLocaleString()}</td>
                         <td colSpan={2} />
                       </tr>
@@ -1081,7 +1218,9 @@ function MedicationsTab({ medications }: { medications: MedicationSummary[] }) {
               </div>
               <div>
                 <span className="text-gray-400">Qty Dispensed</span>
-                <p className="font-semibold text-gray-900">{med.totalQuantityDispensed.toLocaleString()}</p>
+                <p className="font-semibold text-gray-900">
+                  {med.totalQuantityDispensed.toLocaleString()}
+                </p>
               </div>
               <div>
                 <span className="text-gray-400">Total Billed</span>
@@ -1096,7 +1235,9 @@ function MedicationsTab({ medications }: { medications: MedicationSummary[] }) {
                     <span
                       key={p.price}
                       className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                        med.hasPriceVariance ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-700'
+                        med.hasPriceVariance
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-gray-100 text-gray-700'
                       }`}
                     >
                       ${p.price} ({p.count}x)

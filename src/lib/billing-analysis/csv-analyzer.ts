@@ -151,7 +151,10 @@ const HEADER_MAP: Record<string, keyof CsvRow> = {
 };
 
 export function mapHeaderToField(header: string): keyof CsvRow | null {
-  const normalized = header.trim().toLowerCase().replace(/[_\-]+/g, ' ');
+  const normalized = header
+    .trim()
+    .toLowerCase()
+    .replace(/[_\-]+/g, ' ');
   return HEADER_MAP[normalized] ?? null;
 }
 
@@ -163,7 +166,12 @@ export function parseRows(rawRows: Record<string, string>[]): CsvRow[] {
       const field = mapHeaderToField(header);
       if (!field || field === 'rowNumber') continue;
 
-      if (field === 'rxQty' || field === 'dispensedQ' || field === 'filledQty' || field === 'rxPrice') {
+      if (
+        field === 'rxQty' ||
+        field === 'dispensedQ' ||
+        field === 'filledQty' ||
+        field === 'rxPrice'
+      ) {
         (mapped as Record<string, unknown>)[field] = parseNumeric(value);
       } else {
         (mapped as Record<string, unknown>)[field] = (value ?? '').toString().trim();
@@ -402,7 +410,10 @@ function detectPatientOutliers(rows: CsvRow[]): Issue[] {
 
   const totals = new Map<string, number>();
   for (const [key, rws] of patientRows) {
-    totals.set(key, rws.reduce((s, r) => s + (r.rxPrice ?? 0), 0));
+    totals.set(
+      key,
+      rws.reduce((s, r) => s + (r.rxPrice ?? 0), 0)
+    );
   }
   const billedValues = [...totals.values()];
   const billedMean = billedValues.reduce((a, b) => a + b, 0) / billedValues.length;
