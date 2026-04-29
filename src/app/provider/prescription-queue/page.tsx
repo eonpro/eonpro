@@ -36,7 +36,12 @@ import {
   FileWarning,
   BarChart3,
 } from 'lucide-react';
-import { MEDS, GLP1_PRODUCT_IDS, ADDON_MEDICATION_MAP } from '@/lib/medications';
+import {
+  MEDS,
+  GLP1_PRODUCT_IDS,
+  ADDON_MEDICATION_MAP,
+  getCanonicalAddonSigOverride,
+} from '@/lib/medications';
 import { SHIPPING_METHODS } from '@/lib/shipping';
 import SigBuilder from '@/components/SigBuilder';
 import MedicationSelector, { getGLP1SubCategory } from '@/components/MedicationSelector';
@@ -1036,14 +1041,23 @@ export default function PrescriptionQueuePage() {
                     ...prev,
                     medications: [
                       ...prev.medications.filter((m) => m.medicationKey),
-                      ...fullSet.items.map((os: any) => ({
-                        id: crypto.randomUUID(),
-                        medicationKey: os.medicationKey,
-                        sig: os.sig,
-                        quantity: os.quantity,
-                        refills: os.refills,
-                        daysSupply: String(os.daysSupply || '28'),
-                      })),
+                      ...fullSet.items.map((os: any) => {
+                        // For fixed-sig addon meds (e.g. Cyanocobalamin B12),
+                        // ignore any sig/quantity/refills/daysSupply stored on the
+                        // order set and use the canonical values. This guarantees
+                        // a uniform sig regardless of what a clinic admin saved.
+                        const override = getCanonicalAddonSigOverride(os.medicationKey);
+                        return {
+                          id: crypto.randomUUID(),
+                          medicationKey: os.medicationKey,
+                          sig: override?.sig ?? os.sig,
+                          quantity: override?.quantity ?? os.quantity,
+                          refills: override?.refills ?? os.refills,
+                          daysSupply: override
+                            ? String(override.daysSupply)
+                            : String(os.daysSupply || '28'),
+                        };
+                      }),
                     ],
                   }));
                 }
@@ -1096,13 +1110,18 @@ export default function PrescriptionQueuePage() {
         if (inlineAddonMeds.some((m) => m.medicationKey === medKey)) return;
         const med = MEDS[medKey];
         if (!med) return;
+        // Canonical override wins for fixed-sig addon meds (B12). Falls back
+        // to sigTemplate / defaultSig for medications without a fixed sig.
+        const override = getCanonicalAddonSigOverride(medKey);
         inlineAddonMeds.push({
           id: crypto.randomUUID(),
           medicationKey: medKey,
-          sig: med.sigTemplates?.[0]?.sig || med.defaultSig || '',
-          quantity: med.sigTemplates?.[0]?.quantity || med.defaultQuantity || '1',
-          refills: med.sigTemplates?.[0]?.refills || med.defaultRefills || '0',
-          daysSupply: String(med.sigTemplates?.[0]?.daysSupply ?? 30),
+          sig: override?.sig ?? med.sigTemplates?.[0]?.sig ?? med.defaultSig ?? '',
+          quantity:
+            override?.quantity ?? med.sigTemplates?.[0]?.quantity ?? med.defaultQuantity ?? '1',
+          refills:
+            override?.refills ?? med.sigTemplates?.[0]?.refills ?? med.defaultRefills ?? '0',
+          daysSupply: String(override?.daysSupply ?? med.sigTemplates?.[0]?.daysSupply ?? 30),
         });
       };
 
@@ -1200,6 +1219,14 @@ export default function PrescriptionQueuePage() {
     }
 
     if (matchedKey) {
+      // Enforce canonical sig for fixed-sig addon meds (e.g. B12) even when
+      // matched via this generic non-GLP-1 fallback.
+      const override = getCanonicalAddonSigOverride(matchedKey);
+      if (override) {
+        matchedSig = override.sig;
+        matchedQty = override.quantity;
+        matchedRefills = override.refills;
+      }
       setPrescriptionForm((prev) => ({
         ...prev,
         medications: [
@@ -1235,6 +1262,15 @@ export default function PrescriptionQueuePage() {
         qty = med.defaultQuantity || '1';
         refills = med.defaultRefills || '0';
       }
+    }
+
+    // Final guard: enforce canonical sig for fixed-sig addon meds (e.g. B12).
+    const override = getCanonicalAddonSigOverride(key);
+    if (override) {
+      sig = override.sig;
+      qty = override.quantity;
+      refills = override.refills;
+      daysSupply = String(override.daysSupply);
     }
 
     setPrescriptionForm((prev) => ({
@@ -4728,14 +4764,21 @@ export default function PrescriptionQueuePage() {
                               ...prev,
                               medications: [
                                 ...prev.medications.filter((m) => m.medicationKey),
-                                ...medications.map((m) => ({
-                                  id: crypto.randomUUID(),
-                                  medicationKey: m.medicationKey,
-                                  sig: m.sig,
-                                  quantity: m.quantity,
-                                  refills: m.refills,
-                                  daysSupply: m.daysSupply,
-                                })),
+                                ...medications.map((m) => {
+                                  // Enforce canonical sig for fixed-sig addon meds
+                                  // (B12) regardless of what the order set saved.
+                                  const override = getCanonicalAddonSigOverride(m.medicationKey);
+                                  return {
+                                    id: crypto.randomUUID(),
+                                    medicationKey: m.medicationKey,
+                                    sig: override?.sig ?? m.sig,
+                                    quantity: override?.quantity ?? m.quantity,
+                                    refills: override?.refills ?? m.refills,
+                                    daysSupply: override
+                                      ? String(override.daysSupply)
+                                      : m.daysSupply,
+                                  };
+                                }),
                               ],
                             }));
                           } else {

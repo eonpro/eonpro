@@ -294,15 +294,53 @@ const ANASTROZOLE_05_TEMPLATES: SigTemplate[] = [
   },
 ];
 
+// ============================================================================
+// CYANOCOBALAMIN (B12) — CANONICAL DOSING
+// ============================================================================
+// B12 is a fixed-dose addon medication (no titration ladder). The sig is
+// authoritative and must NOT vary across order sets, refills, or manual
+// medication selection. Exported so callers (and regression tests) can
+// reference a single source of truth.
+// ============================================================================
+export const CYANOCOBALAMIN_B12_PRODUCT_ID = '203449111';
+export const CYANOCOBALAMIN_B12_CANONICAL_SIG =
+  'Inject 50 units subcutaneously twice per week.';
+export const CYANOCOBALAMIN_B12_CANONICAL_QUANTITY = '1';
+export const CYANOCOBALAMIN_B12_CANONICAL_REFILLS = '0';
+export const CYANOCOBALAMIN_B12_CANONICAL_DAYS_SUPPLY = 30;
+
 const B12_TEMPLATES: SigTemplate[] = [
   {
-    label: '2x/week · 50 units (morning)',
-    sig: 'Inject 50 units subcutaneously 2 times per week in the morning.',
-    quantity: '1',
-    refills: '0',
-    daysSupply: 30,
+    label: '2x/week · 50 units',
+    sig: CYANOCOBALAMIN_B12_CANONICAL_SIG,
+    quantity: CYANOCOBALAMIN_B12_CANONICAL_QUANTITY,
+    refills: CYANOCOBALAMIN_B12_CANONICAL_REFILLS,
+    daysSupply: CYANOCOBALAMIN_B12_CANONICAL_DAYS_SUPPLY,
   },
 ];
+
+/**
+ * Override the sig/quantity/refills/daysSupply for medications whose dosing
+ * is fixed (i.e. not titrated and not provider-specific). Returns null for
+ * medications where the provider/order-set is allowed to customize the sig.
+ *
+ * Currently used to guarantee the Cyanocobalamin (B12) sig is always the
+ * canonical "Inject 50 units subcutaneously twice per week.", regardless of
+ * what may be stored in legacy Order Sets or returned by upstream APIs.
+ */
+export function getCanonicalAddonSigOverride(
+  medicationKey: string
+): { sig: string; quantity: string; refills: string; daysSupply: number } | null {
+  if (medicationKey === CYANOCOBALAMIN_B12_PRODUCT_ID) {
+    return {
+      sig: CYANOCOBALAMIN_B12_CANONICAL_SIG,
+      quantity: CYANOCOBALAMIN_B12_CANONICAL_QUANTITY,
+      refills: CYANOCOBALAMIN_B12_CANONICAL_REFILLS,
+      daysSupply: CYANOCOBALAMIN_B12_CANONICAL_DAYS_SUPPLY,
+    };
+  }
+  return null;
+}
 
 const SERMORELIN_TEMPLATES: SigTemplate[] = [
   {
