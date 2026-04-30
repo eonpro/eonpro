@@ -54,6 +54,10 @@ import {
 import { ADDON_PRODUCTS } from '@/app/wellmedr-checkout/data/addons';
 import type { AddonId } from '@/app/wellmedr-checkout/types/checkout';
 import { deduplicateShipping } from '@/services/billing/shippingDedup';
+import {
+  applyShippingAddressToPatient,
+  findPatientByEmailForAddressUpdate,
+} from '@/lib/wellmedr/applyShippingAddress';
 
 // Vercel/Next.js serverless function timeout (seconds)
 export const maxDuration = 60;
@@ -294,10 +298,42 @@ export async function POST(req: NextRequest) {
         string,
         unknown
       > | null;
+
+      // CRITICAL: Even on duplicate, still apply shipping_address to the patient.
+      // The Stripe Connect webhook may have created the invoice/patient without
+      // an address, so this Airtable retry is our chance to backfill it.
+      // See applyShippingAddressToPatient docstring for full rationale.
+      let addressBackfill: { updated: boolean; fields: string[] } = { updated: false, fields: [] };
+      try {
+        const cachedPatientId =
+          cachedResponse && typeof cachedResponse.patientId === 'number'
+            ? cachedResponse.patientId
+            : null;
+        const lookupEmail = payload.customer_email?.toLowerCase().trim() || '';
+        const targetPatientId =
+          cachedPatientId ??
+          (lookupEmail
+            ? await findPatientByEmailForAddressUpdate(lookupEmail, clinicId, requestId)
+            : null);
+        if (targetPatientId) {
+          addressBackfill = await applyShippingAddressToPatient(
+            payload,
+            targetPatientId,
+            requestId
+          );
+        }
+      } catch (addrErr) {
+        logger.warn(`[WELLMEDR-INVOICE ${requestId}] Address backfill on idempotency hit failed`, {
+          error: addrErr instanceof Error ? addrErr.message : String(addrErr),
+        });
+      }
+
       return NextResponse.json({
         success: true,
         duplicate: true,
         message: 'Request already processed (idempotency)',
+        addressBackfilled: addressBackfill.updated,
+        addressFieldsUpdated: addressBackfill.fields,
         ...(cachedResponse || {}),
       });
     }
@@ -321,10 +357,38 @@ export async function POST(req: NextRequest) {
             logicalKey,
           }
         );
+
+        // CRITICAL: Even on duplicate, still apply shipping_address to the patient.
+        // See applyShippingAddressToPatient docstring for full rationale.
+        let addressBackfill: { updated: boolean; fields: string[] } = {
+          updated: false,
+          fields: [],
+        };
+        try {
+          const lookupEmail = payload.customer_email?.toLowerCase().trim() || '';
+          const targetPatientId = lookupEmail
+            ? await findPatientByEmailForAddressUpdate(lookupEmail, clinicId, requestId)
+            : null;
+          if (targetPatientId) {
+            addressBackfill = await applyShippingAddressToPatient(
+              payload,
+              targetPatientId,
+              requestId
+            );
+          }
+        } catch (addrErr) {
+          logger.warn(
+            `[WELLMEDR-INVOICE ${requestId}] Address backfill on submission_id duplicate failed`,
+            { error: addrErr instanceof Error ? addrErr.message : String(addrErr) }
+          );
+        }
+
         return NextResponse.json({
           success: true,
           duplicate: true,
           message: 'Request already processed (submission_id idempotency)',
+          addressBackfilled: addressBackfill.updated,
+          addressFieldsUpdated: addressBackfill.fields,
         });
       }
     }
@@ -886,12 +950,27 @@ export async function POST(req: NextRequest) {
               submissionId: payload.submission_id,
             }
           );
+
+          // CRITICAL: Even when the invoice already exists (e.g. created seconds
+          // earlier by the Stripe Connect webhook with no shipping address), we
+          // MUST still apply the shipping_address from this Airtable payload to
+          // the patient. Otherwise the patient stays with empty/placeholder
+          // address fields and the Rx queue blocks prescribing with
+          // "Address Required". See applyShippingAddressToPatient docstring.
+          const addressBackfill = await applyShippingAddressToPatient(
+            payload,
+            verifiedPatient.id,
+            requestId
+          );
+
           return NextResponse.json({
             success: true,
             duplicate: true,
             message: 'Invoice already exists for this order',
             invoiceId: existingInvoice.id,
             patientId: verifiedPatient.id,
+            addressBackfilled: addressBackfill.updated,
+            addressFieldsUpdated: addressBackfill.fields,
           });
         }
       } catch (err) {
@@ -1375,199 +1454,31 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // STEP 8: Update patient address if provided in payload
-      // Support ALL possible Airtable field name variations
-      //
-      // IMPORTANT: Airtable automations often send BOTH a combined address string
-      // (shipping_address/billing_address) AND individual fields (city, state, zip).
-      // When the address has an apartment/unit, Airtable's own naive comma split
-      // puts the apartment in the city field, shifting city→state and state→zip.
-      // We ALWAYS prefer parsing the combined string when available.
-
-      const rawAddress1Value =
-        payload.address ||
-        payload.address_line1 ||
-        payload.address_line_1 ||
-        payload.addressLine1 ||
-        payload.street_address ||
-        payload.streetAddress ||
-        payload.shipping_address ||
-        payload.shippingAddress;
-
-      const rawAddress2Value =
-        payload.address_line2 ||
-        payload.address_line_2 ||
-        payload.addressLine2 ||
-        payload.apartment ||
-        payload.apt ||
-        payload.suite ||
-        payload.unit;
-
-      const rawCityValue = payload.city || payload.shipping_city || payload.shippingCity;
-
-      const rawStateValue =
-        payload.state || payload.shipping_state || payload.shippingState || payload.province;
-
-      const rawZipValue =
-        payload.zip ||
-        payload.zip_code ||
-        payload.zipCode ||
-        payload.postal_code ||
-        payload.postalCode ||
-        payload.shipping_zip ||
-        payload.shippingZip;
-
-      const phoneValue = payload.phone || payload.phone_number || payload.phoneNumber;
-
-      // Look for combined address strings (shipping_address, billing_address)
-      // These are the most reliable source since they contain the full address
-      const combinedAddressString =
-        (payload.shipping_address && typeof payload.shipping_address === 'string'
-          ? String(payload.shipping_address).trim()
-          : '') ||
-        (payload.billing_address && typeof payload.billing_address === 'string'
-          ? String(payload.billing_address).trim()
-          : '') ||
-        (payload.shippingAddress && typeof payload.shippingAddress === 'string'
-          ? String(payload.shippingAddress).trim()
-          : '');
-
-      const combinedHasCommas = combinedAddressString.includes(',');
-
-      // Determine final address values
-      let finalAddress1 = rawAddress1Value ? String(rawAddress1Value).trim() : '';
-      let finalAddress2 = rawAddress2Value ? String(rawAddress2Value).trim() : '';
-      let finalCity = rawCityValue ? String(rawCityValue).trim() : '';
-      let finalState = rawStateValue ? String(rawStateValue).trim() : '';
-      let finalZip = rawZipValue ? String(rawZipValue).trim() : '';
-
-      // ALWAYS prefer parsing the combined address string when available.
-      // Airtable's naive comma-split creates corrupt individual fields for addresses
-      // with apartment/unit numbers (e.g., "123 Main St, Apt 4B, City, State, Zip"
-      // gets split as: address1="123 Main St", city="Apt 4B", state="City", zip="State")
-      if (combinedHasCommas) {
-        logger.info(
-          `[WELLMEDR-INVOICE ${requestId}] Parsing combined address string (preferred source)`,
-          {
-            combinedAddress: combinedAddressString.substring(0, 80),
-          }
-        );
-
-        const parsed = parseAddressString(combinedAddressString);
-
-        if (parsed.address1 || parsed.city || parsed.state || parsed.zip) {
-          finalAddress1 = parsed.address1;
-          finalAddress2 = parsed.address2;
-          finalCity = parsed.city;
-          finalState = parsed.state;
-          finalZip = parsed.zip;
-
-          logger.info(`[WELLMEDR-INVOICE ${requestId}] Address parsed from combined string:`, {
-            address1: finalAddress1,
-            address2: finalAddress2,
-            city: finalCity,
-            state: finalState,
-            zip: finalZip,
-          });
-        }
-      } else if (finalAddress1 && finalAddress1.includes(',')) {
-        // Fallback: rawAddress1Value itself contains commas (older payload format)
-        logger.info(`[WELLMEDR-INVOICE ${requestId}] Parsing combined address from address field`, {
-          rawAddress: finalAddress1.substring(0, 80),
-        });
-
-        const parsed = parseAddressString(finalAddress1);
-
-        if (parsed.address1 || parsed.city || parsed.state || parsed.zip) {
-          finalAddress1 = parsed.address1;
-          finalAddress2 = parsed.address2;
-          finalCity = parsed.city;
-          finalState = parsed.state;
-          finalZip = parsed.zip;
-        }
-      }
-
-      // Log all address-related fields received for debugging
-      logger.info(`[WELLMEDR-INVOICE ${requestId}] Address fields in payload:`, {
-        rawAddress1: rawAddress1Value || 'NOT FOUND',
-        rawAddress2: rawAddress2Value || 'NOT FOUND',
-        rawCity: rawCityValue || 'NOT FOUND',
-        rawState: rawStateValue || 'NOT FOUND',
-        rawZip: rawZipValue || 'NOT FOUND',
-        phoneValue: phoneValue || 'NOT FOUND',
-        wasParsed: combinedHasCommas,
-        finalValues: { finalAddress1, finalAddress2, finalCity, finalState, finalZip },
-        // Log raw keys to help debug what Airtable is sending
-        payloadKeys: Object.keys(payload).filter(
-          (k) =>
-            k.toLowerCase().includes('address') ||
-            k.toLowerCase().includes('city') ||
-            k.toLowerCase().includes('state') ||
-            k.toLowerCase().includes('zip') ||
-            k.toLowerCase().includes('postal') ||
-            k.toLowerCase().includes('street') ||
-            k.toLowerCase().includes('shipping') ||
-            k.toLowerCase().includes('phone')
-        ),
-      });
-
-      const hasAddressData = finalAddress1 || finalCity || finalState || finalZip;
-      if (hasAddressData) {
-        try {
-          const addressUpdate: Record<string, string> = {};
-
-          if (finalAddress1) {
-            addressUpdate.address1 = finalAddress1;
-          }
-          if (finalAddress2) {
-            addressUpdate.address2 = finalAddress2;
-          }
-          if (finalCity) {
-            addressUpdate.city = finalCity;
-          }
-          if (finalState) {
-            // Normalize state to 2-letter code
-            addressUpdate.state = normalizeState(finalState);
-          }
-          if (finalZip) {
-            addressUpdate.zip = finalZip;
-          }
-          if (phoneValue) {
-            addressUpdate.phone = String(phoneValue).replace(/\D/g, '').slice(-10);
-          }
-
-          if (Object.keys(addressUpdate).length > 0) {
-            await prisma.patient.update({
-              where: { id: verifiedPatient.id },
-              data: addressUpdate,
-            });
-            logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Patient address updated`, {
-              patientId: verifiedPatient.id,
-              updatedFields: Object.keys(addressUpdate),
-              values: addressUpdate,
-            });
-          }
-        } catch (addrErr) {
-          // Don't fail the whole request, just log the error
+      // STEP 8: Update patient address from payload (combined string preferred,
+      // falls back to individual fields). Idempotent and non-fatal.
+      // The same helper runs on every duplicate-detection early-return path so
+      // the Stripe-Connect-vs-Airtable race never leaves the patient without
+      // a shipping address. See applyShippingAddressToPatient docstring.
+      const addressBackfill = await applyShippingAddressToPatient(
+        payload,
+        verifiedPatient.id,
+        requestId
+      );
+      if (!addressBackfill.updated) {
+        const hasAnyAddressKey =
+          payload.address ||
+          payload.address_line1 ||
+          payload.shipping_address ||
+          payload.shippingAddress ||
+          payload.city ||
+          payload.state ||
+          payload.zip;
+        if (!hasAnyAddressKey) {
           logger.warn(
-            `[WELLMEDR-INVOICE ${requestId}] Failed to update patient address (non-fatal):`,
-            {
-              error:
-                addrErr instanceof Error
-                  ? addrErr instanceof Error
-                    ? addrErr.message
-                    : String(addrErr)
-                  : 'Unknown error',
-            }
+            `[WELLMEDR-INVOICE ${requestId}] ⚠️ No address data found in payload - prescription shipping will fail without an address!`,
+            { payloadKeys: Object.keys(payload) }
           );
         }
-      } else {
-        logger.warn(
-          `[WELLMEDR-INVOICE ${requestId}] ⚠️ No address data found in payload - prescription shipping will fail without an address!`,
-          {
-            payloadKeys: Object.keys(payload),
-          }
-        );
       }
 
       // STEP 9: Extract preferred medication from intake document when invoice has plan-only product
@@ -1800,7 +1711,8 @@ export async function POST(req: NextRequest) {
         plan: plan,
         status: 'PAID',
         note: 'Internal EONPRO invoice only - no Stripe invoice created',
-        addressUpdated: !!hasAddressData,
+        addressUpdated: addressBackfill.updated,
+        addressFieldsUpdated: addressBackfill.fields,
         wasAutoCreated,
         matchStrategy,
         soapNoteId,

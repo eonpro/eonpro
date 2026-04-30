@@ -15,9 +15,142 @@ import {
   getWellMedrConnectWebhookSecret,
 } from '@/app/wellmedr-checkout/lib/stripe-connect';
 import { sendPurchaseEvent } from '@/lib/wellmedr/attentive';
-import { runWithClinicContext } from '@/lib/db';
+import { runWithClinicContext, prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import cache from '@/lib/cache/redis';
+import { decryptPHI } from '@/lib/security/phi-encryption';
+
+interface FallbackAddress {
+  line1: string;
+  line2: string | null;
+  city: string;
+  state: string;
+  postal_code: string;
+  country: string;
+}
+
+function decryptEmailSafe(value: string | null | undefined): string {
+  const v = value ?? '';
+  if (!v) return '';
+  try {
+    return (decryptPHI(v) ?? v).toLowerCase().trim();
+  } catch {
+    return v.toLowerCase().trim();
+  }
+}
+
+async function resolvePatientIdByEmail(
+  email: string,
+  clinicId: number
+): Promise<number | null> {
+  const candidates = await prisma.patient.findMany({
+    where: {
+      clinicId,
+      searchIndex: { contains: email, mode: 'insensitive' },
+    },
+    select: { id: true, email: true },
+    orderBy: { createdAt: 'desc' },
+    take: 5,
+  });
+  for (const c of candidates) {
+    if (decryptEmailSafe(c.email) === email) return c.id;
+  }
+  return null;
+}
+
+function buildFallbackAddressFromMetadata(
+  meta: Record<string, unknown>
+): FallbackAddress | null {
+  const line1 = String(meta.addressLine1 ?? meta.address_line1 ?? '').trim();
+  const line2 = String(meta.addressLine2 ?? meta.address_line2 ?? '').trim() || null;
+  const city = String(meta.city ?? '').trim();
+  const state = String(meta.state ?? '').trim();
+  const postal = String(meta.zipCode ?? meta.zip ?? '').trim();
+  const country = String(meta.country ?? 'US').trim();
+  if (!line1 && !city && !postal) return null;
+  return { line1, line2, city, state, postal_code: postal, country };
+}
+
+/**
+ * Best-effort: look up the most recent Airtable-sourced invoice for this email
+ * and pull its shipping address from `metadata.addressLine1/city/state/zipCode`.
+ *
+ * Rationale: WellMedR's Stripe Connect direct charges almost never carry a
+ * shipping address on the PaymentIntent (the checkout collects shipping but
+ * doesn't attach it to the PI). Without this fallback, every Stripe Connect
+ * event that races ahead of the Airtable Orders automation creates/updates a
+ * patient with empty address fields, and the provider Rx queue blocks
+ * prescribing with "Address Required". The Airtable webhook stores the parsed
+ * address in invoice metadata, so once at least one Airtable invoice exists
+ * for this patient we can reuse it on subsequent Stripe events (renewals).
+ */
+async function findFallbackAddressFromAirtableInvoices(
+  email: string,
+  clinicId: number
+): Promise<FallbackAddress | null> {
+  const lower = email.toLowerCase().trim();
+  if (!lower) return null;
+
+  try {
+    const patientId = await resolvePatientIdByEmail(lower, clinicId);
+    if (!patientId) return null;
+
+    const invoice = await prisma.invoice.findFirst({
+      where: {
+        patientId,
+        clinicId,
+        metadata: { path: ['source'], equals: 'wellmedr-airtable' },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { metadata: true },
+    });
+
+    if (!invoice?.metadata) return null;
+    return buildFallbackAddressFromMetadata(invoice.metadata as Record<string, unknown>);
+  } catch (err) {
+    logger.warn('[wellmedr/webhook] findFallbackAddressFromAirtableInvoices failed (non-fatal)', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return null;
+  }
+}
+
+function addressFromStripeShipping(
+  shipping: Stripe.PaymentIntent['shipping'] | Stripe.Customer['shipping'] | undefined
+): FallbackAddress | null {
+  if (!shipping?.address) return null;
+  return {
+    line1: shipping.address.line1 ?? '',
+    line2: shipping.address.line2 ?? null,
+    city: shipping.address.city ?? '',
+    state: shipping.address.state ?? '',
+    postal_code: shipping.address.postal_code ?? '',
+    country: shipping.address.country ?? 'US',
+  };
+}
+
+async function resolveShippingAddress(
+  pi: Stripe.PaymentIntent,
+  customerObj: Stripe.Customer | null,
+  resolvedEmail: string | null,
+  clinicId: number
+): Promise<FallbackAddress | null> {
+  const fromPi = addressFromStripeShipping(pi.shipping);
+  if (fromPi) return fromPi;
+  const fromCustomer = addressFromStripeShipping(customerObj?.shipping);
+  if (fromCustomer) return fromCustomer;
+  if (!resolvedEmail) return null;
+  const fallback = await findFallbackAddressFromAirtableInvoices(resolvedEmail, clinicId);
+  if (fallback) {
+    logger.info('[wellmedr/webhook] Backfilled shipping address from prior Airtable invoice', {
+      paymentIntentId: pi.id,
+      hasLine1: !!fallback.line1,
+      hasCity: !!fallback.city,
+      hasZip: !!fallback.postal_code,
+    });
+  }
+  return fallback;
+}
 
 const IDEMPOTENCY_NS = 'wh-idem';
 const IDEMPOTENCY_TTL = 86_400; // 24 hours
@@ -181,6 +314,14 @@ export async function POST(req: NextRequest) {
             const customerPhone =
               customerObj?.phone || pi.metadata?.phone || pi.shipping?.phone || '';
 
+            // Three-tier shipping address fallback. See `resolveShippingAddress`.
+            const resolvedAddress = await resolveShippingAddress(
+              pi,
+              customerObj,
+              resolvedEmail,
+              clinicId
+            );
+
             const paymentData: StripePaymentData = {
               customerId,
               email: resolvedEmail,
@@ -199,25 +340,7 @@ export async function POST(req: NextRequest) {
                 source: 'wellmedr-checkout',
               } as Record<string, string>,
               paidAt: new Date(),
-              address: pi.shipping?.address
-                ? {
-                    line1: pi.shipping.address.line1,
-                    line2: pi.shipping.address.line2,
-                    city: pi.shipping.address.city,
-                    state: pi.shipping.address.state,
-                    postal_code: pi.shipping.address.postal_code,
-                    country: pi.shipping.address.country,
-                  }
-                : customerObj?.shipping?.address
-                  ? {
-                      line1: customerObj.shipping.address.line1,
-                      line2: customerObj.shipping.address.line2,
-                      city: customerObj.shipping.address.city,
-                      state: customerObj.shipping.address.state,
-                      postal_code: customerObj.shipping.address.postal_code,
-                      country: customerObj.shipping.address.country,
-                    }
-                  : null,
+              address: resolvedAddress,
             };
 
             await runWithClinicContext(clinicId, async () => {
