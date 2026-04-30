@@ -28,7 +28,14 @@ import {
   CHAT_ATTACHMENT_MAX_BYTES,
   type ChatAttachmentSendable,
 } from '@/lib/chat-attachments/client';
-import type { ChatAttachmentResolved } from '@/lib/chat-attachments';
+import {
+  isMmsCompatibleAttachment,
+  MMS_ALLOWED_MIME_TYPES,
+  MMS_MAX_BYTES,
+  type ChatAttachmentResolved,
+} from '@/lib/chat-attachments';
+
+const MMS_ACCEPT_ATTR = MMS_ALLOWED_MIME_TYPES.join(',');
 
 interface Patient {
   id: number;
@@ -218,10 +225,22 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
     const messageText = newMessage.trim();
     if (messageText.length === 0 && readyAttachments.length === 0) return;
 
-    // Don't allow attaching files to an SMS — Twilio MMS path is out of scope (v1).
+    // MMS gate: when sending over SMS, every attachment must satisfy
+    // Twilio's stricter US-carrier rules (JPEG/PNG, ≤5 MB). Surface the
+    // first violation back to the user with the helper's reason string
+    // so they can either remove the offending file or switch channel.
     if (sendViaSms && readyAttachments.length > 0) {
-      setError('Attachments are not supported on SMS yet. Send via Web or remove the attachment.');
-      return;
+      for (const a of readyAttachments) {
+        const compat = isMmsCompatibleAttachment({
+          mime: a.mime as never,
+          size: a.size,
+          name: a.name,
+        });
+        if (!compat.ok) {
+          setError(compat.reason);
+          return;
+        }
+      }
     }
 
     const tempId = `temp-${Date.now()}`;
@@ -639,7 +658,7 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
             ref={fileInputRef}
             type="file"
             multiple
-            accept={CHAT_ATTACHMENT_ACCEPT_ATTR}
+            accept={sendViaSms ? MMS_ACCEPT_ATTR : CHAT_ATTACHMENT_ACCEPT_ATTR}
             className="hidden"
             onChange={(e) => {
               void handleFilesSelected(e.target.files);
@@ -650,13 +669,11 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
             type="button"
             aria-label="Attach file"
             onClick={() => fileInputRef.current?.click()}
-            disabled={
-              sending || sendViaSms || pendingAttachments.length >= CHAT_ATTACHMENT_MAX_PER_MESSAGE
-            }
+            disabled={sending || pendingAttachments.length >= CHAT_ATTACHMENT_MAX_PER_MESSAGE}
             title={
               sendViaSms
-                ? 'Attachments not supported on SMS'
-                : `Up to ${CHAT_ATTACHMENT_MAX_PER_MESSAGE} files, ${CHAT_ATTACHMENT_MAX_BYTES / 1024 / 1024}MB each`
+                ? `MMS: JPEG/PNG only, up to ${MMS_MAX_BYTES / 1024 / 1024} MB each, ${CHAT_ATTACHMENT_MAX_PER_MESSAGE} files max`
+                : `Up to ${CHAT_ATTACHMENT_MAX_PER_MESSAGE} files, ${CHAT_ATTACHMENT_MAX_BYTES / 1024 / 1024} MB each`
             }
             className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl border bg-white text-gray-500 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
           >

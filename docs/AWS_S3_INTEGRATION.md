@@ -256,32 +256,60 @@ bucket/
 ### Chat attachments path
 
 Patient ↔ clinic chat attachments (introduced 2026-04-26) live under
-`chat-attachments/{clinicId}/{patientId}/`. Rationale for reusing the
-documents bucket rather than provisioning a dedicated bucket:
+`chat-attachments/{clinicId}/{patientId}/`. Rationale for reusing the documents bucket rather than
+provisioning a dedicated bucket:
 
-- The bucket already has BAA, KMS, versioning, CORS, and 7-year HIPAA
-  lifecycle policies wired up — duplicating those for a new bucket adds
-  ops surface (IAM, KMS rotation, lifecycle review) without compliance
-  benefit.
-- Path-prefix isolation is the established pattern (`patient-photos`,
-  `branding`, `profile-pictures`, etc. all share this bucket).
-- All reads happen via short-lived (1 hour) signed URLs minted server-side.
-  Clients never see the raw `s3Key`.
-- Cross-tenant key submission is blocked structurally by
-  `validateChatAttachmentS3Key` in `src/lib/chat-attachments/`, which
-  parses the key, checks the prefix + clinic + patient segments, rejects
-  `..` traversal, and enforces the MIME-derived extension allowlist.
+- The bucket already has BAA, KMS, versioning, CORS, and 7-year HIPAA lifecycle policies wired up —
+  duplicating those for a new bucket adds ops surface (IAM, KMS rotation, lifecycle review) without
+  compliance benefit.
+- Path-prefix isolation is the established pattern (`patient-photos`, `branding`,
+  `profile-pictures`, etc. all share this bucket).
+- All reads happen via short-lived (1 hour) signed URLs minted server-side. Clients never see the
+  raw `s3Key`.
+- Cross-tenant key submission is blocked structurally by `validateChatAttachmentS3Key` in
+  `src/lib/chat-attachments/`, which parses the key, checks the prefix + clinic + patient segments,
+  rejects `..` traversal, and enforces the MIME-derived extension allowlist.
 
-Policy constants for chat attachments (single source of truth in
-`src/lib/chat-attachments/`):
+Policy constants for chat attachments (single source of truth in `src/lib/chat-attachments/`):
 
-| Constant | Value |
-|---|---|
-| `CHAT_ATTACHMENT_MAX_BYTES` | 15 MB |
-| `CHAT_ATTACHMENT_MAX_PER_MESSAGE` | 5 |
-| `CHAT_ATTACHMENT_SIGNED_URL_TTL_SECONDS` | 3600 |
-| `CHAT_ATTACHMENT_UPLOAD_URL_TTL_SECONDS` | 300 |
-| `CHAT_ATTACHMENT_ACCEPTED_MIME_TYPES` | `image/jpeg`, `image/jpg`, `image/png`, `image/webp`, `image/heic`, `image/heif`, `application/pdf` |
+| Constant                                 | Value                                                                                               |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `CHAT_ATTACHMENT_MAX_BYTES`              | 15 MB                                                                                               |
+| `CHAT_ATTACHMENT_MAX_PER_MESSAGE`        | 5                                                                                                   |
+| `CHAT_ATTACHMENT_SIGNED_URL_TTL_SECONDS` | 3600                                                                                                |
+| `CHAT_ATTACHMENT_UPLOAD_URL_TTL_SECONDS` | 300                                                                                                 |
+| `CHAT_ATTACHMENT_ACCEPTED_MIME_TYPES`    | `image/jpeg`, `image/jpg`, `image/png`, `image/webp`, `image/heic`, `image/heif`, `application/pdf` |
+
+### Chat attachments over Twilio MMS (staff outbound)
+
+When staff send a chat message with `channel: 'SMS'` and 1+ attachments, the chat-send route fans
+the message out as a Twilio MMS by passing a `mediaUrl[]` of signed S3 GET URLs to `sendSMS`.
+Twilio's MMSC fetches each URL, embeds the media into the MMS payload, and forwards it to the
+patient's carrier. The signed-URL signature is encoded in the query string, so Twilio never needs
+AWS credentials.
+
+The MMS path enforces stricter limits than the in-app web channel:
+
+| Constant                     | Value                                  | Why                                                                                                                                             |
+| ---------------------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MMS_MAX_BYTES`              | 5 MB                                   | Twilio US-carrier ceiling — files above this are rejected by some carriers                                                                      |
+| `MMS_MAX_PER_MESSAGE`        | 5                                      | Parity with web cap (Twilio supports up to 10 but carrier rendering degrades past ~5)                                                           |
+| `MMS_ALLOWED_MIME_TYPES`     | `image/jpeg`, `image/jpg`, `image/png` | PDFs, HEIC/HEIF, WebP are stripped or recoded unpredictably by US carriers                                                                      |
+| `MMS_SIGNED_URL_TTL_SECONDS` | 86400 (24 h)                           | Longer than the 1 h web-GET TTL so Twilio's carrier-side retries (which can stretch a few minutes on transient failures) don't expire mid-fetch |
+
+If staff attempt to text a PDF, HEIC, WebP, or an oversized image, the chat-send route returns 400
+with a `code: 'MMS_INCOMPATIBLE_ATTACHMENT'` and a user-facing reason string ("PDFs can't be texted
+reliably… send via Web instead"). No chat row is created and no Twilio call is made.
+
+The persisted attachment metadata in `PatientChatMessage.attachments` is identical regardless of
+channel — staff see the same image inline in `/admin/messages` whether it was sent over WEB or SMS,
+since the read path always mints a 1 h signed URL via `generateSignedUrl(...,'GET', 3600)`.
+
+Patient → clinic inbound MMS (patient texts a photo, lands in the chat thread with the photo
+persisted to S3) is **not** included in this release — that requires the Twilio inbound webhook to
+download from Twilio's short-lived CDN URL, re-upload to our bucket under the same
+`chat-attachments/{clinicId}/{patientId}/` prefix, and run the standard MIME/size guard. Tracked as
+a follow-up.
 
 ## Cost Optimization
 
