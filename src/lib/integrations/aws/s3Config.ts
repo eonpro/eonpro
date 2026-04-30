@@ -133,6 +133,7 @@ export const STORAGE_CONFIG = {
     PROFILE_PICTURES: 'profile-pictures',
     PATIENT_PHOTOS: 'patient-photos',
     PACKAGE_PHOTOS: 'package-photos',
+    CHAT_ATTACHMENTS: 'chat-attachments', // Patient ↔ clinic chat file uploads
     TEMP: 'temp',
     ARCHIVES: 'archives',
   },
