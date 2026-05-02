@@ -20,6 +20,7 @@ import {
   computeOtSalesRepCommissionCents,
   computeOtAllocationOverrideTotals,
   getOtTieredNewSaleRateBps,
+  getOtDoctorPayoutForSale,
   type OtAllocationOverridePayload,
 } from '@/services/invoices/otAllocationOverrideTypes';
 import {
@@ -280,6 +281,60 @@ describe('Auto manager override — Antonio Escobar 1% on non-excluded reps', ()
     const t = computeOtAllocationOverrideTotals(p);
     expect(t.managerOverrideCents).toBe(350);
     expect(t.salesRepCommissionCents).toBe(350); // 1% rebill commission
+  });
+});
+
+describe('Auto doctor payout — Sergio Naccarato $35 TRT / $10 per Rx', () => {
+  it('TRT telehealth sale → $35 (covers TRT visit + bundled Rx)', () => {
+    const p = basePayload({ trtTelehealthCents: 5000 });
+    const r = getOtDoctorPayoutForSale(p);
+    expect(r.amountCents).toBe(3500);
+    expect(r.doctorName).toBe('Naccarato, Sergio');
+  });
+
+  it('non-TRT Rx sale → $10 once (single Rx even with multi-med package)', () => {
+    /** TRT Plus has 3 meds but only 1 prescription. Even without a TRT visit,
+     *  the doctor payout is $10 (per-Rx flat, not per-med). */
+    const p = basePayload({
+      trtTelehealthCents: 0,
+      meds: [
+        { medicationKey: null, name: 'Cypionate', strength: '', vialSize: '', quantity: 1, unitPriceCents: 2500, lineTotalCents: 2500, source: 'custom', commissionRateBps: null },
+        { medicationKey: null, name: 'Enclomiphene', strength: '', vialSize: '', quantity: 1, unitPriceCents: 1800, lineTotalCents: 1800, source: 'custom', commissionRateBps: null },
+        { medicationKey: null, name: 'Anastrozole', strength: '', vialSize: '', quantity: 1, unitPriceCents: 1200, lineTotalCents: 1200, source: 'custom', commissionRateBps: null },
+      ],
+    });
+    expect(getOtDoctorPayoutForSale(p).amountCents).toBe(1000);
+  });
+
+  it('non-Rx-only sale (bloodwork, no meds) → $0', () => {
+    const p = basePayload({ trtTelehealthCents: 0, meds: [] });
+    expect(getOtDoctorPayoutForSale(p).amountCents).toBe(0);
+  });
+
+  it('TRT + Rx → $35 (TRT wins; no double-pay)', () => {
+    const p = basePayload({ trtTelehealthCents: 5000 });
+    expect(getOtDoctorPayoutForSale(p).amountCents).toBe(3500);
+  });
+
+  it('totals expose doctorPayoutCents but DO NOT add it to totalDeductionsCents (info-only)', () => {
+    const p = basePayload({ trtTelehealthCents: 5000 });
+    const t = computeOtAllocationOverrideTotals(p);
+    expect(t.doctorPayoutCents).toBe(3500);
+    expect(t.doctorPayoutDoctorName).toBe('Naccarato, Sergio');
+    /** Net to OT clinic should be unchanged whether we add doctorPayout
+     *  or not — it's paid by EONPro, not the clinic. */
+    const expectedDeductionsWithoutDoctor =
+      t.medicationsCents +
+      t.shippingCents +
+      t.trtTelehealthCents +
+      t.doctorRxFeeCents +
+      t.fulfillmentFeesCents +
+      t.customLineItemsCents +
+      t.salesRepCommissionCents +
+      t.eonproFeeCents +
+      t.merchantProcessingFeeCents +
+      t.managerOverrideCents;
+    expect(t.totalDeductionsCents).toBe(expectedDeductionsWithoutDoctor);
   });
 });
 

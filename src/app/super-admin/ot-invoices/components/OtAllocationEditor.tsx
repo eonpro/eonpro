@@ -1943,6 +1943,18 @@ function TotalsPanel({
           bold
           tone={totals.netToOtClinicCents < 0 ? 'negative' : 'positive'}
         />
+        {totals.doctorPayoutCents > 0 && totals.doctorPayoutDoctorName && (
+          <>
+            <div className="my-1 h-px bg-gray-200" />
+            <p className="text-[10px] font-medium uppercase tracking-wider text-gray-400">
+              Doctor payout (paid by EONPro · info only)
+            </p>
+            <RowKv
+              label={`${totals.doctorPayoutDoctorName}`}
+              value={totals.doctorPayoutCents}
+            />
+          </>
+        )}
       </div>
     </div>
   );

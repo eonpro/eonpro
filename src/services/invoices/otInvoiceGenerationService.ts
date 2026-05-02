@@ -3490,6 +3490,12 @@ export interface OtCustomReconciliationGrandTotals {
    * `totals.managerOverrideManagerName` to attribute.
    */
   managerOverrideCents: number;
+  /**
+   * Auto-applied doctor payout (e.g. Sergio Naccarato's $35 / $10 rule).
+   * **Info-only** — NOT included in `totalDeductionsCents`. Surfaced in
+   * the DOCTOR PAYOUTS section of the payroll breakdown PDF.
+   */
+  doctorPayoutCents: number;
   totalDeductionsCents: number;
   netToOtClinicCents: number;
 }
@@ -3636,6 +3642,7 @@ export function applyOtAllocationOverrides(
     eonproFeeCents: 0,
     merchantProcessingFeeCents: 0,
     managerOverrideCents: 0,
+    doctorPayoutCents: 0,
     totalDeductionsCents: 0,
     netToOtClinicCents: 0,
   };
@@ -3658,6 +3665,7 @@ export function applyOtAllocationOverrides(
       acc.eonproFeeCents += l.totals.eonproFeeCents;
       acc.merchantProcessingFeeCents += l.totals.merchantProcessingFeeCents;
       acc.managerOverrideCents += l.totals.managerOverrideCents;
+      acc.doctorPayoutCents += l.totals.doctorPayoutCents;
       acc.totalDeductionsCents += l.totals.totalDeductionsCents;
       acc.netToOtClinicCents += l.totals.netToOtClinicCents;
       return acc;
@@ -4449,6 +4457,192 @@ export async function generateOtCustomReconciliationPDF(
   if (payrollRows.length > 0) {
     drawText(
       'PAY EACH REP THE PAYOUT COLUMN ABOVE. Tier rates auto-applied based on rep\u2019s NEW-sale gross for the period.',
+      M,
+      7.5,
+      fontBold,
+      mid
+    );
+    y -= 12;
+  }
+
+  // -------------------------------------------------------------------------
+  // DOCTOR PAYOUTS
+  // -------------------------------------------------------------------------
+  // Info-only section — paid by EONPro out of margin, NOT deducted from
+  // clinic net. Aggregates the auto doctor-payout rule (Sergio Naccarato's
+  // $35 per TRT visit + $10 per Rx) across both Rx and non-Rx sales.
+  // -------------------------------------------------------------------------
+  interface DoctorPayoutRow {
+    doctorName: string;
+    trtVisitCount: number;
+    trtPayoutCents: number;
+    prescriptionCount: number;
+    prescriptionPayoutCents: number;
+    totalCents: number;
+  }
+  const doctorPayouts = new Map<string, DoctorPayoutRow>();
+  for (const sale of [...reconciliation.lines, ...nonRxLines]) {
+    if (sale.totals.doctorPayoutCents <= 0) continue;
+    if (!sale.totals.doctorPayoutDoctorName) continue;
+    const isTrt = sale.payload.trtTelehealthCents > 0;
+    const cur = doctorPayouts.get(sale.totals.doctorPayoutDoctorName) ?? {
+      doctorName: sale.totals.doctorPayoutDoctorName,
+      trtVisitCount: 0,
+      trtPayoutCents: 0,
+      prescriptionCount: 0,
+      prescriptionPayoutCents: 0,
+      totalCents: 0,
+    };
+    if (isTrt) {
+      cur.trtVisitCount += 1;
+      cur.trtPayoutCents += sale.totals.doctorPayoutCents;
+    } else {
+      cur.prescriptionCount += 1;
+      cur.prescriptionPayoutCents += sale.totals.doctorPayoutCents;
+    }
+    cur.totalCents += sale.totals.doctorPayoutCents;
+    doctorPayouts.set(sale.totals.doctorPayoutDoctorName, cur);
+  }
+  const doctorPayoutRows = [...doctorPayouts.values()].sort(
+    (a, b) => b.totalCents - a.totalCents
+  );
+
+  if (doctorPayoutRows.length > 0) {
+    /** Page break BEFORE the doctor payouts section if we're near the bottom. */
+    if (y < 180) {
+      page = doc.addPage([PW, PH]);
+      y = PH - M;
+    }
+    /** Section divider. */
+    page.drawRectangle({
+      x: M,
+      y: y - 6,
+      width: PW - 2 * M,
+      height: 2,
+      color: rgb(0.16, 0.5, 0.72), // blue divider distinguishes from rep payroll's green
+      opacity: 1,
+    });
+    y -= 18;
+    drawText('DOCTOR PAYOUTS', M, 13, fontBold, rgb(0.16, 0.5, 0.72));
+    drawText(
+      `${doctorPayoutRows.length} ${doctorPayoutRows.length === 1 ? 'doctor' : 'doctors'} · paid by EONPro (info only — does not affect clinic net)`,
+      M,
+      8,
+      font,
+      mid
+    );
+    y -= 12;
+    drawText(
+      'Rule: $35 per TRT telehealth visit · $10 per prescription written (when no TRT visit on the sale)',
+      M,
+      7,
+      font,
+      light
+    );
+    y -= 16;
+
+    /** Column geometry for the doctor table. */
+    const dColDoctor = M + 4;
+    const dColTrt = M + 200;
+    const dColRx = M + 340;
+    const dColTotal = PW - M - 100;
+
+    /** Header band. */
+    page.drawRectangle({
+      x: M,
+      y: y - 4,
+      width: PW - 2 * M,
+      height: 26,
+      color: rgb(0.94, 0.97, 1.0),
+      opacity: 1,
+    });
+    drawText('DOCTOR', dColDoctor, 7, fontBold, mid);
+    drawText('TRT TELEHEALTH', dColTrt, 7, fontBold, mid);
+    drawText('PRESCRIPTIONS', dColRx, 7, fontBold, mid);
+    drawText('PAYOUT', dColTotal, 7, fontBold, mid);
+    y -= 11;
+    drawText('count × $35', dColTrt, 6.5, font, light);
+    drawText('count × $10', dColRx, 6.5, font, light);
+    drawText('total $', dColTotal, 6.5, font, light);
+    y -= 16;
+
+    for (let i = 0; i < doctorPayoutRows.length; i += 1) {
+      const r = doctorPayoutRows[i];
+      need(20);
+      if (i % 2 === 0) {
+        page.drawRectangle({
+          x: M,
+          y: y - 16,
+          width: PW - 2 * M,
+          height: 20,
+          color: rgb(0.985, 0.99, 1.0),
+          opacity: 1,
+        });
+      }
+      drawText(r.doctorName, dColDoctor, 9, fontBold, dark);
+      drawText(
+        `${r.trtVisitCount} × $35 = $${centsToDisplay(r.trtPayoutCents)}`,
+        dColTrt,
+        8,
+        font,
+        dark
+      );
+      drawText(
+        `${r.prescriptionCount} × $10 = $${centsToDisplay(r.prescriptionPayoutCents)}`,
+        dColRx,
+        8,
+        font,
+        dark
+      );
+      drawText(
+        `$${centsToDisplay(r.totalCents)}`,
+        dColTotal,
+        10,
+        fontBold,
+        rgb(0.16, 0.5, 0.72)
+      );
+      y -= 22;
+    }
+
+    /** Bottom totals bar. */
+    y -= 4;
+    page.drawLine({
+      start: { x: M, y: y + 2 },
+      end: { x: PW - M, y: y + 2 },
+      thickness: 1,
+      color: rgb(0.16, 0.5, 0.72),
+    });
+    y -= 16;
+    const totalTrtCount = doctorPayoutRows.reduce((s, r) => s + r.trtVisitCount, 0);
+    const totalTrtPayout = doctorPayoutRows.reduce((s, r) => s + r.trtPayoutCents, 0);
+    const totalRxCount = doctorPayoutRows.reduce((s, r) => s + r.prescriptionCount, 0);
+    const totalRxPayout = doctorPayoutRows.reduce((s, r) => s + r.prescriptionPayoutCents, 0);
+    const totalDoctorPayout = doctorPayoutRows.reduce((s, r) => s + r.totalCents, 0);
+    drawText('PERIOD TOTAL', dColDoctor, 10, fontBold, dark);
+    drawText(
+      `${totalTrtCount} visits · $${centsToDisplay(totalTrtPayout)}`,
+      dColTrt,
+      8,
+      fontBold,
+      dark
+    );
+    drawText(
+      `${totalRxCount} Rxs · $${centsToDisplay(totalRxPayout)}`,
+      dColRx,
+      8,
+      fontBold,
+      dark
+    );
+    drawText(
+      `$${centsToDisplay(totalDoctorPayout)}`,
+      dColTotal,
+      12,
+      fontBold,
+      rgb(0.16, 0.5, 0.72)
+    );
+    y -= 16;
+    drawText(
+      'PAY EACH DOCTOR THE PAYOUT COLUMN ABOVE. EONPro covers this fee out of margin.',
       M,
       7.5,
       fontBold,

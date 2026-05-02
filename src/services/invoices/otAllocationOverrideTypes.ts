@@ -155,6 +155,16 @@ export interface OtAllocationOverrideTotals {
   managerOverrideCents: number;
   /** Manager who earns `managerOverrideCents` for this sale; null when none. */
   managerOverrideManagerName: string | null;
+  /**
+   * Auto-computed doctor payout for the sale (e.g. Sergio Naccarato's
+   * $35 TRT visit / $10 per-Rx). **Info-only** — NOT included in
+   * `totalDeductionsCents` because EONPro covers the doctor fee out of
+   * margin, not the clinic. Surfaced on rows for visibility and in the
+   * payroll PDF for paying the doctor. Zero on non-Rx sales.
+   */
+  doctorPayoutCents: number;
+  /** Doctor who earns `doctorPayoutCents` for this sale; null when none. */
+  doctorPayoutDoctorName: string | null;
   /** Sum of everything billable to the OT clinic. */
   totalDeductionsCents: number;
   /** patientGrossCents - totalDeductionsCents (may be negative if admin over-allocates). */
@@ -278,6 +288,64 @@ function normalizeRepName(name: string | null | undefined): string {
   return name.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
+// ---------------------------------------------------------------------------
+// Auto doctor-payout config
+// ---------------------------------------------------------------------------
+
+/**
+ * Auto-applied doctor payout rule per stakeholder direction (2026-05-02):
+ *
+ *   Sergio Naccarato earns:
+ *     • $35 per sale that includes TRT telehealth (covers the visit + any
+ *       prescription written that visit)
+ *     • $10 per sale that has at least one prescription but no TRT visit
+ *     • $0 for non-Rx-only sales (bloodwork, consult, etc.)
+ *
+ * **Info-only**: the payout is tracked for paying Sergio but does NOT
+ * reduce the clinic's net (EONPro covers the doctor fee out of margin).
+ * Surfaced on each sale's totals + a DOCTOR PAYOUTS section in the
+ * payroll breakdown PDF.
+ */
+export interface OtAutoDoctorPayoutRule {
+  doctorName: string;
+  trtTelehealthFeeCents: number;
+  perPrescriptionFeeCents: number;
+}
+
+export const OT_AUTO_DOCTOR_PAYOUT: OtAutoDoctorPayoutRule = {
+  doctorName: 'Naccarato, Sergio',
+  trtTelehealthFeeCents: 3500,
+  perPrescriptionFeeCents: 1000,
+};
+
+/**
+ * Compute the doctor's payout for a single sale given its current payload.
+ * Returns 0 when the sale has neither a TRT visit nor a prescription
+ * (bloodwork / consult / other non-Rx).
+ */
+export function getOtDoctorPayoutForSale(
+  payload: Pick<OtAllocationOverridePayload, 'trtTelehealthCents' | 'meds'>
+): { doctorName: string; amountCents: number } {
+  if (payload.trtTelehealthCents > 0) {
+    return {
+      doctorName: OT_AUTO_DOCTOR_PAYOUT.doctorName,
+      amountCents: OT_AUTO_DOCTOR_PAYOUT.trtTelehealthFeeCents,
+    };
+  }
+  if (payload.meds.length > 0) {
+    /**
+     * Per stakeholder direction: $10 for the prescription (the SALE's
+     * single Rx, even when that Rx bundles multiple meds). Multi-med
+     * packages like TRT Plus pay $10 once, not $10 × meds count.
+     */
+    return {
+      doctorName: OT_AUTO_DOCTOR_PAYOUT.doctorName,
+      amountCents: OT_AUTO_DOCTOR_PAYOUT.perPrescriptionFeeCents,
+    };
+  }
+  return { doctorName: OT_AUTO_DOCTOR_PAYOUT.doctorName, amountCents: 0 };
+}
+
 /**
  * Resolve the auto-applied manager override for a sale given the sale's
  * rep name. Returns `null` when no rule applies. Excludes the manager's
@@ -388,6 +456,14 @@ export function computeOtAllocationOverrideTotals(
   );
   const managerOverrideCents = autoOverride?.amountCents ?? 0;
   const managerOverrideManagerName = autoOverride?.managerName ?? null;
+  /**
+   * Doctor payout — info-only, NOT added to `totalDeductionsCents`.
+   * EONPro pays the doctor out of margin; the clinic's net is unaffected.
+   */
+  const doctorPayout = getOtDoctorPayoutForSale(payload);
+  const doctorPayoutCents = doctorPayout.amountCents;
+  const doctorPayoutDoctorName =
+    doctorPayout.amountCents > 0 ? doctorPayout.doctorName : null;
   const totalDeductionsCents =
     medicationsCents +
     payload.shippingCents +
@@ -411,6 +487,8 @@ export function computeOtAllocationOverrideTotals(
     merchantProcessingFeeCents,
     managerOverrideCents,
     managerOverrideManagerName,
+    doctorPayoutCents,
+    doctorPayoutDoctorName,
     totalDeductionsCents,
     netToOtClinicCents: payload.patientGrossCents - totalDeductionsCents,
   };
