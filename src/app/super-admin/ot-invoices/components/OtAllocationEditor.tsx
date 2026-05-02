@@ -297,17 +297,43 @@ export function OtAllocationEditor({
     };
   }, []);
 
-  /** Initialize rowsState from seeds whenever the seed set changes. */
+  /**
+   * Stable signature for the seed set — sorted comma-joined orderIds. Used
+   * by the reset / load effects so they only re-fire when the actual orders
+   * in the period change, not on every parent re-render that happens to
+   * produce a new `seeds` array reference (React 18 strict-mode double
+   * effects, period switches, search-filter recomputes, etc.). Without
+   * this, a fresh array reference with identical orderIds would wipe the
+   * FINALIZED state a refresh just loaded.
+   */
+  const seedsSignature = useMemo(
+    () =>
+      seeds
+        .map((s) => s.orderId)
+        .sort((a, b) => a - b)
+        .join(','),
+    [seeds]
+  );
+
+  /**
+   * Initialize rowsState from seeds whenever the orderId set changes (period
+   * switch, generate again, search filter, etc.). NOT reset on no-op
+   * re-renders that just produce a new `seeds` array reference.
+   *
+   * `savedMeta` / `savedPayload` come from the GET fetch in the next effect;
+   * we don't clear them here because the load effect replaces them on real
+   * period changes anyway, and clearing them on no-op re-renders silently
+   * dropped FINALIZED badges.
+   */
   useEffect(() => {
     const next: Record<number, OtAllocationOverridePayload> = {};
     for (const s of seeds) {
       next[s.orderId] = deepClonePayload(s.defaultPayload);
     }
     setRowsState(next);
-    setSavedPayload({});
-    setSavedMeta({});
     setExpanded({});
-  }, [seeds]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seedsSignature]);
 
   /** Pull persisted overrides for the period and overlay. */
   useEffect(() => {
@@ -355,7 +381,8 @@ export function OtAllocationEditor({
     return () => {
       cancelled = true;
     };
-  }, [startDate, endDate, useRange, seeds.length]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDate, endDate, useRange, seedsSignature]);
 
   // -------------------------------------------------------------------------
   // Derived per-row + grand totals (recompute on every keystroke — cheap in cents)

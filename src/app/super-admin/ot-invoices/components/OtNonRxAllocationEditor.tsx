@@ -183,15 +183,36 @@ export function OtNonRxAllocationEditor({ startDate, endDate, useRange, seeds }:
     };
   }, []);
 
-  /** Initialize rowsState from seeds whenever the seed set changes. */
+  /**
+   * Stable signature for the seed set — sorted comma-joined dispositionKeys.
+   * Used by the reset / load effects so they only re-fire when the actual
+   * dispositions in the period change, not on every parent re-render that
+   * happens to produce a new `seeds` array reference (search-filter
+   * recomputes, period switches, etc.). Without this, a fresh array
+   * reference with identical keys would wipe FINALIZED state on refresh.
+   */
+  const seedsSignature = useMemo(
+    () =>
+      seeds
+        .map((s) => s.dispositionKey)
+        .sort()
+        .join('|'),
+    [seeds]
+  );
+
+  /**
+   * Initialize rowsState from seeds whenever the dispositionKey set changes.
+   * `savedMeta` / `savedPayload` are NOT cleared here — they're owned by
+   * the load effect, which replaces them on real period changes anyway.
+   * Clearing them on no-op re-renders silently dropped FINALIZED badges.
+   */
   useEffect(() => {
     const next: Record<string, OtAllocationOverridePayload> = {};
     for (const s of seeds) next[s.dispositionKey] = deepClonePayload(s.defaultPayload);
     setRowsState(next);
-    setSavedPayload({});
-    setSavedMeta({});
     setExpanded({});
-  }, [seeds]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seedsSignature]);
 
   /** Load persisted overrides for the period and overlay. */
   useEffect(() => {
@@ -239,7 +260,8 @@ export function OtNonRxAllocationEditor({ startDate, endDate, useRange, seeds }:
     return () => {
       cancelled = true;
     };
-  }, [startDate, endDate, useRange, seeds.length]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDate, endDate, useRange, seedsSignature]);
 
   // -------------------------------------------------------------------------
   // Derived totals
