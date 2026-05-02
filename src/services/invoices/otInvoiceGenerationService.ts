@@ -3698,8 +3698,14 @@ export async function generateOtCustomReconciliationPDF(
   let y = PH - M;
   let pageNum = 1;
 
-  function drawText(s: string, x: number, sz: number, f = font, c = dark) {
-    page.drawText(sanitizeForPdf(s), { x, y, size: sz, font: f, color: c });
+  function drawText(s: string, x: number, sz: number, f = font, c = dark, yOverride?: number) {
+    page.drawText(sanitizeForPdf(s), {
+      x,
+      y: yOverride ?? y,
+      size: sz,
+      font: f,
+      color: c,
+    });
   }
   function footer() {
     page.drawLine({
@@ -4083,17 +4089,28 @@ export async function generateOtCustomReconciliationPDF(
   // -------------------------------------------------------------------------
   // REP PAYROLL BREAKDOWN
   // -------------------------------------------------------------------------
-  // Per-rep aggregation across both Rx + non-Rx sales for the period:
-  //   - sale count
-  //   - patient gross sum
-  //   - commission $ sum  (this is what the rep is owed for the period)
+  // Per-rep aggregation across both Rx + non-Rx sales for the period.
+  // Each rep's row shows:
+  //   - assigned commission tier (8% / 9% / 10% / 11% / 12%) based on their
+  //     period new-sale gross
+  //   - new vs rebill split (sale count + commission $ for each)
+  //   - total commission $ to pay the rep
+  //   - distance to next tier (when applicable) so admin sees how close
+  //     they came to the next bonus
   // Sorted by commission desc so the largest payouts are on top.
   // -------------------------------------------------------------------------
   interface RepPayrollRow {
     repName: string;
-    saleCount: number;
-    patientGrossCents: number;
-    commissionCents: number;
+    newSaleCount: number;
+    rebillSaleCount: number;
+    newSaleGrossCents: number;
+    rebillGrossCents: number;
+    newSaleCommissionCents: number;
+    rebillCommissionCents: number;
+    /** Total commission across new + rebill; the actual payout. */
+    totalCommissionCents: number;
+    /** Resolved tier rate in basis points (800 / 900 / 1000 / 1100 / 1200). */
+    tierRateBps: number;
   }
   const payrollByRep = new Map<string, RepPayrollRow>();
   let unassignedSaleCount = 0;
@@ -4109,84 +4126,205 @@ export async function generateOtCustomReconciliationPDF(
     }
     const cur = payrollByRep.get(repName) ?? {
       repName,
-      saleCount: 0,
-      patientGrossCents: 0,
-      commissionCents: 0,
+      newSaleCount: 0,
+      rebillSaleCount: 0,
+      newSaleGrossCents: 0,
+      rebillGrossCents: 0,
+      newSaleCommissionCents: 0,
+      rebillCommissionCents: 0,
+      totalCommissionCents: 0,
+      tierRateBps: 800,
     };
-    cur.saleCount += 1;
-    cur.patientGrossCents += sale.payload.patientGrossCents;
-    cur.commissionCents += sale.totals.salesRepCommissionCents;
+    const isRebillRow = sale.payload.commissionRateBps === 100;
+    if (isRebillRow) {
+      cur.rebillSaleCount += 1;
+      cur.rebillGrossCents += sale.payload.patientGrossCents;
+      cur.rebillCommissionCents += sale.totals.salesRepCommissionCents;
+    } else {
+      cur.newSaleCount += 1;
+      cur.newSaleGrossCents += sale.payload.patientGrossCents;
+      cur.newSaleCommissionCents += sale.totals.salesRepCommissionCents;
+    }
+    cur.totalCommissionCents += sale.totals.salesRepCommissionCents;
     payrollByRep.set(repName, cur);
   }
+  /** Resolve tier rate per rep once aggregation is complete. */
+  for (const [, r] of payrollByRep) {
+    r.tierRateBps = getOtTieredNewSaleRateBps(r.newSaleGrossCents);
+  }
   const payrollRows = [...payrollByRep.values()].sort(
-    (a, b) => b.commissionCents - a.commissionCents
+    (a, b) => b.totalCommissionCents - a.totalCommissionCents
   );
 
-  /** Always render the section header, even when there are no rep-attributed sales. */
-  need(40);
-  page.drawLine({
-    start: { x: M, y: y },
-    end: { x: PW - M, y: y },
-    thickness: 0.6,
+  /** Tier reference used in the legend + "next tier" hints below. */
+  const tierThresholdsLowToHigh: Array<{ thresholdCents: number; rateBps: number }> = [
+    { thresholdCents: 0, rateBps: 800 },
+    { thresholdCents: 1_730_000, rateBps: 900 },
+    { thresholdCents: 2_300_000, rateBps: 1000 },
+    { thresholdCents: 2_900_000, rateBps: 1100 },
+    { thresholdCents: 3_500_000, rateBps: 1200 },
+  ];
+  const formatTierLabel = (bps: number): string => {
+    const decimals = bps % 100 === 0 ? 0 : 1;
+    return `${(bps / 100).toFixed(decimals)}%`;
+  };
+  const nextTierGap = (currentNewSaleGrossCents: number, currentTierBps: number): string | null => {
+    /** Find the lowest tier whose threshold exceeds the rep's current gross. */
+    for (const t of tierThresholdsLowToHigh) {
+      if (t.rateBps <= currentTierBps) continue;
+      const gap = t.thresholdCents - currentNewSaleGrossCents;
+      if (gap > 0) {
+        return `$${centsToDisplay(gap)} away from ${formatTierLabel(t.rateBps)}`;
+      }
+    }
+    return null; // top tier or no further tiers
+  };
+
+  /** Page break BEFORE the payroll section starts so it always begins fresh. */
+  if (y < 200) {
+    page = doc.addPage([PW, PH]);
+    y = PH - M;
+  }
+
+  /** Bold green section divider. */
+  page.drawRectangle({
+    x: M,
+    y: y - 6,
+    width: PW - 2 * M,
+    height: 2,
     color: green,
+    opacity: 1,
   });
-  y -= 14;
-  drawText('REP PAYROLL BREAKDOWN', M, 11, fontBold, green);
+  y -= 18;
+  drawText('REP PAYROLL BREAKDOWN', M, 13, fontBold, green);
   drawText(
-    `${payrollRows.length} ${payrollRows.length === 1 ? 'rep' : 'reps'} · period commission to be paid`,
-    M + 220,
+    `${payrollRows.length} ${payrollRows.length === 1 ? 'rep' : 'reps'} · ${reconciliation.totals.saleCount} ${reconciliation.totals.saleCount === 1 ? 'sale' : 'sales'} · period commissions to be paid`,
+    M,
     8,
     font,
     mid
   );
+  y -= 12;
+  drawText('NEW = first-time product purchase (8% base) · REBILL = repeat (1%)', M, 7, font, light);
+  y -= 8;
+  drawText(
+    'Volume tiers: 8% base · $17,300+ → 9% · $23,000+ → 10% · $29,000+ → 11% · $35,000+ → 12% (NEW sales only)',
+    M,
+    7,
+    font,
+    light
+  );
   y -= 16;
 
-  /**
-   * Column header band — light gray background like the per-sale block headers.
-   * Positions chosen so the totals align with the per-sale dollar columns.
-   */
-  const colSales = M + 240;
-  const colGross = PW - M - 220;
-  const colCommission = PW - M - 90;
+  /** Column geometry — wider rep column, sub-columns for new / rebill / total. */
+  const colRepName = M + 4;
+  const colTier = M + 152;
+  const colNew = M + 200;
+  const colRebill = M + 320;
+  const colTotal = PW - M - 100;
+  const numCol = (x: number) => x;
+
+  /** Header band. */
   page.drawRectangle({
     x: M,
-    y: y - 2,
+    y: y - 4,
     width: PW - 2 * M,
-    height: 14,
+    height: 26,
     color: rgb(0.95, 0.97, 0.96),
     opacity: 1,
   });
-  drawText('Rep', M + 4, 8, fontBold, mid);
-  drawText('Sales', colSales, 8, fontBold, mid);
-  drawText('Patient gross', colGross, 8, fontBold, mid);
-  drawText('Commission $', colCommission, 8, fontBold, mid);
-  y -= 14;
+  drawText('REP / TIER', colRepName, 7, fontBold, mid);
+  drawText('NEW SALES', colNew, 7, fontBold, mid);
+  drawText('REBILLS', colRebill, 7, fontBold, mid);
+  drawText('PAYOUT', numCol(colTotal), 7, fontBold, mid);
+  y -= 11;
+  drawText('count · gross · commission', colNew, 6.5, font, light);
+  drawText('count · gross · commission', colRebill, 6.5, font, light);
+  drawText('total commission $', numCol(colTotal), 6.5, font, light);
+  y -= 16;
 
   if (payrollRows.length === 0 && unassignedSaleCount === 0) {
     need(14);
     drawText('No sales in this period.', M + 4, 8, font, mid);
     y -= 14;
   } else {
-    for (const r of payrollRows) {
-      need(13);
-      drawText(r.repName, M + 4, 8.5, font, dark);
-      drawText(String(r.saleCount), colSales, 8.5, font, dark);
-      drawText(`$${centsToDisplay(r.patientGrossCents)}`, colGross, 8.5, font, dark);
-      drawText(`$${centsToDisplay(r.commissionCents)}`, colCommission, 8.5, fontBold, green);
-      y -= 13;
+    for (let i = 0; i < payrollRows.length; i += 1) {
+      const r = payrollRows[i];
+      need(34);
+      /** Alternating row band for readability. */
+      if (i % 2 === 0) {
+        page.drawRectangle({
+          x: M,
+          y: y - 22,
+          width: PW - 2 * M,
+          height: 26,
+          color: rgb(0.985, 0.99, 0.985),
+          opacity: 1,
+        });
+      }
+      /** Line 1: rep name + tier badge. */
+      drawText(r.repName, colRepName, 9, fontBold, dark);
+      const tierLabel = formatTierLabel(r.tierRateBps);
+      const tierBadgeColor =
+        r.tierRateBps >= 1100
+          ? rgb(0.06, 0.45, 0.31) // green for top tiers
+          : r.tierRateBps >= 900
+            ? rgb(0.16, 0.5, 0.72) // blue for tier 9-10
+            : rgb(0.45, 0.45, 0.45); // gray for base
+      drawText(`Tier ${tierLabel}`, colTier, 8, fontBold, tierBadgeColor);
+
+      /** Line 2: new sales + rebills + payout columns. */
+      const yLine2 = y - 11;
+      drawText(
+        `${r.newSaleCount}  $${centsToDisplay(r.newSaleGrossCents)}  →  $${centsToDisplay(r.newSaleCommissionCents)}`,
+        colNew,
+        8,
+        font,
+        dark,
+        yLine2
+      );
+      drawText(
+        `${r.rebillSaleCount}  $${centsToDisplay(r.rebillGrossCents)}  →  $${centsToDisplay(r.rebillCommissionCents)}`,
+        colRebill,
+        8,
+        font,
+        dark,
+        yLine2
+      );
+      drawText(
+        `$${centsToDisplay(r.totalCommissionCents)}`,
+        numCol(colTotal),
+        10,
+        fontBold,
+        green,
+        yLine2
+      );
+
+      /** Line 3: tier progress hint (only when not at top tier). */
+      const hint = nextTierGap(r.newSaleGrossCents, r.tierRateBps);
+      if (hint) {
+        drawText(hint, colTier, 6.5, font, light, y - 21);
+      } else if (r.tierRateBps === 1200) {
+        drawText('Top tier — 12% achieved', colTier, 6.5, font, light, y - 21);
+      }
+      y -= 28;
     }
     /**
-     * Unassigned row — sales with no rep attached. Shown so the saleCount
-     * + grossCents totals reconcile with the period summary at the top.
-     * Commission is $0 by definition (no rep to pay).
+     * Unassigned row — sales with no rep attached. Shown so the totals
+     * reconcile against the period summary at the top.
      */
     if (unassignedSaleCount > 0) {
-      need(13);
-      drawText('(unassigned — no rep on row)', M + 4, 8.5, font, mid);
-      drawText(String(unassignedSaleCount), colSales, 8.5, font, mid);
-      drawText(`$${centsToDisplay(unassignedGrossCents)}`, colGross, 8.5, font, mid);
-      drawText(`$${centsToDisplay(unassignedCommissionCents)}`, colCommission, 8.5, font, mid);
-      y -= 13;
+      need(20);
+      drawText('(unassigned — no rep on row)', colRepName, 8.5, font, mid);
+      drawText(
+        `${unassignedSaleCount} sales · $${centsToDisplay(unassignedGrossCents)} gross`,
+        colNew,
+        8.5,
+        font,
+        mid
+      );
+      drawText(`$${centsToDisplay(unassignedCommissionCents)}`, numCol(colTotal), 9, font, mid);
+      y -= 18;
     }
   }
 
@@ -4195,32 +4333,58 @@ export async function generateOtCustomReconciliationPDF(
   page.drawLine({
     start: { x: M, y: y + 2 },
     end: { x: PW - M, y: y + 2 },
-    thickness: 0.6,
+    thickness: 1,
     color: green,
   });
-  y -= 14;
+  y -= 16;
   const totalSaleCount =
-    payrollRows.reduce((s, r) => s + r.saleCount, 0) + unassignedSaleCount;
+    payrollRows.reduce((s, r) => s + r.newSaleCount + r.rebillSaleCount, 0) + unassignedSaleCount;
   const totalGross =
-    payrollRows.reduce((s, r) => s + r.patientGrossCents, 0) + unassignedGrossCents;
+    payrollRows.reduce((s, r) => s + r.newSaleGrossCents + r.rebillGrossCents, 0) +
+    unassignedGrossCents;
+  const totalNewSaleGross = payrollRows.reduce((s, r) => s + r.newSaleGrossCents, 0);
+  const totalRebillGross = payrollRows.reduce((s, r) => s + r.rebillGrossCents, 0);
+  const totalNewSaleCommission = payrollRows.reduce((s, r) => s + r.newSaleCommissionCents, 0);
+  const totalRebillCommission = payrollRows.reduce((s, r) => s + r.rebillCommissionCents, 0);
   const totalCommission =
-    payrollRows.reduce((s, r) => s + r.commissionCents, 0) + unassignedCommissionCents;
-  drawText('TOTAL', M + 4, 9, fontBold, dark);
-  drawText(String(totalSaleCount), colSales, 9, fontBold, dark);
-  drawText(`$${centsToDisplay(totalGross)}`, colGross, 9, fontBold, dark);
-  drawText(`$${centsToDisplay(totalCommission)}`, colCommission, 9, fontBold, green);
-  y -= 18;
+    payrollRows.reduce((s, r) => s + r.totalCommissionCents, 0) + unassignedCommissionCents;
+  drawText('PERIOD TOTAL', colRepName, 10, fontBold, dark);
+  drawText(`${totalSaleCount} sales`, colTier, 8, font, dark);
+  drawText(
+    `$${centsToDisplay(totalNewSaleGross)} → $${centsToDisplay(totalNewSaleCommission)}`,
+    colNew,
+    8,
+    fontBold,
+    dark
+  );
+  drawText(
+    `$${centsToDisplay(totalRebillGross)} → $${centsToDisplay(totalRebillCommission)}`,
+    colRebill,
+    8,
+    fontBold,
+    dark
+  );
+  drawText(`$${centsToDisplay(totalCommission)}`, numCol(colTotal), 12, fontBold, green);
+  y -= 16;
+  drawText(
+    `Combined gross $${centsToDisplay(totalGross)} · combined commission $${centsToDisplay(totalCommission)}`,
+    M,
+    7,
+    font,
+    light
+  );
+  y -= 14;
 
-  /** Per-rep payout caption — what to actually pay each rep. */
+  /** Per-rep payout caption + tier explainer. */
   if (payrollRows.length > 0) {
     drawText(
-      'Pay each rep their Commission $ row above (sum confirmed against TOTAL).',
+      'PAY EACH REP THE PAYOUT COLUMN ABOVE. Tier rates auto-applied based on rep\u2019s NEW-sale gross for the period.',
       M,
-      8,
-      font,
+      7.5,
+      fontBold,
       mid
     );
-    y -= 14;
+    y -= 12;
   }
 
   footer();
