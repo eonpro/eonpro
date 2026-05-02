@@ -512,17 +512,17 @@ export function OtAllocationEditor({
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <SummaryTile
-          label="Patient gross (sum)"
+          label="Rx patient gross"
           value={centsToDisplay(grandTotals.gross)}
           tone="neutral"
         />
         <SummaryTile
-          label="Total deductions (manual)"
+          label="Rx total deductions"
           value={centsToDisplay(grandTotals.deductions)}
           tone="warning"
         />
         <SummaryTile
-          label="Net to OT clinic (manual)"
+          label="Rx net to OT clinic"
           value={centsToDisplay(grandTotals.net)}
           tone={grandTotals.net < 0 ? 'negative' : 'positive'}
         />
@@ -1677,6 +1677,7 @@ function TotalsPanel({
         <RowKv label="Fulfillment" value={totals.fulfillmentFeesCents} negative />
         <RowKv label="Custom lines" value={totals.customLineItemsCents} negative />
         <RowKv label="Sales rep commission" value={totals.salesRepCommissionCents} negative />
+        <RowKv label="EONPro fee (5%)" value={totals.eonproFeeCents} negative />
         <div className="my-1 h-px bg-gray-200" />
         <RowKv label="Total deductions" value={totals.totalDeductionsCents} bold negative />
         <RowKv

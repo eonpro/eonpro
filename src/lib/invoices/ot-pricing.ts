@@ -10,8 +10,19 @@
 
 export const OT_CLINIC_SUBDOMAIN = 'ot';
 
-/** EONPro platform fee on gross patient payments (basis points: 1000 = 10%). */
-export const OT_PLATFORM_COMPENSATION_BPS = 1000;
+/**
+ * EONPro per-transaction fee on patient gross (basis points: 500 = 5%).
+ *
+ * Replaced the prior 10% platform-compensation line on 2026-05-02 — the
+ * EONPro fee structure changed to a flat 5% per transaction, computed
+ * against `patientGrossCents` (not cash-collected-net like before). Refunded
+ * payments naturally fall out because their per-row gross trends to zero.
+ *
+ * The legacy `OT_PLATFORM_COMPENSATION_BPS` export name is kept for any
+ * external imports during the transition; both alias to the same value.
+ */
+export const OT_EONPRO_FEE_BPS = 500;
+export const OT_PLATFORM_COMPENSATION_BPS = OT_EONPRO_FEE_BPS;
 
 /** Card / merchant processing fee on gross sales (basis points: 400 = 4%). */
 export const OT_MERCHANT_PROCESSING_BPS = 400;

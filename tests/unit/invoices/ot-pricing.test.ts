@@ -41,10 +41,10 @@ describe('ot-pricing', () => {
     expect(getOtDoctorApprovalModeFromRxs([])).toBe('async');
   });
 
-  it('computes 10% EONPro fee on gross', () => {
+  it('computes 5% EONPro fee on gross (rate change 2026-05-02)', () => {
     const gross = 100_000;
     const fee = Math.round((gross * OT_PLATFORM_COMPENSATION_BPS) / 10_000);
-    expect(fee).toBe(10_000);
+    expect(fee).toBe(5000);
   });
 
   it('computes 4% merchant processing on gross', () => {

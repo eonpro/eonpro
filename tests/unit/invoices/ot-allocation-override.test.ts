@@ -266,7 +266,12 @@ describe('computeOtAllocationOverrideTotals', () => {
     expect(t.doctorRxFeeCents).toBe(3000);
     expect(t.fulfillmentFeesCents).toBe(250);
     expect(t.customLineItemsCents).toBe(100);
-    expect(t.totalDeductionsCents).toBe(3500 + 2000 + 0 + 3000 + 250 + 100);
+    /**
+     * EONPro 5% fee on patient gross is now part of every row's deductions.
+     * 5% × 24,900 = 1,245 cents.
+     */
+    expect(t.eonproFeeCents).toBe(1245);
+    expect(t.totalDeductionsCents).toBe(3500 + 2000 + 0 + 3000 + 250 + 100 + 1245);
     expect(t.netToOtClinicCents).toBe(24900 - t.totalDeductionsCents);
   });
 
@@ -328,14 +333,19 @@ describe('buildDefaultOverridePayload', () => {
     expect(totals.shippingCents).toBe(sale.shippingCents);
     expect(totals.doctorRxFeeCents).toBe(sale.doctorApprovalCents);
     expect(totals.fulfillmentFeesCents).toBe(sale.fulfillmentFeesCents);
-    /** patientGrossCents - (meds + shipping + trt + doctor + fulfillment) — note: no merchant/platform here. */
+    /**
+     * patientGrossCents - (meds + shipping + trt + doctor + fulfillment + EONPro 5%).
+     * Merchant processing (4%) is still period-level only, not per-row.
+     */
+    const eonproFee = Math.round((sale.patientGrossCents * 500) / 10_000);
     const expectedNet =
       sale.patientGrossCents -
       (sale.medicationsCostCents +
         sale.shippingCents +
         sale.trtTelehealthCents +
         sale.doctorApprovalCents +
-        sale.fulfillmentFeesCents);
+        sale.fulfillmentFeesCents +
+        eonproFee);
     expect(totals.netToOtClinicCents).toBe(expectedNet);
   });
 
@@ -486,7 +496,10 @@ describe('applyOtAllocationOverrides', () => {
     const r = applyOtAllocationOverrides(data, overrides);
     const line = r.lines[0];
     expect(line.totals.customLineItemsCents).toBe(750);
-    expect(line.totals.totalDeductionsCents).toBe(3500 + 2000 + 0 + 3000 + 0 + 750);
+    /** EONPro 5% on $300 patient gross = 1,500 cents (rate change 2026-05-02). */
+    const eonpro = Math.round((30000 * 500) / 10_000);
+    expect(line.totals.eonproFeeCents).toBe(eonpro);
+    expect(line.totals.totalDeductionsCents).toBe(3500 + 2000 + 0 + 3000 + 0 + 750 + eonpro);
     expect(line.totals.netToOtClinicCents).toBe(30000 - line.totals.totalDeductionsCents);
     expect(r.totals.draftCount).toBe(1);
   });
@@ -588,9 +601,14 @@ describe('computeOtSalesRepCommissionCents', () => {
     };
     const t = computeOtAllocationOverrideTotals(p);
     expect(t.salesRepCommissionCents).toBe(1000);
-    /** total = meds(3500) + ship(2000) + trt(0) + dr(3000) + fulf(0) + custom(0) + commission(1000) = 9500 */
-    expect(t.totalDeductionsCents).toBe(9500);
-    expect(t.netToOtClinicCents).toBe(24900 - 9500);
+    /**
+     * total = meds(3500) + ship(2000) + trt(0) + dr(3000) + fulf(0) + custom(0)
+     *       + commission(1000) + EONPro 5% × 24,900 = 1,245
+     */
+    const eonpro = Math.round((24900 * 500) / 10_000);
+    expect(t.eonproFeeCents).toBe(eonpro);
+    expect(t.totalDeductionsCents).toBe(9500 + eonpro);
+    expect(t.netToOtClinicCents).toBe(24900 - (9500 + eonpro));
   });
 });
 

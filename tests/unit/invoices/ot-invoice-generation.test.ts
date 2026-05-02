@@ -314,7 +314,12 @@ describe('generateOtDailyInvoices (mocked DB)', () => {
     expect(data.merchantProcessing.feeCents).toBe(m);
     expect(data.platformCompensation.feeCents).toBe(p);
     expect(m).toBe(4000);
-    expect(p).toBe(10_000);
+    /**
+     * EONPro fee changed from 10% (cash-collected basis) to 5% (per-row
+     * patient gross) on 2026-05-02. With one $1,000 sale and no refunds,
+     * 5% × $1,000 = $50 = 5,000 cents.
+     */
+    expect(p).toBe(5_000);
 
     expect(data.grandTotalCents).toBe(6500 + 3000 + m + p);
     expect(data.clinicNetPayoutCents).toBe(100_000 - data.grandTotalCents);

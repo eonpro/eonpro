@@ -246,7 +246,7 @@ describe('buildOtNonRxReconciliation — chargeKind classification', () => {
 // ---------------------------------------------------------------------------
 
 describe('buildOtNonRxReconciliation — per-row defaults', () => {
-  it('computes 4% merchant + 10% platform on gross, rounded', () => {
+  it('computes 4% merchant + 5% EONPro fee on gross, rounded (rate change 2026-05-02)', () => {
     const p = makePayment({ paymentId: 1, invoiceId: 7001, amountCents: 18000, netCollectedCents: 18000 });
     const rows = buildOtNonRxReconciliation({
       paymentCollections: [p],
@@ -254,7 +254,7 @@ describe('buildOtNonRxReconciliation — per-row defaults', () => {
       invoiceDbIdsUsedForCogs: new Set(),
     });
     expect(rows[0].merchantProcessingCents).toBe(720); // 18000 * 0.04
-    expect(rows[0].platformCompensationCents).toBe(1800); // 18000 * 0.10
+    expect(rows[0].platformCompensationCents).toBe(900); // 18000 * 0.05 (was 10%)
   });
 
   it('seeds zero medication/shipping/etc. by default — admin types in cost', () => {

@@ -1720,20 +1720,26 @@ export async function generateOtDailyInvoices(
   const feesUseCashCollectedBasis = paymentsCollectedNetCents > 0;
 
   let merchantFee: number;
-  let platformFee: number;
   let grossForFeeDisplay: number;
   let platformInvoiceCount: number;
   if (feesUseCashCollectedBasis) {
     grossForFeeDisplay = paymentsCollectedNetCents;
     merchantFee = Math.round((paymentsCollectedNetCents * OT_MERCHANT_PROCESSING_BPS) / 10_000);
-    platformFee = Math.round((paymentsCollectedNetCents * OT_PLATFORM_COMPENSATION_BPS) / 10_000);
     platformInvoiceCount = paymentCollections.length;
   } else {
     grossForFeeDisplay = grossSalesCents;
     merchantFee = merchantFeeFromPerSale;
-    platformFee = platformFeeFromPerSale;
     platformInvoiceCount = grossInvoicesCounted.size;
   }
+  /**
+   * EONPro 5% fee runs on **patient gross per row** (per stakeholder
+   * direction 2026-05-02 — replaced the prior 10% platform compensation on
+   * cash-collected-net). Both Rx and non-Rx rows carry their own
+   * `platformCompensationCents` at 5%, so the period total is just the sum.
+   * Refunded sales naturally drop out because their per-row gross trends
+   * toward 0 once the refund posts.
+   */
+  const platformFee = platformFeeFromPerSale;
 
   const grandTotal =
     pharmacyTotal +
@@ -1900,16 +1906,11 @@ export async function generateOtDailyInvoices(
   /**
    * Roll non-Rx contributions into the period totals.
    *
-   * Critically, we do **not** add `nonRxRow.merchantProcessingCents +
-   * platformCompensationCents` to the grand total here, because when
-   * `feesUseCashCollectedBasis` is true (the default at OT) those fees were
-   * already computed against `paymentsCollectedNetCents`, which already
-   * includes the non-Rx payments. Adding the per-row merchant/platform on top
-   * would double-count them.
-   *
-   * Sales-rep commissions and manager overrides DO need to be added — the Rx
-   * loop above only summed `perSaleReconciliation` rows, so non-Rx commissions
-   * are missing from `salesRepCommissionTotalCents` until we add them here.
+   * EONPro fee (5% on patient gross) IS now per-row, so non-Rx
+   * `platformCompensationCents` MUST be added to the period total — they're
+   * Rx-side per-row sums otherwise. Merchant processing (4%) stays on
+   * cash-collected-net at the period level (Stripe's actual basis), so we
+   * do NOT add per-row merchant from non-Rx — that would double-count.
    */
   const nonRxSalesRepCommissionTotalCents = nonRxReconciliation.reduce(
     (s, r) => s + r.salesRepCommissionCents,
@@ -1919,13 +1920,21 @@ export async function generateOtDailyInvoices(
     (s, r) => s + r.managerOverrideTotalCents,
     0
   );
+  const nonRxPlatformFeeCents = nonRxReconciliation.reduce(
+    (s, r) => s + r.platformCompensationCents,
+    0
+  );
 
   const combinedSalesRepCommissionTotalCents =
     salesRepCommissionTotalCents + nonRxSalesRepCommissionTotalCents;
   const combinedManagerOverrideTotalCents =
     managerOverrideTotalCents + nonRxManagerOverrideTotalCents;
+  const combinedPlatformFeeCents = platformFee + nonRxPlatformFeeCents;
   const combinedGrandTotal =
-    grandTotal + nonRxSalesRepCommissionTotalCents + nonRxManagerOverrideTotalCents;
+    grandTotal +
+    nonRxSalesRepCommissionTotalCents +
+    nonRxManagerOverrideTotalCents +
+    nonRxPlatformFeeCents;
   const combinedClinicNetPayoutCents = grossForFeeDisplay - combinedGrandTotal;
 
   logger.info('OT invoice generation: non-Rx reconciliation built', {
@@ -1993,10 +2002,16 @@ export async function generateOtDailyInvoices(
       rateBps: OT_MERCHANT_PROCESSING_BPS,
       feeCents: merchantFee,
     },
+    /**
+     * EONPro fee is now 5% per row (Rx + non-Rx) on patient gross — not
+     * 10% on cash-collected-net like before. `feeCents` is the combined sum
+     * across both editor sections so the period tile reflects what admins
+     * see on each row's Live Totals panel.
+     */
     platformCompensation: {
       grossSalesCents: grossForFeeDisplay,
       rateBps: OT_PLATFORM_COMPENSATION_BPS,
-      feeCents: platformFee,
+      feeCents: combinedPlatformFeeCents,
       invoiceCount: platformInvoiceCount,
     },
     grandTotalCents: combinedGrandTotal,

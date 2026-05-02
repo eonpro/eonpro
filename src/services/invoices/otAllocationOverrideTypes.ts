@@ -133,11 +133,25 @@ export interface OtAllocationOverrideTotals {
   customLineItemsCents: number;
   /** Sales rep commission, computed from per-line rates or from the manual override. */
   salesRepCommissionCents: number;
+  /**
+   * EONPro 5% fee on patient gross — auto-deducted from every transaction.
+   * Always set to `round(patientGrossCents × 5%)`; not a separate input field
+   * (the rate is fixed at the platform level).
+   */
+  eonproFeeCents: number;
   /** Sum of everything billable to the OT clinic. */
   totalDeductionsCents: number;
   /** patientGrossCents - totalDeductionsCents (may be negative if admin over-allocates). */
   netToOtClinicCents: number;
 }
+
+/**
+ * EONPro per-transaction fee rate in basis points (500 = 5%). Single source
+ * of truth for the editor's Live Totals — server-side
+ * `OtPerSaleReconciliationLine.platformCompensationCents` uses the same
+ * rate via `OT_EONPRO_FEE_BPS` in `ot-pricing.ts`.
+ */
+export const OT_EONPRO_FEE_BPS = 500;
 
 /**
  * Computes the sales-rep commission for a sale.
@@ -178,6 +192,7 @@ export function computeOtAllocationOverrideTotals(
   const medicationsCents = payload.meds.reduce((s, m) => s + m.lineTotalCents, 0);
   const customLineItemsCents = payload.customLineItems.reduce((s, c) => s + c.amountCents, 0);
   const salesRepCommissionCents = computeOtSalesRepCommissionCents(payload);
+  const eonproFeeCents = Math.round((payload.patientGrossCents * OT_EONPRO_FEE_BPS) / 10_000);
   const totalDeductionsCents =
     medicationsCents +
     payload.shippingCents +
@@ -185,7 +200,8 @@ export function computeOtAllocationOverrideTotals(
     payload.doctorRxFeeCents +
     payload.fulfillmentFeesCents +
     customLineItemsCents +
-    salesRepCommissionCents;
+    salesRepCommissionCents +
+    eonproFeeCents;
   return {
     medicationsCents,
     shippingCents: payload.shippingCents,
@@ -194,6 +210,7 @@ export function computeOtAllocationOverrideTotals(
     fulfillmentFeesCents: payload.fulfillmentFeesCents,
     customLineItemsCents,
     salesRepCommissionCents,
+    eonproFeeCents,
     totalDeductionsCents,
     netToOtClinicCents: payload.patientGrossCents - totalDeductionsCents,
   };

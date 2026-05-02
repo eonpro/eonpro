@@ -850,13 +850,9 @@ export default function OtInvoicesPage() {
             />
             <SummaryCard
               icon={<Percent className="h-5 w-5 text-rose-600" />}
-              label="EONPro platform (10%)"
+              label={`EONPro fee (${data.platformCompensation.rateBps / 100}%)`}
               value={centsToDisplay(data.platformCompensation.feeCents)}
-              subvalue={
-                data.feesUseCashCollectedBasis
-                  ? `on ${centsToDisplay(data.platformCompensation.grossSalesCents)} cash (net)`
-                  : `on ${centsToDisplay(data.platformCompensation.grossSalesCents)} gross`
-              }
+              subvalue={`per-row on patient gross · ${data.platformCompensation.invoiceCount} sales`}
               bg="bg-rose-50"
             />
             <SummaryCard
