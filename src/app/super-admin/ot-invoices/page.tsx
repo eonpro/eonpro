@@ -311,7 +311,6 @@ type ActiveTab =
   | 'fulfillment'
   | 'per_sale'
   | 'manual_reconciliation'
-  | 'non_rx_reconciliation'
   | 'pricing_catalog';
 
 function centsToDisplay(cents: number): string {
@@ -456,6 +455,76 @@ function formatDateTime(iso: string): string {
     hour12: true,
     timeZone: 'America/New_York',
   });
+}
+
+/**
+ * Combined Rx + Non-Rx reconciliation panel — both editors stack into a
+ * single tab because the branded PDF (`/api/super-admin/ot-overrides/export`)
+ * already merges Rx and non-Rx rows into one document, so admins should
+ * review and finalize them in one place. Each editor still owns its own
+ * load / save / draft / finalize cycle against its own override table; the
+ * Rx editor's "Download PDF" button produces the combined PDF.
+ */
+function ReconciliationCombined({
+  startDate,
+  endDate,
+  useRange,
+  rxSeeds,
+  nonRxSeeds,
+}: {
+  startDate: string;
+  endDate: string;
+  useRange: boolean;
+  rxSeeds: OtAllocationEditorPerSaleSeed[];
+  nonRxSeeds: OtNonRxAllocationEditorSeed[];
+}) {
+  return (
+    <div className="flex flex-col gap-8">
+      <section>
+        <header className="mb-3 flex flex-wrap items-baseline justify-between gap-2 border-b border-gray-100 pb-2">
+          <div>
+            <h3 className="text-base font-semibold text-gray-900">Prescription sales (Rx)</h3>
+            <p className="text-xs text-gray-500">
+              {rxSeeds.length} {rxSeeds.length === 1 ? 'sale' : 'sales'} · per-sale allocation,
+              packages, fees, and rep commission.
+            </p>
+          </div>
+          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-900">
+            {rxSeeds.length} Rx
+          </span>
+        </header>
+        <OtAllocationEditor
+          startDate={startDate}
+          endDate={endDate}
+          useRange={useRange}
+          seeds={rxSeeds}
+        />
+      </section>
+
+      <section>
+        <header className="mb-3 flex flex-wrap items-baseline justify-between gap-2 border-b border-gray-100 pb-2">
+          <div>
+            <h3 className="text-base font-semibold text-gray-900">
+              Non-prescription dispositions
+            </h3>
+            <p className="text-xs text-gray-500">
+              {nonRxSeeds.length} {nonRxSeeds.length === 1 ? 'row' : 'rows'} · bloodwork,
+              consults, packages, balance-dues. Included in the same branded PDF.
+            </p>
+          </div>
+          <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-900">
+            {nonRxSeeds.length} non-Rx
+          </span>
+        </header>
+        <OtNonRxAllocationEditor
+          startDate={startDate}
+          endDate={endDate}
+          useRange={useRange}
+          seeds={nonRxSeeds}
+        />
+      </section>
+    </div>
+  );
 }
 
 export default function OtInvoicesPage() {
@@ -658,15 +727,21 @@ export default function OtInvoicesPage() {
           active={activeTab === 'manual_reconciliation'}
           onClick={() => setActiveTab('manual_reconciliation')}
           icon={<SlidersHorizontal className="h-4 w-4" />}
-          label="Manual reconciliation"
-          badge={data ? String(data.perSaleReconciliation?.length ?? 0) : '—'}
-        />
-        <TabButton
-          active={activeTab === 'non_rx_reconciliation'}
-          onClick={() => setActiveTab('non_rx_reconciliation')}
-          icon={<SlidersHorizontal className="h-4 w-4" />}
-          label="Non-Rx reconciliation"
-          badge={data ? String(data.nonRxReconciliation?.length ?? 0) : '—'}
+          label="Reconciliation"
+          /**
+           * Combined badge: Rx + non-Rx rows since both flow into the same
+           * branded PDF (`applyOtAllocationOverrides` returns both, and
+           * `/api/super-admin/ot-overrides/export` loads both override
+           * tables). Format: "119 Rx + 125 non-Rx" so admins can see at a
+           * glance how many rows of each kind exist in the period.
+           */
+          badge={
+            data
+              ? (data.nonRxReconciliation?.length ?? 0) > 0
+                ? `${data.perSaleReconciliation?.length ?? 0} Rx + ${data.nonRxReconciliation?.length ?? 0} non-Rx`
+                : String(data.perSaleReconciliation?.length ?? 0)
+              : '—'
+          }
         />
         <TabButton
           active={activeTab === 'pricing_catalog'}
@@ -823,7 +898,7 @@ export default function OtInvoicesPage() {
              * "Export tab CSV" only applies to tabs that have a backing CSV generator.
              * Manual reconciliation has its own branded PDF download in the editor itself.
              */}
-            {activeTab !== 'manual_reconciliation' && activeTab !== 'non_rx_reconciliation' && (
+            {activeTab !== 'manual_reconciliation' && (
               <button
                 type="button"
                 onClick={() => handleExport(activeTab, 'csv')}
@@ -922,19 +997,12 @@ export default function OtInvoicesPage() {
             <PerSaleReconciliationTable rows={data.perSaleReconciliation ?? []} />
           )}
           {activeTab === 'manual_reconciliation' && (
-            <OtAllocationEditor
+            <ReconciliationCombined
               startDate={startDate}
               endDate={endDate}
               useRange={useRange}
-              seeds={buildAllocationSeedsFromData(data)}
-            />
-          )}
-          {activeTab === 'non_rx_reconciliation' && (
-            <OtNonRxAllocationEditor
-              startDate={startDate}
-              endDate={endDate}
-              useRange={useRange}
-              seeds={buildNonRxSeedsFromData(data)}
+              rxSeeds={buildAllocationSeedsFromData(data)}
+              nonRxSeeds={buildNonRxSeedsFromData(data)}
             />
           )}
         </>
