@@ -568,6 +568,71 @@ export const OT_BLOODWORK_STANDARD_FEE_CENTS = 18_000;
  */
 export const OT_BLOODWORK_DOCTOR_FEE_CENTS = 1000;
 
+/**
+ * Drug-family tokens recognized by the rebill detector. Order matters only
+ * for human readability — the matcher returns *every* family token that
+ * appears in the input text. Add new families here as the OT catalog grows.
+ */
+const OT_DRUG_FAMILY_TOKENS = [
+  // GLP-1s and incretins
+  'semaglutide',
+  'tirzepatide',
+  'retatrutide',
+  // Peptides + hormones
+  'sermorelin',
+  'tesamorelin',
+  'cjc-ipamorelin',
+  'ipamorelin',
+  'bpc157',
+  'bpc-157',
+  'tb500',
+  'tb-500',
+  'mots-c',
+  'epithalon',
+  'kisspeptin',
+  'melanotan',
+  'selank',
+  'semax',
+  'kpv',
+  'ghk-cu',
+  'glutathione',
+  'hcg',
+  'b12',
+  // Oral / SERMs / TRT adjuncts
+  'enclomiphene',
+  'clomiphene',
+  'tadalafil',
+  'anastrozole',
+  // Testosterone (cypionate is the canonical TRT signal)
+  'cypionate',
+  'testosterone',
+] as const;
+
+/**
+ * Extract drug-family tokens from a free-form text blob (Rx medName, invoice
+ * line description, package name, etc.). Used by the per-product rebill
+ * detector to compare what a patient bought today vs. their prior purchases.
+ *
+ * Returns an array of distinct family tokens found in the text, lowercased.
+ * Deliberately permissive — substring matching catches "Sermorelin Acetate
+ * 2mg/mL", "TIRZEPATIDE/GLYCINE 10/20MG/ML", "Cjc-Ipamorelin Recomp", etc.
+ *
+ * Special-cases NAD+ because the `+` and the `nad ` prefix are easy to miss
+ * with a naive substring check.
+ */
+export function getOtProductFamilyKeysFromText(text: string): string[] {
+  if (!text) return [];
+  const blob = text.toLowerCase();
+  const found = new Set<string>();
+  if (blob.includes('nad+') || blob.includes('nad +') || /\bnad\b/.test(blob)) {
+    found.add('nad');
+  }
+  for (const token of OT_DRUG_FAMILY_TOKENS) {
+    if (blob.includes(token)) found.add(token);
+  }
+  return [...found];
+}
+
 export type OtNonPharmacyChargeKind = 'bloodwork' | 'consult' | 'other';
 
 /**

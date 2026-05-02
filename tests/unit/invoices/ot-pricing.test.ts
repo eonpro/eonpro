@@ -12,6 +12,7 @@ import {
   isOtTestosteroneReplacementTherapyOrder,
   requiresColdShippingForMedLines,
   requiresTrtTelehealthForMedLines,
+  getOtProductFamilyKeysFromText,
   inferOtPharmacyUnitPriceFromRx,
   resolveOtProductPriceForPharmacyLine,
   effectiveOtPharmacyBillQuantity,
@@ -403,6 +404,40 @@ describe('ot-pricing', () => {
 
     it('empty list → false', () => {
       expect(requiresTrtTelehealthForMedLines([])).toBe(false);
+    });
+  });
+
+  describe('getOtProductFamilyKeysFromText (rebill detector)', () => {
+    it('extracts canonical drug-family tokens from typical Rx names', () => {
+      expect(getOtProductFamilyKeysFromText('SERMORELIN ACETATE 2MG/ML')).toContain('sermorelin');
+      expect(getOtProductFamilyKeysFromText('TIRZEPATIDE/GLYCINE 10/20MG/ML')).toContain('tirzepatide');
+      expect(getOtProductFamilyKeysFromText('SEMAGLUTIDE/GLYCINE 2.5/20MG/ML')).toContain('semaglutide');
+      expect(getOtProductFamilyKeysFromText('NAD+ 1000mg')).toContain('nad');
+      expect(getOtProductFamilyKeysFromText('GLUTATHIONE 200MG/ML')).toContain('glutathione');
+      expect(getOtProductFamilyKeysFromText('Enclomiphene Citrate 25mg')).toContain('enclomiphene');
+      expect(getOtProductFamilyKeysFromText('Tadalafil 5mg')).toContain('tadalafil');
+      expect(getOtProductFamilyKeysFromText('Testosterone Cypionate 200mg/mL')).toContain(
+        'cypionate',
+      );
+    });
+
+    it('returns multiple families for combo packages', () => {
+      const keys = getOtProductFamilyKeysFromText(
+        'TRT Plus: Testosterone Cypionate + Enclomiphene 25mg',
+      );
+      expect(keys).toEqual(expect.arrayContaining(['cypionate', 'enclomiphene', 'testosterone']));
+    });
+
+    it('returns [] for unrecognized text', () => {
+      expect(getOtProductFamilyKeysFromText('Bloodwork (Full Panel)')).toEqual([]);
+      expect(getOtProductFamilyKeysFromText('Telehealth visit')).toEqual([]);
+      expect(getOtProductFamilyKeysFromText('')).toEqual([]);
+    });
+
+    it('NAD+ matches even with spacing variations', () => {
+      expect(getOtProductFamilyKeysFromText('nad +')).toContain('nad');
+      expect(getOtProductFamilyKeysFromText('NAD+ Anti-Aging')).toContain('nad');
+      expect(getOtProductFamilyKeysFromText('Patient took NAD this month')).toContain('nad');
     });
   });
 });

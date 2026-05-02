@@ -106,8 +106,26 @@ export interface BuildOtNonRxReconciliationArgs {
    * this clinic. Used to flag a non-Rx row as a rebill when the patient had
    * any paid Rx within 30 days before the row's `paidAt`. Omit / pass an
    * empty map to treat all rows as new sales (legacy behavior).
+   *
+   * @deprecated Use `isRebillForRow` for product-aware rebill detection.
    */
   paidRxHistoryByPatient?: Map<number, ReadonlyArray<{ paidAt: Date }>>;
+  /**
+   * Optional: predicate that returns true when a non-Rx row is a rebill,
+   * given the row's patientId, paidAt, and chargeKind. Lets the caller use
+   * a richer per-product detector (e.g. matching by chargeKind across the
+   * patient's full purchase history) instead of the legacy 30-day window.
+   *
+   * If both this and `paidRxHistoryByPatient` are passed, this predicate
+   * wins (the legacy field is ignored).
+   */
+  isRebillForRow?: (args: {
+    patientId: number;
+    paidAt: Date | null;
+    chargeKind: OtNonRxChargeKind;
+    invoiceId: number | null;
+    paymentId: number | null;
+  }) => boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -286,11 +304,15 @@ export function buildOtNonRxReconciliation(
       return t < acc ? t : acc;
     }, null);
     const earliestPaidAt = earliestPaidAtMs !== null ? new Date(earliestPaidAtMs) : null;
-    const isRebill = patientHadRecentPaidRx(
-      payments[0].patientId,
-      earliestPaidAt,
-      paidRxHistoryByPatient
-    );
+    const isRebill = args.isRebillForRow
+      ? args.isRebillForRow({
+          patientId: payments[0].patientId,
+          paidAt: earliestPaidAt,
+          chargeKind,
+          invoiceId: invoiceDbId,
+          paymentId: null,
+        })
+      : patientHadRecentPaidRx(payments[0].patientId, earliestPaidAt, paidRxHistoryByPatient);
     rows.push(
       buildLineFromPayments(
         `inv:${invoiceDbId}`,
@@ -309,11 +331,16 @@ export function buildOtNonRxReconciliation(
   for (const p of standalone) {
     /** Classify from the payment description — invoice-less rows have no line items. */
     const chargeKind = classifyOtNonPharmacyChargeLine(p.description ?? '', p.amountCents);
-    const isRebill = patientHadRecentPaidRx(
-      p.patientId,
-      p.paidAt ? new Date(p.paidAt) : null,
-      paidRxHistoryByPatient
-    );
+    const paidAtDate = p.paidAt ? new Date(p.paidAt) : null;
+    const isRebill = args.isRebillForRow
+      ? args.isRebillForRow({
+          patientId: p.patientId,
+          paidAt: paidAtDate,
+          chargeKind,
+          invoiceId: null,
+          paymentId: p.paymentId,
+        })
+      : patientHadRecentPaidRx(p.patientId, paidAtDate, paidRxHistoryByPatient);
     rows.push(
       buildLineFromPayments(
         `pay:${p.paymentId}`,

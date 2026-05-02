@@ -75,7 +75,14 @@ function wireInvoiceSequence(
   chain
     .mockResolvedValueOnce(unlinked)
     .mockResolvedValueOnce(commissionStripe)
-    .mockResolvedValueOnce(rxHistory);
+    .mockResolvedValueOnce(rxHistory)
+    /**
+     * `loadOtPatientPurchaseHistory` (per-product rebill detector, added
+     * 2026-05-02) issues an additional invoice.findMany call after the Rx
+     * fee-history load. Default to an empty list so legacy tests that
+     * don't care about per-product rebill detection still pass.
+     */
+    .mockResolvedValueOnce([]);
 }
 
 function wirePayments(periodRows: unknown[], netByInvoiceRows: unknown[]) {

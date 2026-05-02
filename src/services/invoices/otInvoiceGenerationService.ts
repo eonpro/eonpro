@@ -33,6 +33,7 @@ import {
   getOtDoctorApprovalModeFromRxs,
   classifyOtNonPharmacyChargeLine,
   OT_BLOODWORK_DOCTOR_FEE_CENTS,
+  getOtProductFamilyKeysFromText,
   type OtNonPharmacyChargeKind,
 } from '@/lib/invoices/ot-pricing';
 import { BRAND } from '@/lib/constants/brand-assets';
@@ -486,6 +487,15 @@ interface RawInvoiceLine {
   description?: string;
   amount?: number;
   quantity?: number;
+  /**
+   * Stripe product ID (`prod_…`) when the line item was synced from a Stripe
+   * invoice. May be absent on legacy / hand-built invoices. Used by the
+   * rebill detector to recognize the same product across description
+   * variations.
+   */
+  stripeProductId?: string;
+  /** Stripe price ID (`price_…`) — same use case. */
+  stripePriceId?: string;
 }
 
 function parseInvoiceLineItemsJson(raw: unknown): RawInvoiceLine[] {
@@ -497,6 +507,22 @@ function parseInvoiceLineItemsJson(raw: unknown): RawInvoiceLine[] {
       description: typeof o.description === 'string' ? o.description : undefined,
       amount: typeof o.amount === 'number' ? o.amount : undefined,
       quantity: typeof o.quantity === 'number' ? o.quantity : undefined,
+      stripeProductId:
+        typeof o.stripeProductId === 'string'
+          ? o.stripeProductId
+          : typeof o.productId === 'string'
+            ? o.productId
+            : typeof o.product === 'string'
+              ? o.product
+              : undefined,
+      stripePriceId:
+        typeof o.stripePriceId === 'string'
+          ? o.stripePriceId
+          : typeof o.priceId === 'string'
+            ? o.priceId
+            : typeof o.price === 'string'
+              ? o.price
+              : undefined,
     };
   });
 }
@@ -679,6 +705,217 @@ async function loadOtSalesRepCommissionLookup(
   }
 
   return { stripeByInvoiceDbId, commissionByStripeObjectId, overrideBySourceEventId, repLabelById };
+}
+
+/**
+ * One paid-invoice signature in a patient's purchase history. Used by the
+ * rebill detector to decide whether the current sale is a NEW (8% rep
+ * commission) or REBILL (1%) — a rebill is **any prior paid invoice with
+ * an overlapping product signature**.
+ */
+export interface OtPatientPurchaseSignature {
+  invoiceId: number;
+  paidAt: Date;
+  /** Drug family tokens (e.g. 'sermorelin', 'tirzepatide', 'nad'). */
+  productFamilies: Set<string>;
+  /** Stripe product IDs (`prod_…`) when the invoice line items carry them. */
+  stripeProductIds: Set<string>;
+  /** Stripe price IDs (`price_…`) — secondary signal. */
+  stripePriceIds: Set<string>;
+  /**
+   * Per-line charge classifications: 'rx' for prescription rows, plus
+   * 'bloodwork' / 'consult' / 'other' for non-Rx lines. Used so the rebill
+   * detector can match by chargeKind on the non-Rx side (Bloodwork in March
+   * + Bloodwork in April → April is rebill).
+   */
+  chargeKinds: Set<'rx' | 'bloodwork' | 'consult' | 'other'>;
+}
+
+/**
+ * Load every paid invoice ever for the given OT-clinic patients, and derive
+ * a product signature for each (drug families + Stripe product IDs +
+ * chargeKinds). Used by the rebill detector for both Rx and non-Rx sides.
+ *
+ * Returned map key = patientId, value = chronologically-sorted (oldest
+ * first) array of signatures. Skips voided / fully-refunded invoices.
+ */
+async function loadOtPatientPurchaseHistory(
+  clinicId: number,
+  patientIds: number[]
+): Promise<Map<number, OtPatientPurchaseSignature[]>> {
+  const map = new Map<number, OtPatientPurchaseSignature[]>();
+  if (patientIds.length === 0) return map;
+
+  /**
+   * Pull all paid invoices for these patients (no time filter — "any prior"
+   * per stakeholder rule). Include line items + the order's Rx list so we
+   * can extract drug families from both sources.
+   */
+  const invoices = await basePrisma.invoice.findMany({
+    where: {
+      patientId: { in: patientIds },
+      ...otInvoicePatientClinicScope(clinicId),
+      paidAt: { not: null },
+      status: { notIn: ['VOID', 'REFUNDED'] },
+    },
+    select: {
+      id: true,
+      patientId: true,
+      paidAt: true,
+      lineItems: true,
+      orderId: true,
+    },
+    orderBy: [{ patientId: 'asc' }, { paidAt: 'asc' }, { id: 'asc' }],
+  });
+  if (invoices.length === 0) return map;
+
+  /** Pull Rx items for any invoice that has an attached order. */
+  const orderIds = [...new Set(invoices.map((i) => i.orderId).filter((x): x is number => !!x))];
+  const orderRxs =
+    orderIds.length > 0
+      ? await basePrisma.order.findMany({
+          where: { id: { in: orderIds } },
+          select: { id: true, rxs: { select: { medName: true, medicationKey: true } } },
+        })
+      : [];
+  const rxsByOrderId = new Map<number, { medName: string; medicationKey: string }[]>();
+  for (const o of orderRxs) rxsByOrderId.set(o.id, o.rxs);
+
+  for (const inv of invoices) {
+    if (!inv.paidAt) continue;
+    const productFamilies = new Set<string>();
+    const stripeProductIds = new Set<string>();
+    const stripePriceIds = new Set<string>();
+    const chargeKinds = new Set<'rx' | 'bloodwork' | 'consult' | 'other'>();
+
+    /** Drug families + chargeKinds from Stripe invoice line items. */
+    const lines = parseInvoiceLineItemsJson(inv.lineItems);
+    for (const li of lines) {
+      const desc = li.description?.trim() ?? '';
+      if (li.stripeProductId) stripeProductIds.add(li.stripeProductId);
+      if (li.stripePriceId) stripePriceIds.add(li.stripePriceId);
+      if (desc) {
+        for (const fam of getOtProductFamilyKeysFromText(desc)) {
+          productFamilies.add(fam);
+        }
+        const amt = typeof li.amount === 'number' ? li.amount : 0;
+        const kind = classifyOtNonPharmacyChargeLine(desc, amt);
+        chargeKinds.add(kind);
+      }
+    }
+
+    /**
+     * Drug families from the order's Rx list — covers cases where the
+     * invoice line description is generic (e.g. "Quarterly subscription")
+     * but the actual Rx data names the drug.
+     */
+    if (inv.orderId != null) {
+      const rxs = rxsByOrderId.get(inv.orderId) ?? [];
+      for (const rx of rxs) {
+        for (const fam of getOtProductFamilyKeysFromText(`${rx.medName} ${rx.medicationKey}`)) {
+          productFamilies.add(fam);
+        }
+        if (rxs.length > 0) chargeKinds.add('rx');
+      }
+    }
+
+    const list = map.get(inv.patientId) ?? [];
+    list.push({
+      invoiceId: inv.id,
+      paidAt: inv.paidAt,
+      productFamilies,
+      stripeProductIds,
+      stripePriceIds,
+      chargeKinds,
+    });
+    map.set(inv.patientId, list);
+  }
+  return map;
+}
+
+/**
+ * Build the signature for the *current* sale — same shape as a history entry,
+ * derived from the current Rx list + invoice line items. Used to compare
+ * against prior history for rebill detection.
+ */
+function buildOtCurrentSaleSignature(args: {
+  rxs: ReadonlyArray<{ medName: string; medicationKey: string }>;
+  invoiceLines: ReadonlyArray<RawInvoiceLine>;
+}): {
+  productFamilies: Set<string>;
+  stripeProductIds: Set<string>;
+  stripePriceIds: Set<string>;
+  chargeKinds: Set<'rx' | 'bloodwork' | 'consult' | 'other'>;
+} {
+  const productFamilies = new Set<string>();
+  const stripeProductIds = new Set<string>();
+  const stripePriceIds = new Set<string>();
+  const chargeKinds = new Set<'rx' | 'bloodwork' | 'consult' | 'other'>();
+  for (const rx of args.rxs) {
+    for (const fam of getOtProductFamilyKeysFromText(`${rx.medName} ${rx.medicationKey}`)) {
+      productFamilies.add(fam);
+    }
+  }
+  if (args.rxs.length > 0) chargeKinds.add('rx');
+  for (const li of args.invoiceLines) {
+    if (li.stripeProductId) stripeProductIds.add(li.stripeProductId);
+    if (li.stripePriceId) stripePriceIds.add(li.stripePriceId);
+    const desc = li.description?.trim() ?? '';
+    if (!desc) continue;
+    for (const fam of getOtProductFamilyKeysFromText(desc)) productFamilies.add(fam);
+    const amt = typeof li.amount === 'number' ? li.amount : 0;
+    chargeKinds.add(classifyOtNonPharmacyChargeLine(desc, amt));
+  }
+  return { productFamilies, stripeProductIds, stripePriceIds, chargeKinds };
+}
+
+/**
+ * True when the patient has a prior paid invoice (strictly before
+ * `currentPaidAt`, excluding the current invoice itself) whose product
+ * signature overlaps with the current sale's signature on **any** of:
+ *   - drug family
+ *   - Stripe product ID
+ *   - Stripe price ID
+ *   - chargeKind (covers non-Rx like bloodwork → bloodwork)
+ *
+ * No time-window filter — once a patient has bought a given product
+ * family, every future purchase of that family is a rebill (per
+ * stakeholder rule 2026-05-02).
+ */
+function isOtRebillPurchase(
+  history: ReadonlyArray<OtPatientPurchaseSignature>,
+  current: {
+    invoiceId: number | null;
+    paidAt: Date | null;
+    productFamilies: ReadonlySet<string>;
+    stripeProductIds: ReadonlySet<string>;
+    stripePriceIds: ReadonlySet<string>;
+    chargeKinds: ReadonlySet<'rx' | 'bloodwork' | 'consult' | 'other'>;
+  }
+): boolean {
+  if (!current.paidAt) return false;
+  if (history.length === 0) return false;
+  const refMs = current.paidAt.getTime();
+  for (const h of history) {
+    if (h.invoiceId === current.invoiceId) continue;
+    const hMs = h.paidAt.getTime();
+    if (hMs > refMs) continue; // not strictly prior
+    if (hMs === refMs && h.invoiceId >= (current.invoiceId ?? 0)) continue; // tie-break by id
+    /** Intersect every signal in the order they're most likely to match. */
+    for (const fam of current.productFamilies) {
+      if (h.productFamilies.has(fam)) return true;
+    }
+    for (const pid of current.stripeProductIds) {
+      if (h.stripeProductIds.has(pid)) return true;
+    }
+    for (const priceId of current.stripePriceIds) {
+      if (h.stripePriceIds.has(priceId)) return true;
+    }
+    for (const kind of current.chargeKinds) {
+      if (h.chargeKinds.has(kind)) return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -1407,10 +1644,19 @@ export async function generateOtDailyInvoices(
   const allPatientIdsForRepFallback = [
     ...new Set([...patientIdsForDoctorFee, ...patientIdsForNonRx]),
   ];
-  const [paidRxHistoryByPatient, patientSalesRepAssignments] = await Promise.all([
-    loadOtPaidPrescriptionInvoicesByPatient(clinicId, patientIdsForDoctorFee),
-    loadOtPatientSalesRepAssignments(clinicId, allPatientIdsForRepFallback),
-  ]);
+  const [paidRxHistoryByPatient, patientSalesRepAssignments, patientPurchaseHistory] =
+    await Promise.all([
+      loadOtPaidPrescriptionInvoicesByPatient(clinicId, patientIdsForDoctorFee),
+      loadOtPatientSalesRepAssignments(clinicId, allPatientIdsForRepFallback),
+      /**
+       * Per-product purchase history used by the rebill detector. Loads
+       * every paid invoice ever for these patients with extracted drug
+       * families + Stripe product IDs + chargeKinds. "Any prior" rule
+       * applies — once a patient has bought Sermorelin once, every future
+       * Sermorelin sale for them is a rebill.
+       */
+      loadOtPatientPurchaseHistory(clinicId, allPatientIdsForRepFallback),
+    ]);
 
   const pharmacyLineItems: OtPharmacyLineItem[] = [];
   const shippingLineItems: OtShippingLineItem[] = [];
@@ -1756,13 +2002,32 @@ export async function generateOtDailyInvoices(
       doctorRxFeeDaysSincePrior: doctorRxFee.daysSincePriorPaidRx,
       doctorRxFeeNote: doctorRxFeeNote,
       /**
-       * Rebill = patient had a prior paid Rx within last 30 days. Uses the same
-       * `priorPaidRx` lookup that drives the doctor-fee waiver, but with a
-       * tighter 30-day window so commission rate (1% rebill / 8% new) better
-       * matches stakeholder intent than the 90-day fee-waiver window.
+       * Per-product rebill detection (stakeholder rule 2026-05-02): the
+       * sale is a rebill when the patient has any prior paid invoice with
+       * an overlapping product signature — same drug family, same Stripe
+       * product/price ID, or same chargeKind. NAD+ in March + Sermorelin
+       * in April → both are NEW. Sermorelin in March + Sermorelin in
+       * April → April is REBILL.
        */
-      isRebill:
-        doctorRxFee.daysSincePriorPaidRx !== null && doctorRxFee.daysSincePriorPaidRx <= 30,
+      isRebill: (() => {
+        const history = patientPurchaseHistory.get(order.patientId) ?? [];
+        const currentLines = invMeta?.lineItems ? parseInvoiceLineItemsJson(invMeta.lineItems) : [];
+        const currentSig = buildOtCurrentSaleSignature({
+          rxs: order.rxs.map((rx) => ({
+            medName: rx.medName,
+            medicationKey: rx.medicationKey,
+          })),
+          invoiceLines: currentLines,
+        });
+        return isOtRebillPurchase(history, {
+          invoiceId: invMeta?.invoiceDbId ?? null,
+          paidAt: invMeta?.paidAt ?? null,
+          productFamilies: currentSig.productFamilies,
+          stripeProductIds: currentSig.stripeProductIds,
+          stripePriceIds: currentSig.stripePriceIds,
+          chargeKinds: currentSig.chargeKinds,
+        });
+      })(),
       isBloodworkOnly,
       fulfillmentFeesCents: orderFulfillmentFeesCents,
       merchantProcessingCents: saleMerchantCents,
@@ -1965,11 +2230,22 @@ export async function generateOtDailyInvoices(
     nonRxChargeLineItems,
     invoiceDbIdsUsedForCogs,
     /**
-     * Used to flag non-Rx rows as "rebill" when the patient had any paid Rx
-     * within 30 days before the row's `paidAt`. Drives the auto commission
-     * rate (1% rebill / 8% new) on the non-Rx editor, mirroring the Rx side.
+     * Per-product rebill detection (stakeholder rule 2026-05-02): match by
+     * chargeKind on the non-Rx side. Bloodwork in March + Bloodwork in April
+     * → April is rebill. Consult + Bloodwork → both NEW (different
+     * chargeKinds). "Any prior" — no time window.
      */
-    paidRxHistoryByPatient,
+    isRebillForRow: ({ patientId, paidAt, chargeKind, invoiceId, paymentId }) => {
+      const history = patientPurchaseHistory.get(patientId) ?? [];
+      return isOtRebillPurchase(history, {
+        invoiceId,
+        paidAt,
+        productFamilies: new Set<string>(),
+        stripeProductIds: new Set<string>(),
+        stripePriceIds: new Set<string>(),
+        chargeKinds: new Set([chargeKind]),
+      });
+    },
   }).map((row) => {
     /**
      * Resolve the assigned rep using the same fallback chain as the Rx
