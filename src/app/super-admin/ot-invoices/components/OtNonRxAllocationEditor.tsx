@@ -376,14 +376,18 @@ export function OtNonRxAllocationEditor({ startDate, endDate, useRange, seeds }:
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <SummaryTile label="Patient gross (sum)" value={centsToDisplay(grandTotals.gross)} tone="neutral" />
         <SummaryTile
-          label="Total deductions (manual)"
+          label="Non-Rx patient gross"
+          value={centsToDisplay(grandTotals.gross)}
+          tone="neutral"
+        />
+        <SummaryTile
+          label="Non-Rx total deductions"
           value={centsToDisplay(grandTotals.deductions)}
           tone="warning"
         />
         <SummaryTile
-          label="Net to OT clinic (manual)"
+          label="Non-Rx net to OT clinic"
           value={centsToDisplay(grandTotals.net)}
           tone={grandTotals.net < 0 ? 'negative' : 'positive'}
         />
