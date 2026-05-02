@@ -681,6 +681,57 @@ async function loadOtSalesRepCommissionLookup(
   return { stripeByInvoiceDbId, commissionByStripeObjectId, overrideBySourceEventId, repLabelById };
 }
 
+/**
+ * Load the active sales-rep assignment for each patient — used as a fallback
+ * when the SalesRepCommissionEvent ledger has no entry for an invoice yet
+ * (e.g. the commission engine hasn't run, or the sale predates the commission
+ * system). Mirrors what the patient profile page shows in its "Sales rep"
+ * card so admins see the same rep on both surfaces.
+ *
+ * Returns a map keyed by `patientId` → `{ salesRepId, salesRepName }`.
+ * Patients with no active assignment are absent from the map.
+ */
+async function loadOtPatientSalesRepAssignments(
+  clinicId: number,
+  patientIds: number[]
+): Promise<Map<number, { salesRepId: number; salesRepName: string }>> {
+  const map = new Map<number, { salesRepId: number; salesRepName: string }>();
+  if (patientIds.length === 0) return map;
+
+  const assignments = await basePrisma.patientSalesRepAssignment.findMany({
+    where: {
+      clinicId,
+      patientId: { in: patientIds },
+      isActive: true,
+    },
+    /** Most recent active assignment wins if there are stale duplicate rows. */
+    orderBy: { assignedAt: 'desc' },
+    select: {
+      patientId: true,
+      salesRepId: true,
+    },
+  });
+
+  if (assignments.length === 0) return map;
+
+  const repIds = [...new Set(assignments.map((a) => a.salesRepId))];
+  const reps = await basePrisma.user.findMany({
+    where: { id: { in: repIds } },
+    select: { id: true, firstName: true, lastName: true },
+  });
+  const labelById = new Map(reps.map((u) => [u.id, `${u.lastName}, ${u.firstName}`]));
+
+  for (const a of assignments) {
+    /** First write wins thanks to `orderBy desc`; skip later duplicates. */
+    if (map.has(a.patientId)) continue;
+    map.set(a.patientId, {
+      salesRepId: a.salesRepId,
+      salesRepName: labelById.get(a.salesRepId) ?? `User #${a.salesRepId}`,
+    });
+  }
+  return map;
+}
+
 /** Net cents per invoice from Stripe-processed local Payment rows (SUCCEEDED only — widest DB compatibility). */
 async function loadOtPaymentNetCentsByInvoiceId(
   invoiceDbIds: number[]
@@ -1346,10 +1397,20 @@ export async function generateOtDailyInvoices(
   }
 
   const patientIdsForDoctorFee = [...new Set(filteredOrders.map((o) => o.patientId))];
-  const paidRxHistoryByPatient = await loadOtPaidPrescriptionInvoicesByPatient(
-    clinicId,
-    patientIdsForDoctorFee
-  );
+  /**
+   * Also include patients tied to non-Rx payments so non-Rx rows can pick up
+   * the same fallback rep (the commission ledger frequently has nothing for
+   * pure non-Rx invoices, and admins expect to see whoever the patient
+   * profile lists as their sales rep).
+   */
+  const patientIdsForNonRx = paymentCollections.map((p) => p.patientId);
+  const allPatientIdsForRepFallback = [
+    ...new Set([...patientIdsForDoctorFee, ...patientIdsForNonRx]),
+  ];
+  const [paidRxHistoryByPatient, patientSalesRepAssignments] = await Promise.all([
+    loadOtPaidPrescriptionInvoicesByPatient(clinicId, patientIdsForDoctorFee),
+    loadOtPatientSalesRepAssignments(clinicId, allPatientIdsForRepFallback),
+  ]);
 
   const pharmacyLineItems: OtPharmacyLineItem[] = [];
   const shippingLineItems: OtShippingLineItem[] = [];
@@ -1586,11 +1647,22 @@ export async function generateOtDailyInvoices(
         ? (salesRepLookup.commissionByStripeObjectId.get(stripeInvId) ?? null)
         : null;
     const salesRepCommissionCents = comm?.commissionAmountCents ?? 0;
-    const salesRepId = comm?.salesRepId ?? null;
+    /**
+     * Rep selection fallback chain (per stakeholder direction 2026-05-02):
+     *   1. SalesRepCommissionEvent ledger entry for this Stripe invoice.
+     *   2. Active PatientSalesRepAssignment on the patient profile.
+     *   3. None.
+     * The commission $ amount itself stays at the ledger value (or 0 when
+     * absent) — only the rep identity is fallen-back. The auto-rate logic
+     * in `buildDefaultOverridePayload` then computes commission from the
+     * payload-level rate × patient gross.
+     */
+    const fallbackAssignment = patientSalesRepAssignments.get(order.patientId) ?? null;
+    const salesRepId = comm?.salesRepId ?? fallbackAssignment?.salesRepId ?? null;
     const salesRepName =
-      salesRepId != null
-        ? (salesRepLookup.repLabelById.get(salesRepId) ?? `User #${salesRepId}`)
-        : null;
+      comm != null && comm.salesRepId === salesRepId
+        ? (salesRepLookup.repLabelById.get(comm.salesRepId) ?? `User #${comm.salesRepId}`)
+        : (fallbackAssignment?.salesRepName ?? null);
     const ov = comm ? salesRepLookup.overrideBySourceEventId.get(comm.id) : undefined;
     const managerOverrideTotalCentsForOrder = ov?.totalCents ?? 0;
     const managerOverrideSummary = ov?.summary ?? null;
@@ -1899,29 +1971,47 @@ export async function generateOtDailyInvoices(
      */
     paidRxHistoryByPatient,
   }).map((row) => {
-    /** Only invoice-keyed rows can resolve a Stripe invoice id for the ledger. */
-    if (row.dispositionType !== 'invoice' || row.invoiceDbId == null) {
-      return row;
-    }
-    const stripeInvId = salesRepLookup.stripeByInvoiceDbId.get(row.invoiceDbId) ?? null;
+    /**
+     * Resolve the assigned rep using the same fallback chain as the Rx
+     * loop:
+     *   1. SalesRepCommissionEvent ledger entry for the row's Stripe invoice.
+     *   2. Active PatientSalesRepAssignment on the patient profile.
+     *   3. None.
+     * Standalone (invoice-less) payment rows can't hit the ledger lookup,
+     * so they only ever pick up the patient-assignment fallback.
+     */
+    const stripeInvId =
+      row.invoiceDbId != null
+        ? (salesRepLookup.stripeByInvoiceDbId.get(row.invoiceDbId) ?? null)
+        : null;
     const comm = stripeInvId
       ? (salesRepLookup.commissionByStripeObjectId.get(stripeInvId) ?? null)
       : null;
-    if (!comm) return row;
-    const repName =
-      salesRepLookup.repLabelById.get(comm.salesRepId) ?? `User #${comm.salesRepId}`;
-    const ov = salesRepLookup.overrideBySourceEventId.get(comm.id);
-    const salesRepCommissionCents = comm.commissionAmountCents;
+    const fallbackAssignment = patientSalesRepAssignments.get(row.patientId) ?? null;
+    if (!comm && !fallbackAssignment) return row;
+    const ov = comm ? salesRepLookup.overrideBySourceEventId.get(comm.id) : null;
+    const resolvedSalesRepId = comm?.salesRepId ?? fallbackAssignment?.salesRepId ?? null;
+    const resolvedSalesRepName = comm
+      ? (salesRepLookup.repLabelById.get(comm.salesRepId) ?? `User #${comm.salesRepId}`)
+      : (fallbackAssignment?.salesRepName ?? null);
+    /**
+     * Only count commission $ from the ledger — PatientSalesRepAssignment
+     * is a rep-identity hint, not a commission-event source. The auto-rate
+     * editor will compute the row's effective commission from the payload
+     * rate × patient gross at render time.
+     */
+    const salesRepCommissionCents = comm?.commissionAmountCents ?? 0;
     const managerOverrideTotalCents = ov?.totalCents ?? 0;
     const totalDeductionsCents =
       row.merchantProcessingCents +
       row.platformCompensationCents +
       salesRepCommissionCents +
-      managerOverrideTotalCents;
+      managerOverrideTotalCents +
+      row.doctorApprovalCents;
     return {
       ...row,
-      salesRepId: comm.salesRepId,
-      salesRepName: repName,
+      salesRepId: resolvedSalesRepId,
+      salesRepName: resolvedSalesRepName,
       salesRepCommissionCents,
       managerOverrideTotalCents,
       managerOverrideSummary: ov?.summary ?? null,

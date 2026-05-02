@@ -18,6 +18,7 @@ const { mockBasePrisma, mockMidnightInTz } = vi.hoisted(() => {
       order: { findMany: f() },
       salesRepCommissionEvent: { findMany: f() },
       salesRepOverrideCommissionEvent: { findMany: f() },
+      patientSalesRepAssignment: { findMany: f() },
       user: { findMany: f() },
       paymentReconciliation: { findMany: f() },
     },
@@ -91,6 +92,7 @@ describe('generateOtDailyInvoices (mocked DB)', () => {
     mockBasePrisma.order.findMany.mockResolvedValue([]);
     mockBasePrisma.salesRepCommissionEvent.findMany.mockResolvedValue([]);
     mockBasePrisma.salesRepOverrideCommissionEvent.findMany.mockResolvedValue([]);
+    mockBasePrisma.patientSalesRepAssignment.findMany.mockResolvedValue([]);
     mockBasePrisma.user.findMany.mockResolvedValue([]);
   });
 

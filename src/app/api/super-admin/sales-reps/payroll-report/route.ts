@@ -39,6 +39,206 @@ function fmtUSD(cents: number) {
   return (cents / 100).toFixed(2);
 }
 
+/**
+ * Product-enrichment internals for the payroll Export CSV. The goal is one
+ * "Items Purchased" string per commission event, resolved via a few batched
+ * queries against `Payment` and `Invoice` rows keyed off indexed columns —
+ * no per-event N+1.
+ *
+ * Lookup chain:
+ *   1. Stripe `pi_*` object IDs  → `Payment.stripePaymentIntentId` (unique idx)
+ *   2. Manual entry `metadata.paymentId` → `Payment.id` (PK)
+ *   3. Stripe `in_*` object IDs  → `Invoice.stripeInvoiceId` (unique idx)
+ *   4. Invoices linked from any resolved Payment (`payment.invoiceId` PK)
+ *   5. `InvoiceItem` for the resulting invoices → `Product.name` preferred,
+ *      fallback to the line-item `description`.
+ *
+ * `ch_*` (charge) and `cs_*` (Checkout) IDs aren't looked up here — there's
+ * no index on `Payment.stripeChargeId`, and they're rare enough that the
+ * `pi_*` / `metadata.paymentId` paths cover almost all of them anyway.
+ */
+interface PaymentRow {
+  id: number;
+  stripePaymentIntentId: string | null;
+  invoiceId: number | null;
+}
+
+interface InvoiceWithItems {
+  id: number;
+  stripeInvoiceId: string | null;
+  items: Array<{
+    description: string;
+    quantity: number;
+    product: { name: string } | null;
+  }>;
+}
+
+interface CommissionEventForProductLookup {
+  id: number;
+  stripeObjectId: string | null;
+  metadata: unknown;
+}
+
+function metadataPaymentId(metadata: unknown): number | null {
+  const meta = metadata as Record<string, unknown> | null;
+  if (!meta) return null;
+  const pid = meta.paymentId;
+  return typeof pid === 'number' && Number.isFinite(pid) ? pid : null;
+}
+
+function formatInvoiceItems(invoice: InvoiceWithItems): string {
+  const names = invoice.items
+    .map((it) => {
+      const base = it.product?.name ?? it.description;
+      if (!base) return '';
+      return it.quantity > 1 ? `${base} \u00d7${it.quantity}` : base;
+    })
+    .filter((s): s is string => s.length > 0);
+  return names.join('; ');
+}
+
+async function fetchPaymentsForEvents(
+  stripePaymentIntentIds: string[],
+  paymentIdsFromMeta: number[]
+): Promise<PaymentRow[]> {
+  const orClauses: Array<Record<string, unknown>> = [];
+  if (stripePaymentIntentIds.length > 0) {
+    orClauses.push({ stripePaymentIntentId: { in: stripePaymentIntentIds } });
+  }
+  if (paymentIdsFromMeta.length > 0) {
+    orClauses.push({ id: { in: paymentIdsFromMeta } });
+  }
+  if (orClauses.length === 0) return [];
+  return prisma.payment.findMany({
+    where: { OR: orClauses },
+    select: { id: true, stripePaymentIntentId: true, invoiceId: true },
+  });
+}
+
+async function fetchInvoicesWithItems(
+  invoiceIds: number[],
+  stripeInvoiceIds: string[]
+): Promise<InvoiceWithItems[]> {
+  const orClauses: Array<Record<string, unknown>> = [];
+  if (invoiceIds.length > 0) orClauses.push({ id: { in: invoiceIds } });
+  if (stripeInvoiceIds.length > 0) {
+    orClauses.push({ stripeInvoiceId: { in: stripeInvoiceIds } });
+  }
+  if (orClauses.length === 0) return [];
+  return prisma.invoice.findMany({
+    where: { OR: orClauses },
+    select: {
+      id: true,
+      stripeInvoiceId: true,
+      items: {
+        select: {
+          description: true,
+          quantity: true,
+          product: { select: { name: true } },
+        },
+      },
+    },
+  });
+}
+
+interface ProductLookupContext {
+  paymentByPi: Map<string, PaymentRow>;
+  paymentById: Map<number, PaymentRow>;
+  invoiceById: Map<number, InvoiceWithItems>;
+  invoiceByStripeId: Map<string, InvoiceWithItems>;
+}
+
+function lookupProductsForEvent(
+  ev: CommissionEventForProductLookup,
+  ctx: ProductLookupContext
+): string {
+  const sid = ev.stripeObjectId;
+  if (sid?.startsWith('in_')) {
+    const inv = ctx.invoiceByStripeId.get(sid);
+    if (inv) return formatInvoiceItems(inv);
+  }
+  if (sid?.startsWith('pi_')) {
+    const pmt = ctx.paymentByPi.get(sid);
+    if (pmt?.invoiceId !== null && pmt?.invoiceId !== undefined) {
+      const inv = ctx.invoiceById.get(pmt.invoiceId);
+      if (inv) return formatInvoiceItems(inv);
+    }
+  }
+  const metaPaymentId = metadataPaymentId(ev.metadata);
+  if (metaPaymentId !== null) {
+    const pmt = ctx.paymentById.get(metaPaymentId);
+    if (pmt?.invoiceId !== null && pmt?.invoiceId !== undefined) {
+      const inv = ctx.invoiceById.get(pmt.invoiceId);
+      if (inv) return formatInvoiceItems(inv);
+    }
+  }
+  return '';
+}
+
+/**
+ * Build a `Map<eventId, "Items Purchased label">` for the given commission
+ * events. Events with no resolvable products are simply absent from the map.
+ * Failures are non-fatal — a warning is logged and the report still renders.
+ */
+async function resolveProductsForEvents(
+  events: CommissionEventForProductLookup[]
+): Promise<Map<number, string>> {
+  const productLabelByEventId = new Map<number, string>();
+  if (events.length === 0) return productLabelByEventId;
+
+  try {
+    const stripeObjectIds = events
+      .map((e) => e.stripeObjectId)
+      .filter((s): s is string => typeof s === 'string' && s.length > 0);
+    const stripePaymentIntentIds = stripeObjectIds.filter((s) => s.startsWith('pi_'));
+    const stripeInvoiceIds = stripeObjectIds.filter((s) => s.startsWith('in_'));
+    const paymentIdsFromMeta = events
+      .map((ev) => metadataPaymentId(ev.metadata))
+      .filter((id): id is number => id !== null);
+
+    const payments = await fetchPaymentsForEvents(stripePaymentIntentIds, paymentIdsFromMeta);
+
+    const paymentByPi = new Map<string, PaymentRow>();
+    const paymentById = new Map<number, PaymentRow>();
+    const invoiceIdsFromPayments = new Set<number>();
+    for (const pmt of payments) {
+      if (pmt.stripePaymentIntentId) paymentByPi.set(pmt.stripePaymentIntentId, pmt);
+      paymentById.set(pmt.id, pmt);
+      if (typeof pmt.invoiceId === 'number') invoiceIdsFromPayments.add(pmt.invoiceId);
+    }
+
+    const invoices = await fetchInvoicesWithItems(
+      Array.from(invoiceIdsFromPayments),
+      stripeInvoiceIds
+    );
+
+    const invoiceById = new Map<number, InvoiceWithItems>();
+    const invoiceByStripeId = new Map<string, InvoiceWithItems>();
+    for (const inv of invoices) {
+      invoiceById.set(inv.id, inv);
+      if (inv.stripeInvoiceId) invoiceByStripeId.set(inv.stripeInvoiceId, inv);
+    }
+
+    const ctx: ProductLookupContext = {
+      paymentByPi,
+      paymentById,
+      invoiceById,
+      invoiceByStripeId,
+    };
+    for (const ev of events) {
+      const label = lookupProductsForEvent(ev, ctx);
+      if (label) productLabelByEventId.set(ev.id, label);
+    }
+  } catch (err) {
+    logger.warn('[SalesReps] Product enrichment failed for payroll report', {
+      error: err instanceof Error ? err.message : 'Unknown',
+      eventCount: events.length,
+    });
+  }
+
+  return productLabelByEventId;
+}
+
 async function handleGet(req: NextRequest): Promise<Response> {
   const p = req.nextUrl.searchParams;
   const clinicIdParam = p.get('clinicId');
@@ -56,8 +256,11 @@ async function handleGet(req: NextRequest): Promise<Response> {
     clinicFilter: clinicIdParam || 'all',
     salesRepFilter: salesRepIdParam || 'all',
     format: format ?? 'json',
-    // CSV exports include patient name + Stripe customer ID for payroll reconciliation
+    // CSV exports include patient name + Stripe customer ID + purchased line items
+    // for payroll reconciliation. Patient names are PHI; itemsPurchased is
+    // medication/product names which can be inferred-PHI in some clinics.
     includesCustomerPhi: format === 'csv',
+    includesItemsPurchased: format === 'csv',
   });
 
   try {
@@ -385,6 +588,7 @@ async function handleGet(req: NextRequest): Promise<Response> {
         notes: string | null;
         metadata: any;
         patientId: number | null;
+        sourceCommissionEventId: number | null;
         overrideRep: { id: number; firstName: string; lastName: string; email: string } | null;
         clinic: { id: number; name: string } | null;
       }> = [];
@@ -464,6 +668,21 @@ async function handleGet(req: NextRequest): Promise<Response> {
 
       function csvField(value: string): string {
         return `"${value.replace(/"/g, '""')}"`;
+      }
+
+      // Resolve the actual line items purchased per direct commission event.
+      // Override events inherit the same label from their `sourceCommissionEventId`.
+      const productsByEventId = await resolveProductsForEvents(
+        events.map((ev) => ({
+          id: ev.id,
+          stripeObjectId: ev.stripeObjectId,
+          metadata: ev.metadata,
+        }))
+      );
+
+      function productsFor(eventId: number | null | undefined): string {
+        if (typeof eventId !== 'number') return '';
+        return productsByEventId.get(eventId) ?? '';
       }
 
       const overrideRepSummaries = new Map<
@@ -600,7 +819,7 @@ async function handleGet(req: NextRequest): Promise<Response> {
         }
 
         csv += `\n=== EVENT DETAIL ===\n`;
-        csv += `Date,Sales Rep,Email,Clinic,Status,Type,Source,Revenue,Base,Volume Tier,Product,Multi-Item,Total Commission,Plan,Notes,Customer Name,Stripe Customer ID,Stripe Event\n`;
+        csv += `Date,Sales Rep,Email,Clinic,Status,Type,Source,Revenue,Base,Volume Tier,Product,Multi-Item,Total Commission,Plan,Items Purchased,Notes,Customer Name,Stripe Customer ID,Stripe Event\n`;
         for (const ev of filteredEvents) {
           const repName =
             `${ev.salesRep?.firstName || ''} ${ev.salesRep?.lastName || ''}`.trim() ||
@@ -610,19 +829,21 @@ async function handleGet(req: NextRequest): Promise<Response> {
           const saleType = ev.isRecurring ? 'Recurring' : 'New Sale';
           const source = ev.isManual ? 'Manual' : 'Stripe';
           const cust = customerFor(ev.patientId);
-          csv += `${ev.occurredAt.toISOString().slice(0, 10)},${csvField(repName)},${csvField(ev.salesRep?.email || '')},${csvField(ev.clinic?.name || '')},${ev.status},${saleType},${source},$${fmtUSD(ev.eventAmountCents)},$${fmtUSD(ev.baseCommissionCents)},$${fmtUSD(ev.volumeTierBonusCents)},$${fmtUSD(ev.productBonusCents)},$${fmtUSD(ev.multiItemBonusCents)},$${fmtUSD(ev.commissionAmountCents)},${csvField(meta.planName || '')},${csvField(ev.notes || '')},${csvField(cust.customerName)},${csvField(cust.stripeCustomerId)},${ev.stripeEventId || ''}\n`;
+          const items = productsFor(ev.id);
+          csv += `${ev.occurredAt.toISOString().slice(0, 10)},${csvField(repName)},${csvField(ev.salesRep?.email || '')},${csvField(ev.clinic?.name || '')},${ev.status},${saleType},${source},$${fmtUSD(ev.eventAmountCents)},$${fmtUSD(ev.baseCommissionCents)},$${fmtUSD(ev.volumeTierBonusCents)},$${fmtUSD(ev.productBonusCents)},$${fmtUSD(ev.multiItemBonusCents)},$${fmtUSD(ev.commissionAmountCents)},${csvField(meta.planName || '')},${csvField(items)},${csvField(ev.notes || '')},${csvField(cust.customerName)},${csvField(cust.stripeCustomerId)},${ev.stripeEventId || ''}\n`;
         }
 
         if (overrideEvents.length > 0) {
           csv += `\n=== OVERRIDE COMMISSION DETAIL ===\n`;
-          csv += `Date,Override Rep,Email,Clinic,Status,Subordinate Revenue,Override Rate,Override Commission,Customer Name,Stripe Customer ID,Stripe Event\n`;
+          csv += `Date,Override Rep,Email,Clinic,Status,Subordinate Revenue,Override Rate,Override Commission,Items Purchased,Customer Name,Stripe Customer ID,Stripe Event\n`;
           for (const ov of overrideEvents) {
             const repName =
               `${ov.overrideRep?.firstName || ''} ${ov.overrideRep?.lastName || ''}`.trim() ||
               ov.overrideRep?.email ||
               '';
             const cust = customerFor(ov.patientId);
-            csv += `${ov.occurredAt.toISOString().slice(0, 10)},${csvField(repName)},${csvField(ov.overrideRep?.email || '')},${csvField(ov.clinic?.name || '')},${ov.status},$${fmtUSD(ov.eventAmountCents)},${(ov.overridePercentBps / 100).toFixed(2)}%,$${fmtUSD(ov.commissionAmountCents)},${csvField(cust.customerName)},${csvField(cust.stripeCustomerId)},${ov.stripeEventId || ''}\n`;
+            const items = productsFor(ov.sourceCommissionEventId);
+            csv += `${ov.occurredAt.toISOString().slice(0, 10)},${csvField(repName)},${csvField(ov.overrideRep?.email || '')},${csvField(ov.clinic?.name || '')},${ov.status},$${fmtUSD(ov.eventAmountCents)},${(ov.overridePercentBps / 100).toFixed(2)}%,$${fmtUSD(ov.commissionAmountCents)},${csvField(items)},${csvField(cust.customerName)},${csvField(cust.stripeCustomerId)},${ov.stripeEventId || ''}\n`;
           }
 
           csv += `\n=== COMBINED TOTALS ===\n`;
@@ -654,6 +875,7 @@ async function handleGet(req: NextRequest): Promise<Response> {
         })),
         events: filteredEvents.map((ev: EventRow) => {
           const cust = customerFor(ev.patientId);
+          const items = productsFor(ev.id);
           return {
             id: ev.id,
             occurredAt: ev.occurredAt,
@@ -677,10 +899,12 @@ async function handleGet(req: NextRequest): Promise<Response> {
             patientId: ev.patientId,
             customerName: cust.customerName.length > 0 ? cust.customerName : null,
             stripeCustomerId: cust.stripeCustomerId.length > 0 ? cust.stripeCustomerId : null,
+            itemsPurchased: items.length > 0 ? items : null,
           };
         }),
         overrideEvents: overrideEvents.map((ov) => {
           const cust = customerFor(ov.patientId);
+          const items = productsFor(ov.sourceCommissionEventId);
           return {
             id: ov.id,
             occurredAt: ov.occurredAt,
@@ -698,6 +922,7 @@ async function handleGet(req: NextRequest): Promise<Response> {
             patientId: ov.patientId,
             customerName: cust.customerName.length > 0 ? cust.customerName : null,
             stripeCustomerId: cust.stripeCustomerId.length > 0 ? cust.stripeCustomerId : null,
+            itemsPurchased: items.length > 0 ? items : null,
           };
         }),
       });
