@@ -1596,21 +1596,41 @@ export async function generateOtDailyInvoices(
 
     /**
      * Patient-facing product description.
-     * Prefer the order's Rx list (already loaded) — that's what was actually shipped.
-     * Fall back to invoice line items when the order has no rxs (consult / lab-only sales).
-     * Truncated to 160 chars so the editor row header doesn't wrap into multiple lines.
+     *
+     * Prefer the **invoice line items** — that's what the patient was actually
+     * billed for and matches what shows in the patient profile's "Treatment"
+     * column. Falling back to `order.rxs` was misleading for cases where the
+     * Lifefile order had a phantom / comp'd Rx attached (e.g. free Sermorelin
+     * carried over from a prior order shell) but the patient was actually
+     * billed for bloodwork or a consult on the same invoice. Discount lines
+     * are filtered out so they don't drown out the actual product.
+     *
+     * Truncated to 160 chars so the editor row header stays single-line.
      */
     const rxNames = order.rxs.map((rx) => {
       const parts = [rx.medName, rx.strength].filter((p) => p && p.length > 0);
       return parts.join(' ');
     });
     let productDescription: string | null = null;
-    if (rxNames.length > 0) {
-      productDescription = [...new Set(rxNames)].join(' · ');
-    } else if (invMeta?.lineItems) {
+    if (invMeta?.lineItems) {
       const lines = parseInvoiceLineItemsJson(invMeta.lineItems);
-      const descs = lines.map((l) => l.description?.trim() ?? '').filter((d) => d.length > 0);
-      productDescription = descs.length > 0 ? [...new Set(descs)].join(' · ') : null;
+      const descs = lines
+        .map((l) => l.description?.trim() ?? '')
+        .filter((d) => d.length > 0)
+        /**
+         * Drop line items that look like discount / refund / write-off rows so
+         * the description reflects what the patient actually purchased rather
+         * than the bookkeeping adjustments. Matches lines starting with
+         * "Discount", "Refund", "Credit", "Adjustment", or "Write-off"
+         * (case-insensitive), with optional leading "-" or "$".
+         */
+        .filter((d) => !/^[-$\s]*(discount|refund|credit|adjustment|write[-\s]?off)\b/i.test(d));
+      if (descs.length > 0) {
+        productDescription = [...new Set(descs)].join(' · ');
+      }
+    }
+    if (!productDescription && rxNames.length > 0) {
+      productDescription = [...new Set(rxNames)].join(' · ');
     }
     if (productDescription && productDescription.length > 160) {
       productDescription = productDescription.slice(0, 157) + '…';
