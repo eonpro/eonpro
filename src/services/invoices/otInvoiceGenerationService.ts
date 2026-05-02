@@ -3370,6 +3370,10 @@ export interface OtCustomReconciliationGrandTotals {
   fulfillmentFeesCents: number;
   customLineItemsCents: number;
   salesRepCommissionCents: number;
+  /** EONPro 5% on patient gross — auto-deducted from every transaction. */
+  eonproFeeCents: number;
+  /** Stripe / merchant processing 4% on patient gross — auto-deducted. */
+  merchantProcessingFeeCents: number;
   totalDeductionsCents: number;
   netToOtClinicCents: number;
 }
@@ -3479,6 +3483,8 @@ export function applyOtAllocationOverrides(
     fulfillmentFeesCents: 0,
     customLineItemsCents: 0,
     salesRepCommissionCents: 0,
+    eonproFeeCents: 0,
+    merchantProcessingFeeCents: 0,
     totalDeductionsCents: 0,
     netToOtClinicCents: 0,
   };
@@ -3498,6 +3504,8 @@ export function applyOtAllocationOverrides(
       acc.fulfillmentFeesCents += l.totals.fulfillmentFeesCents;
       acc.customLineItemsCents += l.totals.customLineItemsCents;
       acc.salesRepCommissionCents += l.totals.salesRepCommissionCents;
+      acc.eonproFeeCents += l.totals.eonproFeeCents;
+      acc.merchantProcessingFeeCents += l.totals.merchantProcessingFeeCents;
       acc.totalDeductionsCents += l.totals.totalDeductionsCents;
       acc.netToOtClinicCents += l.totals.netToOtClinicCents;
       return acc;
@@ -3632,6 +3640,11 @@ export async function generateOtCustomReconciliationPDF(
   summaryRow('Less — Fulfillment fees', reconciliation.totals.fulfillmentFeesCents);
   summaryRow('Less — Custom line items', reconciliation.totals.customLineItemsCents);
   summaryRow('Less — Sales rep commission', reconciliation.totals.salesRepCommissionCents);
+  summaryRow(
+    'Less — Merchant processing (4%)',
+    reconciliation.totals.merchantProcessingFeeCents
+  );
+  summaryRow('Less — EONPro fee (5%)', reconciliation.totals.eonproFeeCents);
   y -= 4;
   page.drawLine({
     start: { x: M, y: y + 4 },
@@ -3745,6 +3758,13 @@ export async function generateOtCustomReconciliationPDF(
     }
     if (sale.totals.salesRepCommissionCents > 0 && sale.payload.salesRepName) {
       lineRow(`Sales rep — ${sale.payload.salesRepName}`, sale.totals.salesRepCommissionCents);
+    }
+    /** Platform fees — visible on every sale row so admins see why net ≠ gross. */
+    if (sale.totals.merchantProcessingFeeCents > 0) {
+      lineRow('Merchant processing (4%)', sale.totals.merchantProcessingFeeCents);
+    }
+    if (sale.totals.eonproFeeCents > 0) {
+      lineRow('EONPro fee (5%)', sale.totals.eonproFeeCents);
     }
 
     // Totals bar
@@ -3876,6 +3896,12 @@ export async function generateOtCustomReconciliationPDF(
       }
       if (sale.totals.salesRepCommissionCents > 0 && sale.payload.salesRepName) {
         lineRow(`Sales rep — ${sale.payload.salesRepName}`, sale.totals.salesRepCommissionCents);
+      }
+      if (sale.totals.merchantProcessingFeeCents > 0) {
+        lineRow('Merchant processing (4%)', sale.totals.merchantProcessingFeeCents);
+      }
+      if (sale.totals.eonproFeeCents > 0) {
+        lineRow('EONPro fee (5%)', sale.totals.eonproFeeCents);
       }
 
       need(22);
