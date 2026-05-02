@@ -1096,9 +1096,23 @@ describe('OT invoice CSV reporting accuracy', () => {
 
     const csv = generateOtCombinedCSV(data);
     expect(csv).toContain('Cash collected');
-    expect(csv).toContain('$1000.00'); // gross top
-    expect(csv).toContain(`$${(grand / 100).toFixed(2)}`); // total deductions
-    expect(csv).toContain(`$${((gross - grand) / 100).toFixed(2)}`); // net payable
+    /**
+     * Thousand-separator formatting (centsToDisplay) added 2026-05-02:
+     * `$1000.00` → `$1,000.00`. Both the gross-top assertion and the
+     * derived total-deductions / net-payable assertions need the comma
+     * format to match.
+     */
+    const fmt = (cents: number): string => {
+      const negative = cents < 0;
+      const abs = Math.abs(cents);
+      const dollars = Math.floor(abs / 100);
+      const remainder = (abs % 100).toString().padStart(2, '0');
+      const withCommas = dollars.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      return `${negative ? '-' : ''}$${withCommas}.${remainder}`;
+    };
+    expect(csv).toContain('$1,000.00'); // gross top
+    expect(csv).toContain(fmt(grand)); // total deductions
+    expect(csv).toContain(fmt(gross - grand)); // net payable
     expect(csv).toContain('ALL PAYMENTS COLLECTED');
     expect(csv).toContain('Gross collected (1 payments)');
     expect(csv).toContain('Less — Refunds (0 refunded payments)');

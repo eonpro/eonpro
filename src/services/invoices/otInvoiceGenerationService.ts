@@ -2462,8 +2462,21 @@ function escapeCSV(value: string | number | null | undefined): string {
   return str;
 }
 
+/**
+ * Convert cents to a thousands-separated dollar string (no leading $).
+ * Negative amounts get a leading minus. Examples:
+ *   centsToDisplay(127154_00) → '127,154.00'
+ *   centsToDisplay(-150_00)   → '-150.00'
+ *   centsToDisplay(0)         → '0.00'
+ */
 function centsToDisplay(cents: number): string {
-  return (cents / 100).toFixed(2);
+  const negative = cents < 0;
+  const abs = Math.abs(cents);
+  const dollars = Math.floor(abs / 100);
+  const remainderCents = abs % 100;
+  const dollarsWithCommas = dollars.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const cents2dp = remainderCents.toString().padStart(2, '0');
+  return `${negative ? '-' : ''}${dollarsWithCommas}.${cents2dp}`;
 }
 
 export function generateOtPharmacyCSV(invoice: OtPharmacyInvoice): string {

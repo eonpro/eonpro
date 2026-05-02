@@ -13,6 +13,7 @@ import {
   reconcileOtAllocationMedLineTotals,
   type OtAllocationOverrideStatus,
 } from '@/services/invoices/otAllocationOverrideTypes';
+import { attachSalesRepFromOtDisposition } from '@/services/sales-rep/otDispositionAssignment';
 
 const CLINIC_TZ = 'America/New_York';
 
@@ -229,10 +230,12 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
     );
   }
 
-  /** Verify the order belongs to an OT-clinic patient before any write. */
+  /** Verify the order belongs to an OT-clinic patient before any write.
+   * Also fetches `patientId` so we can attach the rep to the patient after
+   * the override save (see "Auto-attach manual rep to patient" below). */
   const order = await basePrisma.order.findUnique({
     where: { id: orderId },
-    select: { id: true, patient: { select: { clinicId: true } } },
+    select: { id: true, patientId: true, patient: { select: { clinicId: true } } },
   });
   if (!order) {
     return NextResponse.json({ error: 'Order not found' }, { status: 404 });
@@ -314,6 +317,26 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
         error: auditErr instanceof Error ? auditErr.message : String(auditErr),
         userId: user.id,
         orderId,
+      });
+    }
+
+    /**
+     * Auto-attach manual rep to patient.
+     * When the admin picks a sales rep on this disposition row, attach them
+     * to the patient via `PatientSalesRepAssignment` so future commission
+     * events for the same patient inherit the rep automatically. Best-effort:
+     * the helper never throws, so a transient assignment failure cannot
+     * break the override save itself.
+     */
+    if (reconciledPayload.salesRepId != null) {
+      await attachSalesRepFromOtDisposition({
+        patientId: order.patientId,
+        salesRepId: reconciledPayload.salesRepId,
+        clinicId,
+        assignedById: user.id,
+        source: 'ot_rx_override',
+        overrideResourceId: resultId,
+        request: req,
       });
     }
 

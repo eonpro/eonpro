@@ -319,7 +319,12 @@ type ActiveTab =
   | 'pricing_catalog';
 
 function centsToDisplay(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
+  const negative = cents < 0;
+  const abs = Math.abs(cents);
+  const dollars = Math.floor(abs / 100);
+  const remainder = (abs % 100).toString().padStart(2, '0');
+  const withCommas = dollars.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return `${negative ? '-' : ''}$${withCommas}.${remainder}`;
 }
 
 /**
@@ -634,6 +639,7 @@ export default function OtInvoicesPage() {
   const [useRange, setUseRange] = useState(false);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState<string | null>(null);
+  const [downloadingFullPdf, setDownloadingFullPdf] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<OtInvoiceData | null>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>('pharmacy');
@@ -705,6 +711,46 @@ export default function OtInvoicesPage() {
       setExporting(null);
     }
   };
+
+  /**
+   * Download the comprehensive multi-page per-transaction PDF — the same
+   * artifact the editor's "Download PDF" button produces, accessible from
+   * the dashboard so admins don't have to switch to the Reconciliation
+   * tab first. Routes to `/api/super-admin/ot-overrides/export` with
+   * `format: 'pdf'` (the manual-reconciliation full export endpoint).
+   */
+  const downloadFullManualReconciliationPdf = useCallback(async () => {
+    setDownloadingFullPdf(true);
+    setError(null);
+    try {
+      const body: Record<string, string> = { date: startDate, format: 'pdf' };
+      if (useRange && endDate !== startDate) body.endDate = endDate;
+      const res = await fetch('/api/super-admin/ot-overrides/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const j = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(j?.error || `Full PDF download failed (${res.status})`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const slug = useRange && endDate !== startDate ? `${startDate}_${endDate}` : startDate;
+      a.download = `ot-manual-reconciliation-${slug}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Full PDF download failed');
+    } finally {
+      setDownloadingFullPdf(false);
+    }
+  }, [startDate, endDate, useRange]);
 
   return (
     <div className="min-h-screen p-6 lg:p-8">
@@ -1047,6 +1093,26 @@ export default function OtInvoicesPage() {
                 <Download className="h-4 w-4" />
               )}
               Summary PDF
+            </button>
+            <button
+              type="button"
+              onClick={downloadFullManualReconciliationPdf}
+              disabled={exporting !== null || downloadingFullPdf}
+              /**
+               * The "Full PDF" button mirrors the editor's `Download PDF` —
+               * produces the same multi-page per-transaction document admins
+               * send to the OT clinic for review. Lives at the dashboard
+               * level so it's accessible without first switching to the
+               * Reconciliation tab.
+               */
+              className="flex items-center gap-2 rounded-lg bg-[#4fa77e] px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-[#3d8a65] disabled:opacity-50"
+            >
+              {downloadingFullPdf ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              Full PDF (every transaction)
             </button>
           </div>
 

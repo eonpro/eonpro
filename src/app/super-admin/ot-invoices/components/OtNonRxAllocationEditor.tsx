@@ -110,7 +110,12 @@ function dollarsInputToCents(v: string): number {
   return Math.round(f * 100);
 }
 function centsToDisplay(c: number): string {
-  return `$${(c / 100).toFixed(2)}`;
+  const negative = c < 0;
+  const abs = Math.abs(c);
+  const dollars = Math.floor(abs / 100);
+  const remainder = (abs % 100).toString().padStart(2, '0');
+  const withCommas = dollars.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return `${negative ? '-' : ''}$${withCommas}.${remainder}`;
 }
 function formatPaidEt(iso: string | null): string {
   if (!iso) return '—';

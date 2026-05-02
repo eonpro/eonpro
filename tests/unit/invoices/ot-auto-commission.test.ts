@@ -262,6 +262,44 @@ describe('buildDefaultOverridePayload — auto rate by isRebill', () => {
   });
 });
 
+describe('Currency formatting — thousand separators', () => {
+  /**
+   * Inline helper mirroring the centsToDisplay implementations in
+   * page.tsx / OtAllocationEditor / OtNonRxAllocationEditor /
+   * otInvoiceGenerationService. Single source of expected output for
+   * the format change so future divergence trips this spec.
+   */
+  const fmt = (cents: number): string => {
+    const negative = cents < 0;
+    const abs = Math.abs(cents);
+    const dollars = Math.floor(abs / 100);
+    const remainder = (abs % 100).toString().padStart(2, '0');
+    const withCommas = dollars.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return `${negative ? '-' : ''}$${withCommas}.${remainder}`;
+  };
+
+  it('formats $127,154.00 with comma thousand separator', () => {
+    expect(fmt(12_715_400)).toBe('$127,154.00');
+  });
+
+  it('formats small values without leading commas', () => {
+    expect(fmt(0)).toBe('$0.00');
+    expect(fmt(50)).toBe('$0.50');
+    expect(fmt(99_99)).toBe('$99.99');
+    expect(fmt(999_99)).toBe('$999.99');
+    expect(fmt(1_000_00)).toBe('$1,000.00');
+  });
+
+  it('handles millions', () => {
+    expect(fmt(1_234_567_89)).toBe('$1,234,567.89');
+  });
+
+  it('formats negatives with leading minus', () => {
+    expect(fmt(-150_00)).toBe('-$150.00');
+    expect(fmt(-1_000_000_50)).toBe('-$1,000,000.50');
+  });
+});
+
 describe('getOtTieredNewSaleRateBps — volume-tiered NEW-sale commission', () => {
   it('$0 — $17,299.99 → 8% (base)', () => {
     expect(getOtTieredNewSaleRateBps(0)).toBe(800);

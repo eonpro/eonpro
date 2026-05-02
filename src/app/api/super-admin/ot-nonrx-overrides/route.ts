@@ -14,6 +14,7 @@ import {
   reconcileOtAllocationMedLineTotals,
   type OtAllocationOverrideStatus,
 } from '@/services/invoices/otAllocationOverrideTypes';
+import { attachSalesRepFromOtDisposition } from '@/services/sales-rep/otDispositionAssignment';
 
 const CLINIC_TZ = 'America/New_York';
 
@@ -278,11 +279,14 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
     );
   }
 
-  /** Tenant defense: confirm the underlying invoice/payment is for an OT patient. */
+  /** Tenant defense: confirm the underlying invoice/payment is for an OT patient.
+   * Also captures `patientId` so we can auto-attach the manual rep to the
+   * patient after the override save completes. */
+  let assignmentPatientId: number | null = null;
   if (invoiceId != null) {
     const invoice = await basePrisma.invoice.findUnique({
       where: { id: invoiceId },
-      select: { id: true, patient: { select: { clinicId: true } } },
+      select: { id: true, patientId: true, patient: { select: { clinicId: true } } },
     });
     if (!invoice) {
       return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
@@ -299,10 +303,11 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
         { status: 403 }
       );
     }
+    assignmentPatientId = invoice.patientId;
   } else if (paymentId != null) {
     const payment = await basePrisma.payment.findUnique({
       where: { id: paymentId },
-      select: { id: true, patient: { select: { clinicId: true } } },
+      select: { id: true, patientId: true, patient: { select: { clinicId: true } } },
     });
     if (!payment) {
       return NextResponse.json({ error: 'Payment not found' }, { status: 404 });
@@ -319,6 +324,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
         { status: 403 }
       );
     }
+    assignmentPatientId = payment.patientId;
   }
 
   const dispositionKey = dispositionKeyFor(invoiceId, paymentId);
@@ -395,6 +401,25 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
         error: auditErr instanceof Error ? auditErr.message : String(auditErr),
         userId: user.id,
         dispositionKey,
+      });
+    }
+
+    /**
+     * Auto-attach manual rep to patient.
+     * Same semantics as the Rx route — when the admin picks a rep on this
+     * disposition row, attach them to the patient's
+     * `PatientSalesRepAssignment` so future commission events inherit the
+     * rep automatically. Best-effort; never blocks the override save.
+     */
+    if (reconciledPayload.salesRepId != null && assignmentPatientId != null) {
+      await attachSalesRepFromOtDisposition({
+        patientId: assignmentPatientId,
+        salesRepId: reconciledPayload.salesRepId,
+        clinicId,
+        assignedById: user.id,
+        source: 'ot_nonrx_override',
+        overrideResourceId: resultId,
+        request: req,
       });
     }
 
