@@ -195,12 +195,12 @@ function buildLineFromPayments(
   const doctorApprovalCents = chargeKind === 'bloodwork' ? OT_BLOODWORK_DOCTOR_FEE_CENTS : 0;
   /**
    * Shipping defaults per stakeholder direction (2026-05-02):
-   *   - bloodwork → $0 (specimens go straight to Quest/Labcorp; no
-   *     patient-facing shipping)
-   *   - consult / other → $20 (standard non-Rx shipping)
+   *   - bloodwork → $0 (specimens go straight to Quest/Labcorp)
+   *   - consult   → $0 (telehealth visits — nothing physical ships)
+   *   - other     → $20 (non-Rx product that physically ships to the patient)
    * Admin can override per row.
    */
-  const shippingCents = chargeKind === 'bloodwork' ? 0 : 2000;
+  const shippingCents = chargeKind === 'other' ? 2000 : 0;
   const totalDeductionsCents =
     merchantProcessingCents + platformCompensationCents + doctorApprovalCents + shippingCents;
   return {
