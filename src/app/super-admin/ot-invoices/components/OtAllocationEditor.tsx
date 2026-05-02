@@ -1102,86 +1102,11 @@ function MedicationsEditor({
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               </div>
-              <MedCommissionRateRow
-                med={m}
-                onSetRate={(bps) => updateMedAt(idx, { commissionRateBps: bps })}
-              />
             </li>
           ))}
         </ul>
       )}
     </section>
-  );
-}
-
-/**
- * Per-medication commission rate row. Displayed as a thin band beneath each med
- * line so the admin can opt-in to a rep commission % per item without inflating
- * the main row. "—" = no rate set; the line contributes $0 to commission.
- */
-function MedCommissionRateRow({
-  med,
-  onSetRate,
-}: {
-  med: OtAllocationOverrideMedLine;
-  onSetRate: (bps: number | null) => void;
-}) {
-  const chips: Array<{ label: string; bps: number | null }> = [
-    { label: 'No %', bps: null },
-    { label: '1%', bps: 100 },
-    { label: '8%', bps: 800 },
-  ];
-  const lineCommissionCents =
-    med.commissionRateBps != null && med.commissionRateBps > 0
-      ? Math.round((med.lineTotalCents * med.commissionRateBps) / 10_000)
-      : 0;
-  return (
-    <div className="flex flex-wrap items-center gap-2 pl-1 text-[11px] text-gray-600">
-      <span className="font-medium uppercase tracking-wider text-gray-400">Rep %</span>
-      {chips.map((c) => {
-        const active =
-          (c.bps == null && med.commissionRateBps == null) ||
-          (c.bps != null && med.commissionRateBps === c.bps);
-        return (
-          <button
-            key={c.label}
-            type="button"
-            onClick={() => onSetRate(c.bps)}
-            className={`rounded-full px-2 py-0.5 ${
-              active
-                ? 'bg-cyan-600 text-white'
-                : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            {c.label}
-          </button>
-        );
-      })}
-      <input
-        type="number"
-        min={0}
-        max={50}
-        step={0.5}
-        value={med.commissionRateBps != null ? (med.commissionRateBps / 100).toFixed(2) : ''}
-        placeholder="custom %"
-        onChange={(e) => {
-          const v = e.target.value.trim();
-          if (v === '') {
-            onSetRate(null);
-            return;
-          }
-          const pct = parseFloat(v);
-          if (!Number.isFinite(pct) || pct < 0) return;
-          onSetRate(Math.round(Math.min(pct, 50) * 100));
-        }}
-        className="w-16 rounded-md border border-gray-200 px-2 py-0.5 text-right text-[11px] tabular-nums"
-      />
-      {lineCommissionCents > 0 && (
-        <span className="ml-auto font-semibold text-cyan-700">
-          = {centsToDisplay(lineCommissionCents)}
-        </span>
-      )}
-    </div>
   );
 }
 
@@ -1208,6 +1133,72 @@ function SaleTypeBadge({ isRebill }: { isRebill: boolean }) {
     >
       New · 8%
     </span>
+  );
+}
+
+/**
+ * Payload-level commission rate chips. Sets `payload.commissionRateBps`,
+ * which the totals engine applies against `(patientGross − Σ med.lineTotal)`.
+ * Replaces the per-medication-line rate row that used to live under each med.
+ *
+ * "No %" sets the rate to null → 0 commission (unless a manual $ override
+ * is also set). 1% / 8% are the standard rebill / new-sale rates. Admin can
+ * type any value 0–50% in the custom field for one-off cases.
+ */
+function CommissionRateChips({
+  payloadRateBps,
+  onSetRate,
+}: {
+  payloadRateBps: number | null;
+  onSetRate: (bps: number | null) => void;
+}) {
+  const chips: Array<{ label: string; bps: number | null }> = [
+    { label: 'No %', bps: null },
+    { label: '1%', bps: 100 },
+    { label: '8%', bps: 800 },
+  ];
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-600">
+      <span className="font-medium uppercase tracking-wider text-gray-500">Rate</span>
+      {chips.map((c) => {
+        const active =
+          (c.bps === null && payloadRateBps === null) ||
+          (c.bps !== null && payloadRateBps === c.bps);
+        return (
+          <button
+            key={c.label}
+            type="button"
+            onClick={() => onSetRate(c.bps)}
+            className={`rounded-full px-2.5 py-0.5 ${
+              active
+                ? 'bg-cyan-600 text-white'
+                : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            {c.label}
+          </button>
+        );
+      })}
+      <input
+        type="number"
+        min={0}
+        max={50}
+        step={0.5}
+        value={payloadRateBps !== null ? (payloadRateBps / 100).toFixed(2) : ''}
+        placeholder="custom %"
+        onChange={(e) => {
+          const v = e.target.value.trim();
+          if (v === '') {
+            onSetRate(null);
+            return;
+          }
+          const pct = parseFloat(v);
+          if (!Number.isFinite(pct) || pct < 0) return;
+          onSetRate(Math.round(Math.min(pct, 50) * 100));
+        }}
+        className="w-20 rounded-md border border-gray-200 px-2 py-0.5 text-right text-[11px] tabular-nums"
+      />
+    </div>
   );
 }
 
@@ -1251,10 +1242,25 @@ function SalesRepEditor({
       <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-cyan-900">
         Sales rep & commission
       </h4>
+      <CommissionRateChips
+        payloadRateBps={payloadRateBps}
+        onSetRate={(bps) =>
+          /**
+           * Setting the rate also clears the manual $ override so the auto
+           * computation is what's displayed and saved. Admin can still type a
+           * $ amount in the COMMISSION $ input below to manually override.
+           */
+          onMutate((p) => ({
+            ...p,
+            commissionRateBps: bps,
+            salesRepCommissionCentsOverride: null,
+          }))
+        }
+      />
       {hasAutoRate && !usingManualOverride && (
-        <p className="mb-2 text-[11px] text-cyan-900">
-          <span className="font-semibold">Auto rate:</span> {ratePercentLabel} × (gross{' '}
-          {centsToDisplay(payload.patientGrossCents)} − COGS {centsToDisplay(medsTotalCents)}) ={' '}
+        <p className="mb-2 mt-2 text-[11px] text-cyan-900">
+          {ratePercentLabel} × (gross {centsToDisplay(payload.patientGrossCents)} − COGS{' '}
+          {centsToDisplay(medsTotalCents)}) ={' '}
           <span className="font-semibold tabular-nums">{centsToDisplay(autoRateCommission)}</span>
         </p>
       )}

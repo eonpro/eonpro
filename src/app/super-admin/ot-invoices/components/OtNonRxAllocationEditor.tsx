@@ -651,7 +651,28 @@ function NonRxRow({
           </div>
 
           {/* Sales rep + commission */}
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="mt-4 rounded-lg border border-cyan-100 bg-cyan-50/30 p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-cyan-900">
+                Sales rep & commission
+              </h4>
+              <NonRxCommissionRateChips
+                payloadRateBps={payload.commissionRateBps ?? null}
+                onSetRate={(bps) =>
+                  /**
+                   * Setting the rate also clears any manual $ override so the
+                   * displayed commission reflects the new auto rate. Admin
+                   * can still type a $ amount in the COMMISSION $ field below.
+                   */
+                  onMutate((p) => ({
+                    ...p,
+                    commissionRateBps: bps,
+                    salesRepCommissionCentsOverride: null,
+                  }))
+                }
+              />
+            </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
               <label className="block text-[10px] font-medium uppercase tracking-wider text-gray-500">
                 Sales rep
@@ -684,6 +705,7 @@ function NonRxRow({
               <p className="font-medium uppercase tracking-wider text-[10px]">Computed totals</p>
               <p className="mt-1">Deductions: {centsToDisplay(totals.totalDeductionsCents)}</p>
               <p>Net to OT: {centsToDisplay(totals.netToOtClinicCents)}</p>
+            </div>
             </div>
           </div>
 
@@ -817,7 +839,7 @@ function MedsSection({
                 value={m.name}
                 onChange={(e) => updateLine(idx, (cur) => ({ ...cur, name: e.target.value }))}
                 placeholder="Description (e.g. Quest CMP)"
-                className="rounded-md border border-gray-200 bg-white px-2 py-1 text-xs sm:col-span-5"
+                className="rounded-md border border-gray-200 bg-white px-2 py-1 text-xs sm:col-span-6"
               />
               <input
                 type="number"
@@ -841,19 +863,6 @@ function MedsSection({
               <div className="flex items-center justify-end font-mono text-xs text-gray-700 sm:col-span-2">
                 {centsToDisplay(m.lineTotalCents)}
               </div>
-              <input
-                type="number"
-                min={0}
-                max={5000}
-                value={m.commissionRateBps ?? ''}
-                onChange={(e) => {
-                  const v = e.target.value === '' ? null : Math.max(0, Math.min(5000, Number(e.target.value)));
-                  updateLine(idx, (cur) => ({ ...cur, commissionRateBps: v }));
-                }}
-                placeholder="bps"
-                title="Per-line commission rate in basis points (e.g. 800 = 8%)"
-                className="rounded-md border border-gray-200 bg-white px-2 py-1 text-right text-xs sm:col-span-1"
-              />
               <button
                 type="button"
                 onClick={() => removeLine(idx)}
@@ -1056,6 +1065,67 @@ function NonRxRepCommissionField({
           <span className="font-semibold tabular-nums">{centsToDisplay(effectiveCents)}</span>
         </p>
       )}
+    </div>
+  );
+}
+
+/**
+ * Payload-level commission rate chips for the non-Rx editor (mirrors the
+ * Rx editor's CommissionRateChips). Sets `payload.commissionRateBps`,
+ * which the totals engine applies against `(patientGross − Σ med.lineTotal)`.
+ */
+function NonRxCommissionRateChips({
+  payloadRateBps,
+  onSetRate,
+}: {
+  payloadRateBps: number | null;
+  onSetRate: (bps: number | null) => void;
+}) {
+  const chips: Array<{ label: string; bps: number | null }> = [
+    { label: 'No %', bps: null },
+    { label: '1%', bps: 100 },
+    { label: '8%', bps: 800 },
+  ];
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-[10px] text-gray-600">
+      {chips.map((c) => {
+        const active =
+          (c.bps === null && payloadRateBps === null) ||
+          (c.bps !== null && payloadRateBps === c.bps);
+        return (
+          <button
+            key={c.label}
+            type="button"
+            onClick={() => onSetRate(c.bps)}
+            className={`rounded-full px-2 py-0.5 ${
+              active
+                ? 'bg-cyan-600 text-white'
+                : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            {c.label}
+          </button>
+        );
+      })}
+      <input
+        type="number"
+        min={0}
+        max={50}
+        step={0.5}
+        value={payloadRateBps !== null ? (payloadRateBps / 100).toFixed(2) : ''}
+        placeholder="custom %"
+        onChange={(e) => {
+          const v = e.target.value.trim();
+          if (v === '') {
+            onSetRate(null);
+            return;
+          }
+          const pct = parseFloat(v);
+          if (!Number.isFinite(pct) || pct < 0) return;
+          onSetRate(Math.round(Math.min(pct, 50) * 100));
+        }}
+        className="w-20 rounded-md border border-gray-200 px-2 py-0.5 text-right text-[10px] tabular-nums"
+      />
     </div>
   );
 }
