@@ -14,11 +14,29 @@ import {
   getPoolStats,
   getServerlessConfig,
   getConnectionPoolHealth,
+  withoutClinicFilter,
 } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { verifyAuth } from '@/lib/auth/middleware';
 import { withApiHandler } from '@/domains/shared/errors';
 import { checkReadReplicaHealth, hasReadReplica } from '@/lib/database/read-replica';
+
+/**
+ * Health checks query clinic-isolated models (Patient, Clinic, User, Invoice,
+ * Product, AffiliateCommissionEvent, AffiliatePayout, AffiliateFraudAlert)
+ * intentionally as a *cross-tenant* operation — there's no auth context on
+ * the public `/api/health` endpoint. Without this bypass, the
+ * `PrismaWithClinicFilter` proxy throws `TenantContextRequiredError` in
+ * < 50 ms, which previously surfaced as `"database":"unhealthy"` even though
+ * the database itself was perfectly fine.
+ *
+ * Centralizing the bypass here keeps each individual check focused on its
+ * actual job (counting / pinging) rather than scattering `withoutClinicFilter`
+ * calls throughout the file.
+ */
+function noTenant<T>(fn: () => Promise<T>): Promise<T> {
+  return withoutClinicFilter(fn);
+}
 
 interface HealthCheck {
   name: string;
@@ -76,9 +94,11 @@ async function checkDatabase(): Promise<HealthCheck> {
       };
     }
 
-    // Quick read check (same timeout so we don't block 15s)
+    // Quick read check (same timeout so we don't block 15s).
+    // `prisma.patient` is a clinic-isolated model — without `noTenant` the
+    // proxy throws TenantContextRequiredError on this public endpoint.
     const patientCount = await withTimeout(
-      prisma.patient.count(),
+      noTenant(() => prisma.patient.count()),
       DB_HEALTH_TIMEOUT_MS,
       'Query timed out'
     ).catch((err) => {
@@ -385,8 +405,8 @@ async function checkAuth(): Promise<HealthCheck> {
       };
     }
 
-    // Check if we can query users
-    const userCount = await prisma.user.count();
+    // Check if we can query users (cross-tenant — health check has no auth context)
+    const userCount = await noTenant(() => prisma.user.count());
 
     return {
       name: 'Authentication',
@@ -413,13 +433,15 @@ async function checkAPIRoutes(): Promise<HealthCheck> {
   const results: { route: string; status: string }[] = [];
 
   try {
-    // Check all tables in parallel
-    const [patientCount, clinicCount, invoiceCount, productCount] = await Promise.all([
-      prisma.patient.count(),
-      prisma.clinic.count(),
-      prisma.invoice.count(),
-      prisma.product.count(),
-    ]);
+    // Check all tables in parallel (cross-tenant — public endpoint has no auth)
+    const [patientCount, clinicCount, invoiceCount, productCount] = await noTenant(() =>
+      Promise.all([
+        prisma.patient.count(),
+        prisma.clinic.count(),
+        prisma.invoice.count(),
+        prisma.product.count(),
+      ])
+    );
 
     results.push({ route: '/api/patients', status: 'ok' });
     results.push({ route: '/api/clinics', status: clinicCount > 0 ? 'ok' : 'no data' });
@@ -568,6 +590,11 @@ async function checkAffiliateSystem(): Promise<HealthCheck> {
     const fortyEightHoursAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000);
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
+    /**
+     * All queries below run cross-tenant (the affiliate health check is a
+     * platform-wide rollup, not per-clinic). Bypass the clinic filter so the
+     * proxy doesn't throw TenantContextRequiredError on this public endpoint.
+     */
     const [
       tableCheck,
       orphanedPayouts,
@@ -575,47 +602,49 @@ async function checkAffiliateSystem(): Promise<HealthCheck> {
       stuckCommissions,
       fraudAlertBacklog,
       attributionOrphans,
-    ] = await Promise.all([
-      // Verify AffiliateCommissionEvent table is accessible
-      prisma.affiliateCommissionEvent
-        .count({ take: 1 })
-        .then(() => true)
-        .catch(() => false),
-      // Check for orphaned payouts (stuck in PROCESSING > 1 hour)
-      prisma.affiliatePayout.count({
-        where: {
-          status: 'PROCESSING',
-          processedAt: {
-            lt: oneHourAgo,
-          },
-        },
-      }),
-      // Check if PayPal is configured (if used)
-      Promise.resolve(!!process.env.PAYPAL_CLIENT_ID && !!process.env.PAYPAL_CLIENT_SECRET),
-      // Commissions stuck in PENDING past a 7-day hold period (should have been auto-approved)
-      prisma.affiliateCommissionEvent.count({
-        where: {
-          status: 'PENDING',
-          holdUntil: { lt: sevenDaysAgo },
-        },
-      }),
-      // Fraud alerts older than 48 hours that haven't been resolved
-      prisma.affiliateFraudAlert
-        .count({
+    ] = await noTenant(() =>
+      Promise.all([
+        // Verify AffiliateCommissionEvent table is accessible
+        prisma.affiliateCommissionEvent
+          .count({ take: 1 })
+          .then(() => true)
+          .catch(() => false),
+        // Check for orphaned payouts (stuck in PROCESSING > 1 hour)
+        prisma.affiliatePayout.count({
           where: {
-            status: 'OPEN',
-            createdAt: { lt: fortyEightHoursAgo },
+            status: 'PROCESSING',
+            processedAt: {
+              lt: oneHourAgo,
+            },
           },
-        })
-        .catch(() => 0), // Table may not exist yet
-      // Attribution orphans: patients with attributionRefCode but no attributionAffiliateId
-      prisma.patient.count({
-        where: {
-          attributionRefCode: { not: null },
-          attributionAffiliateId: null,
-        },
-      }),
-    ]);
+        }),
+        // Check if PayPal is configured (if used)
+        Promise.resolve(!!process.env.PAYPAL_CLIENT_ID && !!process.env.PAYPAL_CLIENT_SECRET),
+        // Commissions stuck in PENDING past a 7-day hold period (should have been auto-approved)
+        prisma.affiliateCommissionEvent.count({
+          where: {
+            status: 'PENDING',
+            holdUntil: { lt: sevenDaysAgo },
+          },
+        }),
+        // Fraud alerts older than 48 hours that haven't been resolved
+        prisma.affiliateFraudAlert
+          .count({
+            where: {
+              status: 'OPEN',
+              createdAt: { lt: fortyEightHoursAgo },
+            },
+          })
+          .catch(() => 0), // Table may not exist yet
+        // Attribution orphans: patients with attributionRefCode but no attributionAffiliateId
+        prisma.patient.count({
+          where: {
+            attributionRefCode: { not: null },
+            attributionAffiliateId: null,
+          },
+        }),
+      ])
+    );
 
     if (!tableCheck) {
       return {
