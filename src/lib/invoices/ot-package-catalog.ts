@@ -94,7 +94,11 @@ const RX_ROWS: OtPackageCatalogRow[] = [
     name: 'Sermorelin',
     category: 'rx',
     retailCentsByTier: { 1: $(249), 3: $(649), 6: $(1259), 12: $(2500) },
-    costCentsByTier: { 1: $(120), 3: $(360) },
+    /**
+     * Pharmacy COGS, flat $75/month with no bulk discount, per 2026-05-01
+     * stakeholder direction. Confirmed via the OT pricing sheet.
+     */
+    costCentsByTier: { 1: $(75), 3: $(225), 6: $(450), 12: $(900) },
     defaultConsultCents: $(15),
     defaultShippingCents: $(20),
   },
