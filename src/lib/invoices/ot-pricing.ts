@@ -289,7 +289,27 @@ export function inferOtPharmacyUnitPriceFromRx(rx: {
       return row(4000, rx.medName, rx.strength, rx.form || '');
     return row(3500, rx.medName, rx.strength, rx.form || '');
   }
-  if (blob.includes('sermorelin')) return row(12000, rx.medName, rx.strength, rx.form || '');
+  if (blob.includes('sermorelin')) {
+    /**
+     * Per stakeholder direction (2026-05-01): Sermorelin pharmacy COGS is a
+     * flat $75/month with no bulk discount ($75/$225/$450/$900 for
+     * 1/3/6/12-month tiers — see `OT_PACKAGE_CATALOG.sermorelin.costCentsByTier`).
+     *
+     * Match the most distinctive multi-month markers in the strength/form/
+     * vialSize blob so 3/6/12-month fills land on the right COGS. Default
+     * to 1-month ($75) when no multi-month signal is present.
+     */
+    if (blob.includes('12 month') || blob.includes('12mo') || blob.includes('annual')) {
+      return row(90000, rx.medName, rx.strength, rx.form || '');
+    }
+    if (blob.includes('6 month') || blob.includes('6mo')) {
+      return row(45000, rx.medName, rx.strength, rx.form || '');
+    }
+    if (blob.includes('3 month') || blob.includes('3mo') || blob.includes('quarterly')) {
+      return row(22500, rx.medName, rx.strength, rx.form || '');
+    }
+    return row(7500, rx.medName, rx.strength, rx.form || '');
+  }
   if (blob.includes('enclomiphene')) {
     if (blob.includes('12.5')) return row(3500, rx.medName, rx.strength, rx.form || '');
     if (/\b50\s*mg\b/.test(blob) || blob.includes('50mg')) {

@@ -199,7 +199,35 @@ describe('ot-pricing', () => {
       strength: '2MG/ML',
       form: 'solution',
     });
-    expect(serm?.priceCents).toBe(12000);
+    /**
+     * Sermorelin: $75/month flat pharmacy COGS (per OT pricing sheet, 2026-05-01).
+     * 1-month default applies when no multi-month signal in the Rx blob.
+     */
+    expect(serm?.priceCents).toBe(7500);
+
+    const serm3 = inferOtPharmacyUnitPriceFromRx({
+      medicationKey: 'x',
+      medName: 'SERMORELIN ACETATE 2MG/ML (5ML) STERILE SOLUTION',
+      strength: '2MG/ML 3 month',
+      form: 'solution',
+    });
+    expect(serm3?.priceCents).toBe(22500);
+
+    const serm6 = inferOtPharmacyUnitPriceFromRx({
+      medicationKey: 'x',
+      medName: 'SERMORELIN ACETATE 2MG/ML (5ML) STERILE SOLUTION',
+      strength: '2MG/ML 6 month',
+      form: 'solution',
+    });
+    expect(serm6?.priceCents).toBe(45000);
+
+    const serm12 = inferOtPharmacyUnitPriceFromRx({
+      medicationKey: 'x',
+      medName: 'SERMORELIN ACETATE 2MG/ML (5ML) STERILE SOLUTION',
+      strength: '2MG/ML 12 month',
+      form: 'solution',
+    });
+    expect(serm12?.priceCents).toBe(90000);
 
     expect(
       resolveOtProductPriceForPharmacyLine({
