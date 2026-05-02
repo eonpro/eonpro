@@ -30,6 +30,7 @@ type StatsResponseBody = {
   weekly: number;
   monthly: number;
   glp1: Record<string, unknown>;
+  newVsRefill: Record<string, unknown>;
   periodNote: string;
   periodBoundsEt?: {
     dailyStart: string;
@@ -66,6 +67,13 @@ function zeroStatsResponse(periodNote: string): Response {
       tirzPercent: null,
       totalClassified: 0,
     },
+    newVsRefill: {
+      newScripts: 0,
+      refills: 0,
+      newPercent: null,
+      refillPercent: null,
+      total: 0,
+    },
     periodNote,
   });
 }
@@ -98,6 +106,29 @@ function aggregateGlp1Split(orders: { primaryMedName: string | null }[]): {
   const semaPercent = totalClassified > 0 ? Math.round((sema / totalClassified) * 1000) / 10 : null;
   const tirzPercent = totalClassified > 0 ? Math.round((tirz / totalClassified) * 1000) / 10 : null;
   return { sema, tirz, semaPercent, tirzPercent, totalClassified };
+}
+
+/**
+ * Split an order set into "new scripts" vs "refills".
+ * An order is considered a refill if it was created from a RefillQueue entry
+ * (i.e. it has a related RefillQueue via the `RefillNewOrder` relation).
+ */
+function aggregateNewVsRefillSplit(orders: { isRefill: boolean }[]): {
+  newScripts: number;
+  refills: number;
+  newPercent: number | null;
+  refillPercent: number | null;
+  total: number;
+} {
+  let refills = 0;
+  for (const o of orders) {
+    if (o.isRefill) refills += 1;
+  }
+  const total = orders.length;
+  const newScripts = total - refills;
+  const newPercent = total > 0 ? Math.round((newScripts / total) * 1000) / 10 : null;
+  const refillPercent = total > 0 ? Math.round((refills / total) * 1000) / 10 : null;
+  return { newScripts, refills, newPercent, refillPercent, total };
 }
 
 async function handleGet(_req: NextRequest, user: AuthUser): Promise<Response> {
@@ -133,7 +164,7 @@ async function handleGet(_req: NextRequest, user: AuthUser): Promise<Response> {
       ],
     };
 
-    const [daily, weekly, monthly, glp1Orders] = await Promise.all([
+    const [daily, weekly, monthly, monthlyOrders] = await Promise.all([
       prisma.order.count({
         where: { AND: [actorWhere, sentToPharmacyOnOrAfter(etDayStart)] },
       }),
@@ -145,18 +176,27 @@ async function handleGet(_req: NextRequest, user: AuthUser): Promise<Response> {
       }),
       prisma.order.findMany({
         where: { AND: [actorWhere, sentToPharmacyOnOrAfter(etMonthStart)] },
-        select: { primaryMedName: true },
+        select: {
+          primaryMedName: true,
+          // Used to classify new script vs refill — a refill is an order that
+          // was created from a RefillQueue entry (1:1 via RefillNewOrder).
+          refillAsNewOrder: { select: { id: true } },
+        },
       }),
     ]);
 
-    const glp1 = aggregateGlp1Split(glp1Orders);
+    const glp1 = aggregateGlp1Split(monthlyOrders);
+    const newVsRefill = aggregateNewVsRefillSplit(
+      monthlyOrders.map((o) => ({ isRefill: o.refillAsNewOrder !== null }))
+    );
 
     return jsonStatsPayload({
       daily,
       weekly,
       monthly,
       glp1,
-      periodNote: `${ET_PERIOD_NOTE_EMPTY} Semaglutide vs tirzepatide is the share among GLP‑1 orders month-to-date (ET).`,
+      newVsRefill,
+      periodNote: `${ET_PERIOD_NOTE_EMPTY} Semaglutide vs tirzepatide is the share among GLP‑1 orders month-to-date (ET). New vs refill is the share of all submitted orders month-to-date (ET); refills are orders created from a RefillQueue entry.`,
       periodBoundsEt: {
         dailyStart: etDayStart.toISOString(),
         weekStart: etWeekStart.toISOString(),

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, Fragment } from 'react';
+import { useState, useEffect, useCallback, useMemo, Fragment } from 'react';
 import {
   ClipboardList,
   Check as CheckIcon,
@@ -172,6 +172,13 @@ interface PrescriptionQueueStats {
     tirzPercent: number | null;
     totalClassified: number;
   };
+  newVsRefill: {
+    newScripts: number;
+    refills: number;
+    newPercent: number | null;
+    refillPercent: number | null;
+    total: number;
+  };
   periodNote?: string;
   /** IANA timezone used for period boundaries (always Eastern for this endpoint). */
   timezone?: string;
@@ -306,6 +313,117 @@ interface QueueItem {
     }>;
     windowDays: number;
   } | null;
+  // Subscription identifiers for client-side duplicate collapsing.
+  // Multiple paid Invoice rows (or RefillQueue rows) can back the same
+  // logical subscription billing event when concurrent crons / webhooks
+  // create races; we use these to group them in the UI and to remove the
+  // whole group when one is sent to pharmacy.
+  subscriptionId?: number | null;
+  stripeSubscriptionId?: string | null;
+  // Render-only fields populated by the dedup pass below. Not returned by
+  // the API. `_dupGroupSize` is the total rows collapsed into this primary
+  // (including itself); `_dupGroupSiblings` is the list of sibling rows so
+  // the local "send to pharmacy" handler can prune them in one shot.
+  _dupGroupSize?: number;
+  _dupGroupSiblings?: Array<{
+    queueType?: 'invoice' | 'refill' | 'queued_order';
+    invoiceId: number | null;
+    refillId?: number | null;
+    orderId?: number;
+  }>;
+}
+
+/**
+ * Build a stable group key for collapsing queue rows that back the same
+ * logical billing event. Used to:
+ *
+ *   1. Render one card per real prescription decision (defense in depth
+ *      against backend duplicate Invoice / RefillQueue rows).
+ *   2. Remove every row in the group from local state when the provider
+ *      sends one to the pharmacy, so the UI matches the user's mental
+ *      model without waiting on the next `/api/provider/prescription-queue`
+ *      refresh.
+ *
+ * Grouping rules — deliberately conservative so we never collapse two
+ * legitimately distinct prescriptions:
+ *
+ *   • `queued_order` rows are always individual (orderId is unique and
+ *     they don't share a subscription with anything else).
+ *   • `refill` rows collapse on `(patientId, subscriptionId)` when the
+ *     refill is linked to a subscription. Otherwise each refillId stands
+ *     alone.
+ *   • `invoice` rows prefer `(patientId, stripeSubscriptionId)`. When the
+ *     invoice has no Stripe subscription link (Airtable / WellMedR
+ *     origin), fall back to `(patientId, treatment, amount)` — three
+ *     fields matching is sufficient to catch concurrent cron / webhook
+ *     duplicates without merging unrelated charges (e.g. an add-on and a
+ *     subscription renewal will differ in either treatment or amount).
+ */
+function getQueueDedupKey(item: QueueItem): string {
+  if (item.queueType === 'queued_order') {
+    return `qo:${item.orderId ?? 'unknown'}`;
+  }
+
+  if (item.queueType === 'refill') {
+    if (item.subscriptionId) {
+      return `r:p${item.patientId}:s${item.subscriptionId}`;
+    }
+    return `r:p${item.patientId}:rid${item.refillId ?? 'unknown'}`;
+  }
+
+  // Default: invoice-backed item.
+  if (item.stripeSubscriptionId) {
+    return `i:p${item.patientId}:ss${item.stripeSubscriptionId}`;
+  }
+  const treatmentKey = (item.treatment || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  return `i:p${item.patientId}:t${treatmentKey}:a${item.amount ?? 0}`;
+}
+
+/**
+ * Collapse duplicate queue rows into one primary card per group. The
+ * primary is the first row in the input order (the API sorts FIFO by
+ * `queuedAt`, so this is the oldest paid invoice / earliest queued
+ * refill — the one the provider should act on). Siblings are attached so
+ * the local "send to pharmacy" handler can prune them in a single state
+ * update.
+ */
+function collapseDuplicateQueueItems(items: QueueItem[]): QueueItem[] {
+  if (items.length <= 1) return items;
+
+  const groups = new Map<string, QueueItem[]>();
+  for (const item of items) {
+    const key = getQueueDedupKey(item);
+    const arr = groups.get(key);
+    if (arr) arr.push(item);
+    else groups.set(key, [item]);
+  }
+
+  const out: QueueItem[] = [];
+  const emitted = new Set<string>();
+  for (const item of items) {
+    const key = getQueueDedupKey(item);
+    if (emitted.has(key)) continue;
+    emitted.add(key);
+
+    const group = groups.get(key);
+    if (!group || group.length === 1) {
+      out.push(item);
+      continue;
+    }
+
+    const [primary, ...rest] = group;
+    out.push({
+      ...primary,
+      _dupGroupSize: group.length,
+      _dupGroupSiblings: rest.map((s) => ({
+        queueType: s.queueType,
+        invoiceId: s.invoiceId,
+        refillId: s.refillId,
+        orderId: s.orderId,
+      })),
+    });
+  }
+  return out;
 }
 
 interface PatientDetails {
@@ -1322,14 +1440,14 @@ export default function PrescriptionQueuePage() {
       const successData = await response.json();
       const lifefileId = successData?.order?.lifefileOrderId ?? null;
 
-      if (item.queueType === 'refill' && item.refillId) {
-        setQueueItems((prev) =>
-          prev.filter((qi) => !(qi.queueType === 'refill' && qi.refillId === item.refillId))
-        );
-      } else if (item.invoiceId) {
-        setQueueItems((prev) => prev.filter((qi) => qi.invoiceId !== item.invoiceId));
-      }
-      setTotal((prev) => Math.max(0, prev - 1));
+      // Remove the prescribed row AND any sibling duplicates that back the
+      // same logical billing event. Without this, concurrent-cron-created
+      // duplicate Invoice / RefillQueue rows linger on screen until the
+      // next /api/provider/prescription-queue refresh.
+      const groupKey = getQueueDedupKey(item);
+      const removedCount = queueItems.filter((qi) => getQueueDedupKey(qi) === groupKey).length;
+      setQueueItems((prev) => prev.filter((qi) => getQueueDedupKey(qi) !== groupKey));
+      setTotal((prev) => Math.max(0, prev - Math.max(1, removedCount)));
 
       closePrescriptionPanel();
       setShowConfirmation(false);
@@ -1338,14 +1456,12 @@ export default function PrescriptionQueuePage() {
       void fetchStats();
       void fetchQueue();
     } else if (response.status === 409) {
-      if (item.queueType === 'refill' && item.refillId) {
-        setQueueItems((prev) =>
-          prev.filter((qi) => !(qi.queueType === 'refill' && qi.refillId === item.refillId))
-        );
-      } else if (item.invoiceId) {
-        setQueueItems((prev) => prev.filter((qi) => qi.invoiceId !== item.invoiceId));
-      }
-      setTotal((prev) => Math.max(0, prev - 1));
+      // Already-prescribed-by-another-provider race: same group-scoped
+      // cleanup as the success path so we don't leave stale duplicates.
+      const groupKey = getQueueDedupKey(item);
+      const removedCount = queueItems.filter((qi) => getQueueDedupKey(qi) === groupKey).length;
+      setQueueItems((prev) => prev.filter((qi) => getQueueDedupKey(qi) !== groupKey));
+      setTotal((prev) => Math.max(0, prev - Math.max(1, removedCount)));
       closePrescriptionPanel();
       setShowConfirmation(false);
       setError('This prescription was already sent by another provider.');
@@ -1547,15 +1663,14 @@ export default function PrescriptionQueuePage() {
 
       if (response.ok) {
         const data = await response.json();
-        setQueueItems((prev) =>
-          prev.filter((qi) => {
-            if (item.queueType === 'refill' && item.refillId) {
-              return !(qi.queueType === 'refill' && qi.refillId === item.refillId);
-            }
-            return qi.invoiceId !== item.invoiceId;
-          })
-        );
-        setTotal((prev) => Math.max(0, prev - 1));
+        // Prune the whole dedup group so duplicate sibling rows for the
+        // same logical billing event don't linger after "Done".
+        const groupKey = getQueueDedupKey(item);
+        const removedCount = queueItems.filter(
+          (qi) => getQueueDedupKey(qi) === groupKey
+        ).length;
+        setQueueItems((prev) => prev.filter((qi) => getQueueDedupKey(qi) !== groupKey));
+        setTotal((prev) => Math.max(0, prev - Math.max(1, removedCount)));
         if (showMessage) {
           const msg = data.message?.includes('another provider')
             ? `Already processed by another provider`
@@ -1609,10 +1724,14 @@ export default function PrescriptionQueuePage() {
       });
 
       if (response.ok) {
-        setQueueItems((prev) =>
-          prev.filter((item) => item.invoiceId !== declineModal.item.invoiceId)
-        );
-        setTotal((prev) => prev - 1);
+        // Prune the whole dedup group on decline so duplicate sibling
+        // invoices for the same Stripe charge are removed together.
+        const groupKey = getQueueDedupKey(declineModal.item);
+        const removedCount = queueItems.filter(
+          (qi) => getQueueDedupKey(qi) === groupKey
+        ).length;
+        setQueueItems((prev) => prev.filter((qi) => getQueueDedupKey(qi) !== groupKey));
+        setTotal((prev) => Math.max(0, prev - Math.max(1, removedCount)));
         setSuccessMessage(`Prescription for ${declineModal.item.patientName} has been declined`);
         setSuccessLifefileId(null);
         setTimeout(() => setSuccessMessage(''), 4000);
@@ -1778,7 +1897,17 @@ export default function PrescriptionQueuePage() {
     item.invoiceNumber,
     item.patientDisplayId,
   ]);
-  const allFilteredItems = searchResult.matches;
+  // Group queue rows that back the same logical billing event so the
+  // provider sees one card per real prescription decision. Concurrent
+  // scheduled-payment crons and webhook retries can create N paid Invoice
+  // rows (or RefillQueue rows) for a single Stripe charge. Without this
+  // collapse, the queue shows the same patient N times and prescribing one
+  // doesn't visibly remove the rest until the page is refreshed.
+  const dedupedFilteredItems = useMemo(
+    () => collapseDuplicateQueueItems(searchResult.matches),
+    [searchResult.matches]
+  );
+  const allFilteredItems = dedupedFilteredItems;
   const readyItems = allFilteredItems.filter((i) => !i.holdReason);
   const needsInfoItems = allFilteredItems.filter((i) => !!i.holdReason);
   const filteredItems = activeTab === 'ready' ? readyItems : needsInfoItems;
@@ -1947,7 +2076,7 @@ export default function PrescriptionQueuePage() {
           />
         </button>
         <div
-          className={`grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4 ${showMobileStats ? '' : 'hidden sm:grid'}`}
+          className={`grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4 lg:grid-cols-5 ${showMobileStats ? '' : 'hidden sm:grid'}`}
         >
           {(
             [
@@ -2004,6 +2133,46 @@ export default function PrescriptionQueuePage() {
               </>
             ) : (
               <p className="mt-3 text-sm text-gray-500">No GLP‑1 Rx this month yet</p>
+            )}
+          </div>
+          <div className="col-span-2 rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm sm:col-span-1">
+            <div className="flex items-center gap-2 text-xs font-medium text-gray-500">
+              <RefreshCw className="h-3.5 w-3.5 shrink-0 text-gray-400" aria-hidden />
+              New vs Refill (MTD)
+            </div>
+            {statsLoading ? (
+              <div className="mt-3 h-10 animate-pulse rounded-lg bg-gray-100" />
+            ) : stats && stats.newVsRefill.total > 0 ? (
+              <>
+                <div className="mt-3 flex h-2.5 overflow-hidden rounded-full bg-gray-100">
+                  <div
+                    className="bg-[#66a682] transition-all"
+                    style={{ width: `${stats.newVsRefill.newPercent ?? 0}%` }}
+                    title={`New scripts ${stats.newVsRefill.newPercent}%`}
+                  />
+                  <div
+                    className="bg-[#6b8ced] transition-all"
+                    style={{ width: `${stats.newVsRefill.refillPercent ?? 0}%` }}
+                    title={`Refills ${stats.newVsRefill.refillPercent}%`}
+                  />
+                </div>
+                <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-600">
+                  <span>
+                    <span className="font-semibold text-gray-600">
+                      {stats.newVsRefill.newPercent}%
+                    </span>{' '}
+                    New ({stats.newVsRefill.newScripts})
+                  </span>
+                  <span>
+                    <span className="font-semibold text-[#6b8ced]">
+                      {stats.newVsRefill.refillPercent}%
+                    </span>{' '}
+                    Refills ({stats.newVsRefill.refills})
+                  </span>
+                </div>
+              </>
+            ) : (
+              <p className="mt-3 text-sm text-gray-500">No Rx submitted this month yet</p>
             )}
           </div>
         </div>
@@ -2410,6 +2579,15 @@ export default function PrescriptionQueuePage() {
                                 NEW
                               </span>
                             ) : null}
+                            {item._dupGroupSize && item._dupGroupSize > 1 && (
+                              <span
+                                className="inline-flex items-center gap-1 rounded-full border border-orange-300 bg-orange-50 px-2 py-0.5 text-[10px] font-bold tracking-wide text-orange-700"
+                                title={`This patient has ${item._dupGroupSize} duplicate billing rows for the same subscription charge. Sending this prescription will clear all of them. Likely caused by concurrent scheduled-payment cron retries — see backend duplicate-invoice fix.`}
+                              >
+                                +{item._dupGroupSize - 1} duplicate
+                                {item._dupGroupSize - 1 !== 1 ? 's' : ''}
+                              </span>
+                            )}
                             <span
                               className="hidden items-center rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-medium text-slate-600 xl:inline-flex"
                               title="Clinic"

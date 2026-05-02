@@ -1544,6 +1544,12 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         // Hold status (fetched via raw SQL to avoid Prisma schema dependency)
         holdReason: invoiceHoldMap.get(invoice.id)?.reason || null,
         heldAt: invoiceHoldMap.get(invoice.id)?.heldAt || null,
+        // Subscription identifiers for client-side duplicate collapsing.
+        // Multiple paid Invoice rows can back the same Stripe subscription
+        // charge (e.g. concurrent scheduled-payment cron retries). The UI
+        // groups by these so prescribing one collapses the rest.
+        subscriptionId: null,
+        stripeSubscriptionId: (metadata?.stripeSubscriptionId as string | undefined) ?? null,
       };
     });
 
@@ -1694,6 +1700,11 @@ async function handleGet(req: NextRequest, user: AuthUser) {
               status: refill.subscription.status,
             }
           : null,
+        // Subscription identifiers exposed at top level for client-side
+        // duplicate collapsing (mirrors invoice items so the same dedup key
+        // works across queue types).
+        subscriptionId: refill.subscriptionId ?? refill.subscription?.id ?? null,
+        stripeSubscriptionId: null,
         // CRITICAL: Flag for multi-tenant isolation violation detection
         clinicMismatch: refillClinicId !== refillPatientClinicId,
         patientClinicId: refillPatientClinicId,
@@ -1771,6 +1782,10 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         queuedByUserId: order.queuedByUserId,
         holdReason: order.status === 'needs_info' ? 'Held for more information' : null,
         heldAt: order.status === 'needs_info' ? order.updatedAt?.toISOString() : null,
+        // Queued orders are uniquely identified by orderId; they don't share
+        // a subscription with other queue items, so leave these null.
+        subscriptionId: null,
+        stripeSubscriptionId: null,
       };
     });
 
