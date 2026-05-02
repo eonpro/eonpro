@@ -108,11 +108,10 @@ describe('getOtPackageQuoteAtTier', () => {
     expect(q).not.toBeNull();
     expect(q!.retailCents).toBe(128500);
     /**
-     * TRT Plus 6mo COGS = $55 × 6 = $330 (linear, no bulk discount per
-     * stakeholder direction 2026-05-02). Was $288 under the prior bundled
-     * pricing.
+     * TRT Plus 6mo COGS = Cypionate qty 6 × $35 + Enclo qty 1 × $108 +
+     * Anastrozole qty 1 × $72 = $390 (per-component pricing, 2026-05-02).
      */
-    expect(q!.costCents).toBe(33000);
+    expect(q!.costCents).toBe(39000);
   });
 
   it('returns null when neither retail nor cost exists for that tier', () => {

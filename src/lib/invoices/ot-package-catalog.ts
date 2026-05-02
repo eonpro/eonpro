@@ -150,11 +150,15 @@ const RX_ROWS: OtPackageCatalogRow[] = [
     category: 'rx',
     retailCentsByTier: { 1: $(239), 3: $(669), 6: $(1285), 12: $(2429) },
     /**
-     * Linear COGS per stakeholder direction (2026-05-02): $25 cypionate +
-     * $18 enclomiphene + $12 anastrozole = $55/month, no bulk discount.
-     * Replaces the prior bundled $48 / $144 / $288 / $576 figures.
+     * Per-component COGS model (2026-05-02 stakeholder direction):
+     *   Cypionate    — qty = months @ $35/vial (1mo special-case at $25)
+     *   Enclomiphene — qty 1 (single bundled fill) @ $1.50/cap × 12 caps × months
+     *                  → $18 / $54 / $108 / $216 for 1/3/6/12 mo
+     *   Anastrozole  — qty 1 @ $1.00/cap × 12 caps × months
+     *                  → $12 / $36 / $72 / $144 for 1/3/6/12 mo
+     * Tier totals: $55 / $195 / $390 / $780.
      */
-    costCentsByTier: { 1: $(55), 3: $(165), 6: $(330), 12: $(660) },
+    costCentsByTier: { 1: $(55), 3: $(195), 6: $(390), 12: $(780) },
     medLinesByTier: {
       1: [
         { name: 'Testosterone Cypionate 200mg/mL', strength: '200mg/mL', vialSize: 'INJ', quantity: 1, unitPriceCents: $(25) },
@@ -162,19 +166,19 @@ const RX_ROWS: OtPackageCatalogRow[] = [
         { name: 'Anastrozole 0.25 mg', strength: '0.25 mg', vialSize: 'CAP', quantity: 1, unitPriceCents: $(12) },
       ],
       3: [
-        { name: 'Testosterone Cypionate 200mg/mL', strength: '200mg/mL', vialSize: 'INJ', quantity: 3, unitPriceCents: $(25) },
-        { name: 'Enclomiphene Citrate 25 mg', strength: '25 mg', vialSize: 'CAP', quantity: 3, unitPriceCents: $(18) },
-        { name: 'Anastrozole 0.25 mg', strength: '0.25 mg', vialSize: 'CAP', quantity: 3, unitPriceCents: $(12) },
+        { name: 'Testosterone Cypionate 200mg/mL', strength: '200mg/mL', vialSize: 'INJ', quantity: 3, unitPriceCents: $(35) },
+        { name: 'Enclomiphene Citrate 25 mg', strength: '25 mg', vialSize: 'CAP', quantity: 1, unitPriceCents: $(54) },
+        { name: 'Anastrozole 0.25 mg', strength: '0.25 mg', vialSize: 'CAP', quantity: 1, unitPriceCents: $(36) },
       ],
       6: [
-        { name: 'Testosterone Cypionate 200mg/mL', strength: '200mg/mL', vialSize: 'INJ', quantity: 6, unitPriceCents: $(25) },
-        { name: 'Enclomiphene Citrate 25 mg', strength: '25 mg', vialSize: 'CAP', quantity: 6, unitPriceCents: $(18) },
-        { name: 'Anastrozole 0.25 mg', strength: '0.25 mg', vialSize: 'CAP', quantity: 6, unitPriceCents: $(12) },
+        { name: 'Testosterone Cypionate 200mg/mL', strength: '200mg/mL', vialSize: 'INJ', quantity: 6, unitPriceCents: $(35) },
+        { name: 'Enclomiphene Citrate 25 mg', strength: '25 mg', vialSize: 'CAP', quantity: 1, unitPriceCents: $(108) },
+        { name: 'Anastrozole 0.25 mg', strength: '0.25 mg', vialSize: 'CAP', quantity: 1, unitPriceCents: $(72) },
       ],
       12: [
-        { name: 'Testosterone Cypionate 200mg/mL', strength: '200mg/mL', vialSize: 'INJ', quantity: 12, unitPriceCents: $(25) },
-        { name: 'Enclomiphene Citrate 25 mg', strength: '25 mg', vialSize: 'CAP', quantity: 12, unitPriceCents: $(18) },
-        { name: 'Anastrozole 0.25 mg', strength: '0.25 mg', vialSize: 'CAP', quantity: 12, unitPriceCents: $(12) },
+        { name: 'Testosterone Cypionate 200mg/mL', strength: '200mg/mL', vialSize: 'INJ', quantity: 12, unitPriceCents: $(35) },
+        { name: 'Enclomiphene Citrate 25 mg', strength: '25 mg', vialSize: 'CAP', quantity: 1, unitPriceCents: $(216) },
+        { name: 'Anastrozole 0.25 mg', strength: '0.25 mg', vialSize: 'CAP', quantity: 1, unitPriceCents: $(144) },
       ],
     },
     /**
