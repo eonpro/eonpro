@@ -1315,12 +1315,10 @@ function SalesRepEditor({
   onMutate: (m: (p: OtAllocationOverridePayload) => OtAllocationOverridePayload) => void;
   reps: SalesRepOption[];
 }) {
-  const medsTotalCents = payload.meds.reduce((s, m) => s + m.lineTotalCents, 0);
-  const grossMinusCogsCents = Math.max(0, payload.patientGrossCents - medsTotalCents);
   const payloadRateBps = payload.commissionRateBps ?? null;
   const hasAutoRate = payloadRateBps !== null && payloadRateBps > 0;
   const autoRateCommission = hasAutoRate
-    ? Math.round((grossMinusCogsCents * (payloadRateBps as number)) / 10_000)
+    ? Math.round((payload.patientGrossCents * (payloadRateBps as number)) / 10_000)
     : 0;
   const totalLineCommission = payload.meds.reduce((s, m) => {
     if (m.commissionRateBps == null || m.commissionRateBps <= 0) return s;
@@ -1363,8 +1361,7 @@ function SalesRepEditor({
       />
       {hasAutoRate && !usingManualOverride && (
         <p className="mb-2 mt-2 text-[11px] text-cyan-900">
-          {ratePercentLabel} × (gross {centsToDisplay(payload.patientGrossCents)} − COGS{' '}
-          {centsToDisplay(medsTotalCents)}) ={' '}
+          {ratePercentLabel} × gross {centsToDisplay(payload.patientGrossCents)} ={' '}
           <span className="font-semibold tabular-nums">{centsToDisplay(autoRateCommission)}</span>
         </p>
       )}
@@ -1428,7 +1425,7 @@ function SalesRepEditor({
                 className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium text-gray-700 hover:bg-gray-50"
                 title={
                   hasAutoRate
-                    ? `Reset to auto ${ratePercentLabel} × (gross − COGS)`
+                    ? `Reset to auto ${ratePercentLabel} × gross`
                     : 'Reset to per-line % sum'
                 }
               >

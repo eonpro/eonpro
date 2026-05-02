@@ -1004,7 +1004,6 @@ function NonRxRepCommissionField({
   onMutate: (m: (p: OtAllocationOverridePayload) => OtAllocationOverridePayload) => void;
   totals: { salesRepCommissionCents: number };
 }) {
-  const medsTotalCents = payload.meds.reduce((s, m) => s + m.lineTotalCents, 0);
   const payloadRateBps = payload.commissionRateBps ?? null;
   const hasAutoRate = payloadRateBps !== null && payloadRateBps > 0;
   const usingManualOverride = payload.salesRepCommissionCentsOverride !== null;
@@ -1050,7 +1049,7 @@ function NonRxRepCommissionField({
             className="whitespace-nowrap rounded-md border border-gray-200 bg-white px-2 py-1 text-[10px] font-medium text-gray-700 hover:bg-gray-50"
             title={
               hasAutoRate
-                ? `Reset to auto ${ratePctLabel} × (gross − COGS)`
+                ? `Reset to auto ${ratePctLabel} × gross`
                 : 'Reset to per-line %'
             }
           >
@@ -1060,8 +1059,7 @@ function NonRxRepCommissionField({
       </div>
       {!usingManualOverride && hasAutoRate && (
         <p className="mt-1 text-[10px] text-cyan-800">
-          {ratePctLabel} × (gross {centsToDisplay(payload.patientGrossCents)} − COGS{' '}
-          {centsToDisplay(medsTotalCents)}) ={' '}
+          {ratePctLabel} × gross {centsToDisplay(payload.patientGrossCents)} ={' '}
           <span className="font-semibold tabular-nums">{centsToDisplay(effectiveCents)}</span>
         </p>
       )}

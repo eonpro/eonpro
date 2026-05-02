@@ -175,8 +175,10 @@ export const OT_MERCHANT_PROCESSING_FEE_BPS = 400;
  *   1. No rep assigned (`salesRepId == null`) → 0
  *   2. `salesRepCommissionCentsOverride` (admin manually typed a $ amount) → use as-is
  *   3. Payload-level `commissionRateBps` (auto rule: 8% new / 1% rebill) →
- *      `max(0, patientGrossCents − Σ med.lineTotalCents) × bps / 10_000`
- *      (basis = "gross minus COGS")
+ *      `patientGrossCents × bps / 10_000`
+ *      Basis is **patient gross** per stakeholder direction (2026-05-02);
+ *      the prior "gross minus COGS" basis was simplified to plain gross
+ *      because it's easier for reps to understand at a glance.
  *   4. Legacy per-line `meds[].commissionRateBps` → sum of
  *      `lineTotalCents × bps / 10_000` per row
  *   5. 0
@@ -188,9 +190,7 @@ export function computeOtSalesRepCommissionCents(payload: OtAllocationOverridePa
   }
   const payloadRateBps = payload.commissionRateBps ?? null;
   if (payloadRateBps !== null && payloadRateBps > 0) {
-    const medsTotal = payload.meds.reduce((s, m) => s + m.lineTotalCents, 0);
-    const basis = Math.max(0, payload.patientGrossCents - medsTotal);
-    return Math.round((basis * payloadRateBps) / 10_000);
+    return Math.round((payload.patientGrossCents * payloadRateBps) / 10_000);
   }
   let total = 0;
   for (const m of payload.meds) {

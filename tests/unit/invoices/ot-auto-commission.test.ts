@@ -145,18 +145,23 @@ describe('computeOtSalesRepCommissionCents precedence', () => {
     expect(computeOtSalesRepCommissionCents(p)).toBe(9999);
   });
 
-  it('payload commissionRateBps = (gross − meds) × bps / 10_000', () => {
-    // gross 350, meds 135 → basis 215; 8% → $17.20
+  it('payload commissionRateBps = patientGrossCents × bps / 10_000 (gross basis since 2026-05-02)', () => {
+    // gross 350; 8% → $28.00
     const p = basePayload({ commissionRateBps: NEW_BPS });
-    expect(computeOtSalesRepCommissionCents(p)).toBe(1720);
+    expect(computeOtSalesRepCommissionCents(p)).toBe(2800);
   });
 
-  it('rebill (1%) of $350 − $135 = $2.15', () => {
+  it('rebill (1%) of $350 = $3.50', () => {
     const p = basePayload({ commissionRateBps: REBILL_BPS });
-    expect(computeOtSalesRepCommissionCents(p)).toBe(215);
+    expect(computeOtSalesRepCommissionCents(p)).toBe(350);
   });
 
-  it('floors basis at 0 when meds total exceeds gross (admin over-allocation)', () => {
+  it('basis is gross even when meds total exceeds gross (admin over-allocation)', () => {
+    /**
+     * Commission no longer subtracts COGS, so over-allocating meds doesn't
+     * zero out the rep's commission. 8% × $50 gross = $4.00 regardless of
+     * the $100 meds line.
+     */
     const p = basePayload({
       patientGrossCents: 5000, // $50 gross
       meds: [
@@ -174,7 +179,7 @@ describe('computeOtSalesRepCommissionCents precedence', () => {
       ],
       commissionRateBps: NEW_BPS,
     });
-    expect(computeOtSalesRepCommissionCents(p)).toBe(0);
+    expect(computeOtSalesRepCommissionCents(p)).toBe(400);
   });
 
   it('falls back to legacy per-line bps when payload rate is null', () => {
@@ -201,19 +206,21 @@ describe('computeOtSalesRepCommissionCents precedence', () => {
   it('totals reflect commission via computeOtAllocationOverrideTotals', () => {
     const p = basePayload({ commissionRateBps: NEW_BPS });
     const t = computeOtAllocationOverrideTotals(p);
-    expect(t.salesRepCommissionCents).toBe(1720);
     /**
+     * Gross-basis commission (since 2026-05-02): 8% × $350 = $28 = 2,800.
      * total deductions:
-     *   meds 13500 + commission 1720
+     *   meds 13500
+     *   + commission 2,800
      *   + EONPro 5% × $350 = 1,750
      *   + Merchant 4% × $350 = 1,400
      */
     const eonpro = Math.round((35_000 * 500) / 10_000);
     const merchant = Math.round((35_000 * 400) / 10_000);
+    expect(t.salesRepCommissionCents).toBe(2800);
     expect(t.eonproFeeCents).toBe(eonpro);
     expect(t.merchantProcessingFeeCents).toBe(merchant);
-    expect(t.totalDeductionsCents).toBe(13_500 + 1720 + eonpro + merchant);
-    expect(t.netToOtClinicCents).toBe(35_000 - (13_500 + 1720 + eonpro + merchant));
+    expect(t.totalDeductionsCents).toBe(13_500 + 2800 + eonpro + merchant);
+    expect(t.netToOtClinicCents).toBe(35_000 - (13_500 + 2800 + eonpro + merchant));
   });
 });
 
@@ -241,8 +248,7 @@ describe('buildDefaultOverridePayload — auto rate by isRebill', () => {
     const payload = buildDefaultOverridePayload(sale, []);
     expect(payload.salesRepCommissionCentsOverride).toBeNull();
     // Effective commission comes from payload rate, not from ledger.
-    // Patient gross 35000, meds 0 (no pharmacy line for orderId=1) → basis 35000
-    // 35000 × 8% = 2800
+    // 8% × $350 patient gross = $28.00 (gross basis since 2026-05-02).
     expect(computeOtSalesRepCommissionCents(payload)).toBe(2800);
   });
 
