@@ -1678,6 +1678,11 @@ function TotalsPanel({
         <RowKv label="Fulfillment" value={totals.fulfillmentFeesCents} negative />
         <RowKv label="Custom lines" value={totals.customLineItemsCents} negative />
         <RowKv label="Sales rep commission" value={totals.salesRepCommissionCents} negative />
+        <RowKv
+          label="Merchant processing (4%)"
+          value={totals.merchantProcessingFeeCents}
+          negative
+        />
         <RowKv label="EONPro fee (5%)" value={totals.eonproFeeCents} negative />
         <div className="my-1 h-px bg-gray-200" />
         <RowKv label="Total deductions" value={totals.totalDeductionsCents} bold negative />

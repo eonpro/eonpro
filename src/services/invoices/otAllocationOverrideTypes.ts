@@ -139,6 +139,13 @@ export interface OtAllocationOverrideTotals {
    * (the rate is fixed at the platform level).
    */
   eonproFeeCents: number;
+  /**
+   * Stripe / merchant processing 4% on patient gross — also auto-deducted
+   * from every transaction. Computed as `round(patientGrossCents × 4%)`.
+   * Per-row visibility into what the card processor took, so the row's
+   * "Net to OT clinic" reflects the actual payout.
+   */
+  merchantProcessingFeeCents: number;
   /** Sum of everything billable to the OT clinic. */
   totalDeductionsCents: number;
   /** patientGrossCents - totalDeductionsCents (may be negative if admin over-allocates). */
@@ -152,6 +159,14 @@ export interface OtAllocationOverrideTotals {
  * rate via `OT_EONPRO_FEE_BPS` in `ot-pricing.ts`.
  */
 export const OT_EONPRO_FEE_BPS = 500;
+
+/**
+ * Merchant / Stripe processing fee rate in basis points (400 = 4%). Mirrors
+ * `OT_MERCHANT_PROCESSING_BPS` in `ot-pricing.ts`. Re-exported here so the
+ * editor's Live Totals doesn't have to import from the broader server-side
+ * pricing module.
+ */
+export const OT_MERCHANT_PROCESSING_FEE_BPS = 400;
 
 /**
  * Computes the sales-rep commission for a sale.
@@ -193,6 +208,9 @@ export function computeOtAllocationOverrideTotals(
   const customLineItemsCents = payload.customLineItems.reduce((s, c) => s + c.amountCents, 0);
   const salesRepCommissionCents = computeOtSalesRepCommissionCents(payload);
   const eonproFeeCents = Math.round((payload.patientGrossCents * OT_EONPRO_FEE_BPS) / 10_000);
+  const merchantProcessingFeeCents = Math.round(
+    (payload.patientGrossCents * OT_MERCHANT_PROCESSING_FEE_BPS) / 10_000
+  );
   const totalDeductionsCents =
     medicationsCents +
     payload.shippingCents +
@@ -201,7 +219,8 @@ export function computeOtAllocationOverrideTotals(
     payload.fulfillmentFeesCents +
     customLineItemsCents +
     salesRepCommissionCents +
-    eonproFeeCents;
+    eonproFeeCents +
+    merchantProcessingFeeCents;
   return {
     medicationsCents,
     shippingCents: payload.shippingCents,
@@ -211,6 +230,7 @@ export function computeOtAllocationOverrideTotals(
     customLineItemsCents,
     salesRepCommissionCents,
     eonproFeeCents,
+    merchantProcessingFeeCents,
     totalDeductionsCents,
     netToOtClinicCents: payload.patientGrossCents - totalDeductionsCents,
   };

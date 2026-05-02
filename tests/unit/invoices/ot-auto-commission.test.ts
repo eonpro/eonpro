@@ -203,13 +203,17 @@ describe('computeOtSalesRepCommissionCents precedence', () => {
     const t = computeOtAllocationOverrideTotals(p);
     expect(t.salesRepCommissionCents).toBe(1720);
     /**
-     * total deductions = meds 13500 + commission 1720 + EONPro 5% × $350 = 1750
-     * (rate change 2026-05-02: every row carries the 5% EONPro fee)
+     * total deductions:
+     *   meds 13500 + commission 1720
+     *   + EONPro 5% × $350 = 1,750
+     *   + Merchant 4% × $350 = 1,400
      */
     const eonpro = Math.round((35_000 * 500) / 10_000);
+    const merchant = Math.round((35_000 * 400) / 10_000);
     expect(t.eonproFeeCents).toBe(eonpro);
-    expect(t.totalDeductionsCents).toBe(13_500 + 1720 + eonpro);
-    expect(t.netToOtClinicCents).toBe(35_000 - (13_500 + 1720 + eonpro));
+    expect(t.merchantProcessingFeeCents).toBe(merchant);
+    expect(t.totalDeductionsCents).toBe(13_500 + 1720 + eonpro + merchant);
+    expect(t.netToOtClinicCents).toBe(35_000 - (13_500 + 1720 + eonpro + merchant));
   });
 });
 
