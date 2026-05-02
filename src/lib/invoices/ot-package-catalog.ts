@@ -358,12 +358,45 @@ const LAB_ROWS: OtPackageCatalogRow[] = [
     defaultConsultCents: $(10),
     defaultShippingCents: 0,
   },
+  /**
+   * Tiered bloodwork panels added 2026-05-02 per OT pricing sheet. All
+   * have $10 doctor consult (per bloodwork rule) and $0 shipping
+   * (specimens go straight to Quest/Labcorp).
+   */
+  {
+    id: 'bloodwork-minimalist',
+    name: 'Bloodwork (Minimalist)',
+    category: 'lab',
+    retailCentsByTier: { 1: $(250) },
+    costCentsByTier: { 1: $(108) },
+    defaultConsultCents: $(10),
+    defaultShippingCents: 0,
+  },
+  {
+    id: 'bloodwork-full-optimization',
+    name: 'Bloodwork (Full Optimization)',
+    category: 'lab',
+    retailCentsByTier: { 1: $(450) },
+    costCentsByTier: { 1: $(186) },
+    defaultConsultCents: $(10),
+    defaultShippingCents: 0,
+  },
+  {
+    id: 'bloodwork-elite-performance',
+    name: 'Bloodwork (Elite Performance Panel)',
+    category: 'lab',
+    retailCentsByTier: { 1: $(1000) },
+    costCentsByTier: { 1: $(351) },
+    defaultConsultCents: $(10),
+    defaultShippingCents: 0,
+  },
   {
     id: 'womens-full-panel',
     name: 'WOMENS FULL PANEL',
     category: 'lab',
     retailCentsByTier: { 1: $(200) },
-    costCentsByTier: {},
+    /** Pharmacy COGS confirmed 2026-05-02: $109 per Women's Full Panel. */
+    costCentsByTier: { 1: $(109) },
     defaultConsultCents: $(10),
     defaultShippingCents: 0,
   },

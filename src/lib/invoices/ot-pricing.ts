@@ -646,7 +646,7 @@ export function classifyOtNonPharmacyChargeLine(
   const d = description.toLowerCase();
   if (
     amountCents === OT_BLOODWORK_STANDARD_FEE_CENTS ||
-    /\b(blood\s*work|bloodwork|lab\s*panel|quest|labcorp|phlebotom|cmp\b|cbc\b|baseline\s*lab)\b/i.test(
+    /\b(blood\s*work|bloodwork|lab\s*panel|quest|labcorp|phlebotom|cmp\b|cbc\b|baseline\s*lab|elite\s*performance\s*panel|full\s*optimization|minimalist\s*panel|womens?\s*(?:full\s*)?panel)\b/i.test(
       description
     )
   ) {

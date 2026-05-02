@@ -35,6 +35,39 @@ const BLOODWORK: BillingPlan[] = [
     stripeProductId: 'prod_UDHDmjRVdZJdqe',
     stripePriceId: 'price_1TEqemDQIH4O9Fhr17c0s2h8',
   },
+  /**
+   * Tiered bloodwork panels added 2026-05-02 per OT pricing sheet:
+   *   Minimalist          $250 retail · $108 clinic cost
+   *   Full Optimization   $450 retail · $186 clinic cost
+   *   Elite Performance   $1,000 retail · $351 clinic cost
+   * Stripe IDs intentionally omitted — created on first checkout via the
+   * standard sync flow (the seed script back-fills `stripeProductId` /
+   * `stripePriceId` after the first Stripe charge against this slug).
+   */
+  {
+    id: 'ot_bloodwork_minimalist',
+    name: 'Bloodwork (Minimalist)',
+    category: 'ot_bloodwork',
+    price: 25000,
+    description: 'Bloodwork (Minimalist)',
+    slug: 'ot_bloodwork_minimalist',
+  },
+  {
+    id: 'ot_bloodwork_full_optimization',
+    name: 'Bloodwork (Full Optimization)',
+    category: 'ot_bloodwork',
+    price: 45000,
+    description: 'Bloodwork (Full Optimization)',
+    slug: 'ot_bloodwork_full_optimization',
+  },
+  {
+    id: 'ot_bloodwork_elite_performance',
+    name: 'Bloodwork (Elite Performance Panel)',
+    category: 'ot_bloodwork',
+    price: 100000,
+    description: 'Bloodwork (Elite Performance Panel)',
+    slug: 'ot_bloodwork_elite_performance',
+  },
   {
     id: 'ot_bloodwork_womens',
     name: 'BLOODWORK (Womens Panel)',
