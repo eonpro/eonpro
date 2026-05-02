@@ -27,6 +27,8 @@ import {
   ChevronDown,
   ChevronRight,
   AlertCircle,
+  Search,
+  X as XIcon,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 import {
@@ -160,6 +162,8 @@ export function OtNonRxAllocationEditor({ startDate, endDate, useRange, seeds }:
   const [warning, setWarning] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [reps, setReps] = useState<SalesRepOption[]>([]);
+  /** Patient / disposition / chargeKind search query — case-insensitive substring filter. */
+  const [searchQuery, setSearchQuery] = useState('');
 
   /** Sales rep dropdown — same source as the Rx editor (re-exported endpoint). */
   useEffect(() => {
@@ -245,6 +249,29 @@ export function OtNonRxAllocationEditor({ startDate, endDate, useRange, seeds }:
     for (const s of seeds) m.set(s.dispositionKey, s);
     return m;
   }, [seeds]);
+
+  /**
+   * Filtered seeds for the row list. Case-insensitive substring match on
+   * patient name, dispositionKey, chargeKind, productDescription, and the
+   * row's saved sales rep name. Empty query → return all seeds.
+   */
+  const filteredSeeds = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (q.length === 0) return seeds;
+    return seeds.filter((s) => {
+      const payload = rowsState[s.dispositionKey] ?? s.defaultPayload;
+      const blob = [
+        s.patientName,
+        s.productDescription,
+        s.dispositionKey,
+        s.chargeKind,
+        payload.salesRepName ?? '',
+      ]
+        .join(' ')
+        .toLowerCase();
+      return blob.includes(q);
+    });
+  }, [seeds, rowsState, searchQuery]);
 
   const grandTotals = useMemo(() => {
     let gross = 0;
@@ -441,37 +468,72 @@ export function OtNonRxAllocationEditor({ startDate, endDate, useRange, seeds }:
         </div>
       )}
 
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <input
+          type="text"
+          placeholder="Search by patient, disposition #, chargeKind, product, or sales rep…"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full rounded-xl border border-gray-200 bg-white py-2 pl-10 pr-10 text-sm shadow-sm focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
+        />
+        {searchQuery.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setSearchQuery('')}
+            aria-label="Clear search"
+            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+          >
+            <XIcon className="h-3.5 w-3.5" />
+          </button>
+        )}
+        {searchQuery.length > 0 && (
+          <p className="mt-1.5 px-1 text-xs text-gray-500">
+            {filteredSeeds.length} of {seeds.length} rows match &ldquo;{searchQuery}&rdquo;
+          </p>
+        )}
+      </div>
+
       <div className="flex flex-col gap-2">
-        {seeds.map((seed) => {
-          const payload = rowsState[seed.dispositionKey] ?? seed.defaultPayload;
-          const totals = computeOtAllocationOverrideTotals(payload);
-          const meta = savedMeta[seed.dispositionKey];
-          const sp = savedPayload[seed.dispositionKey];
-          const isDirty = !sp || !payloadsEqual(payload, sp);
-          return (
-            <NonRxRow
-              key={seed.dispositionKey}
-              seed={seed}
-              payload={payload}
-              totals={totals}
-              meta={meta ?? null}
-              isDirty={isDirty}
-              isSaving={savingKey === seed.dispositionKey}
-              isExpanded={!!expanded[seed.dispositionKey]}
-              reps={reps}
-              onToggleExpand={() =>
-                setExpanded((prev) => ({
-                  ...prev,
-                  [seed.dispositionKey]: !prev[seed.dispositionKey],
-                }))
-              }
-              onMutate={(m) => updateRow(seed.dispositionKey, m)}
-              onReset={() => resetRow(seed.dispositionKey)}
-              onSaveDraft={() => saveRow(seed, 'DRAFT')}
-              onFinalize={() => saveRow(seed, 'FINALIZED')}
-            />
-          );
-        })}
+        {filteredSeeds.length === 0 && searchQuery.length > 0 ? (
+          <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-4 py-10 text-center">
+            <p className="text-sm text-gray-500">
+              No rows match &ldquo;{searchQuery}&rdquo;. Try a different patient name,
+              disposition key, or rep.
+            </p>
+          </div>
+        ) : (
+          filteredSeeds.map((seed) => {
+            const payload = rowsState[seed.dispositionKey] ?? seed.defaultPayload;
+            const totals = computeOtAllocationOverrideTotals(payload);
+            const meta = savedMeta[seed.dispositionKey];
+            const sp = savedPayload[seed.dispositionKey];
+            const isDirty = !sp || !payloadsEqual(payload, sp);
+            return (
+              <NonRxRow
+                key={seed.dispositionKey}
+                seed={seed}
+                payload={payload}
+                totals={totals}
+                meta={meta ?? null}
+                isDirty={isDirty}
+                isSaving={savingKey === seed.dispositionKey}
+                isExpanded={!!expanded[seed.dispositionKey]}
+                reps={reps}
+                onToggleExpand={() =>
+                  setExpanded((prev) => ({
+                    ...prev,
+                    [seed.dispositionKey]: !prev[seed.dispositionKey],
+                  }))
+                }
+                onMutate={(m) => updateRow(seed.dispositionKey, m)}
+                onReset={() => resetRow(seed.dispositionKey)}
+                onSaveDraft={() => saveRow(seed, 'DRAFT')}
+                onFinalize={() => saveRow(seed, 'FINALIZED')}
+              />
+            );
+          })
+        )}
       </div>
     </div>
   );
