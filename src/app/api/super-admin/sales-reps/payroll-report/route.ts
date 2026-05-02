@@ -148,6 +148,17 @@ interface ProductLookupContext {
   invoiceByStripeId: Map<string, InvoiceWithItems>;
 }
 
+function invoiceItemsLabelFromPayment(
+  payment: PaymentRow | undefined,
+  invoiceById: Map<number, InvoiceWithItems>
+): string {
+  if (!payment) return '';
+  const invId = payment.invoiceId;
+  if (invId === null) return '';
+  const inv = invoiceById.get(invId);
+  return inv ? formatInvoiceItems(inv) : '';
+}
+
 function lookupProductsForEvent(
   ev: CommissionEventForProductLookup,
   ctx: ProductLookupContext
@@ -158,19 +169,16 @@ function lookupProductsForEvent(
     if (inv) return formatInvoiceItems(inv);
   }
   if (sid?.startsWith('pi_')) {
-    const pmt = ctx.paymentByPi.get(sid);
-    if (pmt?.invoiceId !== null && pmt?.invoiceId !== undefined) {
-      const inv = ctx.invoiceById.get(pmt.invoiceId);
-      if (inv) return formatInvoiceItems(inv);
-    }
+    const label = invoiceItemsLabelFromPayment(ctx.paymentByPi.get(sid), ctx.invoiceById);
+    if (label) return label;
   }
   const metaPaymentId = metadataPaymentId(ev.metadata);
   if (metaPaymentId !== null) {
-    const pmt = ctx.paymentById.get(metaPaymentId);
-    if (pmt?.invoiceId !== null && pmt?.invoiceId !== undefined) {
-      const inv = ctx.invoiceById.get(pmt.invoiceId);
-      if (inv) return formatInvoiceItems(inv);
-    }
+    const label = invoiceItemsLabelFromPayment(
+      ctx.paymentById.get(metaPaymentId),
+      ctx.invoiceById
+    );
+    if (label) return label;
   }
   return '';
 }
