@@ -2634,15 +2634,6 @@ export default function PrescriptionQueuePage() {
                                 NEW
                               </span>
                             ) : null}
-                            {item._dupGroupSize && item._dupGroupSize > 1 && (
-                              <span
-                                className="inline-flex items-center gap-1 rounded-full border border-orange-300 bg-orange-50 px-2 py-0.5 text-[10px] font-bold tracking-wide text-orange-700"
-                                title={`This patient has ${item._dupGroupSize} duplicate billing rows for the same subscription charge. Sending this prescription will clear all of them. Likely caused by concurrent scheduled-payment cron retries — see backend duplicate-invoice fix.`}
-                              >
-                                +{item._dupGroupSize - 1} duplicate
-                                {item._dupGroupSize - 1 !== 1 ? 's' : ''}
-                              </span>
-                            )}
                             <span
                               className="hidden items-center rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-medium text-slate-600 xl:inline-flex"
                               title="Clinic"
