@@ -1431,7 +1431,12 @@ interface ScheduledPaymentData {
   status: 'PENDING' | 'PROCESSED' | 'FAILED' | 'CANCELED';
   notes: string | null;
   createdAt: string;
+  attemptCount?: number;
+  lastAttemptAt?: string | null;
+  failureReason?: string | null;
 }
+
+const MAX_SCHEDULED_PAYMENT_ATTEMPTS = 3;
 
 function ScheduledPaymentsSection({
   patientId,
@@ -1584,50 +1589,75 @@ function ScheduledPaymentsSection({
 
       {pendingPayments.length > 0 && (
         <div className="space-y-2">
-          {pendingPayments.map((sp) => (
-            <div
-              key={sp.id}
-              className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 p-3"
-            >
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-900">
-                    {sp.planName || sp.description || 'Custom Payment'}
-                  </span>
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                      sp.type === 'AUTO_CHARGE'
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'bg-purple-100 text-purple-700'
-                    }`}
-                  >
-                    {sp.type === 'AUTO_CHARGE' ? 'Auto-charge' : 'Reminder'}
-                  </span>
+          {pendingPayments.map((sp) => {
+            const attempts = sp.attemptCount ?? 0;
+            const reachedMax = attempts >= MAX_SCHEDULED_PAYMENT_ATTEMPTS;
+            const hasTransientFailure = attempts > 0 && !!sp.failureReason;
+            return (
+              <div
+                key={sp.id}
+                className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 p-3"
+              >
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-900">
+                      {sp.planName || sp.description || 'Custom Payment'}
+                    </span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                        sp.type === 'AUTO_CHARGE'
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'bg-purple-100 text-purple-700'
+                      }`}
+                    >
+                      {sp.type === 'AUTO_CHARGE' ? 'Auto-charge' : 'Reminder'}
+                    </span>
+                    {hasTransientFailure && (
+                      <span
+                        className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-medium text-rose-700"
+                        title={sp.failureReason ?? undefined}
+                      >
+                        Retried {attempts}x
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    {formatCurrency(sp.amount)} ·{' '}
+                    {mounted ? new Date(sp.scheduledDate).toLocaleDateString() : '—'}
+                    {sp.notes ? ` · ${sp.notes}` : ''}
+                  </p>
+                  {hasTransientFailure && (
+                    <p className="mt-1 text-[11px] italic text-rose-600">
+                      Last error: {sp.failureReason}
+                    </p>
+                  )}
                 </div>
-                <p className="text-xs text-gray-500">
-                  {formatCurrency(sp.amount)} ·{' '}
-                  {mounted ? new Date(sp.scheduledDate).toLocaleDateString() : '—'}
-                  {sp.notes ? ` · ${sp.notes}` : ''}
-                </p>
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={() => handleScheduledAction(sp.id, 'process')}
+                    disabled={actionProcessing === sp.id || reachedMax}
+                    title={
+                      reachedMax
+                        ? `Already attempted ${attempts}x — cancel and reschedule with a new card.`
+                        : sp.failureReason
+                          ? `Retry now. Last error: ${sp.failureReason}`
+                          : 'Charge the saved card now'
+                    }
+                    className="rounded-md bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700 hover:bg-green-200 disabled:opacity-50"
+                  >
+                    {actionProcessing === sp.id ? '...' : 'Process Now'}
+                  </button>
+                  <button
+                    onClick={() => handleScheduledAction(sp.id, 'cancel')}
+                    disabled={actionProcessing === sp.id}
+                    className="rounded-md bg-red-100 px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-200 disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
-              <div className="flex gap-1.5">
-                <button
-                  onClick={() => handleScheduledAction(sp.id, 'process')}
-                  disabled={actionProcessing === sp.id}
-                  className="rounded-md bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700 hover:bg-green-200 disabled:opacity-50"
-                >
-                  {actionProcessing === sp.id ? '...' : 'Process Now'}
-                </button>
-                <button
-                  onClick={() => handleScheduledAction(sp.id, 'cancel')}
-                  disabled={actionProcessing === sp.id}
-                  className="rounded-md bg-red-100 px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-200 disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -1637,33 +1667,47 @@ function ScheduledPaymentsSection({
             Past scheduled payments ({pastPayments.length})
           </summary>
           <div className="mt-1 space-y-1">
-            {pastPayments.map((sp) => (
-              <div
-                key={sp.id}
-                className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 p-2"
-              >
-                <div>
-                  <span className="text-xs text-gray-600">
-                    {sp.planName || sp.description || 'Custom Payment'} —{' '}
-                    {formatCurrency(sp.amount)}
-                  </span>
-                  <span
-                    className={`ml-2 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-                      sp.status === 'PROCESSED'
-                        ? 'bg-green-100 text-green-700'
-                        : sp.status === 'FAILED'
-                          ? 'bg-red-100 text-red-700'
-                          : 'bg-gray-100 text-gray-500'
-                    }`}
-                  >
-                    {sp.status}
-                  </span>
+            {pastPayments.map((sp) => {
+              const showFailure = sp.status === 'FAILED' && (sp.failureReason || sp.attemptCount);
+              return (
+                <div
+                  key={sp.id}
+                  className="rounded-lg border border-gray-100 bg-gray-50 p-2"
+                  title={sp.failureReason ?? undefined}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs text-gray-600">
+                        {sp.planName || sp.description || 'Custom Payment'} —{' '}
+                        {formatCurrency(sp.amount)}
+                      </span>
+                      <span
+                        className={`ml-2 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                          sp.status === 'PROCESSED'
+                            ? 'bg-green-100 text-green-700'
+                            : sp.status === 'FAILED'
+                              ? 'bg-red-100 text-red-700'
+                              : 'bg-gray-100 text-gray-500'
+                        }`}
+                      >
+                        {sp.status}
+                        {sp.status === 'FAILED' && sp.attemptCount
+                          ? ` · ${sp.attemptCount}x`
+                          : ''}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-gray-400">
+                      {mounted ? new Date(sp.scheduledDate).toLocaleDateString() : '—'}
+                    </span>
+                  </div>
+                  {showFailure && sp.failureReason && (
+                    <p className="mt-1 truncate text-[11px] italic text-red-600">
+                      {sp.failureReason}
+                    </p>
+                  )}
                 </div>
-                <span className="text-[10px] text-gray-400">
-                  {mounted ? new Date(sp.scheduledDate).toLocaleDateString() : '—'}
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </details>
       )}

@@ -4,6 +4,8 @@ import { prisma } from '@/lib/db';
 import { withAuthParams } from '@/lib/auth/middleware-with-params';
 import { handleApiError } from '@/domains/shared/errors';
 import { logger } from '@/lib/logger';
+import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
+import { processScheduledPayment } from '@/services/billing/scheduledPaymentsService';
 
 const updateSchema = z.object({
   action: z.enum(['reschedule', 'cancel', 'process']),
@@ -54,6 +56,17 @@ async function handlePatch(
       );
     }
 
+    const auditCommon = {
+      userId: user.id,
+      userEmail: user.email,
+      userRole: user.role,
+      clinicId: scheduled.clinicId,
+      eventType: AuditEventType.SYSTEM_ACCESS,
+      resourceType: 'ScheduledPayment',
+      resourceId: scheduled.id,
+      patientId: scheduled.patientId,
+    };
+
     switch (validated.action) {
       case 'reschedule': {
         if (!validated.scheduledDate) {
@@ -78,6 +91,16 @@ async function handlePatch(
           },
         });
 
+        await auditLog(request, {
+          ...auditCommon,
+          action: 'scheduled_payment.rescheduled',
+          outcome: 'SUCCESS',
+          metadata: {
+            previousScheduledDate: scheduled.scheduledDate.toISOString(),
+            newScheduledDate: newDate.toISOString(),
+          },
+        }).catch(() => {});
+
         logger.info('[ScheduledPayment] Rescheduled', { id, newDate: newDate.toISOString() });
         return NextResponse.json({ success: true, scheduledPayment: updated });
       }
@@ -93,29 +116,71 @@ async function handlePatch(
           },
         });
 
+        await auditLog(request, {
+          ...auditCommon,
+          action: 'scheduled_payment.canceled',
+          outcome: 'SUCCESS',
+          reason: validated.notes,
+        }).catch(() => {});
+
         logger.info('[ScheduledPayment] Cancelled', { id, canceledBy: user.id });
         return NextResponse.json({ success: true, scheduledPayment: updated });
       }
 
       case 'process': {
-        const updated = await prisma.scheduledPayment.update({
-          where: { id },
-          data: {
-            status: 'PROCESSED',
-            processedAt: new Date(),
-            metadata: {
-              ...((scheduled.metadata as object) || {}),
-              manuallyProcessedBy: user.id,
-              manuallyProcessedAt: new Date().toISOString(),
-            },
-          },
-        });
+        // Route through the shared service so manual "Process Now" gets the
+        // same in-process Stripe charge (with stable idempotency, retry
+        // bookkeeping, audit, and notifications) as the cron path.
+        const outcome = await processScheduledPayment(id, { manualUserId: user.id });
 
-        logger.info('[ScheduledPayment] Manually marked as processed', {
-          id,
-          processedBy: user.id,
-        });
-        return NextResponse.json({ success: true, scheduledPayment: updated });
+        const updated = await prisma.scheduledPayment.findUnique({ where: { id } });
+
+        if (outcome.kind === 'PROCESSED' || outcome.kind === 'REMINDER_FIRED') {
+          return NextResponse.json({
+            success: true,
+            outcome: outcome.kind,
+            scheduledPayment: updated,
+            ...(outcome.kind === 'PROCESSED'
+              ? { paymentId: outcome.paymentId, invoiceId: outcome.invoiceId }
+              : {}),
+          });
+        }
+
+        if (outcome.kind === 'TERMINAL_FAILURE') {
+          return NextResponse.json(
+            {
+              success: false,
+              outcome: outcome.kind,
+              error: outcome.reason,
+              scheduledPayment: updated,
+            },
+            { status: 402 }
+          );
+        }
+
+        if (outcome.kind === 'RETRY_SCHEDULED') {
+          return NextResponse.json(
+            {
+              success: false,
+              outcome: outcome.kind,
+              error: `Charge failed (will retry automatically): ${outcome.reason}`,
+              attemptCount: outcome.attemptCount,
+              scheduledPayment: updated,
+            },
+            { status: 402 }
+          );
+        }
+
+        // SKIPPED
+        return NextResponse.json(
+          {
+            success: false,
+            outcome: outcome.kind,
+            error: outcome.reason,
+            scheduledPayment: updated,
+          },
+          { status: 400 }
+        );
       }
 
       default:

@@ -6512,6 +6512,14 @@ model ScheduledPayment {
   canceledBy    Int?
   notes         String?
   metadata      Json?
+  // Retry tracking for AUTO_CHARGE: number of attempts made and timestamp of
+  // the most recent attempt. Cron uses these to gate re-tries with backoff.
+  attemptCount   Int       @default(0)
+  lastAttemptAt  DateTime?
+  // Last failure reason persisted on FAILED rows (or transient PENDING rows
+  // mid-retry) so the UI can explain why the row is stuck without rummaging
+  // through the metadata JSON blob.
+  failureReason String?
   createdAt     DateTime               @default(now())
   updatedAt     DateTime               @updatedAt
 
@@ -6521,6 +6529,7 @@ model ScheduledPayment {
   @@index([clinicId, scheduledDate])
   @@index([patientId])
   @@index([status, scheduledDate])
+  @@index([status, scheduledDate, attemptCount])
 }
 
 enum ScheduledPaymentType {

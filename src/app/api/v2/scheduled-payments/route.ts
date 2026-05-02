@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { handleApiError } from '@/domains/shared/errors';
 import { logger } from '@/lib/logger';
+import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 
 const createSchema = z.object({
   patientId: z.number().positive(),
@@ -94,6 +95,31 @@ async function handlePost(request: NextRequest, user: AuthUser) {
         createdBy: user.id,
         notes: validated.notes,
       },
+    });
+
+    await auditLog(request, {
+      userId: user.id,
+      userEmail: user.email,
+      userRole: user.role,
+      clinicId: patient.clinicId,
+      eventType: AuditEventType.SYSTEM_ACCESS,
+      resourceType: 'ScheduledPayment',
+      resourceId: scheduled.id,
+      patientId: patient.id,
+      action: 'scheduled_payment.created',
+      outcome: 'SUCCESS',
+      metadata: {
+        scheduledPaymentId: scheduled.id,
+        type: validated.type,
+        amount: validated.amount,
+        scheduledDate: scheduledDate.toISOString(),
+        planId: validated.planId,
+      },
+    }).catch((err) => {
+      logger.warn('[ScheduledPayment] Audit log failed (non-blocking)', {
+        scheduledPaymentId: scheduled.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
     });
 
     logger.info('[ScheduledPayment] Created', {
