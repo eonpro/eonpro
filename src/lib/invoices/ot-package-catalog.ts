@@ -78,10 +78,30 @@ const RX_ROWS: OtPackageCatalogRow[] = [
   },
   {
     id: 'enclomiphene-25mg-maintenance',
-    name: 'Enclomiphene maintenance 25mg 14/42',
+    name: 'Enclomiphene Maintenance 25mg (MWF, 12/36)',
     category: 'rx',
     retailCentsByTier: { 1: $(149), 3: $(379), 6: $(735), 12: $(1426) },
-    costCentsByTier: { 1: $(30), 3: $(90), 6: $(180), 12: $(360) },
+    /**
+     * Pharmacy COGS per stakeholder direction (2026-05-02): $1.50/cap × 12
+     * caps/month MWF dosing = $18/month flat. Linear, no bulk discount.
+     * Replaces the prior $30/$90/$180/$360 figures. Quantities scale with
+     * tier (1mo = 12 caps, 3mo = 36 caps, etc.).
+     */
+    costCentsByTier: { 1: $(18), 3: $(54), 6: $(108), 12: $(216) },
+    medLinesByTier: {
+      1: [
+        { name: 'Enclomiphene Citrate 25 mg', strength: '25 mg', vialSize: 'CAP', quantity: 1, unitPriceCents: $(18) },
+      ],
+      3: [
+        { name: 'Enclomiphene Citrate 25 mg', strength: '25 mg', vialSize: 'CAP', quantity: 1, unitPriceCents: $(54) },
+      ],
+      6: [
+        { name: 'Enclomiphene Citrate 25 mg', strength: '25 mg', vialSize: 'CAP', quantity: 1, unitPriceCents: $(108) },
+      ],
+      12: [
+        { name: 'Enclomiphene Citrate 25 mg', strength: '25 mg', vialSize: 'CAP', quantity: 1, unitPriceCents: $(216) },
+      ],
+    },
     defaultConsultCents: $(30),
     defaultShippingCents: $(20),
   },

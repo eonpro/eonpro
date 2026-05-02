@@ -168,7 +168,11 @@ describe('findOtPackageMatchByPatientGross — tier-aware default cost', () => {
     expect(m).not.toBeNull();
     expect(m!.pkg.id).toBe('enclomiphene-25mg-maintenance');
     expect(m!.tier).toBe(1);
-    expect(m!.quote.costCents).toBe(3000);
+    /**
+     * Maintenance MWF 1-month COGS: $1.50/cap × 12 caps = $18 (rate change
+     * 2026-05-02 — was a fixed $30 bundled cost).
+     */
+    expect(m!.quote.costCents).toBe(1800);
   });
 
   it('returns null when the gross does not match any tier of any name-overlapping package', () => {

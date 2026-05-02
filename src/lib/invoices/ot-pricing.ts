@@ -327,9 +327,35 @@ export function inferOtPharmacyUnitPriceFromRx(rx: {
     if (/\b50\s*mg\b/.test(blob) || blob.includes('50mg')) {
       return row(4500, rx.medName, rx.strength, rx.form || '');
     }
-    // 25 mg (typical 90-capsule maintenance) — package COGS, billed as qty 1 in {@link effectiveOtPharmacyBillQuantity}.
+    /**
+     * 25 mg pricing per stakeholder direction (2026-05-02): $1.50/cap.
+     * Detect dosing pattern from strength/form text to pick the right
+     * tier-bundled cost. Rx blob hints we look for:
+     *   maintenance / MWF / mon, wed, fri / 12/36 → $1.50 × 12/mo = $18/mo
+     *   daily / 28/84                              → $1.50 × 28/mo = $42/mo
+     * Tier marker (1 / 3 / 6 / 12 month) selects the multi-month bundle.
+     */
     if (/\b25\s*mg\b/.test(blob) || blob.includes('25mg')) {
-      return row(13500, rx.medName, rx.strength, rx.form || '');
+      const isMaintenance =
+        blob.includes('maintenance') ||
+        /\bmwf\b/.test(blob) ||
+        blob.includes('mon') ||
+        blob.includes('14/42') ||
+        blob.includes('12/36');
+      const tier12 = blob.includes('12 month') || blob.includes('12mo') || blob.includes('annual');
+      const tier6 = blob.includes('6 month') || blob.includes('6mo');
+      const tier3 = blob.includes('3 month') || blob.includes('3mo') || blob.includes('quarterly');
+      if (isMaintenance) {
+        if (tier12) return row(21600, rx.medName, rx.strength, rx.form || '');
+        if (tier6) return row(10800, rx.medName, rx.strength, rx.form || '');
+        if (tier3) return row(5400, rx.medName, rx.strength, rx.form || '');
+        return row(1800, rx.medName, rx.strength, rx.form || '');
+      }
+      /** Daily dosing fallback (28 caps/month × $1.50 = $42/month). */
+      if (tier12) return row(50400, rx.medName, rx.strength, rx.form || '');
+      if (tier6) return row(25200, rx.medName, rx.strength, rx.form || '');
+      if (tier3) return row(12600, rx.medName, rx.strength, rx.form || '');
+      return row(4200, rx.medName, rx.strength, rx.form || '');
     }
     return row(4500, rx.medName, rx.strength, rx.form || '');
   }

@@ -194,7 +194,21 @@ describe('ot-pricing', () => {
       strength: '25 mg',
       form: 'tabs',
     });
-    expect(enclo?.priceCents).toBe(13500);
+    /**
+     * Daily 1-month default: $1.50/cap × 28 caps = $42 (rate change
+     * 2026-05-02 — was a fixed $135 bundled cost). Maintenance / multi-
+     * month tier markers in the blob bump to the right tier cost.
+     */
+    expect(enclo?.priceCents).toBe(4200);
+
+    const encloMaintenance3mo = inferOtPharmacyUnitPriceFromRx({
+      medicationKey: 'unknown-lf-id',
+      medName: 'Enclomiphene Maintenance 3 month - 25mg MWF',
+      strength: '25 mg',
+      form: 'tabs',
+    });
+    /** MWF dosing 3-month: 12 caps/month × $1.50 × 3 mo = $54. */
+    expect(encloMaintenance3mo?.priceCents).toBe(5400);
 
     const serm = inferOtPharmacyUnitPriceFromRx({
       medicationKey: 'x',
