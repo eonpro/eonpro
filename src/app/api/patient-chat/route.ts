@@ -28,8 +28,11 @@ import {
   CHAT_ATTACHMENT_MAX_BYTES,
   CHAT_ATTACHMENT_MAX_PER_MESSAGE,
   CHAT_ATTACHMENT_SIGNED_URL_TTL_SECONDS,
+  CHAT_MESSAGE_MAX_LENGTH_SMS,
+  CHAT_MESSAGE_MAX_LENGTH_WEB,
   MMS_SIGNED_URL_TTL_SECONDS,
   buildAttachmentOnlyPreview,
+  getChatMessageMaxLength,
   isMmsCompatibleAttachment,
   validateChatAttachmentS3Key,
   type ChatAttachmentMime,
@@ -52,14 +55,16 @@ function safeDecrypt(value: string | null | undefined): string | null {
 // ============================================================================
 
 /**
- * Sanitize text to prevent XSS attacks
- * Enterprise-grade: strips HTML, limits length, trims whitespace
+ * Sanitize text to prevent XSS attacks.
+ *
+ * Strips HTML and trims surrounding whitespace. We deliberately do NOT
+ * truncate here — channel-aware length limits are enforced by the Zod
+ * validator above so the user gets an explicit "Message too long" error
+ * instead of a silently shortened message that loses the punchline of a
+ * dosing schedule or an instruction.
  */
 function sanitizeText(text: string): string {
-  return text
-    .replace(/<[^>]*>/g, '')
-    .trim()
-    .substring(0, 2000);
+  return text.replace(/<[^>]*>/g, '').trim();
 }
 
 // ============================================================================
@@ -175,7 +180,16 @@ const sendMessageSchema = z
     // that messages whose only content is HTML stripped by the sanitizer
     // (e.g. an XSS payload) still validate as "had content". The
     // handler applies `sanitizeText` after parse.
-    message: z.string().max(2000, 'Message too long').optional().default(''),
+    //
+    // Length is intentionally bounded only by the *web* ceiling here so
+    // we can give an SMS-specific error message in the channel-aware
+    // refine below — Zod's `.max()` would otherwise emit a generic
+    // "Message too long" with no channel context.
+    message: z
+      .string()
+      .max(CHAT_MESSAGE_MAX_LENGTH_WEB, `Message too long (max ${CHAT_MESSAGE_MAX_LENGTH_WEB})`)
+      .optional()
+      .default(''),
     channel: z.enum(['WEB', 'SMS']).default('WEB'),
     threadId: z.string().max(100).optional(),
     replyToId: z.number().positive().optional(),
@@ -191,7 +205,24 @@ const sendMessageSchema = z
       (data.message && data.message.length > 0) ||
       (data.attachments && data.attachments.length > 0),
     { message: 'Message must contain text, attachments, or both', path: ['message'] }
-  );
+  )
+  .superRefine((data, ctx) => {
+    // SMS has a tighter cap than the generic web ceiling enforced by the
+    // string `.max()` above (Twilio segment economics — see constant
+    // doc-comment). Reject early so staff don't blow through 10+ SMS
+    // segments by accident.
+    const max = getChatMessageMaxLength(data.channel);
+    if (data.message && data.message.length > max) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['message'],
+        message:
+          data.channel === 'SMS'
+            ? `SMS messages are limited to ${CHAT_MESSAGE_MAX_LENGTH_SMS} characters. Switch to Web to send longer messages.`
+            : `Message too long (max ${max})`,
+      });
+    }
+  });
 
 const getMessagesSchema = z.object({
   patientId: z
@@ -354,13 +385,40 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
     const parseResult = sendMessageSchema.safeParse(rawData);
 
     if (!parseResult.success) {
+      const issues = parseResult.error.issues.map((i) => ({
+        field: i.path.join('.'),
+        message: i.message,
+      }));
+
+      // PHI-safe diagnostic so we can chase down "Invalid input" reports
+      // from the chat UI without ever logging the message body itself.
+      // We capture the failing field paths + the *shape* of the payload
+      // (lengths / counts / types) — never the content.
+      const raw = (rawData ?? {}) as Record<string, unknown>;
+      const rawMessage = typeof raw.message === 'string' ? raw.message : '';
+      const rawAttachments = Array.isArray(raw.attachments) ? raw.attachments : null;
+      logger.warn('[patient-chat] Send validation failed', {
+        userId: user.id,
+        clinicId: user.clinicId,
+        issues,
+        payloadShape: {
+          patientIdType: typeof raw.patientId,
+          patientId:
+            typeof raw.patientId === 'number' || typeof raw.patientId === 'string'
+              ? raw.patientId
+              : null,
+          channel: typeof raw.channel === 'string' ? raw.channel : null,
+          messageLength: rawMessage.length,
+          attachmentsCount: rawAttachments?.length ?? 0,
+          hasReplyToId: typeof raw.replyToId !== 'undefined',
+          hasThreadId: typeof raw.threadId !== 'undefined',
+        },
+      });
+
       return NextResponse.json(
         {
           error: 'Invalid input',
-          details: parseResult.error.issues.map((i) => ({
-            field: i.path.join('.'),
-            message: i.message,
-          })),
+          details: issues,
         },
         { status: 400 }
       );

@@ -18,6 +18,7 @@ import {
   getOtPackageById,
   getOtPackageQuoteAtTier,
   findOtPackageMatchByPatientGross,
+  findOtPackageMatchForInvoiceLine,
   type OtPackageTier,
 } from '@/lib/invoices/ot-package-catalog';
 
@@ -224,6 +225,44 @@ describe('findOtPackageMatchByPatientGross — tier-aware default cost', () => {
     expect(m).not.toBeNull();
     expect(m!.pkg.id).toBe('enclomiphene-25mg');
     expect(m!.tier).toBe(1);
+  });
+});
+
+describe('findOtPackageMatchForInvoiceLine — multi-package invoice support', () => {
+  it('matches by name + tier-in-description (path 1)', () => {
+    const m = findOtPackageMatchForInvoiceLine('TRT Solo - 3 Month', 0);
+    expect(m).not.toBeNull();
+    expect(m!.pkg.id).toBe('trt-solo');
+    expect(m!.tier).toBe(3);
+  });
+
+  it('matches HCG 6 Month line', () => {
+    const m = findOtPackageMatchForInvoiceLine('HCG - 6 Month', 0);
+    expect(m).not.toBeNull();
+    expect(m!.pkg.id).toBe('hcg');
+    expect(m!.tier).toBe(6);
+    /** Per stakeholder: 6mo HCG = 2 fills × $240. */
+    expect(m!.quote.costCents).toBe(48000);
+  });
+
+  it('matches NAD+ 3 Month line', () => {
+    const m = findOtPackageMatchForInvoiceLine('NAD+ - 3 Month', 0);
+    expect(m).not.toBeNull();
+    expect(m!.pkg.id).toBe('nad-1000mg');
+    expect(m!.tier).toBe(3);
+  });
+
+  it('falls back to amount-only match when description has no tier marker (path 2)', () => {
+    /** $499 = HCG 3-month retail; description has no tier marker. */
+    const m = findOtPackageMatchForInvoiceLine('HCG', 49900);
+    expect(m).not.toBeNull();
+    expect(m!.pkg.id).toBe('hcg');
+    expect(m!.tier).toBe(3);
+  });
+
+  it('returns null for unmatched line items (admin handles via Custom Lines)', () => {
+    expect(findOtPackageMatchForInvoiceLine('Some random one-off charge', 1234)).toBeNull();
+    expect(findOtPackageMatchForInvoiceLine('', 5000)).toBeNull();
   });
 });
 

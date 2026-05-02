@@ -94,6 +94,7 @@ function makeSale(over: Partial<OtPerSaleReconciliationLine> = {}): OtPerSaleRec
     clinicNetPayoutCents: 0,
     isRebill: false,
     isBloodworkOnly: false,
+    invoiceLineItems: [],
     ...over,
   };
 }

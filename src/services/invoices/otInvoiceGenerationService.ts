@@ -53,6 +53,7 @@ import {
 } from '@/services/invoices/otNonRxReconciliationService';
 import {
   findOtPackageMatchByPatientGross,
+  findOtPackageMatchForInvoiceLine,
   OT_PACKAGE_TIER_LABELS,
 } from '@/lib/invoices/ot-package-catalog';
 
@@ -356,6 +357,16 @@ export interface OtPerSaleReconciliationLine {
    * order shell.
    */
   isBloodworkOnly: boolean;
+  /**
+   * Structured Stripe invoice line items (description + amountCents),
+   * filtered to remove discount / refund / credit / adjustment rows.
+   * Used by `buildDefaultOverridePayload` to detect multi-package sales
+   * — each line is matched to a catalog package via
+   * `findOtPackageMatchForInvoiceLine` so the editor pre-fills every
+   * component instead of just one. Empty array when the invoice has no
+   * line items synced.
+   */
+  invoiceLineItems: Array<{ description: string; amountCents: number }>;
   fulfillmentFeesCents: number;
   /** 4% of this sale gross, rounded. */
   merchantProcessingCents: number;
@@ -1948,6 +1959,12 @@ export async function generateOtDailyInvoices(
      * has a phantom / comp'd Rx attached.
      */
     let isBloodworkOnly = false;
+    /**
+     * Structured invoice line items (description + amountCents) for the
+     * downstream multi-package matcher in `buildDefaultOverridePayload`.
+     * Reused for productDescription + isBloodworkOnly classification below.
+     */
+    let invoiceLineItemsForBuilder: Array<{ description: string; amountCents: number }> = [];
     if (invMeta?.lineItems) {
       const lines = parseInvoiceLineItemsJson(invMeta.lineItems);
       const productLines = lines
@@ -1966,6 +1983,7 @@ export async function generateOtDailyInvoices(
         .filter(
           (l) => !/^[-$\s]*(discount|refund|credit|adjustment|write[-\s]?off)\b/i.test(l.description)
         );
+      invoiceLineItemsForBuilder = productLines;
       if (productLines.length > 0) {
         productDescription = [...new Set(productLines.map((l) => l.description))].join(' · ');
         isBloodworkOnly = productLines.every(
@@ -2029,6 +2047,7 @@ export async function generateOtDailyInvoices(
         });
       })(),
       isBloodworkOnly,
+      invoiceLineItems: invoiceLineItemsForBuilder,
       fulfillmentFeesCents: orderFulfillmentFeesCents,
       merchantProcessingCents: saleMerchantCents,
       platformCompensationCents: salePlatformCents,
@@ -3251,47 +3270,125 @@ export function buildDefaultOverridePayload(
     };
   }
 
-  const tierMatch = findOtPackageMatchByPatientGross(
-    line.patientGrossCents,
-    line.productDescription
-  );
-
-  const meds = tierMatch
-    ? [
-        {
+  /**
+   * Multi-package detection (per stakeholder direction 2026-05-02): when the
+   * Stripe invoice has multiple line items (e.g. Bloodwork + TRT Solo +
+   * HCG + NAD+ + Skin protocol + …), match each line to a catalog package
+   * and pre-fill med lines for every match. Unmatched lines roll into
+   * Custom Line Items so the admin can adjust without losing data.
+   */
+  const matchedMeds: OtAllocationOverridePayload['meds'] = [];
+  const customLineItems: OtAllocationOverridePayload['customLineItems'] = [];
+  let multiPackageDefaultShipping = 0;
+  let multiPackageDefaultConsult = 0;
+  let multiMatchCount = 0;
+  for (const li of line.invoiceLineItems ?? []) {
+    const m = findOtPackageMatchForInvoiceLine(li.description, li.amountCents);
+    if (!m) {
+      /**
+       * No catalog match — preserve the line so admin can edit. Bloodwork-
+       * only sales already short-circuit above; this path catches one-off
+       * items that aren't in `OT_PACKAGE_CATALOG`.
+       */
+      customLineItems.push({ description: li.description, amountCents: li.amountCents });
+      continue;
+    }
+    multiMatchCount += 1;
+    const tierLines = m.pkg.medLinesByTier?.[m.tier];
+    if (tierLines && tierLines.length > 0) {
+      for (const ml of tierLines) {
+        matchedMeds.push({
           medicationKey: null,
-          name: tierMatch.pkg.name,
-          strength: tierMatch.pkg.subtitle ?? '',
-          vialSize: OT_PACKAGE_TIER_LABELS[tierMatch.tier],
-          quantity: 1,
-          unitPriceCents: tierMatch.quote.costCents,
-          lineTotalCents: tierMatch.quote.costCents,
+          name: ml.name,
+          strength: ml.strength,
+          vialSize: ml.vialSize,
+          quantity: ml.quantity,
+          unitPriceCents: ml.unitPriceCents,
+          lineTotalCents: ml.unitPriceCents * ml.quantity,
           source: 'catalog' as const,
-          /** Default: no per-line rate. Admin opts-in by selecting a rep + a chip. */
           commissionRateBps: null,
-        },
-      ]
-    : pharmacyLines
-        .filter((p) => p.orderId === line.orderId)
-        .map((p) => ({
-          medicationKey: p.medicationKey || null,
-          name: p.medicationName,
-          strength: p.strength,
-          vialSize: p.vialSize,
-          quantity: Math.max(1, p.quantity || 1),
-          unitPriceCents: Math.max(0, p.unitPriceCents),
-          lineTotalCents: Math.max(0, p.lineTotalCents),
-          source: (p.pricingStatus === 'priced' ? 'catalog' : 'custom') as 'catalog' | 'custom',
-          commissionRateBps: null,
-        }));
+        });
+      }
+    } else {
+      matchedMeds.push({
+        medicationKey: null,
+        name: m.pkg.name,
+        strength: m.pkg.subtitle ?? '',
+        vialSize: OT_PACKAGE_TIER_LABELS[m.tier],
+        quantity: 1,
+        unitPriceCents: m.quote.costCents,
+        lineTotalCents: m.quote.costCents,
+        source: 'catalog' as const,
+        commissionRateBps: null,
+      });
+    }
+    /**
+     * Fee defaults: take the **max** across matched packages so cold meds
+     * bump shipping to $30 even when other items would default to $20,
+     * and so a TRT package's $50 doctor consult survives bundling with an
+     * oral package's $15 default.
+     */
+    multiPackageDefaultShipping = Math.max(multiPackageDefaultShipping, m.pkg.defaultShippingCents);
+    multiPackageDefaultConsult = Math.max(multiPackageDefaultConsult, m.pkg.defaultConsultCents);
+  }
+
+  /**
+   * If the multi-line matcher found anything, prefer that. If it found
+   * nothing AND the gross matches a single tier, use the legacy single-
+   * package path. Else fall back to per-Rx pharmacy lines.
+   */
+  const singleTierMatch =
+    multiMatchCount === 0
+      ? findOtPackageMatchByPatientGross(line.patientGrossCents, line.productDescription)
+      : null;
+
+  const meds: OtAllocationOverridePayload['meds'] =
+    multiMatchCount > 0
+      ? matchedMeds
+      : singleTierMatch
+        ? [
+            {
+              medicationKey: null,
+              name: singleTierMatch.pkg.name,
+              strength: singleTierMatch.pkg.subtitle ?? '',
+              vialSize: OT_PACKAGE_TIER_LABELS[singleTierMatch.tier],
+              quantity: 1,
+              unitPriceCents: singleTierMatch.quote.costCents,
+              lineTotalCents: singleTierMatch.quote.costCents,
+              source: 'catalog' as const,
+              commissionRateBps: null,
+            },
+          ]
+        : pharmacyLines
+            .filter((p) => p.orderId === line.orderId)
+            .map((p) => ({
+              medicationKey: p.medicationKey || null,
+              name: p.medicationName,
+              strength: p.strength,
+              vialSize: p.vialSize,
+              quantity: Math.max(1, p.quantity || 1),
+              unitPriceCents: Math.max(0, p.unitPriceCents),
+              lineTotalCents: Math.max(0, p.lineTotalCents),
+              source: (p.pricingStatus === 'priced' ? 'catalog' : 'custom') as
+                | 'catalog'
+                | 'custom',
+              commissionRateBps: null,
+            }));
+
+  const fallbackShipping = singleTierMatch
+    ? singleTierMatch.pkg.defaultShippingCents
+    : line.shippingCents;
+  const fallbackConsult = singleTierMatch
+    ? singleTierMatch.pkg.defaultConsultCents
+    : line.doctorApprovalCents;
 
   return {
     meds,
-    shippingCents: tierMatch ? tierMatch.pkg.defaultShippingCents : line.shippingCents,
+    shippingCents: multiMatchCount > 0 ? multiPackageDefaultShipping : fallbackShipping,
     trtTelehealthCents: line.trtTelehealthCents,
-    doctorRxFeeCents: tierMatch ? tierMatch.pkg.defaultConsultCents : line.doctorApprovalCents,
+    doctorRxFeeCents: multiMatchCount > 0 ? multiPackageDefaultConsult : fallbackConsult,
     fulfillmentFeesCents: line.fulfillmentFeesCents,
-    customLineItems: [],
+    customLineItems,
     notes: null,
     patientGrossCents: line.patientGrossCents,
     /**

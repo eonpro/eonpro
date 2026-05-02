@@ -29,6 +29,7 @@ import {
   type ChatAttachmentSendable,
 } from '@/lib/chat-attachments/client';
 import {
+  getChatMessageMaxLength,
   isMmsCompatibleAttachment,
   MMS_ALLOWED_MIME_TYPES,
   MMS_MAX_BYTES,
@@ -96,6 +97,24 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
 
   const isUploadingAttachments = pendingAttachments.some((a) => !a.sendable && !a.error);
   const readyAttachments = pendingAttachments.filter((a) => a.sendable);
+
+  // Channel-aware message length cap. Shared with the server validator
+  // (see `@/lib/chat-attachments`) so the counter and the 400 error
+  // boundary are guaranteed to agree.
+  const messageMaxLength = getChatMessageMaxLength(sendViaSms ? 'SMS' : 'WEB');
+  const messageLength = newMessage.length;
+  const isOverLimit = messageLength > messageMaxLength;
+  // Surface the counter once staff cross 75% of the cap — earlier than
+  // that it's noise. The threshold is also where we flip the counter
+  // from gray → amber → red.
+  const counterVisibilityThreshold = Math.floor(messageMaxLength * 0.75);
+  const showCounter = messageLength >= counterVisibilityThreshold;
+  const counterTone =
+    messageLength > messageMaxLength
+      ? 'text-red-600 font-semibold'
+      : messageLength > messageMaxLength * 0.9
+        ? 'text-amber-600'
+        : 'text-gray-500';
 
   const removePending = useCallback((localId: string) => {
     setPendingAttachments((prev) => prev.filter((a) => a.localId !== localId));
@@ -286,24 +305,58 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
         }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}) as Record<string, unknown>);
 
       if (res.ok) {
-        setMessages((prev) => prev.map((msg) => (msg.id === tempId ? data : msg)));
+        setMessages((prev) => prev.map((msg) => (msg.id === tempId ? (data as ChatMessage) : msg)));
 
-        if (data.status === 'FAILED' && sendViaSms) {
-          setError(`SMS delivery failed: ${data.failureReason || 'Could not send SMS to patient'}`);
+        if (
+          (data as { status?: string }).status === 'FAILED' &&
+          sendViaSms
+        ) {
+          setError(
+            `SMS delivery failed: ${(data as { failureReason?: string }).failureReason || 'Could not send SMS to patient'}`
+          );
         }
 
         setTimeout(() => loadMessages(false), 1000);
       } else {
-        throw new Error(data.error || 'Failed to send message');
+        // Build the most specific message we can from the server response.
+        // The patient-chat API returns:
+        //   400 → { error: 'Invalid input', details: [{ field, message }] }
+        //   500 → { error: 'Failed to send message', requestId }
+        // We fold the per-field reasons from `details` into the displayed
+        // string so the user sees *why* the send was rejected (e.g.
+        // "message: Message too long") instead of a generic
+        // "Failed to send: Invalid input".
+        const errorPayload = data as {
+          error?: string;
+          details?: Array<{ field?: string; message?: string }>;
+        };
+        const detailParts = (errorPayload.details ?? [])
+          .map((d) => (d.field ? `${d.field}: ${d.message}` : d.message))
+          .filter(Boolean);
+        const detailString = detailParts.length > 0 ? ` (${detailParts.join('; ')})` : '';
+        const baseError = errorPayload.error || `Failed to send message (${res.status})`;
+        const fullError =
+          baseError === 'Invalid input' && detailString ? `Invalid input${detailString}` : baseError;
+        const err = new Error(fullError);
+        (err as Error & { httpStatus?: number }).httpStatus = res.status;
+        throw err;
       }
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : 'Unknown error';
-      logger.error('Failed to send message', { error: errMsg });
+      const httpStatus =
+        err instanceof Error ? (err as Error & { httpStatus?: number }).httpStatus : undefined;
+      logger.error('Failed to send message', {
+        error: errMsg,
+        httpStatus,
+        patientId: patient.id,
+        channel: sendViaSms ? 'SMS' : 'WEB',
+        messageLength: messageText.length,
+        attachmentsCount: sendingAttachments.length,
+      });
 
-      // Mark message as failed
       setMessages((prev) =>
         prev.map((msg) => (msg.id === tempId ? { ...msg, status: 'FAILED' as const } : msg))
       );
@@ -703,7 +756,15 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
             disabled={
               sending ||
               isUploadingAttachments ||
+              isOverLimit ||
               (!newMessage.trim() && readyAttachments.length === 0)
+            }
+            title={
+              isOverLimit
+                ? `Message is ${messageLength - messageMaxLength} character(s) over the ${messageMaxLength.toLocaleString()} limit${
+                    sendViaSms ? ' for SMS — switch to Web for longer messages.' : '.'
+                  }`
+                : undefined
             }
             className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -715,12 +776,20 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
           </button>
         </div>
 
-        <p className="mt-2 text-xs text-gray-500">
-          {sendViaSms
-            ? `SMS will be sent to ${patientPhone}`
-            : "Message will appear in patient's app"}
-          {' · '}
-          <span className="text-gray-400">Shift + Enter for new line</span>
+        <p className="mt-2 flex items-center justify-between gap-3 text-xs text-gray-500">
+          <span>
+            {sendViaSms
+              ? `SMS will be sent to ${patientPhone}`
+              : "Message will appear in patient's app"}
+            {' · '}
+            <span className="text-gray-400">Shift + Enter for new line</span>
+          </span>
+          {showCounter && (
+            <span className={counterTone} aria-live="polite">
+              {messageLength.toLocaleString()} / {messageMaxLength.toLocaleString()}
+              {isOverLimit && sendViaSms && ' — switch to Web'}
+            </span>
+          )}
         </p>
       </div>
     </div>

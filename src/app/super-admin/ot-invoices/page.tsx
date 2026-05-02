@@ -40,6 +40,7 @@ import {
 import type { OtAllocationOverridePayload } from '@/services/invoices/otAllocationOverrideTypes';
 import {
   findOtPackageMatchByPatientGross,
+  findOtPackageMatchForInvoiceLine,
   OT_PACKAGE_TIER_LABELS,
 } from '@/lib/invoices/ot-package-catalog';
 
@@ -184,6 +185,8 @@ interface OtPerSaleReconciliationLine {
   isRebill?: boolean;
   /** Server-derived: every paid invoice line item classifies as bloodwork. Drives bloodwork-only seed defaults. */
   isBloodworkOnly?: boolean;
+  /** Server-derived: structured invoice line items used for multi-package matching in the editor's seed builder. */
+  invoiceLineItems?: Array<{ description: string; amountCents: number }>;
   fulfillmentFeesCents: number;
   merchantProcessingCents: number;
   platformCompensationCents: number;
@@ -367,48 +370,111 @@ function buildAllocationSeedsFromData(data: OtInvoiceData): OtAllocationEditorPe
       };
     }
     /**
-     * Tier-aware default: prefer matching the patient's gross to a known
-     * OT package retail tier, then use that tier's pharmacy COST as the
-     * pre-fill. Falls back to the per-SKU pharmacy line items when no match.
-     * Mirrors buildDefaultOverridePayload server-side so the editor and the
-     * server agree on initial state.
+     * Multi-package detection: when the Stripe invoice has multiple line
+     * items (e.g. Bloodwork + TRT Solo + HCG + NAD+ + …), match each
+     * line against the catalog and pre-fill med lines for every match.
+     * Unmatched lines roll into Custom Line Items so admins don't lose
+     * data. Mirrors `buildDefaultOverridePayload` server-side.
      */
-    const tierMatch = findOtPackageMatchByPatientGross(
-      sale.patientGrossCents,
-      sale.productDescription
-    );
-    const meds = tierMatch
-      ? [
-          {
+    const matchedMeds: OtAllocationOverridePayload['meds'] = [];
+    const customLineItems: OtAllocationOverridePayload['customLineItems'] = [];
+    let multiShipping = 0;
+    let multiConsult = 0;
+    let multiMatchCount = 0;
+    for (const li of sale.invoiceLineItems ?? []) {
+      const m = findOtPackageMatchForInvoiceLine(li.description, li.amountCents);
+      if (!m) {
+        customLineItems.push({ description: li.description, amountCents: li.amountCents });
+        continue;
+      }
+      multiMatchCount += 1;
+      const tierLines = m.pkg.medLinesByTier?.[m.tier];
+      if (tierLines && tierLines.length > 0) {
+        for (const ml of tierLines) {
+          matchedMeds.push({
             medicationKey: null,
-            name: tierMatch.pkg.name,
-            strength: tierMatch.pkg.subtitle ?? '',
-            vialSize: OT_PACKAGE_TIER_LABELS[tierMatch.tier],
-            quantity: 1,
-            unitPriceCents: tierMatch.quote.costCents,
-            lineTotalCents: tierMatch.quote.costCents,
+            name: ml.name,
+            strength: ml.strength,
+            vialSize: ml.vialSize,
+            quantity: ml.quantity,
+            unitPriceCents: ml.unitPriceCents,
+            lineTotalCents: ml.unitPriceCents * ml.quantity,
             source: 'catalog' as const,
             commissionRateBps: null,
-          },
-        ]
-      : (pharmacyByOrderId.get(sale.orderId) ?? []).map((p) => ({
-          medicationKey: p.medicationKey || null,
-          name: p.medicationName,
-          strength: p.strength,
-          vialSize: p.vialSize,
-          quantity: Math.max(1, p.quantity || 1),
-          unitPriceCents: Math.max(0, p.unitPriceCents),
-          lineTotalCents: Math.max(0, p.lineTotalCents),
-          source: (p.pricingStatus === 'priced' ? 'catalog' : 'custom') as 'catalog' | 'custom',
+          });
+        }
+      } else {
+        matchedMeds.push({
+          medicationKey: null,
+          name: m.pkg.name,
+          strength: m.pkg.subtitle ?? '',
+          vialSize: OT_PACKAGE_TIER_LABELS[m.tier],
+          quantity: 1,
+          unitPriceCents: m.quote.costCents,
+          lineTotalCents: m.quote.costCents,
+          source: 'catalog' as const,
           commissionRateBps: null,
-        }));
+        });
+      }
+      multiShipping = Math.max(multiShipping, m.pkg.defaultShippingCents);
+      multiConsult = Math.max(multiConsult, m.pkg.defaultConsultCents);
+    }
+
+    /**
+     * Single-tier fallback (legacy): only when the multi-line matcher
+     * found nothing AND patient gross matches one tier's retail.
+     */
+    const tierMatch =
+      multiMatchCount === 0
+        ? findOtPackageMatchByPatientGross(sale.patientGrossCents, sale.productDescription)
+        : null;
+    const meds: OtAllocationOverridePayload['meds'] =
+      multiMatchCount > 0
+        ? matchedMeds
+        : tierMatch
+          ? [
+              {
+                medicationKey: null,
+                name: tierMatch.pkg.name,
+                strength: tierMatch.pkg.subtitle ?? '',
+                vialSize: OT_PACKAGE_TIER_LABELS[tierMatch.tier],
+                quantity: 1,
+                unitPriceCents: tierMatch.quote.costCents,
+                lineTotalCents: tierMatch.quote.costCents,
+                source: 'catalog' as const,
+                commissionRateBps: null,
+              },
+            ]
+          : (pharmacyByOrderId.get(sale.orderId) ?? []).map((p) => ({
+              medicationKey: p.medicationKey || null,
+              name: p.medicationName,
+              strength: p.strength,
+              vialSize: p.vialSize,
+              quantity: Math.max(1, p.quantity || 1),
+              unitPriceCents: Math.max(0, p.unitPriceCents),
+              lineTotalCents: Math.max(0, p.lineTotalCents),
+              source: (p.pricingStatus === 'priced' ? 'catalog' : 'custom') as 'catalog' | 'custom',
+              commissionRateBps: null,
+            }));
+    const defaultShipping =
+      multiMatchCount > 0
+        ? multiShipping
+        : tierMatch
+          ? tierMatch.pkg.defaultShippingCents
+          : sale.shippingCents;
+    const defaultConsult =
+      multiMatchCount > 0
+        ? multiConsult
+        : tierMatch
+          ? tierMatch.pkg.defaultConsultCents
+          : sale.doctorApprovalCents;
     const defaultPayload: OtAllocationOverridePayload = {
       meds,
-      shippingCents: tierMatch ? tierMatch.pkg.defaultShippingCents : sale.shippingCents,
+      shippingCents: defaultShipping,
       trtTelehealthCents: sale.trtTelehealthCents,
-      doctorRxFeeCents: tierMatch ? tierMatch.pkg.defaultConsultCents : sale.doctorApprovalCents,
+      doctorRxFeeCents: defaultConsult,
       fulfillmentFeesCents: sale.fulfillmentFeesCents,
-      customLineItems: [],
+      customLineItems,
       notes: null,
       patientGrossCents: sale.patientGrossCents,
       salesRepId: sale.salesRepId ?? null,

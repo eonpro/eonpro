@@ -191,7 +191,7 @@ const RX_ROWS: OtPackageCatalogRow[] = [
   },
   {
     id: 'trt-solo',
-    name: 'TRT — by itself',
+    name: 'TRT Solo (Testosterone Cypionate 200mg/4mL by itself)',
     category: 'rx',
     retailCentsByTier: { 1: $(239), 3: $(669), 6: $(1285), 12: $(2429) },
     /**
@@ -258,7 +258,22 @@ const ADDON_ROWS: OtPackageCatalogRow[] = [
     name: 'HCG',
     category: 'addon',
     retailCentsByTier: { 3: $(499), 6: $(968), 12: $(1878) },
-    costCentsByTier: { 3: $(240) },
+    /**
+     * HCG is dispensed only in 3-month fills at $240/fill (per
+     * stakeholder direction 2026-05-02). Each higher tier = N/3 fills.
+     */
+    costCentsByTier: { 3: $(240), 6: $(480), 12: $(960) },
+    medLinesByTier: {
+      3: [
+        { name: 'HCG', strength: '', vialSize: '3 month fill', quantity: 1, unitPriceCents: $(240) },
+      ],
+      6: [
+        { name: 'HCG', strength: '', vialSize: '3 month fill', quantity: 2, unitPriceCents: $(240) },
+      ],
+      12: [
+        { name: 'HCG', strength: '', vialSize: '3 month fill', quantity: 4, unitPriceCents: $(240) },
+      ],
+    },
     defaultConsultCents: $(30),
     defaultShippingCents: $(20),
   },
@@ -685,6 +700,71 @@ export function findOtPackageMatchByPatientGross(
       if (Math.abs(quote.retailCents - patientGrossCents) > tolerance) continue;
       if (!best || score > best.score) {
         best = { pkg, tier, quote, score };
+      }
+    }
+  }
+  return best;
+}
+
+/**
+ * Detect tier from free-form text. Looks for "1 month", "3 month", "6mo",
+ * "12-month", "annual", "quarterly", etc. Returns null when no tier marker
+ * is present.
+ */
+function detectTierFromText(text: string): OtPackageTier | null {
+  const t = text.toLowerCase();
+  if (/\b12[-\s]?month\b|\bannual\b|\b1[-\s]?year\b/.test(t)) return 12;
+  if (/\b6[-\s]?month\b/.test(t)) return 6;
+  if (/\b3[-\s]?month\b|\bquarterly\b/.test(t)) return 3;
+  if (/\b1[-\s]?month\b|\bmonthly\b/.test(t)) return 1;
+  return null;
+}
+
+/**
+ * Match a single Stripe invoice line item to a catalog package + tier.
+ *
+ * Matching strategy (per stakeholder direction 2026-05-02):
+ *   1. **Name + tier from description** — tokenize the line description,
+ *      score against each package name, and require a tier marker
+ *      ("3 Month" / "6mo" / etc.) in the same description.
+ *   2. **Amount fallback** — when no tier marker is found, try matching
+ *      the line amount against `retailCentsByTier[N]` for each tier and
+ *      pick the package whose name overlaps most.
+ *
+ * Returns null when no match is found — caller should fall back to a
+ * Custom Line Item with the original description + amount.
+ */
+export function findOtPackageMatchForInvoiceLine(
+  description: string,
+  amountCents: number
+): OtPackageMatch | null {
+  if (!description || description.trim().length === 0) return null;
+  const queryTokens = tokenizeForMatch(description);
+  if (queryTokens.length === 0) return null;
+
+  let best: OtPackageMatch | null = null;
+
+  /** Path 1: tier marker is in the description. */
+  const hintedTier = detectTierFromText(description);
+  for (const pkg of OT_PACKAGE_CATALOG) {
+    const haystack = tokenizeForMatch(`${pkg.name} ${pkg.subtitle ?? ''}`);
+    const score = tokenOverlapScore(haystack, queryTokens);
+    if (score === 0) continue;
+    if (hintedTier !== null) {
+      const quote = getOtPackageQuoteAtTier(pkg, hintedTier);
+      if (quote && (!best || score > best.score)) {
+        best = { pkg, tier: hintedTier, quote, score };
+      }
+    } else if (amountCents > 0) {
+      /** Path 2: amount-based match (only when no tier hint). */
+      for (const tier of [1, 3, 6, 12] as OtPackageTier[]) {
+        const quote = getOtPackageQuoteAtTier(pkg, tier);
+        if (!quote) continue;
+        if (quote.retailCents <= 0) continue;
+        if (Math.abs(quote.retailCents - amountCents) > 0) continue;
+        if (!best || score > best.score) {
+          best = { pkg, tier, quote, score };
+        }
       }
     }
   }

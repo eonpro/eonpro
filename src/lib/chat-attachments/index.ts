@@ -42,6 +42,41 @@ export const CHAT_ATTACHMENT_SIGNED_URL_TTL_SECONDS = 3600;
 export const CHAT_ATTACHMENT_UPLOAD_URL_TTL_SECONDS = 300;
 
 // ---------------------------------------------------------------------------
+// Per-channel message body length caps
+//
+// Web channel (in-app chat) is generous so staff can paste long clinical
+// replies (dosing schedules, lab interpretations, etc.) without hitting a
+// silent truncation or a 400. The 8000-char ceiling is well above any
+// realistic clinical message but still bounded against abuse / accidental
+// paste of an entire document.
+//
+// SMS channel is constrained to 1600 characters because:
+//   - Each SMS segment is 160 GSM-7 chars (or 70 UCS-2 if any non-GSM
+//     codepoint sneaks in — emoji, smart quotes, etc.).
+//   - Twilio concatenates up to 10 segments before charging surprise per-
+//     segment fees and risking carrier drop. 1600 ≈ 10 GSM-7 segments.
+//   - Anything longer should go via the Web channel where the patient
+//     reads it inside the portal/app.
+// ---------------------------------------------------------------------------
+
+/** Max characters for a chat message sent over the in-app web channel. */
+export const CHAT_MESSAGE_MAX_LENGTH_WEB = 8000;
+
+/** Max characters for a chat message sent over SMS (Twilio segment math). */
+export const CHAT_MESSAGE_MAX_LENGTH_SMS = 1600;
+
+export type ChatChannel = 'WEB' | 'SMS';
+
+/**
+ * Returns the character cap for a given chat channel. Centralized so the
+ * client UI counter, the server-side Zod validator, and the SMS service
+ * all agree on the same number.
+ */
+export function getChatMessageMaxLength(channel: ChatChannel): number {
+  return channel === 'SMS' ? CHAT_MESSAGE_MAX_LENGTH_SMS : CHAT_MESSAGE_MAX_LENGTH_WEB;
+}
+
+// ---------------------------------------------------------------------------
 // Twilio MMS sub-set of the chat-attachment allowlist
 //
 // US carriers (AT&T, Verizon, T-Mobile) impose stricter limits than what the

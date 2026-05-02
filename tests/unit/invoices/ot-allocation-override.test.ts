@@ -98,6 +98,7 @@ function makeSale(
     clinicNetPayoutCents: 12914,
     isRebill: false,
     isBloodworkOnly: false,
+    invoiceLineItems: [],
     ...overrides,
   };
 }

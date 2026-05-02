@@ -433,9 +433,10 @@ describe('Chat Security Tests', () => {
       });
 
       const { POST } = await import('@/app/api/patient-chat/route');
+      const { CHAT_MESSAGE_MAX_LENGTH_WEB } = await import('@/lib/chat-attachments');
 
-      // Create a message longer than 2000 characters
-      const longMessage = 'A'.repeat(2500);
+      // Exceed the channel-aware web ceiling by a comfortable margin.
+      const longMessage = 'A'.repeat(CHAT_MESSAGE_MAX_LENGTH_WEB + 500);
 
       const request = createMockRequest({
         method: 'POST',
@@ -443,6 +444,40 @@ describe('Chat Security Tests', () => {
           patientId: 1,
           message: longMessage,
           channel: 'WEB',
+        },
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(400);
+    });
+
+    it('should reject SMS messages exceeding the SMS-specific limit', async () => {
+      setMockUser({
+        id: 1,
+        email: 'patient@example.com',
+        role: 'patient',
+        patientId: 1,
+        clinicId: 1,
+      });
+
+      const { POST } = await import('@/app/api/patient-chat/route');
+      const { CHAT_MESSAGE_MAX_LENGTH_SMS, CHAT_MESSAGE_MAX_LENGTH_WEB } = await import(
+        '@/lib/chat-attachments'
+      );
+
+      // Comfortably above the SMS cap but well below the web cap, so this
+      // can ONLY trip the channel-aware refine — not the generic
+      // string `.max()` ceiling.
+      const longSmsMessage = 'A'.repeat(CHAT_MESSAGE_MAX_LENGTH_SMS + 200);
+      expect(longSmsMessage.length).toBeLessThan(CHAT_MESSAGE_MAX_LENGTH_WEB);
+
+      const request = createMockRequest({
+        method: 'POST',
+        body: {
+          patientId: 1,
+          message: longSmsMessage,
+          channel: 'SMS',
         },
       });
 
