@@ -3274,8 +3274,14 @@ export function buildDefaultOverridePayload(
    * Multi-package detection (per stakeholder direction 2026-05-02): when the
    * Stripe invoice has multiple line items (e.g. Bloodwork + TRT Solo +
    * HCG + NAD+ + Skin protocol + …), match each line to a catalog package
-   * and pre-fill med lines for every match. Unmatched lines roll into
-   * Custom Line Items so the admin can adjust without losing data.
+   * and pre-fill med lines for every match.
+   *
+   * Unmatched lines are SILENTLY DROPPED — never auto-added as Custom
+   * Line Items. Auto-adding would double-deduct because the unmatched
+   * description is usually a generic invoice payment label (e.g.
+   * "Invoice 3203 (Brendan Gerrain)") whose amount IS the patient gross,
+   * not an additional deduction. Admin types real custom lines manually
+   * for comp shipping / manager overrides / special handling.
    */
   const matchedMeds: OtAllocationOverridePayload['meds'] = [];
   const customLineItems: OtAllocationOverridePayload['customLineItems'] = [];
@@ -3284,15 +3290,7 @@ export function buildDefaultOverridePayload(
   let multiMatchCount = 0;
   for (const li of line.invoiceLineItems ?? []) {
     const m = findOtPackageMatchForInvoiceLine(li.description, li.amountCents);
-    if (!m) {
-      /**
-       * No catalog match — preserve the line so admin can edit. Bloodwork-
-       * only sales already short-circuit above; this path catches one-off
-       * items that aren't in `OT_PACKAGE_CATALOG`.
-       */
-      customLineItems.push({ description: li.description, amountCents: li.amountCents });
-      continue;
-    }
+    if (!m) continue;
     multiMatchCount += 1;
     const tierLines = m.pkg.medLinesByTier?.[m.tier];
     if (tierLines && tierLines.length > 0) {

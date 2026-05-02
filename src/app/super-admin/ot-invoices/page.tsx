@@ -373,8 +373,11 @@ function buildAllocationSeedsFromData(data: OtInvoiceData): OtAllocationEditorPe
      * Multi-package detection: when the Stripe invoice has multiple line
      * items (e.g. Bloodwork + TRT Solo + HCG + NAD+ + …), match each
      * line against the catalog and pre-fill med lines for every match.
-     * Unmatched lines roll into Custom Line Items so admins don't lose
-     * data. Mirrors `buildDefaultOverridePayload` server-side.
+     *
+     * Unmatched lines are silently dropped — never auto-added as Custom
+     * Line Items. Auto-adding would double-deduct since the unmatched
+     * description is usually a generic invoice payment label whose amount
+     * IS the patient gross. Mirrors `buildDefaultOverridePayload`.
      */
     const matchedMeds: OtAllocationOverridePayload['meds'] = [];
     const customLineItems: OtAllocationOverridePayload['customLineItems'] = [];
@@ -383,10 +386,7 @@ function buildAllocationSeedsFromData(data: OtInvoiceData): OtAllocationEditorPe
     let multiMatchCount = 0;
     for (const li of sale.invoiceLineItems ?? []) {
       const m = findOtPackageMatchForInvoiceLine(li.description, li.amountCents);
-      if (!m) {
-        customLineItems.push({ description: li.description, amountCents: li.amountCents });
-        continue;
-      }
+      if (!m) continue;
       multiMatchCount += 1;
       const tierLines = m.pkg.medLinesByTier?.[m.tier];
       if (tierLines && tierLines.length > 0) {
