@@ -127,6 +127,9 @@ function extractMgValue(...inputs: Array<string | null | undefined>): string | n
   return null;
 }
 
+// Returns one segment per `Month N:` annotation in the SIG (1+ tags).
+// Returns null when the SIG has no month markers at all. Mirrors the
+// canonical implementation in rx-sig-parser.ts.
 function parseMultiMonthDirections(directions: string): Array<{
   monthNumber: number;
   segment: string;
@@ -136,7 +139,7 @@ function parseMultiMonthDirections(directions: string): Array<{
   if (!directions) return null;
 
   const monthMatches = [...directions.matchAll(/Month\s+(\d+)\s*:/gi)];
-  if (monthMatches.length < 2) return null;
+  if (monthMatches.length < 1) return null;
 
   const uniqueMonths = new Map<number, { index: number; matchLength: number }>();
   for (const m of monthMatches) {
@@ -146,7 +149,7 @@ function parseMultiMonthDirections(directions: string): Array<{
     }
   }
 
-  if (uniqueMonths.size < 2) return null;
+  if (uniqueMonths.size < 1) return null;
 
   const sorted = [...uniqueMonths.entries()].sort((a, b) => a[1].index - b[1].index);
   const results: Array<{
@@ -284,7 +287,10 @@ export default function WelcomeKitPage() {
         const medName = getMedicationDisplayName(med);
         const multiMonthDoses = parseMultiMonthDirections(med.directions);
 
-        if (multiMonthDoses && multiMonthDoses.length >= 2) {
+        // Trust any explicit `Month N:` annotation — even a single one — so
+        // a per-line OT package is rendered as exactly the periods the
+        // prescriber wrote, not extrapolated by the legacy vial-volume code.
+        if (multiMonthDoses && multiMonthDoses.length >= 1) {
           for (const segment of multiMonthDoses) {
             monthNum++;
             const weekStart = weekCursor;

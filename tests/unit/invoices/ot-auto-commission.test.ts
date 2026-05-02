@@ -19,6 +19,7 @@ import {
   otAllocationOverridePayloadSchema,
   computeOtSalesRepCommissionCents,
   computeOtAllocationOverrideTotals,
+  getOtTieredNewSaleRateBps,
   type OtAllocationOverridePayload,
 } from '@/services/invoices/otAllocationOverrideTypes';
 import {
@@ -258,5 +259,60 @@ describe('buildDefaultOverridePayload — auto rate by isRebill', () => {
     const payload = buildDefaultOverridePayload(sale, []);
     expect(payload.salesRepId).toBe(42);
     expect(payload.salesRepName).toBe('Smith, Bob');
+  });
+});
+
+describe('getOtTieredNewSaleRateBps — volume-tiered NEW-sale commission', () => {
+  it('$0 — $17,299.99 → 8% (base)', () => {
+    expect(getOtTieredNewSaleRateBps(0)).toBe(800);
+    expect(getOtTieredNewSaleRateBps(1_729_999)).toBe(800);
+  });
+
+  it('$17,300 — $22,999.99 → 9% (+1% volume bonus)', () => {
+    expect(getOtTieredNewSaleRateBps(1_730_000)).toBe(900);
+    expect(getOtTieredNewSaleRateBps(2_299_999)).toBe(900);
+  });
+
+  it('$23,000 — $28,999.99 → 10% (+2%)', () => {
+    expect(getOtTieredNewSaleRateBps(2_300_000)).toBe(1000);
+    expect(getOtTieredNewSaleRateBps(2_899_999)).toBe(1000);
+  });
+
+  it('$29,000 — $34,999.99 → 11% (+3%)', () => {
+    expect(getOtTieredNewSaleRateBps(2_900_000)).toBe(1100);
+    expect(getOtTieredNewSaleRateBps(3_499_999)).toBe(1100);
+  });
+
+  it('$35,000+ → 12% (+4%, top tier)', () => {
+    expect(getOtTieredNewSaleRateBps(3_500_000)).toBe(1200);
+    expect(getOtTieredNewSaleRateBps(10_000_000)).toBe(1200);
+  });
+});
+
+describe('computeOtSalesRepCommissionCents — tier-rate override (NEW sales only)', () => {
+  it('uses the effective rate when passed (e.g. tier 9% instead of base 8%)', () => {
+    const p = basePayload({ commissionRateBps: 800 });
+    /** Base 8% × $350 = $28; tier 9% × $350 = $31.50. */
+    expect(computeOtSalesRepCommissionCents(p)).toBe(2800);
+    expect(computeOtSalesRepCommissionCents(p, 900)).toBe(3150);
+    expect(computeOtSalesRepCommissionCents(p, 1200)).toBe(4200);
+  });
+
+  it('manual $ override still wins over tier-bumped rate', () => {
+    const p = basePayload({
+      commissionRateBps: 800,
+      salesRepCommissionCentsOverride: 9999,
+    });
+    expect(computeOtSalesRepCommissionCents(p, 1200)).toBe(9999);
+  });
+
+  it('rebill rows (1%) are unaffected by the tier override (caller never passes one)', () => {
+    const p = basePayload({ commissionRateBps: 100 });
+    /** Even if the editor accidentally passed an effective rate for a rebill,
+     *  the function still applies it. The editor is responsible for only
+     *  passing the tier rate when commissionRateBps === 800. This test
+     *  documents the current contract — flip caller logic in the editor
+     *  if this changes. */
+    expect(computeOtSalesRepCommissionCents(p)).toBe(350);
   });
 });

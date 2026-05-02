@@ -57,6 +57,7 @@ import {
 import {
   computeOtAllocationOverrideTotals,
   reconcileOtAllocationMedLineTotals,
+  getOtTieredNewSaleRateBps,
   type OtAllocationOverrideMedLine,
   type OtAllocationOverridePayload,
   type OtAllocationOverrideStatus,
@@ -406,6 +407,50 @@ export function OtAllocationEditor({
    * name, and the row's saved payload's salesRepName (so admins can locate
    * a patient by any visible identifier). Empty query → return all seeds.
    */
+  /**
+   * Per-rep volume-tier rate lookup. Aggregates NEW-sale gross
+   * (commissionRateBps === 800) per rep across the period, then maps each
+   * rep's total to its tier rate (8% → 12%). Rebill rows (1%) and rows
+   * with no rep are excluded from the aggregation. Recomputes on every
+   * row mutation so flipping a row's rate chip / changing the assigned
+   * rep / editing the patient gross instantly re-tiers.
+   */
+  const repTierRateBpsByRepId = useMemo(() => {
+    const newSaleGrossByRepId = new Map<number, number>();
+    for (const s of seeds) {
+      const p = rowsState[s.orderId] ?? s.defaultPayload;
+      if (p.salesRepId == null) continue;
+      if (p.commissionRateBps !== 800) continue;
+      newSaleGrossByRepId.set(
+        p.salesRepId,
+        (newSaleGrossByRepId.get(p.salesRepId) ?? 0) + p.patientGrossCents
+      );
+    }
+    const map = new Map<number, number>();
+    for (const [repId, total] of newSaleGrossByRepId) {
+      map.set(repId, getOtTieredNewSaleRateBps(total));
+    }
+    return map;
+  }, [seeds, rowsState]);
+
+  /**
+   * Resolve the effective commission rate for a row. Returns the rep's
+   * tier-bumped rate when the row is a NEW sale (raw rate 800) AND the
+   * rep has crossed a tier; otherwise undefined (caller falls back to
+   * the row's own `commissionRateBps`). Rebill rows always use their
+   * raw 1% rate.
+   */
+  const effectiveRateForRow = useCallback(
+    (payload: OtAllocationOverridePayload): number | undefined => {
+      if (payload.salesRepId == null) return undefined;
+      if (payload.commissionRateBps !== 800) return undefined;
+      const tierBps = repTierRateBpsByRepId.get(payload.salesRepId);
+      if (tierBps == null || tierBps <= 800) return undefined;
+      return tierBps;
+    },
+    [repTierRateBpsByRepId]
+  );
+
   const filteredSeeds = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     if (q.length === 0) return seeds;
@@ -433,7 +478,7 @@ export function OtAllocationEditor({
     let finalizedCount = 0;
     for (const s of seeds) {
       const p = rowsState[s.orderId] ?? s.defaultPayload;
-      const t = computeOtAllocationOverrideTotals(p);
+      const t = computeOtAllocationOverrideTotals(p, effectiveRateForRow(p));
       gross += p.patientGrossCents;
       deductions += t.totalDeductionsCents;
       net += t.netToOtClinicCents;
@@ -444,7 +489,7 @@ export function OtAllocationEditor({
       if (!sp || !payloadsEqual(p, sp)) dirtyCount += 1;
     }
     return { gross, deductions, net, dirtyCount, draftCount, finalizedCount };
-  }, [seeds, rowsState, savedMeta, savedPayload]);
+  }, [seeds, rowsState, savedMeta, savedPayload, effectiveRateForRow]);
 
   // -------------------------------------------------------------------------
   // Row mutation helpers
@@ -703,7 +748,8 @@ export function OtAllocationEditor({
         ) : (
           filteredSeeds.map((seed) => {
             const payload = rowsState[seed.orderId] ?? seed.defaultPayload;
-            const totals = computeOtAllocationOverrideTotals(payload);
+            const tieredRateBps = effectiveRateForRow(payload);
+            const totals = computeOtAllocationOverrideTotals(payload, tieredRateBps);
             const meta = savedMeta[seed.orderId];
             const sp = savedPayload[seed.orderId];
             const isDirty = !sp || !payloadsEqual(payload, sp);
@@ -713,6 +759,7 @@ export function OtAllocationEditor({
                 seed={seed}
                 payload={payload}
                 totals={totals}
+                effectiveRateBps={tieredRateBps}
                 meta={meta ?? null}
                 isDirty={isDirty}
                 isSaving={savingOrderId === seed.orderId}
@@ -771,6 +818,13 @@ interface OtAllocationRowProps {
   seed: OtAllocationEditorPerSaleSeed;
   payload: OtAllocationOverridePayload;
   totals: ReturnType<typeof computeOtAllocationOverrideTotals>;
+  /**
+   * Tier-bumped NEW-sale rate (basis points) for this row's rep, if the
+   * rep has crossed a volume tier in the current period. Undefined when
+   * the row uses its raw `commissionRateBps` (rebill, no rep, base 8%
+   * tier, etc.). Caller computes via `getOtTieredNewSaleRateBps`.
+   */
+  effectiveRateBps?: number;
   meta: SavedMeta | null;
   isDirty: boolean;
   isSaving: boolean;
@@ -787,6 +841,7 @@ function OtAllocationRow({
   seed,
   payload,
   totals,
+  effectiveRateBps,
   meta,
   isDirty,
   isSaving,
@@ -873,7 +928,12 @@ function OtAllocationRow({
               <PackageQuickFill payload={payload} onMutate={onMutate} />
               <MedicationsEditor payload={payload} onMutate={onMutate} />
               <FeesEditor payload={payload} onMutate={onMutate} />
-              <SalesRepEditor payload={payload} onMutate={onMutate} reps={reps} />
+              <SalesRepEditor
+                payload={payload}
+                onMutate={onMutate}
+                reps={reps}
+                effectiveRateBps={effectiveRateBps}
+              />
               <CustomLinesEditor payload={payload} onMutate={onMutate} />
               <NotesEditor payload={payload} onMutate={onMutate} />
             </div>
@@ -1439,15 +1499,32 @@ function SalesRepEditor({
   payload,
   onMutate,
   reps,
+  effectiveRateBps,
 }: {
   payload: OtAllocationOverridePayload;
   onMutate: (m: (p: OtAllocationOverridePayload) => OtAllocationOverridePayload) => void;
   reps: SalesRepOption[];
+  /**
+   * Tier-bumped NEW-sale rate for this rep when their period gross
+   * crosses a volume threshold. Undefined when the row uses its raw
+   * `commissionRateBps` (rebill, no rep, base 8% tier).
+   */
+  effectiveRateBps?: number;
 }) {
-  const payloadRateBps = payload.commissionRateBps ?? null;
-  const hasAutoRate = payloadRateBps !== null && payloadRateBps > 0;
+  const rawRateBps = payload.commissionRateBps ?? null;
+  /**
+   * `displayRateBps` = the rate actually used to compute commission (and
+   * shown in the "Auto rate: X% × gross = $Y" caption). When the rep has
+   * crossed a volume tier, this is higher than `rawRateBps`. The chip
+   * selector still highlights the raw rate so the admin sees the base
+   * choice (8% / 1% / etc.); the tier bump is shown as a parenthetical
+   * note below.
+   */
+  const displayRateBps =
+    effectiveRateBps !== undefined && effectiveRateBps > 0 ? effectiveRateBps : rawRateBps;
+  const hasAutoRate = displayRateBps !== null && displayRateBps > 0;
   const autoRateCommission = hasAutoRate
-    ? Math.round((payload.patientGrossCents * (payloadRateBps as number)) / 10_000)
+    ? Math.round((payload.patientGrossCents * (displayRateBps as number)) / 10_000)
     : 0;
   const totalLineCommission = payload.meds.reduce((s, m) => {
     if (m.commissionRateBps == null || m.commissionRateBps <= 0) return s;
@@ -1462,11 +1539,20 @@ function SalesRepEditor({
   } else {
     effectiveCommission = totalLineCommission;
   }
-  let ratePercentLabel: string | null = null;
-  if (payloadRateBps !== null) {
-    const decimals = payloadRateBps % 100 === 0 ? 0 : 1;
-    ratePercentLabel = `${(payloadRateBps / 100).toFixed(decimals)}%`;
-  }
+  const formatRate = (bps: number): string => {
+    const decimals = bps % 100 === 0 ? 0 : 1;
+    return `${(bps / 100).toFixed(decimals)}%`;
+  };
+  const ratePercentLabel = displayRateBps !== null ? formatRate(displayRateBps) : null;
+  /**
+   * Tier-bonus disclosure: only fired for NEW sales (raw 8%) when the
+   * rep crossed a threshold. Tells the admin why the displayed rate is
+   * higher than the chip selection.
+   */
+  const tierBonusBps =
+    effectiveRateBps !== undefined && rawRateBps === 800 && effectiveRateBps > 800
+      ? effectiveRateBps - 800
+      : 0;
 
   return (
     <section className="rounded-lg border border-cyan-100 bg-cyan-50/30 p-3">
@@ -1474,7 +1560,7 @@ function SalesRepEditor({
         Sales rep & commission
       </h4>
       <CommissionRateChips
-        payloadRateBps={payloadRateBps}
+        payloadRateBps={rawRateBps}
         onSetRate={(bps) =>
           /**
            * Setting the rate also clears the manual $ override so the auto
@@ -1492,6 +1578,11 @@ function SalesRepEditor({
         <p className="mb-2 mt-2 text-[11px] text-cyan-900">
           {ratePercentLabel} × gross {centsToDisplay(payload.patientGrossCents)} ={' '}
           <span className="font-semibold tabular-nums">{centsToDisplay(autoRateCommission)}</span>
+          {tierBonusBps > 0 && (
+            <span className="ml-2 rounded-full bg-cyan-600 px-2 py-0.5 text-[10px] font-semibold text-white">
+              Volume bonus +{formatRate(tierBonusBps)}
+            </span>
+          )}
         </p>
       )}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

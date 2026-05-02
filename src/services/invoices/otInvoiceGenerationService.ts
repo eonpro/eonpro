@@ -43,6 +43,7 @@ import {
 } from '@/lib/invoices/ot-stripe-sale-alignment';
 import {
   computeOtAllocationOverrideTotals,
+  getOtTieredNewSaleRateBps,
   type OtAllocationOverridePayload,
   type OtAllocationOverrideStatus,
   type OtAllocationOverrideTotals,
@@ -3503,10 +3504,67 @@ export function applyOtAllocationOverrides(
   nonRxLines: OtCustomNonRxReconciliationLine[];
   totals: OtCustomReconciliationGrandTotals;
 } {
-  const lines: OtCustomReconciliationLine[] = data.perSaleReconciliation.map((sale) => {
+  /**
+   * First pass: build payloads (Rx + non-Rx) without computing totals yet.
+   * We need the full payload set to aggregate per-rep new-sale gross
+   * before pass 2 applies the volume-tier rate bump.
+   */
+  const rxPayloads = data.perSaleReconciliation.map((sale) => {
     const meta = overridesByOrderId.get(sale.orderId) ?? null;
     const payload = meta?.payload ?? buildDefaultOverridePayload(sale, data.pharmacy.lineItems);
-    const totals = computeOtAllocationOverrideTotals(payload);
+    return { sale, meta, payload };
+  });
+  const nonRxPayloads = (data.nonRxReconciliation ?? []).map((row) => {
+    const meta = nonRxOverridesByKey.get(row.dispositionKey) ?? null;
+    const payload: OtAllocationOverridePayload = meta?.payload ?? {
+      meds: [],
+      shippingCents: row.shippingCents,
+      trtTelehealthCents: row.trtTelehealthCents,
+      doctorRxFeeCents: row.doctorApprovalCents,
+      fulfillmentFeesCents: row.fulfillmentFeesCents,
+      customLineItems: [],
+      notes: null,
+      patientGrossCents: row.patientGrossCents,
+      salesRepId: row.salesRepId,
+      salesRepName: row.salesRepName,
+      /** Mirror the UI seed: default to auto-rate, not the ledger commission. */
+      salesRepCommissionCentsOverride: null,
+      commissionRateBps: row.isRebill ? 100 : 800,
+      chargeKind: row.chargeKind,
+    };
+    return { row, meta, payload };
+  });
+
+  /**
+   * Per-rep volume tier aggregation (per stakeholder rule 2026-05-02): sum
+   * each rep's NEW-sale gross (rows where commissionRateBps === 800)
+   * across both Rx and non-Rx, then resolve each rep's tier rate. Rebill
+   * rows (1%) and rows with no rep are excluded.
+   */
+  const newSaleGrossByRepId = new Map<number, number>();
+  for (const { payload } of [...rxPayloads, ...nonRxPayloads]) {
+    if (payload.salesRepId == null) continue;
+    if (payload.commissionRateBps !== 800) continue;
+    newSaleGrossByRepId.set(
+      payload.salesRepId,
+      (newSaleGrossByRepId.get(payload.salesRepId) ?? 0) + payload.patientGrossCents
+    );
+  }
+  const repTierRateBpsByRepId = new Map<number, number>();
+  for (const [repId, total] of newSaleGrossByRepId) {
+    repTierRateBpsByRepId.set(repId, getOtTieredNewSaleRateBps(total));
+  }
+  const resolveEffectiveRateBps = (payload: OtAllocationOverridePayload): number | undefined => {
+    if (payload.salesRepId == null) return undefined;
+    if (payload.commissionRateBps !== 800) return undefined;
+    const tierBps = repTierRateBpsByRepId.get(payload.salesRepId);
+    if (tierBps == null || tierBps <= 800) return undefined;
+    return tierBps;
+  };
+
+  /** Second pass: compute per-row totals using each row's tier-resolved rate. */
+  const lines: OtCustomReconciliationLine[] = rxPayloads.map(({ sale, meta, payload }) => {
+    const totals = computeOtAllocationOverrideTotals(payload, resolveEffectiveRateBps(payload));
     return {
       orderId: sale.orderId,
       invoiceDbId: sale.invoiceDbId,
@@ -3522,32 +3580,9 @@ export function applyOtAllocationOverrides(
     };
   });
 
-  /**
-   * Non-Rx lines: seeded from the period's non-Rx rows, overlayed by any
-   * saved overrides keyed by dispositionKey. The default payload mirrors the
-   * UI seed builder (`buildNonRxSeedsFromData` on the page) so the PDF and
-   * the editor always agree on the starting numbers.
-   */
-  const nonRxLines: OtCustomNonRxReconciliationLine[] = (data.nonRxReconciliation ?? []).map(
-    (row) => {
-      const meta = nonRxOverridesByKey.get(row.dispositionKey) ?? null;
-      const payload: OtAllocationOverridePayload = meta?.payload ?? {
-        meds: [],
-        shippingCents: row.shippingCents,
-        trtTelehealthCents: row.trtTelehealthCents,
-        doctorRxFeeCents: row.doctorApprovalCents,
-        fulfillmentFeesCents: row.fulfillmentFeesCents,
-        customLineItems: [],
-        notes: null,
-        patientGrossCents: row.patientGrossCents,
-        salesRepId: row.salesRepId,
-        salesRepName: row.salesRepName,
-        /** Mirror the UI seed: default to auto-rate, not the ledger commission. */
-        salesRepCommissionCentsOverride: null,
-        commissionRateBps: row.isRebill ? 100 : 800,
-        chargeKind: row.chargeKind,
-      };
-      const totals = computeOtAllocationOverrideTotals(payload);
+  const nonRxLines: OtCustomNonRxReconciliationLine[] = nonRxPayloads.map(
+    ({ row, meta, payload }) => {
+      const totals = computeOtAllocationOverrideTotals(payload, resolveEffectiveRateBps(payload));
       return {
         dispositionKey: row.dispositionKey,
         invoiceDbId: row.invoiceDbId,

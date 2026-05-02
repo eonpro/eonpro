@@ -150,6 +150,10 @@ function rewriteDirectionsForMonth(
   return d;
 }
 
+// Returns one segment per `Month N:` annotation in the SIG (1+ tags).
+// Returns null when the SIG has no month markers at all so callers can
+// fall back to legacy vial-volume estimation. See rx-sig-parser.ts for
+// the canonical implementation; this duplicate exists for code locality.
 function parseMultiMonthDirections(directions: string): Array<{
   monthNumber: number;
   segment: string;
@@ -159,7 +163,7 @@ function parseMultiMonthDirections(directions: string): Array<{
   if (!directions) return null;
 
   const monthMatches = [...directions.matchAll(/Month\s+(\d+)\s*:/gi)];
-  if (monthMatches.length < 2) return null;
+  if (monthMatches.length < 1) return null;
 
   const uniqueMonths = new Map<number, { index: number; matchLength: number }>();
   for (const m of monthMatches) {
@@ -169,7 +173,7 @@ function parseMultiMonthDirections(directions: string): Array<{
     }
   }
 
-  if (uniqueMonths.size < 2) return null;
+  if (uniqueMonths.size < 1) return null;
 
   const sorted = [...uniqueMonths.entries()].sort((a, b) => a[1].index - b[1].index);
   const results: Array<{
@@ -614,7 +618,11 @@ END:VCALENDAR`;
         const medName = getMedicationDisplayName(med);
         const multiMonthDoses = parseMultiMonthDirections(med.directions);
 
-        if (multiMonthDoses && multiMonthDoses.length >= 2) {
+        // Trust any explicit `Month N:` annotation — even a single one — so
+        // a per-line OT package (e.g. one med line per month) is rendered as
+        // exactly the periods the prescriber wrote, instead of the legacy
+        // vial-volume estimator inventing duplicate months at the start dose.
+        if (multiMonthDoses && multiMonthDoses.length >= 1) {
           for (const segment of multiMonthDoses) {
             monthNum++;
             const weekStart = weekCursor;

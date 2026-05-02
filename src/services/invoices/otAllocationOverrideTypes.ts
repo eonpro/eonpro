@@ -161,6 +161,73 @@ export interface OtAllocationOverrideTotals {
 export const OT_EONPRO_FEE_BPS = 500;
 
 /**
+ * Volume-tiered NEW-sale commission rate (per stakeholder direction
+ * 2026-05-02). For the rep's selected-period total NEW-sale gross:
+ *
+ *   $0+        → 8%   (base)
+ *   $17,300+   → 9%   (+1% volume bonus)
+ *   $23,000+   → 10%  (+2%)
+ *   $29,000+   → 11%  (+3%)
+ *   $35,000+   → 12%  (+4%)
+ *
+ * Rebills (1%) DO NOT tier — only the NEW-sale base rate gets the bump.
+ * Tiers apply against the rep's combined Rx + non-Rx new-sale gross in
+ * whatever period the admin generated the report for.
+ */
+export const OT_REP_COMMISSION_TIERS: ReadonlyArray<{
+  thresholdCents: number;
+  rateBps: number;
+}> = [
+  { thresholdCents: 3_500_000, rateBps: 1200 }, // $35,000+ → 12%
+  { thresholdCents: 2_900_000, rateBps: 1100 }, // $29,000+ → 11%
+  { thresholdCents: 2_300_000, rateBps: 1000 }, // $23,000+ → 10%
+  { thresholdCents: 1_730_000, rateBps: 900 }, // $17,300+ → 9%
+  { thresholdCents: 0, rateBps: 800 }, // $0+ → 8% (base)
+];
+
+/**
+ * Resolve the effective NEW-sale commission rate for a rep given their
+ * total period new-sale gross. Returns the highest-tier rate whose
+ * threshold is met. Returns 800 (8%) for the base tier.
+ */
+export function getOtTieredNewSaleRateBps(repTotalNewSaleGrossCents: number): number {
+  for (const tier of OT_REP_COMMISSION_TIERS) {
+    if (repTotalNewSaleGrossCents >= tier.thresholdCents) return tier.rateBps;
+  }
+  return 800;
+}
+
+/**
+ * Build a Map<salesRepId, effectiveNewSaleRateBps> from a list of rows so
+ * the editor / PDF can look up each rep's volume-tier rate without
+ * re-summing on every render.
+ *
+ * Aggregation rules:
+ *   - Row contributes to its rep's total when `commissionRateBps === 800`
+ *     (the base NEW-sale rate). Rebill rows (100), manually overridden
+ *     rates, and rows with no rep are excluded.
+ *   - Sum is `patientGrossCents` per row — the same basis the rate
+ *     applies against.
+ *
+ * The returned map is keyed by `salesRepId`; pass that to
+ * `getOtTieredNewSaleRateBps(map.get(repId) ?? 0)` to get the rate.
+ */
+export function buildOtRepNewSaleGrossTotals(
+  rows: ReadonlyArray<{
+    payload: Pick<OtAllocationOverridePayload, 'salesRepId' | 'commissionRateBps' | 'patientGrossCents'>;
+  }>
+): Map<number, number> {
+  const totals = new Map<number, number>();
+  for (const r of rows) {
+    const repId = r.payload.salesRepId;
+    if (repId == null) continue;
+    if (r.payload.commissionRateBps !== 800) continue;
+    totals.set(repId, (totals.get(repId) ?? 0) + r.payload.patientGrossCents);
+  }
+  return totals;
+}
+
+/**
  * Merchant / Stripe processing fee rate in basis points (400 = 4%). Mirrors
  * `OT_MERCHANT_PROCESSING_BPS` in `ot-pricing.ts`. Re-exported here so the
  * editor's Live Totals doesn't have to import from the broader server-side
@@ -183,14 +250,28 @@ export const OT_MERCHANT_PROCESSING_FEE_BPS = 400;
  *      `lineTotalCents × bps / 10_000` per row
  *   5. 0
  */
-export function computeOtSalesRepCommissionCents(payload: OtAllocationOverridePayload): number {
+export function computeOtSalesRepCommissionCents(
+  payload: OtAllocationOverridePayload,
+  /**
+   * Optional effective-rate override applied AFTER the base
+   * `commissionRateBps` check. Used by the volume-tier system: when the
+   * rep's period NEW-sale gross crosses a threshold, the editor passes
+   * the bumped rate (e.g. 1000 = 10%) here so the row's commission
+   * reflects the volume bonus without mutating saved payloads.
+   *
+   * Manual `salesRepCommissionCentsOverride` still wins over this.
+   */
+  effectiveRateBps?: number
+): number {
   if (payload.salesRepId == null) return 0;
   if (payload.salesRepCommissionCentsOverride != null) {
     return payload.salesRepCommissionCentsOverride;
   }
-  const payloadRateBps = payload.commissionRateBps ?? null;
-  if (payloadRateBps !== null && payloadRateBps > 0) {
-    return Math.round((payload.patientGrossCents * payloadRateBps) / 10_000);
+  const baseRateBps = payload.commissionRateBps ?? null;
+  const rateBps =
+    effectiveRateBps !== undefined && effectiveRateBps > 0 ? effectiveRateBps : baseRateBps;
+  if (rateBps !== null && rateBps !== undefined && rateBps > 0) {
+    return Math.round((payload.patientGrossCents * rateBps) / 10_000);
   }
   let total = 0;
   for (const m of payload.meds) {
@@ -202,11 +283,17 @@ export function computeOtSalesRepCommissionCents(payload: OtAllocationOverridePa
 }
 
 export function computeOtAllocationOverrideTotals(
-  payload: OtAllocationOverridePayload
+  payload: OtAllocationOverridePayload,
+  /**
+   * Optional effective NEW-sale rate (basis points) applied when the
+   * rep's period sales cross a volume tier. Rebill rows (1%) ignore
+   * this. See `getOtTieredNewSaleRateBps`.
+   */
+  effectiveRateBps?: number
 ): OtAllocationOverrideTotals {
   const medicationsCents = payload.meds.reduce((s, m) => s + m.lineTotalCents, 0);
   const customLineItemsCents = payload.customLineItems.reduce((s, c) => s + c.amountCents, 0);
-  const salesRepCommissionCents = computeOtSalesRepCommissionCents(payload);
+  const salesRepCommissionCents = computeOtSalesRepCommissionCents(payload, effectiveRateBps);
   const eonproFeeCents = Math.round((payload.patientGrossCents * OT_EONPRO_FEE_BPS) / 10_000);
   const merchantProcessingFeeCents = Math.round(
     (payload.patientGrossCents * OT_MERCHANT_PROCESSING_FEE_BPS) / 10_000

@@ -124,7 +124,10 @@ export function usePatientDoseSchedule(medicationType: 'tirzepatide' | 'semaglut
             if (!name.includes(medicationType)) continue;
             if (isSupplyMedication(med.name)) continue;
 
-            // Multi-month SIG with explicit per-month doses — use as-is
+            // Multi-month SIG with explicit per-month doses — use as-is.
+            // (≥2 here is intentional: a single explicit month annotation
+            // means the prescriber set only the starting dose; we want the
+            // standard titration ladder builder below to project months 2+.)
             const multiMonth = parseMultiMonthDirections(med.directions);
             if (multiMonth && multiMonth.length >= 2) {
               let weekCursor = 1;

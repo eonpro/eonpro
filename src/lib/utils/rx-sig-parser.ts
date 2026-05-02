@@ -19,6 +19,19 @@ export function parseDoseFromDirections(directions: string): { mg: string; units
   return null;
 }
 
+/**
+ * Parse a SIG (directions) string that carries one or more explicit
+ * `Month N:` annotations and return one segment per month. Returns null
+ * when the SIG has no `Month N:` markers at all (legacy SIGs); callers
+ * should fall back to vial-volume estimation in that case.
+ *
+ * Originally this required ≥2 month tags ("multi-month"), but per-line
+ * OT packages (e.g. WellMedR Semaglutide A — 3 Month) emit a single
+ * `Month N:` per medication line. Forcing those into the legacy
+ * vial-volume estimator caused the patient portal to extrapolate fake
+ * extra months at the same starting dose. We now honor any number of
+ * explicit month tags ≥ 1 and only fall back when none are present.
+ */
 export function parseMultiMonthDirections(directions: string): Array<{
   monthNumber: number;
   segment: string;
@@ -28,7 +41,7 @@ export function parseMultiMonthDirections(directions: string): Array<{
   if (!directions) return null;
 
   const monthMatches = [...directions.matchAll(/Month\s+(\d+)\s*:/gi)];
-  if (monthMatches.length < 2) return null;
+  if (monthMatches.length < 1) return null;
 
   const uniqueMonths = new Map<number, { index: number; matchLength: number }>();
   for (const m of monthMatches) {
@@ -38,7 +51,7 @@ export function parseMultiMonthDirections(directions: string): Array<{
     }
   }
 
-  if (uniqueMonths.size < 2) return null;
+  if (uniqueMonths.size < 1) return null;
 
   const sorted = [...uniqueMonths.entries()].sort((a, b) => a[1].index - b[1].index);
   const results: Array<{
