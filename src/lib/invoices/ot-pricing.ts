@@ -236,7 +236,8 @@ export const OT_PRODUCT_PRICES: OtProductPrice[] = [
     name: 'NAD + 100MG/ML (5ML VIAL) SOLUTION',
     strength: '100MG/ML',
     vialSize: '5ML',
-    priceCents: 5000,
+    /** $75/month flat per stakeholder direction (2026-05-02). Was $50. */
+    priceCents: 7500,
   },
 ];
 
@@ -334,7 +335,22 @@ export function inferOtPharmacyUnitPriceFromRx(rx: {
   }
   if (blob.includes('glutathione')) return row(4000, rx.medName, rx.strength, rx.form || '');
   if (blob.includes('nad+') || blob.includes('nad +') || /\bnad\b/.test(blob)) {
-    return row(8000, rx.medName, rx.strength, rx.form || '');
+    /**
+     * Per stakeholder direction (2026-05-02): NAD+ pharmacy COGS is a flat
+     * $75/month (same structure as Sermorelin). Tier-aware fallback so a
+     * 3/6/12-month fill without a catalog SKU match still lands on the
+     * correct COGS.
+     */
+    if (blob.includes('12 month') || blob.includes('12mo') || blob.includes('annual')) {
+      return row(90000, rx.medName, rx.strength, rx.form || '');
+    }
+    if (blob.includes('6 month') || blob.includes('6mo')) {
+      return row(45000, rx.medName, rx.strength, rx.form || '');
+    }
+    if (blob.includes('3 month') || blob.includes('3mo') || blob.includes('quarterly')) {
+      return row(22500, rx.medName, rx.strength, rx.form || '');
+    }
+    return row(7500, rx.medName, rx.strength, rx.form || '');
   }
   if (blob.includes('testosterone') || blob.includes('cypionate') || blob.includes('undecanoate')) {
     return row(3500, rx.medName, rx.strength, rx.form || '');

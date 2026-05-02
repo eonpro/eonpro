@@ -90,9 +90,14 @@ const RX_ROWS: OtPackageCatalogRow[] = [
     name: 'NAD+ 1000mg (200mg/5mL)',
     category: 'rx',
     retailCentsByTier: { 1: $(349), 3: $(999), 6: $(1950), 12: $(3750) },
-    costCentsByTier: { 1: $(110), 3: $(330), 6: $(660), 12: $(1220) },
+    /**
+     * Pharmacy COGS per stakeholder direction (2026-05-02): flat $75/month
+     * with no bulk discount. Same structure as Sermorelin. Replaces the
+     * prior $110/$330/$660/$1220 figures.
+     */
+    costCentsByTier: { 1: $(75), 3: $(225), 6: $(450), 12: $(900) },
     defaultConsultCents: $(30),
-    defaultShippingCents: $(20),
+    defaultShippingCents: $(30),
   },
   {
     id: 'glutathione-200mg',

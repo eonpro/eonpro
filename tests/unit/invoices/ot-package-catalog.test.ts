@@ -275,7 +275,8 @@ describe('Spot-check pricing accuracy from the source spreadsheet', () => {
     costCents: number;
   }> = [
     { id: 'enclomiphene-25mg', tier: 12, retailCents: 244200, costCents: 54000 },
-    { id: 'nad-1000mg', tier: 3, retailCents: 99900, costCents: 33000 },
+    /** NAD+ 3mo: linear $75/mo × 3 = $225 (was $330 pre-2026-05-02). */
+    { id: 'nad-1000mg', tier: 3, retailCents: 99900, costCents: 22500 },
     { id: 'tirzepatide', tier: 1, retailCents: 39900, costCents: 15000 },
     /** trt-solo 12mo: linear $35/mo Cypionate × 12 = $420 (was $300 pre-2026-05-02). */
     { id: 'trt-solo', tier: 12, retailCents: 242900, costCents: 42000 },
