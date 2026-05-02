@@ -196,11 +196,17 @@ const STANDARD_DOCTOR_CONSULT_PRESETS = new Set<number>([
 function withMedDrivenFees(payload: OtAllocationOverridePayload): OtAllocationOverridePayload {
   const isCold = requiresColdShippingForMedLines(payload.meds);
   const isCypionate = requiresTrtTelehealthForMedLines(payload.meds);
+  /**
+   * Shipping auto-rule (per stakeholder direction 2026-05-02):
+   *   - cold meds (NAD+, glutathione, sermorelin, semaglutide, tirzepatide) → $30
+   *   - any other meds present → $20 standard
+   *   - empty meds list (unmatched product / non-Rx product placeholder) → $20
+   *     ("any non-Rx" rule — default shipping is $20, not $0; admin can
+   *     manually clear via the $0 chip if a row truly ships nothing).
+   */
   const expectedShipping = isCold
     ? OT_PRESCRIPTION_SHIPPING_PREMIUM_CENTS
-    : payload.meds.length > 0
-      ? OT_PRESCRIPTION_SHIPPING_STANDARD_CENTS
-      : 0;
+    : OT_PRESCRIPTION_SHIPPING_STANDARD_CENTS;
   const expectedTrt = isCypionate ? OT_TRT_TELEHEALTH_FEE_CENTS : 0;
 
   /**
