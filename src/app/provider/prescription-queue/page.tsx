@@ -344,49 +344,103 @@ interface QueueItem {
  *      model without waiting on the next `/api/provider/prescription-queue`
  *      refresh.
  *
- * Grouping rules — deliberately conservative so we never collapse two
- * legitimately distinct prescriptions:
+ * The key intentionally does NOT prefix by `queueType`. Two real-world
+ * patterns observed in production both render as duplicate cards for the
+ * same patient:
  *
- *   • `queued_order` rows are always individual (orderId is unique and
- *     they don't share a subscription with anything else).
- *   • `refill` rows collapse on `(patientId, subscriptionId)` when the
- *     refill is linked to a subscription. Otherwise each refillId stands
- *     alone.
- *   • `invoice` rows prefer `(patientId, stripeSubscriptionId)`. When the
- *     invoice has no Stripe subscription link (Airtable / WellMedR
- *     origin), fall back to `(patientId, treatment, amount)` — three
- *     fields matching is sufficient to catch concurrent cron / webhook
- *     duplicates without merging unrelated charges (e.g. an add-on and a
- *     subscription renewal will differ in either treatment or amount).
+ *   A. Concurrent scheduled-payment cron / Stripe webhook retries create
+ *      N paid `Invoice` rows for one Stripe charge. They share a
+ *      `stripeSubscriptionId` but have distinct `invoiceId`s.
+ *   B. A paid `Invoice` row AND a `RefillQueue` row with
+ *      `refill.invoiceId === invoice.id` both reach the queue. They share
+ *      the `invoiceId` but have different `queueType`s and different
+ *      treatment text.
+ *
+ * Grouping rules (most-reliable signal first — all rows in a group must
+ * pick the same tier):
+ *
+ *   1. `queued_order` rows are always individual (admin-queued one-off).
+ *   2. `(patientId, stripeSubscriptionId)` — handles pattern A, and also
+ *      pattern B when the refill's joined Subscription row carries the
+ *      Stripe id.
+ *   3. `(patientId, invoiceId)` — handles pattern B when the linked
+ *      subscription has no Stripe id (Airtable / WellMedR origin).
+ *   4. `(patientId, subscriptionId)` — refill rows in different cycles
+ *      that share a local Subscription row but have no invoice yet.
+ *   5. `(patientId, treatment, amount)` — last-resort heuristic for
+ *      legacy / Airtable invoices that lack any subscription identifier.
+ *      Three-field match is conservative enough not to merge unrelated
+ *      charges (an add-on and a renewal will differ in treatment or
+ *      amount).
+ *   6. Otherwise key on the row's own primary id, so it never collapses
+ *      with anything.
  */
 function getQueueDedupKey(item: QueueItem): string {
   if (item.queueType === 'queued_order') {
     return `qo:${item.orderId ?? 'unknown'}`;
   }
 
-  if (item.queueType === 'refill') {
-    if (item.subscriptionId) {
-      return `r:p${item.patientId}:s${item.subscriptionId}`;
-    }
-    return `r:p${item.patientId}:rid${item.refillId ?? 'unknown'}`;
+  // Tier 2: shared Stripe subscription (works across queueType).
+  if (item.stripeSubscriptionId) {
+    return `g:p${item.patientId}:ss${item.stripeSubscriptionId}`;
   }
 
-  // Default: invoice-backed item.
-  if (item.stripeSubscriptionId) {
-    return `i:p${item.patientId}:ss${item.stripeSubscriptionId}`;
+  // Tier 3: shared invoice id (catches refill rows linked to an invoice
+  // that ALSO appears as its own queue row).
+  if (item.invoiceId != null) {
+    return `g:p${item.patientId}:inv${item.invoiceId}`;
   }
-  const treatmentKey = (item.treatment || '').toLowerCase().replace(/\s+/g, ' ').trim();
-  return `i:p${item.patientId}:t${treatmentKey}:a${item.amount ?? 0}`;
+
+  // Tier 4: shared local subscription id (refills only — invoice items
+  // currently don't expose this).
+  if (item.subscriptionId) {
+    return `g:p${item.patientId}:s${item.subscriptionId}`;
+  }
+
+  // Tier 5: heuristic for legacy invoices.
+  if (item.queueType !== 'refill') {
+    const treatmentKey = (item.treatment || '').toLowerCase().replace(/\s+/g, ' ').trim();
+    return `g:p${item.patientId}:t${treatmentKey}:a${item.amount ?? 0}`;
+  }
+
+  // Tier 6: refills with no linkage at all — keep them individual.
+  return `g:rid${item.refillId ?? 'unknown'}`;
 }
 
 /**
  * Collapse duplicate queue rows into one primary card per group. The
- * primary is the first row in the input order (the API sorts FIFO by
- * `queuedAt`, so this is the oldest paid invoice / earliest queued
- * refill — the one the provider should act on). Siblings are attached so
- * the local "send to pharmacy" handler can prune them in a single state
- * update.
+ * group's primary is chosen by `pickGroupPrimary` (refill-first, then
+ * richest-context, then FIFO), since the picked row drives the "Write
+ * Rx" / "Done" / "Decline" UX for the entire group.
+ *
+ * Siblings are attached so the local action handlers can prune them in a
+ * single state update.
  */
+function pickGroupPrimary(group: QueueItem[]): QueueItem {
+  if (group.length === 1) return group[0];
+
+  // Prefer refill rows: they carry `lastRxDetails`, accurate `glp1Info`
+  // from the prior prescription, and route to the refill-aware Write Rx
+  // flow. An invoice row representing the same charge has thinner data.
+  const refillWithLastRx = group.find(
+    (g) => (g.queueType === 'refill' || g.isRefill) && !!g.lastRxDetails
+  );
+  if (refillWithLastRx) return refillWithLastRx;
+
+  const refill = group.find((g) => g.queueType === 'refill' || g.isRefill);
+  if (refill) return refill;
+
+  // No refill row: prefer the invoice row with the most context — a
+  // populated `amountFormatted` (not "-") and a real `treatment`.
+  const richInvoice = group.find(
+    (g) => g.queueType !== 'queued_order' && g.amount != null && g.amount > 0
+  );
+  if (richInvoice) return richInvoice;
+
+  // FIFO fallback (the API already sorts ascending by queuedAt).
+  return group[0];
+}
+
 function collapseDuplicateQueueItems(items: QueueItem[]): QueueItem[] {
   if (items.length <= 1) return items;
 
@@ -411,11 +465,12 @@ function collapseDuplicateQueueItems(items: QueueItem[]): QueueItem[] {
       continue;
     }
 
-    const [primary, ...rest] = group;
+    const primary = pickGroupPrimary(group);
+    const siblings = group.filter((g) => g !== primary);
     out.push({
       ...primary,
       _dupGroupSize: group.length,
-      _dupGroupSiblings: rest.map((s) => ({
+      _dupGroupSiblings: siblings.map((s) => ({
         queueType: s.queueType,
         invoiceId: s.invoiceId,
         refillId: s.refillId,

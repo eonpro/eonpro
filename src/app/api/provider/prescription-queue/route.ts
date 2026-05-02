@@ -256,6 +256,10 @@ async function handleGet(req: NextRequest, user: AuthUser) {
               id: true,
               planName: true,
               status: true,
+              // Needed so client-side dedup can collapse a refill row and
+              // an invoice row that both back the same Stripe subscription
+              // charge into a single card.
+              stripeSubscriptionId: true,
             },
           },
         },
@@ -1702,9 +1706,12 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           : null,
         // Subscription identifiers exposed at top level for client-side
         // duplicate collapsing (mirrors invoice items so the same dedup key
-        // works across queue types).
+        // works across queue types). When a refill is linked to the same
+        // Stripe subscription as a separately-rendered Invoice row, the
+        // shared stripeSubscriptionId lets the UI collapse them into one
+        // card.
         subscriptionId: refill.subscriptionId ?? refill.subscription?.id ?? null,
-        stripeSubscriptionId: null,
+        stripeSubscriptionId: (refill.subscription?.stripeSubscriptionId as string | null) ?? null,
         // CRITICAL: Flag for multi-tenant isolation violation detection
         clinicMismatch: refillClinicId !== refillPatientClinicId,
         patientClinicId: refillPatientClinicId,
