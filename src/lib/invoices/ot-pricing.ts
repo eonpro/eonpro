@@ -473,6 +473,60 @@ export function isOtTestosteroneReplacementTherapyOrder(
   return false;
 }
 
+/**
+ * Editor-side equivalents of {@link isOtPremiumShippingMedication} and
+ * {@link isOtTestosteroneReplacementTherapyOrder}. These accept the
+ * `OtAllocationOverrideMedLine`-shaped objects the manual reconciliation
+ * editor mutates (no `medicationKey` lookup against the catalog needed —
+ * we match on the free-form `name`/`strength`/`vialSize` text since admins
+ * can rename catalog rows or add custom lines).
+ */
+type EditorMedLineForFeeRules = {
+  name?: string | null;
+  strength?: string | null;
+  vialSize?: string | null;
+  medicationKey?: string | null;
+};
+
+function medLineBlob(m: EditorMedLineForFeeRules): string {
+  return [m.name ?? '', m.strength ?? '', m.vialSize ?? '', m.medicationKey ?? '']
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+}
+
+/**
+ * True when at least one med line on the sale qualifies for cold-shipping
+ * ($30 premium tier): NAD+, glutathione, sermorelin, semaglutide, tirzepatide.
+ * One match flips the whole sale to the premium tier.
+ */
+export function requiresColdShippingForMedLines(meds: EditorMedLineForFeeRules[]): boolean {
+  for (const m of meds) {
+    const blob = medLineBlob(m);
+    if (blob.includes('glutathione')) return true;
+    if (blob.includes('sermorelin')) return true;
+    if (blob.includes('semaglutide')) return true;
+    if (blob.includes('tirzepatide')) return true;
+    if (blob.includes('nad+') || blob.includes('nad +')) return true;
+    if (/\bnad\b/.test(blob)) return true;
+  }
+  return false;
+}
+
+/**
+ * True when at least one med line is testosterone cypionate. When true, the
+ * editor auto-applies the $50 TRT telehealth fee. Matches "cypionate" in the
+ * blob (the canonical TRT signal — same logic as
+ * {@link getOtDoctorApprovalModeFromRxs}).
+ */
+export function requiresTrtTelehealthForMedLines(meds: EditorMedLineForFeeRules[]): boolean {
+  for (const m of meds) {
+    const blob = medLineBlob(m);
+    if (blob.includes('cypionate')) return true;
+  }
+  return false;
+}
+
 /** One shipping charge per order when the order has at least one Rx. */
 export function getOtPrescriptionShippingCentsForOrder(
   rxs: { medName: string; medicationKey: string; form?: string }[]

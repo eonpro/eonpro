@@ -10,6 +10,8 @@ import {
   isOtPremiumShippingMedication,
   getOtPrescriptionShippingCentsForOrder,
   isOtTestosteroneReplacementTherapyOrder,
+  requiresColdShippingForMedLines,
+  requiresTrtTelehealthForMedLines,
   inferOtPharmacyUnitPriceFromRx,
   resolveOtProductPriceForPharmacyLine,
   effectiveOtPharmacyBillQuantity,
@@ -340,5 +342,67 @@ describe('ot-pricing', () => {
         { medName: 'Semaglutide', medicationKey: '203448971' },
       ]),
     ).toBe(false);
+  });
+
+  describe('requiresColdShippingForMedLines (editor-side $30 vs $20 picker)', () => {
+    it('NAD+, glutathione, sermorelin, semaglutide, tirzepatide → true', () => {
+      expect(requiresColdShippingForMedLines([{ name: 'NAD+ 1000mg' }])).toBe(true);
+      expect(requiresColdShippingForMedLines([{ name: 'GLUTATHIONE 200MG/ML' }])).toBe(true);
+      expect(requiresColdShippingForMedLines([{ name: 'Sermorelin Acetate' }])).toBe(true);
+      expect(requiresColdShippingForMedLines([{ name: 'SEMAGLUTIDE/GLYCINE' }])).toBe(true);
+      expect(requiresColdShippingForMedLines([{ name: 'TIRZEPATIDE/GLYCINE' }])).toBe(true);
+    });
+
+    it('Enclomiphene, anastrozole, tadalafil, oral peptides → false', () => {
+      expect(requiresColdShippingForMedLines([{ name: 'ENCLOMIPHENE CITRATE 25mg' }])).toBe(false);
+      expect(requiresColdShippingForMedLines([{ name: 'Anastrozole .25mg' }])).toBe(false);
+      expect(requiresColdShippingForMedLines([{ name: 'Tadalafil 5mg' }])).toBe(false);
+      expect(requiresColdShippingForMedLines([{ name: 'BPC-157' }])).toBe(false);
+    });
+
+    it('mixed list with at least one cold med → true', () => {
+      expect(
+        requiresColdShippingForMedLines([
+          { name: 'Enclomiphene 25mg' },
+          { name: 'Sermorelin' },
+        ]),
+      ).toBe(true);
+    });
+
+    it('empty list → false (no shipping needed)', () => {
+      expect(requiresColdShippingForMedLines([])).toBe(false);
+    });
+
+    it('matches against medicationKey / strength / vialSize too', () => {
+      expect(requiresColdShippingForMedLines([{ name: '', medicationKey: 'sermorelin-12345' }])).toBe(
+        true,
+      );
+      expect(requiresColdShippingForMedLines([{ name: 'Custom', strength: 'NAD+ 1000mg/mL' }])).toBe(
+        true,
+      );
+    });
+  });
+
+  describe('requiresTrtTelehealthForMedLines (editor-side $50 auto fee)', () => {
+    it('testosterone cypionate present → true', () => {
+      expect(requiresTrtTelehealthForMedLines([{ name: 'Testosterone Cypionate 200mg/mL' }])).toBe(
+        true,
+      );
+      expect(
+        requiresTrtTelehealthForMedLines([{ name: 'TRT Plus', strength: 'cypionate + enclo' }]),
+      ).toBe(true);
+    });
+
+    it('non-cypionate meds → false (TRT brand name alone is not enough)', () => {
+      expect(requiresTrtTelehealthForMedLines([{ name: 'Semaglutide' }])).toBe(false);
+      expect(requiresTrtTelehealthForMedLines([{ name: 'Sermorelin' }])).toBe(false);
+      // "TRT" without "cypionate" is intentionally NOT matched — the canonical
+      // TRT signal in the codebase is the actual cypionate Rx.
+      expect(requiresTrtTelehealthForMedLines([{ name: 'TRT Solo branded package' }])).toBe(false);
+    });
+
+    it('empty list → false', () => {
+      expect(requiresTrtTelehealthForMedLines([])).toBe(false);
+    });
   });
 });

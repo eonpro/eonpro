@@ -33,7 +33,14 @@ import {
   Package as PackageIcon,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
-import { OT_PRODUCT_PRICES } from '@/lib/invoices/ot-pricing';
+import {
+  OT_PRESCRIPTION_SHIPPING_PREMIUM_CENTS,
+  OT_PRESCRIPTION_SHIPPING_STANDARD_CENTS,
+  OT_PRODUCT_PRICES,
+  OT_TRT_TELEHEALTH_FEE_CENTS,
+  requiresColdShippingForMedLines,
+  requiresTrtTelehealthForMedLines,
+} from '@/lib/invoices/ot-pricing';
 import {
   OT_PACKAGE_CATALOG,
   OT_PACKAGE_TIER_LABELS,
@@ -146,6 +153,48 @@ function deepClonePayload(p: OtAllocationOverridePayload): OtAllocationOverrideP
 
 function payloadsEqual(a: OtAllocationOverridePayload, b: OtAllocationOverridePayload): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
+}
+
+/**
+ * Recompute medication-driven fees (cold shipping $30 / standard $20, and
+ * TRT telehealth $50) after a meds-list mutation. Only updates the field
+ * when the current value is one of the standard presets — preserves any
+ * custom $ amount the admin typed (e.g. $25 promo shipping).
+ *
+ * Standard presets:
+ *   shipping: 0 / $20 / $30
+ *   TRT:      0 / $50
+ */
+const STANDARD_SHIPPING_PRESETS = new Set<number>([
+  0,
+  OT_PRESCRIPTION_SHIPPING_STANDARD_CENTS,
+  OT_PRESCRIPTION_SHIPPING_PREMIUM_CENTS,
+]);
+const STANDARD_TRT_PRESETS = new Set<number>([0, OT_TRT_TELEHEALTH_FEE_CENTS]);
+
+function withMedDrivenFees(payload: OtAllocationOverridePayload): OtAllocationOverridePayload {
+  const expectedShipping = requiresColdShippingForMedLines(payload.meds)
+    ? OT_PRESCRIPTION_SHIPPING_PREMIUM_CENTS
+    : payload.meds.length > 0
+      ? OT_PRESCRIPTION_SHIPPING_STANDARD_CENTS
+      : 0;
+  const expectedTrt = requiresTrtTelehealthForMedLines(payload.meds)
+    ? OT_TRT_TELEHEALTH_FEE_CENTS
+    : 0;
+  const next: OtAllocationOverridePayload = { ...payload };
+  if (
+    STANDARD_SHIPPING_PRESETS.has(payload.shippingCents) &&
+    payload.shippingCents !== expectedShipping
+  ) {
+    next.shippingCents = expectedShipping;
+  }
+  if (
+    STANDARD_TRT_PRESETS.has(payload.trtTelehealthCents) &&
+    payload.trtTelehealthCents !== expectedTrt
+  ) {
+    next.trtTelehealthCents = expectedTrt;
+  }
+  return next;
 }
 
 // ---------------------------------------------------------------------------
@@ -729,24 +778,33 @@ function PackageQuickFill({
   const applyAtTier = (pkg: OtPackageCatalogRow, tier: OtPackageTier) => {
     const quote = getOtPackageQuoteAtTier(pkg, tier);
     if (!quote) return;
-    onMutate((p) => ({
-      ...p,
-      meds: [
-        {
-          medicationKey: null,
-          name: pkg.name,
-          strength: pkg.subtitle ?? '',
-          vialSize: OT_PACKAGE_TIER_LABELS[tier],
-          quantity: 1,
-          unitPriceCents: quote.costCents,
-          lineTotalCents: quote.costCents,
-          source: 'catalog' as const,
-          commissionRateBps: null,
-        },
-      ],
-      shippingCents: pkg.defaultShippingCents,
-      doctorRxFeeCents: pkg.defaultConsultCents,
-    }));
+    onMutate((p) =>
+      /**
+       * Apply the package's default shipping + consult, then run the
+       * med-driven fee recompute so cold-shipping meds (NAD+, semaglutide,
+       * tirzepatide, sermorelin, glutathione) bump shipping to $30 even if
+       * the package's `defaultShippingCents` was a stale $20, and so
+       * testosterone-cypionate packages auto-set the $50 TRT telehealth fee.
+       */
+      withMedDrivenFees({
+        ...p,
+        meds: [
+          {
+            medicationKey: null,
+            name: pkg.name,
+            strength: pkg.subtitle ?? '',
+            vialSize: OT_PACKAGE_TIER_LABELS[tier],
+            quantity: 1,
+            unitPriceCents: quote.costCents,
+            lineTotalCents: quote.costCents,
+            source: 'catalog' as const,
+            commissionRateBps: null,
+          },
+        ],
+        shippingCents: pkg.defaultShippingCents,
+        doctorRxFeeCents: pkg.defaultConsultCents,
+      })
+    );
     setOpen(false);
     setSelectedPkg(null);
     setQuery('');
@@ -918,45 +976,49 @@ function MedicationsEditor({
   const addCatalogMed = (productId: number) => {
     const row = OT_PRODUCT_PRICES.find((p) => p.productId === productId);
     if (!row) return;
-    onMutate((p) => ({
-      ...p,
-      meds: [
-        ...p.meds,
-        {
-          medicationKey: String(row.productId),
-          name: row.name,
-          strength: row.strength,
-          vialSize: row.vialSize,
-          quantity: 1,
-          unitPriceCents: row.priceCents,
-          lineTotalCents: row.priceCents,
-          source: 'catalog',
-          commissionRateBps: null,
-        },
-      ],
-    }));
+    onMutate((p) =>
+      withMedDrivenFees({
+        ...p,
+        meds: [
+          ...p.meds,
+          {
+            medicationKey: String(row.productId),
+            name: row.name,
+            strength: row.strength,
+            vialSize: row.vialSize,
+            quantity: 1,
+            unitPriceCents: row.priceCents,
+            lineTotalCents: row.priceCents,
+            source: 'catalog',
+            commissionRateBps: null,
+          },
+        ],
+      })
+    );
     setPickerOpen(false);
     setPickerQuery('');
   };
 
   const addCustomMed = () => {
-    onMutate((p) => ({
-      ...p,
-      meds: [
-        ...p.meds,
-        {
-          medicationKey: null,
-          name: 'Custom medication',
-          strength: '',
-          vialSize: '',
-          quantity: 1,
-          unitPriceCents: 0,
-          lineTotalCents: 0,
-          source: 'custom',
-          commissionRateBps: null,
-        },
-      ],
-    }));
+    onMutate((p) =>
+      withMedDrivenFees({
+        ...p,
+        meds: [
+          ...p.meds,
+          {
+            medicationKey: null,
+            name: 'Custom medication',
+            strength: '',
+            vialSize: '',
+            quantity: 1,
+            unitPriceCents: 0,
+            lineTotalCents: 0,
+            source: 'custom',
+            commissionRateBps: null,
+          },
+        ],
+      })
+    );
     setPickerOpen(false);
     setPickerQuery('');
   };
@@ -968,12 +1030,12 @@ function MedicationsEditor({
       const merged: OtAllocationOverrideMedLine = { ...cur, ...patch };
       merged.lineTotalCents = merged.unitPriceCents * merged.quantity;
       next[idx] = merged;
-      return { ...p, meds: next };
+      return withMedDrivenFees({ ...p, meds: next });
     });
   };
 
   const removeMed = (idx: number) => {
-    onMutate((p) => ({ ...p, meds: p.meds.filter((_, i) => i !== idx) }));
+    onMutate((p) => withMedDrivenFees({ ...p, meds: p.meds.filter((_, i) => i !== idx) }));
   };
 
   return (
