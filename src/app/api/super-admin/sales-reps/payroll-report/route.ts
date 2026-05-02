@@ -12,6 +12,7 @@ import { withSuperAdminAuth } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { serverError } from '@/lib/api/error-response';
 import { superAdminRateLimit } from '@/lib/rateLimit';
+import { decryptPatientPHI } from '@/lib/security/phi-encryption';
 import { z } from 'zod';
 
 function parseDates(req: NextRequest): { startDate: Date; endDate: Date } {
@@ -54,6 +55,9 @@ async function handleGet(req: NextRequest): Promise<Response> {
     endDate: endDate.toISOString(),
     clinicFilter: clinicIdParam || 'all',
     salesRepFilter: salesRepIdParam || 'all',
+    format: format ?? 'json',
+    // CSV exports include patient name + Stripe customer ID for payroll reconciliation
+    includesCustomerPhi: format === 'csv',
   });
 
   try {
@@ -380,6 +384,7 @@ async function handleGet(req: NextRequest): Promise<Response> {
         isManual: boolean;
         notes: string | null;
         metadata: any;
+        patientId: number | null;
         overrideRep: { id: number; firstName: string; lastName: string; email: string } | null;
         clinic: { id: number; name: string } | null;
       }> = [];
@@ -396,6 +401,69 @@ async function handleGet(req: NextRequest): Promise<Response> {
         logger.warn('[SalesReps] Override commission query failed — table may not exist yet', {
           error: overrideErr instanceof Error ? overrideErr.message : 'Unknown',
         });
+      }
+
+      // ---------------------------------------------------------------
+      // Customer enrichment: resolve patientId → { customerName, stripeCustomerId }
+      // for the Export CSV. PHI name fields are decrypted in-process and never
+      // logged. Failures are non-fatal — the report still renders without names.
+      // ---------------------------------------------------------------
+      const patientIds = Array.from(
+        new Set(
+          [
+            ...events.map((e) => e.patientId),
+            ...overrideEvents.map((o) => o.patientId),
+          ].filter((id): id is number => typeof id === 'number' && Number.isFinite(id))
+        )
+      );
+
+      const customerByPatientId = new Map<
+        number,
+        { customerName: string; stripeCustomerId: string }
+      >();
+      if (patientIds.length > 0) {
+        try {
+          const patients = await prisma.patient.findMany({
+            where: { id: { in: patientIds } },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              stripeCustomerId: true,
+            },
+          });
+          for (const p of patients) {
+            const decrypted = decryptPatientPHI(
+              p as unknown as Record<string, unknown>,
+              ['firstName', 'lastName']
+            ) as { firstName: string | null; lastName: string | null };
+            const customerName = `${decrypted.firstName ?? ''} ${decrypted.lastName ?? ''}`
+              .trim();
+            customerByPatientId.set(p.id, {
+              customerName,
+              stripeCustomerId: p.stripeCustomerId ?? '',
+            });
+          }
+        } catch (custErr) {
+          logger.warn('[SalesReps] Patient enrichment failed for payroll report', {
+            error: custErr instanceof Error ? custErr.message : 'Unknown',
+            patientCount: patientIds.length,
+          });
+        }
+      }
+
+      function customerFor(patientId: number | null | undefined): {
+        customerName: string;
+        stripeCustomerId: string;
+      } {
+        if (typeof patientId !== 'number') return { customerName: '', stripeCustomerId: '' };
+        return (
+          customerByPatientId.get(patientId) ?? { customerName: '', stripeCustomerId: '' }
+        );
+      }
+
+      function csvField(value: string): string {
+        return `"${value.replace(/"/g, '""')}"`;
       }
 
       const overrideRepSummaries = new Map<
@@ -532,7 +600,7 @@ async function handleGet(req: NextRequest): Promise<Response> {
         }
 
         csv += `\n=== EVENT DETAIL ===\n`;
-        csv += `Date,Sales Rep,Email,Clinic,Status,Type,Source,Revenue,Base,Volume Tier,Product,Multi-Item,Total Commission,Plan,Notes,Stripe Event\n`;
+        csv += `Date,Sales Rep,Email,Clinic,Status,Type,Source,Revenue,Base,Volume Tier,Product,Multi-Item,Total Commission,Plan,Notes,Customer Name,Stripe Customer ID,Stripe Event\n`;
         for (const ev of filteredEvents) {
           const repName =
             `${ev.salesRep?.firstName || ''} ${ev.salesRep?.lastName || ''}`.trim() ||
@@ -541,18 +609,20 @@ async function handleGet(req: NextRequest): Promise<Response> {
           const meta = (ev.metadata as Record<string, any>) || {};
           const saleType = ev.isRecurring ? 'Recurring' : 'New Sale';
           const source = ev.isManual ? 'Manual' : 'Stripe';
-          csv += `${ev.occurredAt.toISOString().slice(0, 10)},"${repName}","${ev.salesRep?.email || ''}","${ev.clinic?.name || ''}",${ev.status},${saleType},${source},$${fmtUSD(ev.eventAmountCents)},$${fmtUSD(ev.baseCommissionCents)},$${fmtUSD(ev.volumeTierBonusCents)},$${fmtUSD(ev.productBonusCents)},$${fmtUSD(ev.multiItemBonusCents)},$${fmtUSD(ev.commissionAmountCents)},"${meta.planName || ''}","${(ev.notes || '').replace(/"/g, '""')}",${ev.stripeEventId || ''}\n`;
+          const cust = customerFor(ev.patientId);
+          csv += `${ev.occurredAt.toISOString().slice(0, 10)},${csvField(repName)},${csvField(ev.salesRep?.email || '')},${csvField(ev.clinic?.name || '')},${ev.status},${saleType},${source},$${fmtUSD(ev.eventAmountCents)},$${fmtUSD(ev.baseCommissionCents)},$${fmtUSD(ev.volumeTierBonusCents)},$${fmtUSD(ev.productBonusCents)},$${fmtUSD(ev.multiItemBonusCents)},$${fmtUSD(ev.commissionAmountCents)},${csvField(meta.planName || '')},${csvField(ev.notes || '')},${csvField(cust.customerName)},${csvField(cust.stripeCustomerId)},${ev.stripeEventId || ''}\n`;
         }
 
         if (overrideEvents.length > 0) {
           csv += `\n=== OVERRIDE COMMISSION DETAIL ===\n`;
-          csv += `Date,Override Rep,Email,Clinic,Status,Subordinate Revenue,Override Rate,Override Commission,Stripe Event\n`;
+          csv += `Date,Override Rep,Email,Clinic,Status,Subordinate Revenue,Override Rate,Override Commission,Customer Name,Stripe Customer ID,Stripe Event\n`;
           for (const ov of overrideEvents) {
             const repName =
               `${ov.overrideRep?.firstName || ''} ${ov.overrideRep?.lastName || ''}`.trim() ||
               ov.overrideRep?.email ||
               '';
-            csv += `${ov.occurredAt.toISOString().slice(0, 10)},"${repName}","${ov.overrideRep?.email || ''}","${ov.clinic?.name || ''}",${ov.status},$${fmtUSD(ov.eventAmountCents)},${(ov.overridePercentBps / 100).toFixed(2)}%,$${fmtUSD(ov.commissionAmountCents)},${ov.stripeEventId || ''}\n`;
+            const cust = customerFor(ov.patientId);
+            csv += `${ov.occurredAt.toISOString().slice(0, 10)},${csvField(repName)},${csvField(ov.overrideRep?.email || '')},${csvField(ov.clinic?.name || '')},${ov.status},$${fmtUSD(ov.eventAmountCents)},${(ov.overridePercentBps / 100).toFixed(2)}%,$${fmtUSD(ov.commissionAmountCents)},${csvField(cust.customerName)},${csvField(cust.stripeCustomerId)},${ov.stripeEventId || ''}\n`;
           }
 
           csv += `\n=== COMBINED TOTALS ===\n`;
@@ -582,42 +652,54 @@ async function handleGet(req: NextRequest): Promise<Response> {
           salesRepId: repId,
           ...s,
         })),
-        events: filteredEvents.map((ev: EventRow) => ({
-          id: ev.id,
-          occurredAt: ev.occurredAt,
-          salesRepId: ev.salesRepId,
-          salesRepName: `${ev.salesRep?.firstName || ''} ${ev.salesRep?.lastName || ''}`.trim(),
-          salesRepEmail: ev.salesRep?.email,
-          clinicId: ev.clinicId,
-          clinicName: ev.clinic?.name,
-          status: ev.status,
-          isManual: ev.isManual,
-          isRecurring: ev.isRecurring,
-          stripeEventId: ev.stripeEventId,
-          eventAmountCents: ev.eventAmountCents,
-          commissionAmountCents: ev.commissionAmountCents,
-          baseCommissionCents: ev.baseCommissionCents,
-          volumeTierBonusCents: ev.volumeTierBonusCents,
-          productBonusCents: ev.productBonusCents,
-          multiItemBonusCents: ev.multiItemBonusCents,
-          planName: (ev.metadata as any)?.planName || null,
-          notes: ev.notes,
-        })),
-        overrideEvents: overrideEvents.map((ov) => ({
-          id: ov.id,
-          occurredAt: ov.occurredAt,
-          overrideRepId: ov.overrideRepId,
-          overrideRepName:
-            `${ov.overrideRep?.firstName || ''} ${ov.overrideRep?.lastName || ''}`.trim(),
-          overrideRepEmail: ov.overrideRep?.email,
-          subordinateRepId: ov.subordinateRepId,
-          clinicName: ov.clinic?.name,
-          status: ov.status,
-          eventAmountCents: ov.eventAmountCents,
-          overridePercentBps: ov.overridePercentBps,
-          commissionAmountCents: ov.commissionAmountCents,
-          stripeEventId: ov.stripeEventId,
-        })),
+        events: filteredEvents.map((ev: EventRow) => {
+          const cust = customerFor(ev.patientId);
+          return {
+            id: ev.id,
+            occurredAt: ev.occurredAt,
+            salesRepId: ev.salesRepId,
+            salesRepName: `${ev.salesRep?.firstName || ''} ${ev.salesRep?.lastName || ''}`.trim(),
+            salesRepEmail: ev.salesRep?.email,
+            clinicId: ev.clinicId,
+            clinicName: ev.clinic?.name,
+            status: ev.status,
+            isManual: ev.isManual,
+            isRecurring: ev.isRecurring,
+            stripeEventId: ev.stripeEventId,
+            eventAmountCents: ev.eventAmountCents,
+            commissionAmountCents: ev.commissionAmountCents,
+            baseCommissionCents: ev.baseCommissionCents,
+            volumeTierBonusCents: ev.volumeTierBonusCents,
+            productBonusCents: ev.productBonusCents,
+            multiItemBonusCents: ev.multiItemBonusCents,
+            planName: (ev.metadata as any)?.planName || null,
+            notes: ev.notes,
+            patientId: ev.patientId,
+            customerName: cust.customerName.length > 0 ? cust.customerName : null,
+            stripeCustomerId: cust.stripeCustomerId.length > 0 ? cust.stripeCustomerId : null,
+          };
+        }),
+        overrideEvents: overrideEvents.map((ov) => {
+          const cust = customerFor(ov.patientId);
+          return {
+            id: ov.id,
+            occurredAt: ov.occurredAt,
+            overrideRepId: ov.overrideRepId,
+            overrideRepName:
+              `${ov.overrideRep?.firstName || ''} ${ov.overrideRep?.lastName || ''}`.trim(),
+            overrideRepEmail: ov.overrideRep?.email,
+            subordinateRepId: ov.subordinateRepId,
+            clinicName: ov.clinic?.name,
+            status: ov.status,
+            eventAmountCents: ov.eventAmountCents,
+            overridePercentBps: ov.overridePercentBps,
+            commissionAmountCents: ov.commissionAmountCents,
+            stripeEventId: ov.stripeEventId,
+            patientId: ov.patientId,
+            customerName: cust.customerName.length > 0 ? cust.customerName : null,
+            stripeCustomerId: cust.stripeCustomerId.length > 0 ? cust.stripeCustomerId : null,
+          };
+        }),
       });
     });
   } catch (error) {
