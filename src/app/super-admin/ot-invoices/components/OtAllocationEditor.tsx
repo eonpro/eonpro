@@ -37,6 +37,8 @@ import {
   OT_PRESCRIPTION_SHIPPING_PREMIUM_CENTS,
   OT_PRESCRIPTION_SHIPPING_STANDARD_CENTS,
   OT_PRODUCT_PRICES,
+  OT_RX_ASYNC_APPROVAL_FEE_CENTS,
+  OT_RX_SYNC_APPROVAL_FEE_CENTS,
   OT_TRT_TELEHEALTH_FEE_CENTS,
   requiresColdShippingForMedLines,
   requiresTrtTelehealthForMedLines,
@@ -156,14 +158,24 @@ function payloadsEqual(a: OtAllocationOverridePayload, b: OtAllocationOverridePa
 }
 
 /**
- * Recompute medication-driven fees (cold shipping $30 / standard $20, and
- * TRT telehealth $50) after a meds-list mutation. Only updates the field
- * when the current value is one of the standard presets — preserves any
- * custom $ amount the admin typed (e.g. $25 promo shipping).
+ * Recompute medication-driven fees (cold shipping $30 / standard $20, doctor
+ * consult $30 / $50, and TRT telehealth $50) after a meds-list mutation.
+ * Only updates the field when the current value is one of the standard
+ * presets — preserves any custom $ amount the admin typed (e.g. $25 promo
+ * shipping, $40 partial doctor fee).
  *
- * Standard presets:
- *   shipping: 0 / $20 / $30
- *   TRT:      0 / $50
+ * Standard presets the helper considers "auto-managed":
+ *   shipping:       0 / $20 / $30
+ *   doctor consult: 0 / $15 / $30 / $50
+ *   TRT:            0 / $50
+ *
+ * Doctor-consult auto rule:
+ *   - cypionate Rx → $50 (sync approval fee)
+ *   - cold-shipping Rx (NAD+, glutathione, sermorelin, semaglutide,
+ *     tirzepatide) → $30 (async approval fee, premium tier)
+ *   - empty meds list → $0
+ *   - other Rx (enclomiphene, tadalafil, oral peptides, etc.) → leave the
+ *     current value as-is so admin's chosen rate sticks
  */
 const STANDARD_SHIPPING_PRESETS = new Set<number>([
   0,
@@ -171,16 +183,38 @@ const STANDARD_SHIPPING_PRESETS = new Set<number>([
   OT_PRESCRIPTION_SHIPPING_PREMIUM_CENTS,
 ]);
 const STANDARD_TRT_PRESETS = new Set<number>([0, OT_TRT_TELEHEALTH_FEE_CENTS]);
+const STANDARD_DOCTOR_CONSULT_PRESETS = new Set<number>([
+  0,
+  1500, // $15 — light consult tier in the package catalog
+  OT_RX_ASYNC_APPROVAL_FEE_CENTS, // $30
+  OT_RX_SYNC_APPROVAL_FEE_CENTS, // $50
+]);
 
 function withMedDrivenFees(payload: OtAllocationOverridePayload): OtAllocationOverridePayload {
-  const expectedShipping = requiresColdShippingForMedLines(payload.meds)
+  const isCold = requiresColdShippingForMedLines(payload.meds);
+  const isCypionate = requiresTrtTelehealthForMedLines(payload.meds);
+  const expectedShipping = isCold
     ? OT_PRESCRIPTION_SHIPPING_PREMIUM_CENTS
     : payload.meds.length > 0
       ? OT_PRESCRIPTION_SHIPPING_STANDARD_CENTS
       : 0;
-  const expectedTrt = requiresTrtTelehealthForMedLines(payload.meds)
-    ? OT_TRT_TELEHEALTH_FEE_CENTS
-    : 0;
+  const expectedTrt = isCypionate ? OT_TRT_TELEHEALTH_FEE_CENTS : 0;
+
+  /**
+   * Doctor consult: only force a value when meds clearly indicate a tier
+   * (cypionate, cold meds, or empty list). For other Rx, leave the current
+   * value alone — admins frequently differentiate between $15 / $30 for
+   * oral-only sales and we don't want to clobber their choice.
+   */
+  let expectedDoctorConsult: number | null = null;
+  if (payload.meds.length === 0) {
+    expectedDoctorConsult = 0;
+  } else if (isCypionate) {
+    expectedDoctorConsult = OT_RX_SYNC_APPROVAL_FEE_CENTS;
+  } else if (isCold) {
+    expectedDoctorConsult = OT_RX_ASYNC_APPROVAL_FEE_CENTS;
+  }
+
   const next: OtAllocationOverridePayload = { ...payload };
   if (
     STANDARD_SHIPPING_PRESETS.has(payload.shippingCents) &&
@@ -193,6 +227,13 @@ function withMedDrivenFees(payload: OtAllocationOverridePayload): OtAllocationOv
     payload.trtTelehealthCents !== expectedTrt
   ) {
     next.trtTelehealthCents = expectedTrt;
+  }
+  if (
+    expectedDoctorConsult !== null &&
+    STANDARD_DOCTOR_CONSULT_PRESETS.has(payload.doctorRxFeeCents) &&
+    payload.doctorRxFeeCents !== expectedDoctorConsult
+  ) {
+    next.doctorRxFeeCents = expectedDoctorConsult;
   }
   return next;
 }
