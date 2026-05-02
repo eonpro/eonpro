@@ -640,12 +640,30 @@ function NonRxRow({
             <CentsField
               label="TRT telehealth"
               value={payload.trtTelehealthCents}
-              onChange={(c) => onMutate((p) => ({ ...p, trtTelehealthCents: c }))}
+              /**
+               * TRT telehealth and Doctor consult are mutually exclusive on a
+               * single sale (stakeholder rule 2026-05-02). Setting TRT > 0
+               * zeroes Doctor consult.
+               */
+              onChange={(c) =>
+                onMutate((p) => ({
+                  ...p,
+                  trtTelehealthCents: c,
+                  doctorRxFeeCents: c > 0 ? 0 : p.doctorRxFeeCents,
+                }))
+              }
             />
             <CentsField
               label="Doctor / Rx fee"
               value={payload.doctorRxFeeCents}
-              onChange={(c) => onMutate((p) => ({ ...p, doctorRxFeeCents: c }))}
+              /** Same mutual-exclusion rule: Doctor > 0 zeroes TRT telehealth. */
+              onChange={(c) =>
+                onMutate((p) => ({
+                  ...p,
+                  doctorRxFeeCents: c,
+                  trtTelehealthCents: c > 0 ? 0 : p.trtTelehealthCents,
+                }))
+              }
             />
             <CentsField
               label="Fulfillment fees"

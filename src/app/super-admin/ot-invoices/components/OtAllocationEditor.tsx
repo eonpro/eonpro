@@ -237,6 +237,16 @@ function withMedDrivenFees(payload: OtAllocationOverridePayload): OtAllocationOv
   ) {
     next.doctorRxFeeCents = expectedDoctorConsult;
   }
+  /**
+   * Mutual-exclusion invariant (per stakeholder rule 2026-05-02): TRT
+   * telehealth and Doctor consult must not BOTH be charged on the same
+   * sale. TRT visit replaces the doctor visit. If both > 0 after the
+   * auto-rule, force doctor consult to 0 (TRT wins, since the $50
+   * cypionate fee lives there).
+   */
+  if (next.trtTelehealthCents > 0 && next.doctorRxFeeCents > 0) {
+    next.doctorRxFeeCents = 0;
+  }
   return next;
 }
 
@@ -1494,13 +1504,31 @@ function FeesEditor({
             { label: '$50', cents: 5000 },
             { label: '$0', cents: 0 },
           ]}
-          onChange={(c) => onMutate((p) => ({ ...p, trtTelehealthCents: c }))}
+          /**
+           * TRT telehealth and Doctor consult are mutually exclusive on a
+           * single sale (stakeholder rule 2026-05-02 — TRT visit replaces
+           * the doctor visit). Setting TRT > 0 zeroes Doctor consult.
+           */
+          onChange={(c) =>
+            onMutate((p) => ({
+              ...p,
+              trtTelehealthCents: c,
+              doctorRxFeeCents: c > 0 ? 0 : p.doctorRxFeeCents,
+            }))
+          }
         />
         <FeeWithChips
           label="Doctor consult"
           value={payload.doctorRxFeeCents}
           chips={OT_DOCTOR_CONSULT_CHIPS}
-          onChange={(c) => onMutate((p) => ({ ...p, doctorRxFeeCents: c }))}
+          /** Same mutual-exclusion rule: setting Doctor > 0 zeroes TRT telehealth. */
+          onChange={(c) =>
+            onMutate((p) => ({
+              ...p,
+              doctorRxFeeCents: c,
+              trtTelehealthCents: c > 0 ? 0 : p.trtTelehealthCents,
+            }))
+          }
         />
         <FeeWithChips
           label="Fulfillment fees"

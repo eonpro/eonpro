@@ -190,7 +190,26 @@ const RX_ROWS: OtPackageCatalogRow[] = [
     name: 'TRT — by itself',
     category: 'rx',
     retailCentsByTier: { 1: $(239), 3: $(669), 6: $(1285), 12: $(2429) },
-    costCentsByTier: { 1: $(25), 3: $(75), 6: $(150), 12: $(300) },
+    /**
+     * Linear COGS per stakeholder direction (2026-05-02): $35/month
+     * Cypionate, no bulk discount. Replaces the prior $25/$75/$150/$300
+     * tier pricing.
+     */
+    costCentsByTier: { 1: $(35), 3: $(105), 6: $(210), 12: $(420) },
+    medLinesByTier: {
+      1: [
+        { name: 'Testosterone Cypionate 200mg/mL', strength: '200mg/mL', vialSize: 'INJ', quantity: 1, unitPriceCents: $(35) },
+      ],
+      3: [
+        { name: 'Testosterone Cypionate 200mg/mL', strength: '200mg/mL', vialSize: 'INJ', quantity: 3, unitPriceCents: $(35) },
+      ],
+      6: [
+        { name: 'Testosterone Cypionate 200mg/mL', strength: '200mg/mL', vialSize: 'INJ', quantity: 6, unitPriceCents: $(35) },
+      ],
+      12: [
+        { name: 'Testosterone Cypionate 200mg/mL', strength: '200mg/mL', vialSize: 'INJ', quantity: 12, unitPriceCents: $(35) },
+      ],
+    },
     /** Same rule: doctor consult $0; the $50 lives on TRT telehealth. */
     defaultConsultCents: $(0),
     defaultShippingCents: $(20),
