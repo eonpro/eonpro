@@ -2193,7 +2193,7 @@ export default function PrescriptionQueuePage() {
           <div className="col-span-2 rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm sm:col-span-1">
             <div className="flex items-center gap-2 text-xs font-medium text-gray-500">
               <RefreshCw className="h-3.5 w-3.5 shrink-0 text-gray-400" aria-hidden />
-              New vs Refill (MTD)
+              New vs Refill (Today)
             </div>
             {statsLoading ? (
               <div className="mt-3 h-10 animate-pulse rounded-lg bg-gray-100" />
@@ -2201,25 +2201,25 @@ export default function PrescriptionQueuePage() {
               <>
                 <div className="mt-3 flex h-2.5 overflow-hidden rounded-full bg-gray-100">
                   <div
-                    className="bg-[#66a682] transition-all"
+                    className="bg-[#6366f1] transition-all"
                     style={{ width: `${stats.newVsRefill.newPercent ?? 0}%` }}
                     title={`New scripts ${stats.newVsRefill.newPercent}%`}
                   />
                   <div
-                    className="bg-[#6b8ced] transition-all"
+                    className="bg-[#f59e0b] transition-all"
                     style={{ width: `${stats.newVsRefill.refillPercent ?? 0}%` }}
                     title={`Refills ${stats.newVsRefill.refillPercent}%`}
                   />
                 </div>
                 <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-600">
                   <span>
-                    <span className="font-semibold text-gray-600">
+                    <span className="font-semibold text-[#6366f1]">
                       {stats.newVsRefill.newPercent}%
                     </span>{' '}
                     New ({stats.newVsRefill.newScripts})
                   </span>
                   <span>
-                    <span className="font-semibold text-[#6b8ced]">
+                    <span className="font-semibold text-[#f59e0b]">
                       {stats.newVsRefill.refillPercent}%
                     </span>{' '}
                     Refills ({stats.newVsRefill.refills})
@@ -2227,7 +2227,7 @@ export default function PrescriptionQueuePage() {
                 </div>
               </>
             ) : (
-              <p className="mt-3 text-sm text-gray-500">No Rx submitted this month yet</p>
+              <p className="mt-3 text-sm text-gray-500">No Rx submitted today yet</p>
             )}
           </div>
         </div>

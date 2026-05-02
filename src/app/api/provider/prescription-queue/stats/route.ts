@@ -110,8 +110,19 @@ function aggregateGlp1Split(orders: { primaryMedName: string | null }[]): {
 
 /**
  * Split an order set into "new scripts" vs "refills".
- * An order is considered a refill if it was created from a RefillQueue entry
- * (i.e. it has a related RefillQueue via the `RefillNewOrder` relation).
+ *
+ * An order counts as a **refill** if EITHER:
+ *
+ *   (a) it has a back-link to a RefillQueue row (formal refill via the
+ *       subscription → RefillQueue → provider-queue path), OR
+ *   (b) the same patient already has a prior `lifefileOrderId != null`
+ *       order for the same `primaryMedName` from before this period
+ *       (catches subscription renewals that come in through the invoice
+ *       path — those never touch RefillQueue, so signal (a) misses them
+ *       and they were previously miscounted as "new").
+ *
+ * Caller is responsible for resolving signal (b) and passing both flags
+ * — this aggregator just sums.
  */
 function aggregateNewVsRefillSplit(orders: { isRefill: boolean }[]): {
   newScripts: number;
@@ -129,6 +140,56 @@ function aggregateNewVsRefillSplit(orders: { isRefill: boolean }[]): {
   const newPercent = total > 0 ? Math.round((newScripts / total) * 1000) / 10 : null;
   const refillPercent = total > 0 ? Math.round((refills / total) * 1000) / 10 : null;
   return { newScripts, refills, newPercent, refillPercent, total };
+}
+
+/** Normalize medication name for "same med" matching across orders. */
+function medKey(patientId: number, primaryMedName: string | null): string | null {
+  if (!primaryMedName) return null;
+  return `${patientId}|${primaryMedName.trim().toUpperCase()}`;
+}
+
+/**
+ * Resolve which of today's orders are refills. See `aggregateNewVsRefillSplit`
+ * for the full definition. Runs one bounded `findMany` over prior orders for
+ * the patients we saw today and returns the per-order classification.
+ */
+async function resolveRefillFlagsForToday(
+  clinicId: number,
+  etDayStart: Date,
+  todays: Array<{
+    patientId: number;
+    primaryMedName: string | null;
+    refillAsNewOrder: { id: number } | null;
+  }>
+): Promise<{ isRefill: boolean }[]> {
+  const todayPatientIds = Array.from(new Set(todays.map((o) => o.patientId)));
+  const priorOrders =
+    todayPatientIds.length === 0
+      ? []
+      : await prisma.order.findMany({
+          where: {
+            clinicId,
+            cancelledAt: null,
+            lifefileOrderId: { not: null },
+            status: { notIn: ['error', 'declined'] },
+            patientId: { in: todayPatientIds },
+            createdAt: { lt: etDayStart },
+          },
+          select: { patientId: true, primaryMedName: true },
+        });
+
+  const priorPatientMedPairs = new Set<string>();
+  for (const p of priorOrders) {
+    const key = medKey(p.patientId, p.primaryMedName);
+    if (key) priorPatientMedPairs.add(key);
+  }
+
+  return todays.map((o) => {
+    const formalRefill = o.refillAsNewOrder !== null;
+    const key = medKey(o.patientId, o.primaryMedName);
+    const priorRefill = key !== null && priorPatientMedPairs.has(key);
+    return { isRefill: formalRefill || priorRefill };
+  });
 }
 
 async function handleGet(_req: NextRequest, user: AuthUser): Promise<Response> {
@@ -164,7 +225,7 @@ async function handleGet(_req: NextRequest, user: AuthUser): Promise<Response> {
       ],
     };
 
-    const [daily, weekly, monthly, monthlyOrders] = await Promise.all([
+    const [daily, weekly, monthly, monthlyOrders, dailyOrdersForRefillSplit] = await Promise.all([
       prisma.order.count({
         where: { AND: [actorWhere, sentToPharmacyOnOrAfter(etDayStart)] },
       }),
@@ -174,12 +235,24 @@ async function handleGet(_req: NextRequest, user: AuthUser): Promise<Response> {
       prisma.order.count({
         where: { AND: [actorWhere, sentToPharmacyOnOrAfter(etMonthStart)] },
       }),
+      // Used for the GLP-1 split, which intentionally stays month-to-date so the
+      // sample is large enough to be meaningful.
       prisma.order.findMany({
         where: { AND: [actorWhere, sentToPharmacyOnOrAfter(etMonthStart)] },
+        select: { primaryMedName: true },
+      }),
+      // Today's orders (ET) for the new-vs-refill split. Refill detection happens
+      // below in two passes:
+      //   1. formal refill = back-link to a RefillQueue row via RefillNewOrder
+      //   2. heuristic refill = same patient already has a prior sent-to-pharmacy
+      //      order for the same primaryMedName from before today (catches
+      //      subscription renewals routed through the invoice path, which never
+      //      create a RefillQueue row and were previously miscounted as "new").
+      prisma.order.findMany({
+        where: { AND: [actorWhere, sentToPharmacyOnOrAfter(etDayStart)] },
         select: {
+          patientId: true,
           primaryMedName: true,
-          // Used to classify new script vs refill — a refill is an order that
-          // was created from a RefillQueue entry (1:1 via RefillNewOrder).
           refillAsNewOrder: { select: { id: true } },
         },
       }),
@@ -187,7 +260,7 @@ async function handleGet(_req: NextRequest, user: AuthUser): Promise<Response> {
 
     const glp1 = aggregateGlp1Split(monthlyOrders);
     const newVsRefill = aggregateNewVsRefillSplit(
-      monthlyOrders.map((o) => ({ isRefill: o.refillAsNewOrder !== null }))
+      await resolveRefillFlagsForToday(user.clinicId, etDayStart, dailyOrdersForRefillSplit)
     );
 
     return jsonStatsPayload({
@@ -196,7 +269,7 @@ async function handleGet(_req: NextRequest, user: AuthUser): Promise<Response> {
       monthly,
       glp1,
       newVsRefill,
-      periodNote: `${ET_PERIOD_NOTE_EMPTY} Semaglutide vs tirzepatide is the share among GLP‑1 orders month-to-date (ET). New vs refill is the share of all submitted orders month-to-date (ET); refills are orders created from a RefillQueue entry.`,
+      periodNote: `${ET_PERIOD_NOTE_EMPTY} Semaglutide vs tirzepatide is the share among GLP‑1 orders month-to-date (ET). New vs refill is the share of orders submitted today (ET); a refill is either an order created from a RefillQueue entry, or an order whose same patient + medication was already prescribed on an earlier day.`,
       periodBoundsEt: {
         dailyStart: etDayStart.toISOString(),
         weekStart: etWeekStart.toISOString(),
