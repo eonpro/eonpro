@@ -78,6 +78,12 @@ export interface OtNonRxReconciliationLine {
   managerOverrideSummary: string | null;
   totalDeductionsCents: number;
   clinicNetPayoutCents: number;
+  /**
+   * True when the patient had any prior paid Rx invoice at this clinic within
+   * the last 30 days before this row's `paidAt`. Drives the auto commission
+   * rate (1% rebill / 8% new) on the non-Rx editor.
+   */
+  isRebill: boolean;
 }
 
 export interface BuildOtNonRxReconciliationArgs {
@@ -94,6 +100,13 @@ export interface BuildOtNonRxReconciliationArgs {
    * COGS — those rows belong on the Rx side, not here.
    */
   invoiceDbIdsUsedForCogs: Set<number>;
+  /**
+   * Optional: for each patientId, the list of paid Rx invoice timestamps at
+   * this clinic. Used to flag a non-Rx row as a rebill when the patient had
+   * any paid Rx within 30 days before the row's `paidAt`. Omit / pass an
+   * empty map to treat all rows as new sales (legacy behavior).
+   */
+  paidRxHistoryByPatient?: Map<number, ReadonlyArray<{ paidAt: Date }>>;
 }
 
 // ---------------------------------------------------------------------------
@@ -105,6 +118,30 @@ export interface BuildOtNonRxReconciliationArgs {
  * fees, and seeds editable fields to defaults. The disposition key is the
  * caller's responsibility (so it can encode either invoice or payment).
  */
+const REBILL_LOOKBACK_DAYS = 30;
+const REBILL_LOOKBACK_MS = REBILL_LOOKBACK_DAYS * 86_400_000;
+
+/**
+ * Returns true when the patient has any paid Rx invoice within the last
+ * `REBILL_LOOKBACK_DAYS` days before `paidAt`. `null` paidAt → false (we
+ * can't determine recency without a reference time, so default to "new").
+ */
+function patientHadRecentPaidRx(
+  patientId: number,
+  paidAt: Date | null,
+  history: Map<number, ReadonlyArray<{ paidAt: Date }>> | undefined
+): boolean {
+  if (!history || !paidAt) return false;
+  const list = history.get(patientId);
+  if (!list || list.length === 0) return false;
+  const refMs = paidAt.getTime();
+  for (const inv of list) {
+    const t = inv.paidAt.getTime();
+    if (t < refMs && refMs - t <= REBILL_LOOKBACK_MS) return true;
+  }
+  return false;
+}
+
 function buildLineFromPayments(
   dispositionKey: string,
   dispositionType: 'invoice' | 'payment',
@@ -112,7 +149,8 @@ function buildLineFromPayments(
   paymentId: number | null,
   payments: OtPaymentCollectionRow[],
   chargeKind: OtNonRxChargeKind,
-  productDescription: string
+  productDescription: string,
+  isRebill: boolean
 ): OtNonRxReconciliationLine {
   const patientGrossCents = payments.reduce((s, p) => s + p.netCollectedCents, 0);
   /**
@@ -157,6 +195,7 @@ function buildLineFromPayments(
     managerOverrideSummary: null,
     totalDeductionsCents,
     clinicNetPayoutCents: patientGrossCents - totalDeductionsCents,
+    isRebill,
   };
 }
 
@@ -201,6 +240,7 @@ export function buildOtNonRxReconciliation(
   args: BuildOtNonRxReconciliationArgs
 ): OtNonRxReconciliationLine[] {
   const { paymentCollections, nonRxChargeLineItems, invoiceDbIdsUsedForCogs } = args;
+  const paidRxHistoryByPatient = args.paidRxHistoryByPatient;
 
   /** Step 1: filter out fully-refunded payments and Rx-attributed payments. */
   const candidates = paymentCollections.filter((p) => {
@@ -230,6 +270,19 @@ export function buildOtNonRxReconciliation(
       invoiceDbId,
       nonRxChargeLineItems
     );
+    /** Use earliest paidAt across the row's payments as the rebill reference. */
+    const earliestPaidAtMs = payments.reduce<number | null>((acc, p) => {
+      if (!p.paidAt) return acc;
+      const t = new Date(p.paidAt).getTime();
+      if (acc === null) return t;
+      return t < acc ? t : acc;
+    }, null);
+    const earliestPaidAt = earliestPaidAtMs !== null ? new Date(earliestPaidAtMs) : null;
+    const isRebill = patientHadRecentPaidRx(
+      payments[0].patientId,
+      earliestPaidAt,
+      paidRxHistoryByPatient
+    );
     rows.push(
       buildLineFromPayments(
         `inv:${invoiceDbId}`,
@@ -238,7 +291,8 @@ export function buildOtNonRxReconciliation(
         null,
         payments,
         chargeKind,
-        productDescription
+        productDescription,
+        isRebill
       )
     );
   }
@@ -247,6 +301,11 @@ export function buildOtNonRxReconciliation(
   for (const p of standalone) {
     /** Classify from the payment description — invoice-less rows have no line items. */
     const chargeKind = classifyOtNonPharmacyChargeLine(p.description ?? '', p.amountCents);
+    const isRebill = patientHadRecentPaidRx(
+      p.patientId,
+      p.paidAt ? new Date(p.paidAt) : null,
+      paidRxHistoryByPatient
+    );
     rows.push(
       buildLineFromPayments(
         `pay:${p.paymentId}`,
@@ -255,7 +314,8 @@ export function buildOtNonRxReconciliation(
         p.paymentId,
         [p],
         chargeKind,
-        p.description ?? ''
+        p.description ?? '',
+        isRebill
       )
     );
   }

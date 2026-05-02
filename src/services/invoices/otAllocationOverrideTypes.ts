@@ -78,10 +78,20 @@ export const otAllocationOverridePayloadSchema = z.object({
   salesRepName: z.string().trim().max(120).nullable().default(null),
   /**
    * Manual override for the rep's commission cents. When null, total commission
-   * is computed as `Σ(med.lineTotalCents × med.commissionRateBps / 10000)` over
-   * the meds list. When set, this replaces the per-line sum.
+   * is computed by `computeOtSalesRepCommissionCents` (see precedence below).
+   * When set, this replaces every other rule.
    */
   salesRepCommissionCentsOverride: cents.nullable().default(null),
+  /**
+   * Payload-level commission rate in basis points (e.g. 800 = 8%). Applied
+   * against `max(0, patientGrossCents − Σ med.lineTotalCents)` (gross minus
+   * medications COGS). Set automatically by `buildDefaultOverridePayload`:
+   * 800 for new sales, 100 for rebills (≤30 days since prior paid Rx).
+   * Optional + nullable + default-null for back-compat with overrides saved
+   * before this field shipped — those continue to compute commission from
+   * the legacy per-`meds[]`-line rate.
+   */
+  commissionRateBps: z.number().int().min(0).max(5000).nullable().optional().default(null),
   /**
    * Non-Rx classification: `'bloodwork' | 'consult' | 'other'` for non-Rx
    * disposition rows; `null` for Rx rows. Optional + nullable + default-null
@@ -131,15 +141,27 @@ export interface OtAllocationOverrideTotals {
 
 /**
  * Computes the sales-rep commission for a sale.
- * Priority:
- *   1. `salesRepCommissionCentsOverride` if set (admin manually typed a $ amount)
- *   2. Sum of per-medication-line `commissionRateBps × lineTotalCents`
- *   3. 0 if no rep is assigned, regardless of rates
+ *
+ * Precedence (highest → lowest):
+ *   1. No rep assigned (`salesRepId == null`) → 0
+ *   2. `salesRepCommissionCentsOverride` (admin manually typed a $ amount) → use as-is
+ *   3. Payload-level `commissionRateBps` (auto rule: 8% new / 1% rebill) →
+ *      `max(0, patientGrossCents − Σ med.lineTotalCents) × bps / 10_000`
+ *      (basis = "gross minus COGS")
+ *   4. Legacy per-line `meds[].commissionRateBps` → sum of
+ *      `lineTotalCents × bps / 10_000` per row
+ *   5. 0
  */
 export function computeOtSalesRepCommissionCents(payload: OtAllocationOverridePayload): number {
   if (payload.salesRepId == null) return 0;
   if (payload.salesRepCommissionCentsOverride != null) {
     return payload.salesRepCommissionCentsOverride;
+  }
+  const payloadRateBps = payload.commissionRateBps ?? null;
+  if (payloadRateBps !== null && payloadRateBps > 0) {
+    const medsTotal = payload.meds.reduce((s, m) => s + m.lineTotalCents, 0);
+    const basis = Math.max(0, payload.patientGrossCents - medsTotal);
+    return Math.round((basis * payloadRateBps) / 10_000);
   }
   let total = 0;
   for (const m of payload.meds) {

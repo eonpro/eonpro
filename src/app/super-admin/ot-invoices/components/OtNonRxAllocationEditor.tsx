@@ -51,6 +51,12 @@ export interface OtNonRxAllocationEditorSeed {
   paidAt: string | null;
   patientName: string;
   productDescription: string;
+  /**
+   * True when the patient had any paid Rx invoice at this clinic within the
+   * last 30 days. Drives the "New 8% / Rebill 1%" badge in the row header
+   * and the default `commissionRateBps` in `defaultPayload`.
+   */
+  isRebill: boolean;
   defaultPayload: OtAllocationOverridePayload;
 }
 
@@ -565,6 +571,20 @@ function NonRxRow({
                 {CHARGE_KIND_LABELS[seed.chargeKind]}
               </span>
               <span
+                title={
+                  seed.isRebill
+                    ? 'Patient had a paid Rx within the last 30 days. Auto rate: 1%.'
+                    : 'No paid Rx in the last 30 days. Auto rate: 8%.'
+                }
+                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                  seed.isRebill
+                    ? 'bg-amber-100 text-amber-900'
+                    : 'bg-emerald-100 text-emerald-900'
+                }`}
+              >
+                {seed.isRebill ? 'Rebill · 1%' : 'New · 8%'}
+              </span>
+              <span
                 className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${statusColor}`}
               >
                 {statusLabel}
@@ -659,17 +679,7 @@ function NonRxRow({
                 ))}
               </select>
             </div>
-            <CentsField
-              label="Rep commission ($)"
-              value={payload.salesRepCommissionCentsOverride ?? 0}
-              disabled={payload.salesRepId == null}
-              onChange={(c) =>
-                onMutate((p) => ({
-                  ...p,
-                  salesRepCommissionCentsOverride: p.salesRepId == null ? null : c,
-                }))
-              }
-            />
+            <NonRxRepCommissionField payload={payload} onMutate={onMutate} totals={totals} />
             <div className="rounded-lg bg-gray-50 p-2 text-xs text-gray-600">
               <p className="font-medium uppercase tracking-wider text-[10px]">Computed totals</p>
               <p className="mt-1">Deductions: {centsToDisplay(totals.totalDeductionsCents)}</p>
@@ -966,6 +976,86 @@ function CentsField({
         onChange={(e) => onChange(dollarsInputToCents(e.target.value))}
         className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-right font-mono text-sm shadow-sm focus:border-[#4fa77e] focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
       />
+    </div>
+  );
+}
+
+/**
+ * Rep commission $ field for the non-Rx editor — same precedence as the Rx
+ * editor: manual override > payload-level auto rate × (gross − COGS) >
+ * legacy per-line bps. The auto rate is set to 100 (rebill) or 800 (new) by
+ * the seed builder; admin can type a $ to override per row.
+ */
+function NonRxRepCommissionField({
+  payload,
+  onMutate,
+  totals,
+}: {
+  payload: OtAllocationOverridePayload;
+  onMutate: (m: (p: OtAllocationOverridePayload) => OtAllocationOverridePayload) => void;
+  totals: { salesRepCommissionCents: number };
+}) {
+  const medsTotalCents = payload.meds.reduce((s, m) => s + m.lineTotalCents, 0);
+  const payloadRateBps = payload.commissionRateBps ?? null;
+  const hasAutoRate = payloadRateBps !== null && payloadRateBps > 0;
+  const usingManualOverride = payload.salesRepCommissionCentsOverride !== null;
+  const effectiveCents = usingManualOverride
+    ? (payload.salesRepCommissionCentsOverride as number)
+    : totals.salesRepCommissionCents;
+  let ratePctLabel: string | null = null;
+  if (payloadRateBps !== null) {
+    const decimals = payloadRateBps % 100 === 0 ? 0 : 1;
+    ratePctLabel = `${(payloadRateBps / 100).toFixed(decimals)}%`;
+  }
+  let labelSuffix = '';
+  if (usingManualOverride) {
+    labelSuffix = '(manual)';
+  } else if (hasAutoRate) {
+    labelSuffix = `(auto ${ratePctLabel})`;
+  }
+
+  return (
+    <div>
+      <label className="block text-[10px] font-medium uppercase tracking-wider text-gray-500">
+        Rep commission ($) {labelSuffix}
+      </label>
+      <div className="mt-1 flex items-center gap-2">
+        <input
+          type="text"
+          inputMode="decimal"
+          value={centsToInputValue(effectiveCents)}
+          disabled={payload.salesRepId === null}
+          onChange={(e) => {
+            const cents = dollarsInputToCents(e.target.value);
+            onMutate((p) => ({
+              ...p,
+              salesRepCommissionCentsOverride: p.salesRepId === null ? null : cents,
+            }));
+          }}
+          className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-right font-mono text-sm shadow-sm focus:border-[#4fa77e] focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
+        />
+        {usingManualOverride && payload.salesRepId !== null && (
+          <button
+            type="button"
+            onClick={() => onMutate((p) => ({ ...p, salesRepCommissionCentsOverride: null }))}
+            className="whitespace-nowrap rounded-md border border-gray-200 bg-white px-2 py-1 text-[10px] font-medium text-gray-700 hover:bg-gray-50"
+            title={
+              hasAutoRate
+                ? `Reset to auto ${ratePctLabel} × (gross − COGS)`
+                : 'Reset to per-line %'
+            }
+          >
+            Reset
+          </button>
+        )}
+      </div>
+      {!usingManualOverride && hasAutoRate && (
+        <p className="mt-1 text-[10px] text-cyan-800">
+          {ratePctLabel} × (gross {centsToDisplay(payload.patientGrossCents)} − COGS{' '}
+          {centsToDisplay(medsTotalCents)}) ={' '}
+          <span className="font-semibold tabular-nums">{centsToDisplay(effectiveCents)}</span>
+        </p>
+      )}
     </div>
   );
 }

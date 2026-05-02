@@ -337,6 +337,14 @@ export interface OtPerSaleReconciliationLine {
   doctorRxFeeDaysSincePrior: number | null;
   /** Explains $0 fee or empty when full fee applies. */
   doctorRxFeeNote: string | null;
+  /**
+   * True when the patient had a prior paid Rx invoice at this clinic within
+   * the last 30 days (window matches stakeholder rule for new vs rebill
+   * commission rate). False on first-ever paid Rx or when prior > 30 days.
+   * Drives the auto commission rate in `buildDefaultOverridePayload`:
+   * 1% (REBILL) when true, 8% (NEW) when false.
+   */
+  isRebill: boolean;
   fulfillmentFeesCents: number;
   /** 4% of this sale gross, rounded. */
   merchantProcessingCents: number;
@@ -1629,6 +1637,14 @@ export async function generateOtDailyInvoices(
       doctorRxFeeWaivedCents: doctorRxFee.waivedAmountCents,
       doctorRxFeeDaysSincePrior: doctorRxFee.daysSincePriorPaidRx,
       doctorRxFeeNote: doctorRxFeeNote,
+      /**
+       * Rebill = patient had a prior paid Rx within last 30 days. Uses the same
+       * `priorPaidRx` lookup that drives the doctor-fee waiver, but with a
+       * tighter 30-day window so commission rate (1% rebill / 8% new) better
+       * matches stakeholder intent than the 90-day fee-waiver window.
+       */
+      isRebill:
+        doctorRxFee.daysSincePriorPaidRx !== null && doctorRxFee.daysSincePriorPaidRx <= 30,
       fulfillmentFeesCents: orderFulfillmentFeesCents,
       merchantProcessingCents: saleMerchantCents,
       platformCompensationCents: salePlatformCents,
@@ -1823,6 +1839,12 @@ export async function generateOtDailyInvoices(
     paymentCollections,
     nonRxChargeLineItems,
     invoiceDbIdsUsedForCogs,
+    /**
+     * Used to flag non-Rx rows as "rebill" when the patient had any paid Rx
+     * within 30 days before the row's `paidAt`. Drives the auto commission
+     * rate (1% rebill / 8% new) on the non-Rx editor, mirroring the Rx side.
+     */
+    paidRxHistoryByPatient,
   }).map((row) => {
     /** Only invoice-keyed rows can resolve a Stripe invoice id for the ledger. */
     if (row.dispositionType !== 'invoice' || row.invoiceDbId == null) {
@@ -2825,11 +2847,19 @@ export function buildDefaultOverridePayload(
      */
     salesRepId: line.salesRepId ?? null,
     salesRepName: line.salesRepName ?? null,
-    /** Use the ledger's commission $ as the starting "manual override" so totals match defaults. */
-    salesRepCommissionCentsOverride:
-      line.salesRepId != null && line.salesRepCommissionCents > 0
-        ? line.salesRepCommissionCents
-        : null,
+    /**
+     * Default to auto-rate, NOT to the ledger commission. The auto-rate
+     * (8% new / 1% rebill on gross-minus-COGS) is the stakeholder's rule of
+     * record for the manual reconciliation editor; the ledger commission
+     * still drives payroll separately. Admin can type a manual $ override
+     * per row to override the auto-rate.
+     */
+    salesRepCommissionCentsOverride: null,
+    /**
+     * Auto commission rate in basis points: 1% rebill / 8% new sale.
+     * Only applies when `salesRepId != null` (no rep → 0 commission anyway).
+     */
+    commissionRateBps: line.isRebill ? 100 : 800,
     /**
      * `buildDefaultOverridePayload` is the Rx default builder; non-Rx rows go
      * through `buildDefaultNonRxOverridePayload` and carry their own chargeKind.
@@ -2960,10 +2990,9 @@ export function applyOtAllocationOverrides(
         patientGrossCents: row.patientGrossCents,
         salesRepId: row.salesRepId,
         salesRepName: row.salesRepName,
-        salesRepCommissionCentsOverride:
-          row.salesRepId != null && row.salesRepCommissionCents > 0
-            ? row.salesRepCommissionCents
-            : null,
+        /** Mirror the UI seed: default to auto-rate, not the ledger commission. */
+        salesRepCommissionCentsOverride: null,
+        commissionRateBps: row.isRebill ? 100 : 800,
         chargeKind: row.chargeKind,
       };
       const totals = computeOtAllocationOverrideTotals(payload);

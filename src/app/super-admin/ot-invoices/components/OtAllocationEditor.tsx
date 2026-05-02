@@ -63,6 +63,12 @@ export interface OtAllocationEditorPerSaleSeed {
   patientId: number;
   /** Patient-facing product description (what they paid for). */
   productDescription: string | null;
+  /**
+   * True when the patient had a paid Rx invoice at this clinic within the last
+   * 30 days. Drives the row-header "New 8%" / "Rebill 1%" badge and the
+   * default commission rate in `defaultPayload.commissionRateBps`.
+   */
+  isRebill: boolean;
   /** Computed defaults used when no override exists. */
   defaultPayload: OtAllocationOverridePayload;
 }
@@ -650,6 +656,7 @@ function OtAllocationRow({
             </span>{' '}
             net
           </div>
+          <SaleTypeBadge isRebill={seed.isRebill} />
           <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${statusColor}`}>
             {statusLabel}
           </span>
@@ -1178,6 +1185,32 @@ function MedCommissionRateRow({
   );
 }
 
+/**
+ * Small inline badge that tells the admin whether a sale was auto-classified as
+ * NEW (8%) or a REBILL (1%) — patient had a prior paid Rx within last 30 days.
+ * Surfaced in the row header so the rate is visible without expanding.
+ */
+function SaleTypeBadge({ isRebill }: { isRebill: boolean }) {
+  if (isRebill) {
+    return (
+      <span
+        title="Patient had a paid Rx within the last 30 days. Auto rate: 1%."
+        className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900"
+      >
+        Rebill · 1%
+      </span>
+    );
+  }
+  return (
+    <span
+      title="No paid Rx in the last 30 days. Auto rate: 8%."
+      className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-900"
+    >
+      New · 8%
+    </span>
+  );
+}
+
 function SalesRepEditor({
   payload,
   onMutate,
@@ -1187,20 +1220,44 @@ function SalesRepEditor({
   onMutate: (m: (p: OtAllocationOverridePayload) => OtAllocationOverridePayload) => void;
   reps: SalesRepOption[];
 }) {
+  const medsTotalCents = payload.meds.reduce((s, m) => s + m.lineTotalCents, 0);
+  const grossMinusCogsCents = Math.max(0, payload.patientGrossCents - medsTotalCents);
+  const payloadRateBps = payload.commissionRateBps ?? null;
+  const hasAutoRate = payloadRateBps !== null && payloadRateBps > 0;
+  const autoRateCommission = hasAutoRate
+    ? Math.round((grossMinusCogsCents * (payloadRateBps as number)) / 10_000)
+    : 0;
   const totalLineCommission = payload.meds.reduce((s, m) => {
     if (m.commissionRateBps == null || m.commissionRateBps <= 0) return s;
     return s + Math.round((m.lineTotalCents * m.commissionRateBps) / 10_000);
   }, 0);
-  const usingManualOverride = payload.salesRepCommissionCentsOverride != null;
-  const effectiveCommission = usingManualOverride
-    ? payload.salesRepCommissionCentsOverride!
-    : totalLineCommission;
+  const usingManualOverride = payload.salesRepCommissionCentsOverride !== null;
+  let effectiveCommission: number;
+  if (usingManualOverride) {
+    effectiveCommission = payload.salesRepCommissionCentsOverride as number;
+  } else if (hasAutoRate) {
+    effectiveCommission = autoRateCommission;
+  } else {
+    effectiveCommission = totalLineCommission;
+  }
+  let ratePercentLabel: string | null = null;
+  if (payloadRateBps !== null) {
+    const decimals = payloadRateBps % 100 === 0 ? 0 : 1;
+    ratePercentLabel = `${(payloadRateBps / 100).toFixed(decimals)}%`;
+  }
 
   return (
     <section className="rounded-lg border border-cyan-100 bg-cyan-50/30 p-3">
       <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-cyan-900">
         Sales rep & commission
       </h4>
+      {hasAutoRate && !usingManualOverride && (
+        <p className="mb-2 text-[11px] text-cyan-900">
+          <span className="font-semibold">Auto rate:</span> {ratePercentLabel} × (gross{' '}
+          {centsToDisplay(payload.patientGrossCents)} − COGS {centsToDisplay(medsTotalCents)}) ={' '}
+          <span className="font-semibold tabular-nums">{centsToDisplay(autoRateCommission)}</span>
+        </p>
+      )}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-gray-500">
@@ -1237,7 +1294,9 @@ function SalesRepEditor({
         </div>
         <div>
           <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-gray-500">
-            Commission $ {usingManualOverride ? '(manual)' : '(from per-line %)'}
+            Commission $ {usingManualOverride ? '(manual)' : ''}
+            {!usingManualOverride && hasAutoRate ? `(auto ${ratePercentLabel})` : ''}
+            {!usingManualOverride && !hasAutoRate ? '(from per-line %)' : ''}
           </label>
           <div className="flex items-center gap-2">
             <input
@@ -1245,11 +1304,7 @@ function SalesRepEditor({
               min={0}
               step={0.01}
               disabled={payload.salesRepId == null}
-              value={
-                usingManualOverride
-                  ? centsToInputValue(payload.salesRepCommissionCentsOverride!)
-                  : centsToInputValue(totalLineCommission)
-              }
+              value={centsToInputValue(effectiveCommission)}
               onChange={(e) => {
                 const cents = dollarsInputToCents(e.target.value);
                 onMutate((p) => ({ ...p, salesRepCommissionCentsOverride: cents }));
@@ -1261,8 +1316,13 @@ function SalesRepEditor({
                 type="button"
                 onClick={() => onMutate((p) => ({ ...p, salesRepCommissionCentsOverride: null }))}
                 className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium text-gray-700 hover:bg-gray-50"
+                title={
+                  hasAutoRate
+                    ? `Reset to auto ${ratePercentLabel} × (gross − COGS)`
+                    : 'Reset to per-line % sum'
+                }
               >
-                Use per-line %
+                {hasAutoRate ? 'Use auto rate' : 'Use per-line %'}
               </button>
             )}
           </div>

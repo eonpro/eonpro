@@ -180,6 +180,8 @@ interface OtPerSaleReconciliationLine {
   doctorRxFeeWaivedCents?: number;
   doctorRxFeeDaysSincePrior?: number | null;
   doctorRxFeeNote?: string | null;
+  /** Server-derived: patient had a prior paid Rx within 30 days. Drives auto commission rate (1% rebill / 8% new). */
+  isRebill?: boolean;
   fulfillmentFeesCents: number;
   merchantProcessingCents: number;
   platformCompensationCents: number;
@@ -297,6 +299,8 @@ interface OtNonRxReconciliationLine {
   managerOverrideSummary: string | null;
   totalDeductionsCents: number;
   clinicNetPayoutCents: number;
+  /** Patient had a prior paid Rx within 30 days. Drives auto commission rate (1% rebill / 8% new). */
+  isRebill?: boolean;
 }
 
 type ActiveTab =
@@ -364,6 +368,7 @@ function buildAllocationSeedsFromData(data: OtInvoiceData): OtAllocationEditorPe
           source: (p.pricingStatus === 'priced' ? 'catalog' : 'custom') as 'catalog' | 'custom',
           commissionRateBps: null,
         }));
+    const isRebill = !!sale.isRebill;
     const defaultPayload: OtAllocationOverridePayload = {
       meds,
       shippingCents: tierMatch ? tierMatch.pkg.defaultShippingCents : sale.shippingCents,
@@ -375,10 +380,14 @@ function buildAllocationSeedsFromData(data: OtInvoiceData): OtAllocationEditorPe
       patientGrossCents: sale.patientGrossCents,
       salesRepId: sale.salesRepId ?? null,
       salesRepName: sale.salesRepName ?? null,
-      salesRepCommissionCentsOverride:
-        sale.salesRepId != null && (sale.salesRepCommissionCents ?? 0) > 0
-          ? (sale.salesRepCommissionCents ?? 0)
-          : null,
+      /**
+       * Default to auto-rate (1% rebill / 8% new on gross-minus-COGS).
+       * Admin can type a manual $ override per row if they need a different
+       * value for this specific sale.
+       */
+      salesRepCommissionCentsOverride: null,
+      /** Auto rate by saleType: 1% rebill / 8% new. */
+      commissionRateBps: isRebill ? 100 : 800,
       /** Rx seeds always carry chargeKind=null; non-Rx seeds set their own. */
       chargeKind: null,
     };
@@ -390,6 +399,7 @@ function buildAllocationSeedsFromData(data: OtInvoiceData): OtAllocationEditorPe
       productDescription: sale.productDescription ?? null,
       /** Page already loads patient ids via per-sale; not strictly needed by editor but kept for future link-outs. */
       patientId: 0,
+      isRebill,
       defaultPayload,
     };
   });
@@ -403,6 +413,7 @@ function buildAllocationSeedsFromData(data: OtInvoiceData): OtAllocationEditorPe
 function buildNonRxSeedsFromData(data: OtInvoiceData): OtNonRxAllocationEditorSeed[] {
   const rows = data.nonRxReconciliation ?? [];
   return rows.map((r) => {
+    const isRebill = !!r.isRebill;
     const defaultPayload: OtAllocationOverridePayload = {
       meds: [],
       shippingCents: r.shippingCents,
@@ -414,10 +425,9 @@ function buildNonRxSeedsFromData(data: OtInvoiceData): OtNonRxAllocationEditorSe
       patientGrossCents: r.patientGrossCents,
       salesRepId: r.salesRepId ?? null,
       salesRepName: r.salesRepName ?? null,
-      salesRepCommissionCentsOverride:
-        r.salesRepId != null && (r.salesRepCommissionCents ?? 0) > 0
-          ? (r.salesRepCommissionCents ?? 0)
-          : null,
+      /** Default to auto-rate; admin can type a manual $ override per row. */
+      salesRepCommissionCentsOverride: null,
+      commissionRateBps: isRebill ? 100 : 800,
       chargeKind: r.chargeKind,
     };
     return {
@@ -429,6 +439,7 @@ function buildNonRxSeedsFromData(data: OtInvoiceData): OtNonRxAllocationEditorSe
       paidAt: r.paidAt,
       patientName: r.patientName,
       productDescription: r.productDescription,
+      isRebill,
       defaultPayload,
     };
   });
