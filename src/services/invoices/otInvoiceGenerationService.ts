@@ -3756,8 +3756,16 @@ export async function generateOtCustomReconciliationPDF(
     for (const c of sale.payload.customLineItems) {
       lineRow(`Custom — ${c.description}`, c.amountCents);
     }
-    if (sale.totals.salesRepCommissionCents > 0 && sale.payload.salesRepName) {
+    /**
+     * Always show the assigned rep on the row, even when the commission is
+     * $0 (e.g. computed-only rows where no rate is applied yet). Admins
+     * need to see the rep name on every sale to verify attribution
+     * end-to-end.
+     */
+    if (sale.payload.salesRepName) {
       lineRow(`Sales rep — ${sale.payload.salesRepName}`, sale.totals.salesRepCommissionCents);
+    } else {
+      lineRow('Sales rep — (none assigned)', 0, { muted: true });
     }
     /** Platform fees — visible on every sale row so admins see why net ≠ gross. */
     if (sale.totals.merchantProcessingFeeCents > 0) {
@@ -3894,8 +3902,10 @@ export async function generateOtCustomReconciliationPDF(
       for (const c of sale.payload.customLineItems) {
         lineRow(`Custom — ${c.description}`, c.amountCents);
       }
-      if (sale.totals.salesRepCommissionCents > 0 && sale.payload.salesRepName) {
+      if (sale.payload.salesRepName) {
         lineRow(`Sales rep — ${sale.payload.salesRepName}`, sale.totals.salesRepCommissionCents);
+      } else {
+        lineRow('Sales rep — (none assigned)', 0, { muted: true });
       }
       if (sale.totals.merchantProcessingFeeCents > 0) {
         lineRow('Merchant processing (4%)', sale.totals.merchantProcessingFeeCents);
@@ -3938,6 +3948,149 @@ export async function generateOtCustomReconciliationPDF(
       }
       y -= 6;
     }
+  }
+
+  // -------------------------------------------------------------------------
+  // REP PAYROLL BREAKDOWN
+  // -------------------------------------------------------------------------
+  // Per-rep aggregation across both Rx + non-Rx sales for the period:
+  //   - sale count
+  //   - patient gross sum
+  //   - commission $ sum  (this is what the rep is owed for the period)
+  // Sorted by commission desc so the largest payouts are on top.
+  // -------------------------------------------------------------------------
+  interface RepPayrollRow {
+    repName: string;
+    saleCount: number;
+    patientGrossCents: number;
+    commissionCents: number;
+  }
+  const payrollByRep = new Map<string, RepPayrollRow>();
+  let unassignedSaleCount = 0;
+  let unassignedGrossCents = 0;
+  let unassignedCommissionCents = 0;
+  for (const sale of [...reconciliation.lines, ...nonRxLines]) {
+    const repName = sale.payload.salesRepName?.trim() ?? '';
+    if (!repName) {
+      unassignedSaleCount += 1;
+      unassignedGrossCents += sale.payload.patientGrossCents;
+      unassignedCommissionCents += sale.totals.salesRepCommissionCents;
+      continue;
+    }
+    const cur = payrollByRep.get(repName) ?? {
+      repName,
+      saleCount: 0,
+      patientGrossCents: 0,
+      commissionCents: 0,
+    };
+    cur.saleCount += 1;
+    cur.patientGrossCents += sale.payload.patientGrossCents;
+    cur.commissionCents += sale.totals.salesRepCommissionCents;
+    payrollByRep.set(repName, cur);
+  }
+  const payrollRows = [...payrollByRep.values()].sort(
+    (a, b) => b.commissionCents - a.commissionCents
+  );
+
+  /** Always render the section header, even when there are no rep-attributed sales. */
+  need(40);
+  page.drawLine({
+    start: { x: M, y: y },
+    end: { x: PW - M, y: y },
+    thickness: 0.6,
+    color: green,
+  });
+  y -= 14;
+  drawText('REP PAYROLL BREAKDOWN', M, 11, fontBold, green);
+  drawText(
+    `${payrollRows.length} ${payrollRows.length === 1 ? 'rep' : 'reps'} · period commission to be paid`,
+    M + 220,
+    8,
+    font,
+    mid
+  );
+  y -= 16;
+
+  /**
+   * Column header band — light gray background like the per-sale block headers.
+   * Positions chosen so the totals align with the per-sale dollar columns.
+   */
+  const colSales = M + 240;
+  const colGross = PW - M - 220;
+  const colCommission = PW - M - 90;
+  page.drawRectangle({
+    x: M,
+    y: y - 2,
+    width: PW - 2 * M,
+    height: 14,
+    color: rgb(0.95, 0.97, 0.96),
+    opacity: 1,
+  });
+  drawText('Rep', M + 4, 8, fontBold, mid);
+  drawText('Sales', colSales, 8, fontBold, mid);
+  drawText('Patient gross', colGross, 8, fontBold, mid);
+  drawText('Commission $', colCommission, 8, fontBold, mid);
+  y -= 14;
+
+  if (payrollRows.length === 0 && unassignedSaleCount === 0) {
+    need(14);
+    drawText('No sales in this period.', M + 4, 8, font, mid);
+    y -= 14;
+  } else {
+    for (const r of payrollRows) {
+      need(13);
+      drawText(r.repName, M + 4, 8.5, font, dark);
+      drawText(String(r.saleCount), colSales, 8.5, font, dark);
+      drawText(`$${centsToDisplay(r.patientGrossCents)}`, colGross, 8.5, font, dark);
+      drawText(`$${centsToDisplay(r.commissionCents)}`, colCommission, 8.5, fontBold, green);
+      y -= 13;
+    }
+    /**
+     * Unassigned row — sales with no rep attached. Shown so the saleCount
+     * + grossCents totals reconcile with the period summary at the top.
+     * Commission is $0 by definition (no rep to pay).
+     */
+    if (unassignedSaleCount > 0) {
+      need(13);
+      drawText('(unassigned — no rep on row)', M + 4, 8.5, font, mid);
+      drawText(String(unassignedSaleCount), colSales, 8.5, font, mid);
+      drawText(`$${centsToDisplay(unassignedGrossCents)}`, colGross, 8.5, font, mid);
+      drawText(`$${centsToDisplay(unassignedCommissionCents)}`, colCommission, 8.5, font, mid);
+      y -= 13;
+    }
+  }
+
+  /** Bottom totals bar. */
+  y -= 4;
+  page.drawLine({
+    start: { x: M, y: y + 2 },
+    end: { x: PW - M, y: y + 2 },
+    thickness: 0.6,
+    color: green,
+  });
+  y -= 14;
+  const totalSaleCount =
+    payrollRows.reduce((s, r) => s + r.saleCount, 0) + unassignedSaleCount;
+  const totalGross =
+    payrollRows.reduce((s, r) => s + r.patientGrossCents, 0) + unassignedGrossCents;
+  const totalCommission =
+    payrollRows.reduce((s, r) => s + r.commissionCents, 0) + unassignedCommissionCents;
+  drawText('TOTAL', M + 4, 9, fontBold, dark);
+  drawText(String(totalSaleCount), colSales, 9, fontBold, dark);
+  drawText(`$${centsToDisplay(totalGross)}`, colGross, 9, fontBold, dark);
+  drawText(`$${centsToDisplay(totalCommission)}`, colCommission, 9, fontBold, green);
+  y -= 18;
+
+  /** Per-rep payout caption — what to actually pay each rep. */
+  if (payrollRows.length > 0) {
+    drawText(
+      'Pay each rep their Commission $ row above (sum confirmed against TOTAL).',
+      M,
+      8,
+      font,
+      mid
+    );
+    y -= 14;
   }
 
   footer();
