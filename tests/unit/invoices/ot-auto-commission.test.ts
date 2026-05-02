@@ -210,19 +210,76 @@ describe('computeOtSalesRepCommissionCents precedence', () => {
     const t = computeOtAllocationOverrideTotals(p);
     /**
      * Gross-basis commission (since 2026-05-02): 8% × $350 = $28 = 2,800.
-     * total deductions:
+     * total deductions (with auto Antonio override on Doe, Jane's sale —
+     * Antonio gets 1% × $350 = $3.50):
      *   meds 13500
      *   + commission 2,800
      *   + EONPro 5% × $350 = 1,750
      *   + Merchant 4% × $350 = 1,400
+     *   + Manager override 1% × $350 = 350
      */
     const eonpro = Math.round((35_000 * 500) / 10_000);
     const merchant = Math.round((35_000 * 400) / 10_000);
+    const managerOverride = Math.round((35_000 * 100) / 10_000);
     expect(t.salesRepCommissionCents).toBe(2800);
     expect(t.eonproFeeCents).toBe(eonpro);
     expect(t.merchantProcessingFeeCents).toBe(merchant);
-    expect(t.totalDeductionsCents).toBe(13_500 + 2800 + eonpro + merchant);
-    expect(t.netToOtClinicCents).toBe(35_000 - (13_500 + 2800 + eonpro + merchant));
+    expect(t.managerOverrideCents).toBe(managerOverride);
+    expect(t.managerOverrideManagerName).toBe('Escobar, Antonio');
+    expect(t.totalDeductionsCents).toBe(13_500 + 2800 + eonpro + merchant + managerOverride);
+    expect(t.netToOtClinicCents).toBe(
+      35_000 - (13_500 + 2800 + eonpro + merchant + managerOverride)
+    );
+  });
+});
+
+describe('Auto manager override — Antonio Escobar 1% on non-excluded reps', () => {
+  it('grants 1% on a sale by a non-excluded rep', () => {
+    const p = basePayload({ salesRepName: 'Doe, Jane' });
+    const t = computeOtAllocationOverrideTotals(p);
+    expect(t.managerOverrideCents).toBe(350); // 1% × $350
+    expect(t.managerOverrideManagerName).toBe('Escobar, Antonio');
+  });
+
+  it('skips Antonio\u2019s OWN sales (no double-pay)', () => {
+    const p = basePayload({ salesRepName: 'Escobar, Antonio' });
+    const t = computeOtAllocationOverrideTotals(p);
+    expect(t.managerOverrideCents).toBe(0);
+    expect(t.managerOverrideManagerName).toBeNull();
+  });
+
+  it('skips Max Putrello (excluded rep)', () => {
+    const p = basePayload({ salesRepName: 'Putrello, Max' });
+    const t = computeOtAllocationOverrideTotals(p);
+    expect(t.managerOverrideCents).toBe(0);
+    expect(t.managerOverrideManagerName).toBeNull();
+  });
+
+  it('skips Jay Reeves (excluded rep)', () => {
+    const p = basePayload({ salesRepName: 'Reeves, Jay' });
+    const t = computeOtAllocationOverrideTotals(p);
+    expect(t.managerOverrideCents).toBe(0);
+    expect(t.managerOverrideManagerName).toBeNull();
+  });
+
+  it('matches case-insensitively', () => {
+    const p = basePayload({ salesRepName: 'PUTRELLO, MAX' });
+    const t = computeOtAllocationOverrideTotals(p);
+    expect(t.managerOverrideCents).toBe(0);
+  });
+
+  it('no rep on the sale → no override', () => {
+    const p = basePayload({ salesRepName: null });
+    const t = computeOtAllocationOverrideTotals(p);
+    expect(t.managerOverrideCents).toBe(0);
+    expect(t.managerOverrideManagerName).toBeNull();
+  });
+
+  it('applies to rebill sales too (1% × gross regardless of rate)', () => {
+    const p = basePayload({ salesRepName: 'Doe, Jane', commissionRateBps: 100 });
+    const t = computeOtAllocationOverrideTotals(p);
+    expect(t.managerOverrideCents).toBe(350);
+    expect(t.salesRepCommissionCents).toBe(350); // 1% rebill commission
   });
 });
 

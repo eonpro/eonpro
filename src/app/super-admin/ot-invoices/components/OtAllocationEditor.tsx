@@ -1922,6 +1922,13 @@ function TotalsPanel({
         <RowKv label="Fulfillment" value={totals.fulfillmentFeesCents} negative />
         <RowKv label="Custom lines" value={totals.customLineItemsCents} negative />
         <RowKv label="Sales rep commission" value={totals.salesRepCommissionCents} negative />
+        {totals.managerOverrideCents > 0 && totals.managerOverrideManagerName && (
+          <RowKv
+            label={`Manager override — ${totals.managerOverrideManagerName} (1%)`}
+            value={totals.managerOverrideCents}
+            negative
+          />
+        )}
         <RowKv
           label="Merchant processing (4%)"
           value={totals.merchantProcessingFeeCents}

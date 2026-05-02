@@ -146,6 +146,15 @@ export interface OtAllocationOverrideTotals {
    * "Net to OT clinic" reflects the actual payout.
    */
   merchantProcessingFeeCents: number;
+  /**
+   * Auto-applied manager override (e.g. Antonio Escobar's 1% on every
+   * applicable sale). Cents are computed via `getOtAutoManagerOverrideForSale`
+   * and deducted from clinic net the same way sales rep commission is.
+   * Zero when no rule applies (manager's own sales, excluded reps, etc.).
+   */
+  managerOverrideCents: number;
+  /** Manager who earns `managerOverrideCents` for this sale; null when none. */
+  managerOverrideManagerName: string | null;
   /** Sum of everything billable to the OT clinic. */
   totalDeductionsCents: number;
   /** patientGrossCents - totalDeductionsCents (may be negative if admin over-allocates). */
@@ -227,6 +236,75 @@ export function buildOtRepNewSaleGrossTotals(
   return totals;
 }
 
+// ---------------------------------------------------------------------------
+// Auto manager-override config
+// ---------------------------------------------------------------------------
+
+/**
+ * Auto-applied manager override commission rules. Each rule grants the
+ * named manager a percentage of every applicable sale's patient gross
+ * (in addition to whatever direct rep commission the seller earns).
+ *
+ * Rules per stakeholder direction (2026-05-02):
+ *   • Antonio Escobar — 1% on every sale EXCEPT:
+ *       - his own (he already earns the rep commission on those)
+ *       - sales by Max Putrello (different reporting line)
+ *       - sales by Jay Reeves (different reporting line)
+ *
+ * The override is deducted from the clinic's net (standard manager
+ * override pattern) AND credited to the manager in the payroll breakdown.
+ *
+ * Names are matched case-insensitively against `salesRepName` (which the
+ * editor stores as "Last, First" — see `loadOtSalesRepCommissionLookup`
+ * → `repLabelById.set(u.id, ${u.lastName}, ${u.firstName})`).
+ */
+export interface OtAutoManagerOverrideRule {
+  managerName: string;
+  rateBps: number;
+  excludedRepNames: ReadonlyArray<string>;
+}
+
+export const OT_AUTO_MANAGER_OVERRIDES: ReadonlyArray<OtAutoManagerOverrideRule> = [
+  {
+    managerName: 'Escobar, Antonio',
+    rateBps: 100,
+    excludedRepNames: ['Putrello, Max', 'Reeves, Jay'],
+  },
+];
+
+/** Case- and whitespace-insensitive name normalizer. */
+function normalizeRepName(name: string | null | undefined): string {
+  if (!name) return '';
+  return name.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+/**
+ * Resolve the auto-applied manager override for a sale given the sale's
+ * rep name. Returns `null` when no rule applies. Excludes the manager's
+ * own sales and any rep in the rule's excluded list.
+ */
+export function getOtAutoManagerOverrideForSale(
+  saleRepName: string | null | undefined,
+  patientGrossCents: number
+): { managerName: string; rateBps: number; amountCents: number } | null {
+  const repNorm = normalizeRepName(saleRepName);
+  if (!repNorm) return null;
+  for (const rule of OT_AUTO_MANAGER_OVERRIDES) {
+    const managerNorm = normalizeRepName(rule.managerName);
+    /** Manager doesn't override their own sales. */
+    if (repNorm === managerNorm) continue;
+    /** Rule-specific excluded reps (different reporting lines). */
+    const excludedNorm = rule.excludedRepNames.map(normalizeRepName);
+    if (excludedNorm.includes(repNorm)) continue;
+    return {
+      managerName: rule.managerName,
+      rateBps: rule.rateBps,
+      amountCents: Math.round((patientGrossCents * rule.rateBps) / 10_000),
+    };
+  }
+  return null;
+}
+
 /**
  * Merchant / Stripe processing fee rate in basis points (400 = 4%). Mirrors
  * `OT_MERCHANT_PROCESSING_BPS` in `ot-pricing.ts`. Re-exported here so the
@@ -298,6 +376,18 @@ export function computeOtAllocationOverrideTotals(
   const merchantProcessingFeeCents = Math.round(
     (payload.patientGrossCents * OT_MERCHANT_PROCESSING_FEE_BPS) / 10_000
   );
+  /**
+   * Auto-applied manager override: when the row's rep matches a configured
+   * rule (and isn't an excluded rep / the manager themselves), credit the
+   * manager 1% (or whatever rate the rule specifies). Deducted from the
+   * clinic's net the same way the rep commission is.
+   */
+  const autoOverride = getOtAutoManagerOverrideForSale(
+    payload.salesRepName,
+    payload.patientGrossCents
+  );
+  const managerOverrideCents = autoOverride?.amountCents ?? 0;
+  const managerOverrideManagerName = autoOverride?.managerName ?? null;
   const totalDeductionsCents =
     medicationsCents +
     payload.shippingCents +
@@ -307,7 +397,8 @@ export function computeOtAllocationOverrideTotals(
     customLineItemsCents +
     salesRepCommissionCents +
     eonproFeeCents +
-    merchantProcessingFeeCents;
+    merchantProcessingFeeCents +
+    managerOverrideCents;
   return {
     medicationsCents,
     shippingCents: payload.shippingCents,
@@ -318,6 +409,8 @@ export function computeOtAllocationOverrideTotals(
     salesRepCommissionCents,
     eonproFeeCents,
     merchantProcessingFeeCents,
+    managerOverrideCents,
+    managerOverrideManagerName,
     totalDeductionsCents,
     netToOtClinicCents: payload.patientGrossCents - totalDeductionsCents,
   };

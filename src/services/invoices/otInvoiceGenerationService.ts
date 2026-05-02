@@ -3483,6 +3483,13 @@ export interface OtCustomReconciliationGrandTotals {
   eonproFeeCents: number;
   /** Stripe / merchant processing 4% on patient gross — auto-deducted. */
   merchantProcessingFeeCents: number;
+  /**
+   * Auto-applied manager override commission (e.g. Antonio Escobar's 1%
+   * on every applicable sale). Sum across all rows; the per-manager
+   * payroll breakdown still reads from each row's
+   * `totals.managerOverrideManagerName` to attribute.
+   */
+  managerOverrideCents: number;
   totalDeductionsCents: number;
   netToOtClinicCents: number;
 }
@@ -3628,6 +3635,7 @@ export function applyOtAllocationOverrides(
     salesRepCommissionCents: 0,
     eonproFeeCents: 0,
     merchantProcessingFeeCents: 0,
+    managerOverrideCents: 0,
     totalDeductionsCents: 0,
     netToOtClinicCents: 0,
   };
@@ -3649,6 +3657,7 @@ export function applyOtAllocationOverrides(
       acc.salesRepCommissionCents += l.totals.salesRepCommissionCents;
       acc.eonproFeeCents += l.totals.eonproFeeCents;
       acc.merchantProcessingFeeCents += l.totals.merchantProcessingFeeCents;
+      acc.managerOverrideCents += l.totals.managerOverrideCents;
       acc.totalDeductionsCents += l.totals.totalDeductionsCents;
       acc.netToOtClinicCents += l.totals.netToOtClinicCents;
       return acc;
@@ -3789,6 +3798,9 @@ export async function generateOtCustomReconciliationPDF(
   summaryRow('Less — Fulfillment fees', reconciliation.totals.fulfillmentFeesCents);
   summaryRow('Less — Custom line items', reconciliation.totals.customLineItemsCents);
   summaryRow('Less — Sales rep commission', reconciliation.totals.salesRepCommissionCents);
+  if (reconciliation.totals.managerOverrideCents > 0) {
+    summaryRow('Less — Manager override (auto)', reconciliation.totals.managerOverrideCents);
+  }
   summaryRow(
     'Less — Merchant processing (4%)',
     reconciliation.totals.merchantProcessingFeeCents
@@ -3922,6 +3934,12 @@ export async function generateOtCustomReconciliationPDF(
     }
     if (sale.totals.eonproFeeCents > 0) {
       lineRow('EONPro fee (5%)', sale.totals.eonproFeeCents);
+    }
+    if (sale.totals.managerOverrideCents > 0 && sale.totals.managerOverrideManagerName) {
+      lineRow(
+        `Manager override — ${sale.totals.managerOverrideManagerName} (1%)`,
+        sale.totals.managerOverrideCents
+      );
     }
 
     // Totals bar
@@ -4062,6 +4080,12 @@ export async function generateOtCustomReconciliationPDF(
       if (sale.totals.eonproFeeCents > 0) {
         lineRow('EONPro fee (5%)', sale.totals.eonproFeeCents);
       }
+      if (sale.totals.managerOverrideCents > 0 && sale.totals.managerOverrideManagerName) {
+        lineRow(
+          `Manager override — ${sale.totals.managerOverrideManagerName} (1%)`,
+          sale.totals.managerOverrideCents
+        );
+      }
 
       need(22);
       page.drawLine({
@@ -4120,12 +4144,39 @@ export async function generateOtCustomReconciliationPDF(
     rebillGrossCents: number;
     newSaleCommissionCents: number;
     rebillCommissionCents: number;
-    /** Total commission across new + rebill; the actual payout. */
+    /**
+     * Manager override commission earned BY this rep (when they're the
+     * named manager on a rule). Sums across every sale where this rep's
+     * name is the row's `managerOverrideManagerName`.
+     */
+    managerOverrideEarnedCents: number;
+    /** How many sales this rep earned an override on. */
+    managerOverrideSaleCount: number;
+    /** Total commission across new + rebill + manager override; the actual payout. */
     totalCommissionCents: number;
     /** Resolved tier rate in basis points (800 / 900 / 1000 / 1100 / 1200). */
     tierRateBps: number;
   }
   const payrollByRep = new Map<string, RepPayrollRow>();
+  const ensurePayrollRow = (repName: string): RepPayrollRow => {
+    const existing = payrollByRep.get(repName);
+    if (existing) return existing;
+    const created: RepPayrollRow = {
+      repName,
+      newSaleCount: 0,
+      rebillSaleCount: 0,
+      newSaleGrossCents: 0,
+      rebillGrossCents: 0,
+      newSaleCommissionCents: 0,
+      rebillCommissionCents: 0,
+      managerOverrideEarnedCents: 0,
+      managerOverrideSaleCount: 0,
+      totalCommissionCents: 0,
+      tierRateBps: 800,
+    };
+    payrollByRep.set(repName, created);
+    return created;
+  };
   let unassignedSaleCount = 0;
   let unassignedGrossCents = 0;
   let unassignedCommissionCents = 0;
@@ -4135,31 +4186,32 @@ export async function generateOtCustomReconciliationPDF(
       unassignedSaleCount += 1;
       unassignedGrossCents += sale.payload.patientGrossCents;
       unassignedCommissionCents += sale.totals.salesRepCommissionCents;
-      continue;
-    }
-    const cur = payrollByRep.get(repName) ?? {
-      repName,
-      newSaleCount: 0,
-      rebillSaleCount: 0,
-      newSaleGrossCents: 0,
-      rebillGrossCents: 0,
-      newSaleCommissionCents: 0,
-      rebillCommissionCents: 0,
-      totalCommissionCents: 0,
-      tierRateBps: 800,
-    };
-    const isRebillRow = sale.payload.commissionRateBps === 100;
-    if (isRebillRow) {
-      cur.rebillSaleCount += 1;
-      cur.rebillGrossCents += sale.payload.patientGrossCents;
-      cur.rebillCommissionCents += sale.totals.salesRepCommissionCents;
     } else {
-      cur.newSaleCount += 1;
-      cur.newSaleGrossCents += sale.payload.patientGrossCents;
-      cur.newSaleCommissionCents += sale.totals.salesRepCommissionCents;
+      const cur = ensurePayrollRow(repName);
+      const isRebillRow = sale.payload.commissionRateBps === 100;
+      if (isRebillRow) {
+        cur.rebillSaleCount += 1;
+        cur.rebillGrossCents += sale.payload.patientGrossCents;
+        cur.rebillCommissionCents += sale.totals.salesRepCommissionCents;
+      } else {
+        cur.newSaleCount += 1;
+        cur.newSaleGrossCents += sale.payload.patientGrossCents;
+        cur.newSaleCommissionCents += sale.totals.salesRepCommissionCents;
+      }
+      cur.totalCommissionCents += sale.totals.salesRepCommissionCents;
     }
-    cur.totalCommissionCents += sale.totals.salesRepCommissionCents;
-    payrollByRep.set(repName, cur);
+    /**
+     * Auto manager override: credit the named manager (e.g. Antonio
+     * Escobar) for the override commission earned on this sale. The
+     * manager appears in the payroll table even if they had zero direct
+     * sales of their own — so a pure-manager rep still gets paid.
+     */
+    if (sale.totals.managerOverrideCents > 0 && sale.totals.managerOverrideManagerName) {
+      const manager = ensurePayrollRow(sale.totals.managerOverrideManagerName);
+      manager.managerOverrideEarnedCents += sale.totals.managerOverrideCents;
+      manager.managerOverrideSaleCount += 1;
+      manager.totalCommissionCents += sale.totals.managerOverrideCents;
+    }
   }
   /** Resolve tier rate per rep once aggregation is complete. */
   for (const [, r] of payrollByRep) {
@@ -4319,6 +4371,11 @@ export async function generateOtCustomReconciliationPDF(
         drawText(hint, colTier, 6.5, font, light, y - 21);
       } else if (r.tierRateBps === 1200) {
         drawText('Top tier — 12% achieved', colTier, 6.5, font, light, y - 21);
+      }
+      /** Manager override line — only when this rep earned override on others' sales. */
+      if (r.managerOverrideEarnedCents > 0) {
+        const overrideLabel = `+ Manager override on ${r.managerOverrideSaleCount} ${r.managerOverrideSaleCount === 1 ? 'sale' : 'sales'} = $${centsToDisplay(r.managerOverrideEarnedCents)}`;
+        drawText(overrideLabel, colNew, 7, fontBold, rgb(0.16, 0.5, 0.72), y - 21);
       }
       y -= 28;
     }
