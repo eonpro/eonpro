@@ -561,6 +561,13 @@ export const OT_FULFILLMENT_FEE_PER_OTHER_LINE_CENTS = 0;
 /** Typical standalone bloodwork / lab panel charge at OT (Stripe cents). Used to label non-Rx invoice lines. */
 export const OT_BLOODWORK_STANDARD_FEE_CENTS = 18_000;
 
+/**
+ * Standard doctor / Rx fee for a bloodwork-only sale (no shipping, no TRT,
+ * no fulfillment — just the lab panel + the doctor's review fee). Per
+ * stakeholder direction (2026-05-02): $10 flat for any bloodwork sale.
+ */
+export const OT_BLOODWORK_DOCTOR_FEE_CENTS = 1000;
+
 export type OtNonPharmacyChargeKind = 'bloodwork' | 'consult' | 'other';
 
 /**

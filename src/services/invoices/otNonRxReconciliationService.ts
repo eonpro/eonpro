@@ -20,6 +20,7 @@
  */
 
 import {
+  OT_BLOODWORK_DOCTOR_FEE_CENTS,
   OT_MERCHANT_PROCESSING_BPS,
   OT_PLATFORM_COMPENSATION_BPS,
   classifyOtNonPharmacyChargeLine,
@@ -168,7 +169,14 @@ function buildLineFromPayments(
   const platformCompensationCents = Math.round(
     (patientGrossCents * OT_PLATFORM_COMPENSATION_BPS) / 10_000
   );
-  const totalDeductionsCents = merchantProcessingCents + platformCompensationCents;
+  /**
+   * Bloodwork sales default to a $10 doctor / Rx review fee per stakeholder
+   * direction (2026-05-02). Consult and 'other' rows still default to $0
+   * — admins type the appropriate fee in the editor.
+   */
+  const doctorApprovalCents = chargeKind === 'bloodwork' ? OT_BLOODWORK_DOCTOR_FEE_CENTS : 0;
+  const totalDeductionsCents =
+    merchantProcessingCents + platformCompensationCents + doctorApprovalCents;
   return {
     dispositionKey,
     dispositionType,
@@ -184,7 +192,7 @@ function buildLineFromPayments(
     shippingCents: 0,
     trtTelehealthCents: 0,
     pharmacyTotalCents: 0,
-    doctorApprovalCents: 0,
+    doctorApprovalCents,
     fulfillmentFeesCents: 0,
     merchantProcessingCents,
     platformCompensationCents,

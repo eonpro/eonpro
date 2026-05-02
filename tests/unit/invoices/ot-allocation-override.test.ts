@@ -96,6 +96,8 @@ function makeSale(
     managerOverrideSummary: null,
     totalDeductionsCents: 11986,
     clinicNetPayoutCents: 12914,
+    isRebill: false,
+    isBloodworkOnly: false,
     ...overrides,
   };
 }
@@ -406,6 +408,38 @@ describe('buildDefaultOverridePayload', () => {
     const payload = buildDefaultOverridePayload(sale, [stalePharmacyLine]);
     /** Falls back to the (stale) pharmacy line because no catalog tier matched. */
     expect(payload.meds[0].unitPriceCents).toBe(13500);
+  });
+
+  it('bloodwork-only sale uses fixed defaults regardless of phantom Rxs on the order', () => {
+    /**
+     * Reproduces the exact production scenario: patient paid $120 for
+     * "Bloodwork (Full Panel)" but the Lifefile order has phantom Sermorelin
+     * Rx data attached. With `isBloodworkOnly = true` set by the per-sale
+     * loop (when invoice line items all classify as bloodwork), the editor
+     * seeds bloodwork defaults instead of pulling Sermorelin into meds.
+     */
+    const sale = makeSale({
+      productDescription: 'Bloodwork (Full Panel)',
+      patientGrossCents: 12_000,
+      isBloodworkOnly: true,
+    });
+    const phantomSermorelin = makeMed({
+      medicationName: 'SERMORELIN ACETATE',
+      strength: '2MG/ML',
+      unitPriceCents: 7500,
+      lineTotalCents: 7500,
+    });
+    const payload = buildDefaultOverridePayload(sale, [phantomSermorelin]);
+    /** No meds — bloodwork has no pharmacy COGS. */
+    expect(payload.meds).toEqual([]);
+    /** No shipping, no TRT, no fulfillment. */
+    expect(payload.shippingCents).toBe(0);
+    expect(payload.trtTelehealthCents).toBe(0);
+    expect(payload.fulfillmentFeesCents).toBe(0);
+    /** $10 doctor / Rx review fee per stakeholder rule. */
+    expect(payload.doctorRxFeeCents).toBe(1000);
+    /** Patient gross + sales rep settings unchanged. */
+    expect(payload.patientGrossCents).toBe(12_000);
   });
 });
 

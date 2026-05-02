@@ -76,8 +76,8 @@ describe('OT_PACKAGE_CATALOG — schema invariants', () => {
 });
 
 describe('OT_DOCTOR_CONSULT_CHIPS / OT_SHIPPING_CHIPS — exact values per pricing sheet spec', () => {
-  it('doctor consult chips are exactly $0, $15, $30, $50', () => {
-    expect(OT_DOCTOR_CONSULT_CHIPS.map((c) => c.cents)).toEqual([0, 1500, 3000, 5000]);
+  it('doctor consult chips include $10 (bloodwork) since 2026-05-02', () => {
+    expect(OT_DOCTOR_CONSULT_CHIPS.map((c) => c.cents)).toEqual([0, 1000, 1500, 3000, 5000]);
   });
 
   it('shipping chips are exactly $0, $20, $30', () => {

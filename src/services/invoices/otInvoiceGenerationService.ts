@@ -32,6 +32,7 @@ import {
   OT_TRT_TELEHEALTH_FEE_CENTS,
   getOtDoctorApprovalModeFromRxs,
   classifyOtNonPharmacyChargeLine,
+  OT_BLOODWORK_DOCTOR_FEE_CENTS,
   type OtNonPharmacyChargeKind,
 } from '@/lib/invoices/ot-pricing';
 import { BRAND } from '@/lib/constants/brand-assets';
@@ -345,6 +346,15 @@ export interface OtPerSaleReconciliationLine {
    * 1% (REBILL) when true, 8% (NEW) when false.
    */
   isRebill: boolean;
+  /**
+   * True when every non-discount Stripe invoice line item on this sale
+   * classifies as bloodwork (per `classifyOtNonPharmacyChargeLine`). Set
+   * even when the Lifefile order has phantom Rx records attached, so the
+   * manual reconciliation editor can seed bloodwork defaults (no shipping,
+   * no TRT, no fulfillment, $10 doctor fee) regardless of what's on the
+   * order shell.
+   */
+  isBloodworkOnly: boolean;
   fulfillmentFeesCents: number;
   /** 4% of this sale gross, rounded. */
   merchantProcessingCents: number;
@@ -1612,11 +1622,22 @@ export async function generateOtDailyInvoices(
       return parts.join(' ');
     });
     let productDescription: string | null = null;
+    /**
+     * Track whether the actual paid invoice line items are *all* bloodwork.
+     * Used downstream to flag the row as "bloodwork-only" so the manual
+     * reconciliation editor seeds bloodwork defaults (no shipping, no TRT,
+     * no fulfillment, $10 doctor fee) even when the Lifefile order shell
+     * has a phantom / comp'd Rx attached.
+     */
+    let isBloodworkOnly = false;
     if (invMeta?.lineItems) {
       const lines = parseInvoiceLineItemsJson(invMeta.lineItems);
-      const descs = lines
-        .map((l) => l.description?.trim() ?? '')
-        .filter((d) => d.length > 0)
+      const productLines = lines
+        .map((l) => ({
+          description: l.description?.trim() ?? '',
+          amountCents: typeof l.amount === 'number' ? l.amount : 0,
+        }))
+        .filter((l) => l.description.length > 0)
         /**
          * Drop line items that look like discount / refund / write-off rows so
          * the description reflects what the patient actually purchased rather
@@ -1624,9 +1645,14 @@ export async function generateOtDailyInvoices(
          * "Discount", "Refund", "Credit", "Adjustment", or "Write-off"
          * (case-insensitive), with optional leading "-" or "$".
          */
-        .filter((d) => !/^[-$\s]*(discount|refund|credit|adjustment|write[-\s]?off)\b/i.test(d));
-      if (descs.length > 0) {
-        productDescription = [...new Set(descs)].join(' · ');
+        .filter(
+          (l) => !/^[-$\s]*(discount|refund|credit|adjustment|write[-\s]?off)\b/i.test(l.description)
+        );
+      if (productLines.length > 0) {
+        productDescription = [...new Set(productLines.map((l) => l.description))].join(' · ');
+        isBloodworkOnly = productLines.every(
+          (l) => classifyOtNonPharmacyChargeLine(l.description, l.amountCents) === 'bloodwork'
+        );
       }
     }
     if (!productDescription && rxNames.length > 0) {
@@ -1665,6 +1691,7 @@ export async function generateOtDailyInvoices(
        */
       isRebill:
         doctorRxFee.daysSincePriorPaidRx !== null && doctorRxFee.daysSincePriorPaidRx <= 30,
+      isBloodworkOnly,
       fulfillmentFeesCents: orderFulfillmentFeesCents,
       merchantProcessingCents: saleMerchantCents,
       platformCompensationCents: salePlatformCents,
@@ -2833,6 +2860,31 @@ export function buildDefaultOverridePayload(
    * resolves to "Enclomiphene 25mg (28/84) @ 1 month" → cost $45, not $135
    * (which is the 3-month tier cost in the same SKU's `OT_PRODUCT_PRICES`).
    */
+  /**
+   * Bloodwork-only sales (paid invoice line items all classify as bloodwork)
+   * use a fixed default profile per stakeholder direction (2026-05-02):
+   * empty meds list, no shipping, no TRT, no fulfillment, $10 doctor fee.
+   * This applies even when the Lifefile order has a phantom / comp'd Rx
+   * attached — the actual paid invoice is the source of truth.
+   */
+  if (line.isBloodworkOnly) {
+    return {
+      meds: [],
+      shippingCents: 0,
+      trtTelehealthCents: 0,
+      doctorRxFeeCents: OT_BLOODWORK_DOCTOR_FEE_CENTS,
+      fulfillmentFeesCents: 0,
+      customLineItems: [],
+      notes: null,
+      patientGrossCents: line.patientGrossCents,
+      salesRepId: line.salesRepId ?? null,
+      salesRepName: line.salesRepName ?? null,
+      salesRepCommissionCentsOverride: null,
+      commissionRateBps: line.isRebill ? 100 : 800,
+      chargeKind: null,
+    };
+  }
+
   const tierMatch = findOtPackageMatchByPatientGross(
     line.patientGrossCents,
     line.productDescription

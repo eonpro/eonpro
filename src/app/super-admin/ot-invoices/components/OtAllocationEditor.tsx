@@ -185,6 +185,7 @@ const STANDARD_SHIPPING_PRESETS = new Set<number>([
 const STANDARD_TRT_PRESETS = new Set<number>([0, OT_TRT_TELEHEALTH_FEE_CENTS]);
 const STANDARD_DOCTOR_CONSULT_PRESETS = new Set<number>([
   0,
+  1000, // $10 — bloodwork-only sales (lab panel + doctor's review)
   1500, // $15 — light consult tier in the package catalog
   OT_RX_ASYNC_APPROVAL_FEE_CENTS, // $30
   OT_RX_SYNC_APPROVAL_FEE_CENTS, // $50

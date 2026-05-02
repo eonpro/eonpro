@@ -257,7 +257,7 @@ describe('buildOtNonRxReconciliation — per-row defaults', () => {
     expect(rows[0].platformCompensationCents).toBe(900); // 18000 * 0.05 (was 10%)
   });
 
-  it('seeds zero medication/shipping/etc. by default — admin types in cost', () => {
+  it('seeds zero medication/shipping/etc. by default; bloodwork rows get $10 doctor fee', () => {
     const rows = buildOtNonRxReconciliation({
       paymentCollections: [makePayment({ paymentId: 1, invoiceId: 7001 })],
       nonRxChargeLineItems: [makeNonRxLine({ invoiceDbId: 7001 })],
@@ -267,20 +267,40 @@ describe('buildOtNonRxReconciliation — per-row defaults', () => {
     expect(r.medicationsCostCents).toBe(0);
     expect(r.shippingCents).toBe(0);
     expect(r.trtTelehealthCents).toBe(0);
-    expect(r.doctorApprovalCents).toBe(0);
+    /** Bloodwork chargeKind → $10 doctor fee per stakeholder rule (2026-05-02). */
+    expect(r.chargeKind).toBe('bloodwork');
+    expect(r.doctorApprovalCents).toBe(1000);
     expect(r.fulfillmentFeesCents).toBe(0);
     expect(r.salesRepCommissionCents).toBe(0);
     expect(r.salesRepId).toBeNull();
   });
 
-  it('sums totalDeductionsCents = merchant + platform + everything else', () => {
+  it('consult / other chargeKind seeds $0 doctor fee (admin types in)', () => {
+    const rows = buildOtNonRxReconciliation({
+      paymentCollections: [makePayment({ paymentId: 1, invoiceId: 7001 })],
+      nonRxChargeLineItems: [
+        makeNonRxLine({
+          invoiceDbId: 7001,
+          chargeKind: 'consult',
+          description: 'Telehealth visit',
+        }),
+      ],
+      invoiceDbIdsUsedForCogs: new Set(),
+    });
+    expect(rows[0].chargeKind).toBe('consult');
+    expect(rows[0].doctorApprovalCents).toBe(0);
+  });
+
+  it('sums totalDeductionsCents = merchant + platform + doctor (bloodwork)', () => {
     const rows = buildOtNonRxReconciliation({
       paymentCollections: [makePayment({ paymentId: 1, invoiceId: 7001, amountCents: 18000, netCollectedCents: 18000 })],
       nonRxChargeLineItems: [makeNonRxLine({ invoiceDbId: 7001 })],
       invoiceDbIdsUsedForCogs: new Set(),
     });
     const r = rows[0];
-    expect(r.totalDeductionsCents).toBe(r.merchantProcessingCents + r.platformCompensationCents);
+    expect(r.totalDeductionsCents).toBe(
+      r.merchantProcessingCents + r.platformCompensationCents + r.doctorApprovalCents
+    );
     expect(r.clinicNetPayoutCents).toBe(r.patientGrossCents - r.totalDeductionsCents);
   });
 

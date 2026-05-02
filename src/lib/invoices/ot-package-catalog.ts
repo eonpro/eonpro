@@ -509,6 +509,7 @@ export const OT_PACKAGE_TIER_LABELS: Record<OtPackageTier, string> = {
 /** Manual-selection chip values (cents) for the editor. */
 export const OT_DOCTOR_CONSULT_CHIPS: Array<{ label: string; cents: number }> = [
   { label: '$0', cents: 0 },
+  { label: '$10', cents: 1000 },
   { label: '$15', cents: 1500 },
   { label: '$30', cents: 3000 },
   { label: '$50', cents: 5000 },

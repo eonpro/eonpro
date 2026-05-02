@@ -182,6 +182,8 @@ interface OtPerSaleReconciliationLine {
   doctorRxFeeNote?: string | null;
   /** Server-derived: patient had a prior paid Rx within 30 days. Drives auto commission rate (1% rebill / 8% new). */
   isRebill?: boolean;
+  /** Server-derived: every paid invoice line item classifies as bloodwork. Drives bloodwork-only seed defaults. */
+  isBloodworkOnly?: boolean;
   fulfillmentFeesCents: number;
   merchantProcessingCents: number;
   platformCompensationCents: number;
@@ -331,6 +333,39 @@ function buildAllocationSeedsFromData(data: OtInvoiceData): OtAllocationEditorPe
     pharmacyByOrderId.set(li.orderId, arr);
   }
   return sales.map((sale) => {
+    const isRebill = !!sale.isRebill;
+    /**
+     * Bloodwork-only sales: empty meds, no shipping/TRT/fulfillment, $10
+     * doctor fee. Mirrors `buildDefaultOverridePayload` server-side. This
+     * fires even when the Lifefile order has phantom Rxs attached.
+     */
+    if (sale.isBloodworkOnly) {
+      const defaultPayload: OtAllocationOverridePayload = {
+        meds: [],
+        shippingCents: 0,
+        trtTelehealthCents: 0,
+        doctorRxFeeCents: 1000, // $10 — see OT_BLOODWORK_DOCTOR_FEE_CENTS
+        fulfillmentFeesCents: 0,
+        customLineItems: [],
+        notes: null,
+        patientGrossCents: sale.patientGrossCents,
+        salesRepId: sale.salesRepId ?? null,
+        salesRepName: sale.salesRepName ?? null,
+        salesRepCommissionCentsOverride: null,
+        commissionRateBps: isRebill ? 100 : 800,
+        chargeKind: null,
+      };
+      return {
+        orderId: sale.orderId,
+        invoiceDbId: sale.invoiceDbId,
+        paidAt: sale.paidAt,
+        patientName: sale.patientName,
+        productDescription: sale.productDescription ?? null,
+        patientId: 0,
+        isRebill,
+        defaultPayload,
+      };
+    }
     /**
      * Tier-aware default: prefer matching the patient's gross to a known
      * OT package retail tier, then use that tier's pharmacy COST as the
@@ -367,7 +402,6 @@ function buildAllocationSeedsFromData(data: OtInvoiceData): OtAllocationEditorPe
           source: (p.pricingStatus === 'priced' ? 'catalog' : 'custom') as 'catalog' | 'custom',
           commissionRateBps: null,
         }));
-    const isRebill = !!sale.isRebill;
     const defaultPayload: OtAllocationOverridePayload = {
       meds,
       shippingCents: tierMatch ? tierMatch.pkg.defaultShippingCents : sale.shippingCents,
