@@ -17,6 +17,22 @@ export type OtPackageTier = 1 | 3 | 6 | 12;
 
 export type OtPackageCategory = 'rx' | 'bundle' | 'addon' | 'lab' | 'consult' | 'research';
 
+/**
+ * One pre-filled medication line on a multi-component package (e.g. TRT Plus
+ * = Cypionate + Enclomiphene + Anastrozole). When `medLinesByTier` is set
+ * for a tier on a row, `applyAtTier` in the editor uses these specific
+ * lines instead of collapsing the package into a single bundled-cost line.
+ */
+export interface OtPackageMedLine {
+  name: string;
+  strength: string;
+  vialSize: string;
+  /** Quantity dispensed at this tier (e.g. 3 for 3-month TRT Plus). */
+  quantity: number;
+  /** Pharmacy unit cost cents — admin can edit after apply. */
+  unitPriceCents: number;
+}
+
 export interface OtPackageCatalogRow {
   /** Stable id for selection in the UI. Lowercase, dash-separated. */
   id: string;
@@ -29,7 +45,14 @@ export interface OtPackageCatalogRow {
   retailCentsByTier: Partial<Record<OtPackageTier, number>>;
   /** Pharmacy cost cents charged to the clinic by tier. Missing tiers = not offered. */
   costCentsByTier: Partial<Record<OtPackageTier, number>>;
-  /** Default doctor consult cents (admin can override to any of $0/$15/$30/$50). */
+  /**
+   * Optional: per-tier itemized med lines for multi-component packages.
+   * When present for a tier, `applyAtTier` pre-fills these specific med
+   * lines instead of one bundled "<package name>" line at `costCentsByTier`.
+   * The line cost totals must equal `costCentsByTier[tier]` for the tier.
+   */
+  medLinesByTier?: Partial<Record<OtPackageTier, OtPackageMedLine[]>>;
+  /** Default doctor consult cents (admin can override to any of $0/$10/$15/$30/$50). */
   defaultConsultCents: number;
   /** Default shipping cents (admin can override to any of $0/$20/$30). */
   defaultShippingCents: number;
@@ -126,9 +149,41 @@ const RX_ROWS: OtPackageCatalogRow[] = [
     subtitle: 'Anastrozole 12/36 only NY and FL',
     category: 'rx',
     retailCentsByTier: { 1: $(239), 3: $(669), 6: $(1285), 12: $(2429) },
-    costCentsByTier: { 1: $(48), 3: $(144), 6: $(288), 12: $(576) },
-    defaultConsultCents: $(50),
-    defaultShippingCents: $(30),
+    /**
+     * Linear COGS per stakeholder direction (2026-05-02): $25 cypionate +
+     * $18 enclomiphene + $12 anastrozole = $55/month, no bulk discount.
+     * Replaces the prior bundled $48 / $144 / $288 / $576 figures.
+     */
+    costCentsByTier: { 1: $(55), 3: $(165), 6: $(330), 12: $(660) },
+    medLinesByTier: {
+      1: [
+        { name: 'Testosterone Cypionate 200mg/mL', strength: '200mg/mL', vialSize: 'INJ', quantity: 1, unitPriceCents: $(25) },
+        { name: 'Enclomiphene Citrate 25 mg', strength: '25 mg', vialSize: 'CAP', quantity: 1, unitPriceCents: $(18) },
+        { name: 'Anastrozole 0.25 mg', strength: '0.25 mg', vialSize: 'CAP', quantity: 1, unitPriceCents: $(12) },
+      ],
+      3: [
+        { name: 'Testosterone Cypionate 200mg/mL', strength: '200mg/mL', vialSize: 'INJ', quantity: 3, unitPriceCents: $(25) },
+        { name: 'Enclomiphene Citrate 25 mg', strength: '25 mg', vialSize: 'CAP', quantity: 3, unitPriceCents: $(18) },
+        { name: 'Anastrozole 0.25 mg', strength: '0.25 mg', vialSize: 'CAP', quantity: 3, unitPriceCents: $(12) },
+      ],
+      6: [
+        { name: 'Testosterone Cypionate 200mg/mL', strength: '200mg/mL', vialSize: 'INJ', quantity: 6, unitPriceCents: $(25) },
+        { name: 'Enclomiphene Citrate 25 mg', strength: '25 mg', vialSize: 'CAP', quantity: 6, unitPriceCents: $(18) },
+        { name: 'Anastrozole 0.25 mg', strength: '0.25 mg', vialSize: 'CAP', quantity: 6, unitPriceCents: $(12) },
+      ],
+      12: [
+        { name: 'Testosterone Cypionate 200mg/mL', strength: '200mg/mL', vialSize: 'INJ', quantity: 12, unitPriceCents: $(25) },
+        { name: 'Enclomiphene Citrate 25 mg', strength: '25 mg', vialSize: 'CAP', quantity: 12, unitPriceCents: $(18) },
+        { name: 'Anastrozole 0.25 mg', strength: '0.25 mg', vialSize: 'CAP', quantity: 12, unitPriceCents: $(12) },
+      ],
+    },
+    /**
+     * TRT Plus has no doctor consult fee — the $50 lives on the TRT
+     * telehealth line (see `OT_TRT_TELEHEALTH_FEE_CENTS`). $20 standard
+     * shipping (cypionate isn't a cold-chain med).
+     */
+    defaultConsultCents: $(0),
+    defaultShippingCents: $(20),
   },
   {
     id: 'trt-solo',
@@ -136,8 +191,9 @@ const RX_ROWS: OtPackageCatalogRow[] = [
     category: 'rx',
     retailCentsByTier: { 1: $(239), 3: $(669), 6: $(1285), 12: $(2429) },
     costCentsByTier: { 1: $(25), 3: $(75), 6: $(150), 12: $(300) },
-    defaultConsultCents: $(50),
-    defaultShippingCents: $(30),
+    /** Same rule: doctor consult $0; the $50 lives on TRT telehealth. */
+    defaultConsultCents: $(0),
+    defaultShippingCents: $(20),
   },
   {
     id: 'trt-anastrozole-2x-week',
@@ -145,8 +201,9 @@ const RX_ROWS: OtPackageCatalogRow[] = [
     category: 'rx',
     retailCentsByTier: { 1: $(249), 3: $(699) },
     costCentsByTier: { 1: $(35), 3: $(105) },
-    defaultConsultCents: $(50),
-    defaultShippingCents: $(30),
+    /** Cypionate package → $0 doctor consult; $50 TRT telehealth applies separately. */
+    defaultConsultCents: $(0),
+    defaultShippingCents: $(20),
   },
 ];
 

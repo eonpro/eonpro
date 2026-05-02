@@ -202,16 +202,17 @@ function withMedDrivenFees(payload: OtAllocationOverridePayload): OtAllocationOv
   const expectedTrt = isCypionate ? OT_TRT_TELEHEALTH_FEE_CENTS : 0;
 
   /**
-   * Doctor consult: only force a value when meds clearly indicate a tier
-   * (cypionate, cold meds, or empty list). For other Rx, leave the current
-   * value alone — admins frequently differentiate between $15 / $30 for
-   * oral-only sales and we don't want to clobber their choice.
+   * Doctor consult auto-rule (per stakeholder direction 2026-05-02):
+   *   - cypionate / TRT  → $0 (the $50 lives on TRT telehealth instead)
+   *   - cold meds (NAD+, glutathione, sermorelin, semaglutide, tirzepatide) → $30
+   *   - empty meds list → $0
+   *   - other Rx (enclomiphene, tadalafil, oral peptides) → leave current value
    */
   let expectedDoctorConsult: number | null = null;
   if (payload.meds.length === 0) {
     expectedDoctorConsult = 0;
   } else if (isCypionate) {
-    expectedDoctorConsult = OT_RX_SYNC_APPROVAL_FEE_CENTS;
+    expectedDoctorConsult = 0;
   } else if (isCold) {
     expectedDoctorConsult = OT_RX_ASYNC_APPROVAL_FEE_CENTS;
   }
@@ -820,6 +821,40 @@ function PackageQuickFill({
   const applyAtTier = (pkg: OtPackageCatalogRow, tier: OtPackageTier) => {
     const quote = getOtPackageQuoteAtTier(pkg, tier);
     if (!quote) return;
+    /**
+     * Multi-component packages (e.g. TRT Plus = Cypionate + Enclomiphene +
+     * Anastrozole) carry per-tier `medLinesByTier`. When present, pre-fill
+     * each line individually so admins see the breakdown the way the
+     * pricing sheet shows it. Otherwise collapse to a single bundled line
+     * at the package's tier cost (legacy behavior).
+     */
+    const tierMedLines = pkg.medLinesByTier?.[tier];
+    const medLines =
+      tierMedLines && tierMedLines.length > 0
+        ? tierMedLines.map((m) => ({
+            medicationKey: null,
+            name: m.name,
+            strength: m.strength,
+            vialSize: m.vialSize,
+            quantity: m.quantity,
+            unitPriceCents: m.unitPriceCents,
+            lineTotalCents: m.unitPriceCents * m.quantity,
+            source: 'catalog' as const,
+            commissionRateBps: null,
+          }))
+        : [
+            {
+              medicationKey: null,
+              name: pkg.name,
+              strength: pkg.subtitle ?? '',
+              vialSize: OT_PACKAGE_TIER_LABELS[tier],
+              quantity: 1,
+              unitPriceCents: quote.costCents,
+              lineTotalCents: quote.costCents,
+              source: 'catalog' as const,
+              commissionRateBps: null,
+            },
+          ];
     onMutate((p) =>
       /**
        * Apply the package's default shipping + consult, then run the
@@ -830,19 +865,7 @@ function PackageQuickFill({
        */
       withMedDrivenFees({
         ...p,
-        meds: [
-          {
-            medicationKey: null,
-            name: pkg.name,
-            strength: pkg.subtitle ?? '',
-            vialSize: OT_PACKAGE_TIER_LABELS[tier],
-            quantity: 1,
-            unitPriceCents: quote.costCents,
-            lineTotalCents: quote.costCents,
-            source: 'catalog' as const,
-            commissionRateBps: null,
-          },
-        ],
+        meds: medLines,
         shippingCents: pkg.defaultShippingCents,
         doctorRxFeeCents: pkg.defaultConsultCents,
       })

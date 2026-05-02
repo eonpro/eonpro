@@ -107,7 +107,12 @@ describe('getOtPackageQuoteAtTier', () => {
     const q = getOtPackageQuoteAtTier(p, 6);
     expect(q).not.toBeNull();
     expect(q!.retailCents).toBe(128500);
-    expect(q!.costCents).toBe(28800);
+    /**
+     * TRT Plus 6mo COGS = $55 × 6 = $330 (linear, no bulk discount per
+     * stakeholder direction 2026-05-02). Was $288 under the prior bundled
+     * pricing.
+     */
+    expect(q!.costCents).toBe(33000);
   });
 
   it('returns null when neither retail nor cost exists for that tier', () => {
@@ -189,8 +194,13 @@ describe('findOtPackageMatchByPatientGross — tier-aware default cost', () => {
     expect(m).not.toBeNull();
     expect(m!.pkg.id).toBe('trt-plus');
     expect(m!.tier).toBe(6);
-    expect(m!.pkg.defaultConsultCents).toBe(5000);
-    expect(m!.pkg.defaultShippingCents).toBe(3000);
+    /**
+     * Cypionate packages: $0 doctor consult ($50 lives on TRT telehealth)
+     * and $20 standard shipping (cypionate isn't a cold-chain med). Per
+     * stakeholder direction 2026-05-02.
+     */
+    expect(m!.pkg.defaultConsultCents).toBe(0);
+    expect(m!.pkg.defaultShippingCents).toBe(2000);
   });
 
   it('disambiguates a bundle from a standalone Rx by token overlap when both retails match', () => {
