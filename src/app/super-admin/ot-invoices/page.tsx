@@ -33,6 +33,10 @@ import {
   OtAllocationEditor,
   type OtAllocationEditorPerSaleSeed,
 } from '@/app/super-admin/ot-invoices/components/OtAllocationEditor';
+import {
+  OtNonRxAllocationEditor,
+  type OtNonRxAllocationEditorSeed,
+} from '@/app/super-admin/ot-invoices/components/OtNonRxAllocationEditor';
 import type { OtAllocationOverridePayload } from '@/services/invoices/otAllocationOverrideTypes';
 import {
   findOtPackageMatchByPatientGross,
@@ -260,6 +264,39 @@ interface OtInvoiceData {
   /** Non-prescription Stripe invoice lines tied to those unmapped payments (e.g. bloodwork $180). */
   nonRxChargeLineItems?: OtNonRxChargeLineItem[];
   nonRxExplainedPaymentCount?: number;
+  /**
+   * Editable disposition rows for non-Rx charges (one per invoice or per
+   * standalone payment). Empty when the API hasn't rolled out yet.
+   */
+  nonRxReconciliation?: OtNonRxReconciliationLine[];
+}
+
+interface OtNonRxReconciliationLine {
+  dispositionKey: string;
+  dispositionType: 'invoice' | 'payment';
+  invoiceDbId: number | null;
+  paymentId: number | null;
+  chargeKind: OtNonPharmacyChargeKind;
+  paidAt: string | null;
+  patientId: number;
+  patientName: string;
+  productDescription: string;
+  patientGrossCents: number;
+  medicationsCostCents: number;
+  shippingCents: number;
+  trtTelehealthCents: number;
+  pharmacyTotalCents: number;
+  doctorApprovalCents: number;
+  fulfillmentFeesCents: number;
+  merchantProcessingCents: number;
+  platformCompensationCents: number;
+  salesRepCommissionCents: number;
+  salesRepId: number | null;
+  salesRepName: string | null;
+  managerOverrideTotalCents: number;
+  managerOverrideSummary: string | null;
+  totalDeductionsCents: number;
+  clinicNetPayoutCents: number;
 }
 
 type ActiveTab =
@@ -270,6 +307,7 @@ type ActiveTab =
   | 'fulfillment'
   | 'per_sale'
   | 'manual_reconciliation'
+  | 'non_rx_reconciliation'
   | 'pricing_catalog';
 
 function centsToDisplay(cents: number): string {
@@ -341,6 +379,8 @@ function buildAllocationSeedsFromData(data: OtInvoiceData): OtAllocationEditorPe
         sale.salesRepId != null && (sale.salesRepCommissionCents ?? 0) > 0
           ? (sale.salesRepCommissionCents ?? 0)
           : null,
+      /** Rx seeds always carry chargeKind=null; non-Rx seeds set their own. */
+      chargeKind: null,
     };
     return {
       orderId: sale.orderId,
@@ -350,6 +390,45 @@ function buildAllocationSeedsFromData(data: OtInvoiceData): OtAllocationEditorPe
       productDescription: sale.productDescription ?? null,
       /** Page already loads patient ids via per-sale; not strictly needed by editor but kept for future link-outs. */
       patientId: 0,
+      defaultPayload,
+    };
+  });
+}
+
+/**
+ * Build seeds for the non-Rx editor from `data.nonRxReconciliation`. Mirrors
+ * `buildOtNonRxReconciliation` shape on the server. Empty when the API hasn't
+ * deployed the field yet.
+ */
+function buildNonRxSeedsFromData(data: OtInvoiceData): OtNonRxAllocationEditorSeed[] {
+  const rows = data.nonRxReconciliation ?? [];
+  return rows.map((r) => {
+    const defaultPayload: OtAllocationOverridePayload = {
+      meds: [],
+      shippingCents: r.shippingCents,
+      trtTelehealthCents: r.trtTelehealthCents,
+      doctorRxFeeCents: r.doctorApprovalCents,
+      fulfillmentFeesCents: r.fulfillmentFeesCents,
+      customLineItems: [],
+      notes: null,
+      patientGrossCents: r.patientGrossCents,
+      salesRepId: r.salesRepId ?? null,
+      salesRepName: r.salesRepName ?? null,
+      salesRepCommissionCentsOverride:
+        r.salesRepId != null && (r.salesRepCommissionCents ?? 0) > 0
+          ? (r.salesRepCommissionCents ?? 0)
+          : null,
+      chargeKind: r.chargeKind,
+    };
+    return {
+      dispositionKey: r.dispositionKey,
+      dispositionType: r.dispositionType,
+      invoiceId: r.invoiceDbId,
+      paymentId: r.paymentId,
+      chargeKind: r.chargeKind,
+      paidAt: r.paidAt,
+      patientName: r.patientName,
+      productDescription: r.productDescription,
       defaultPayload,
     };
   });
@@ -572,6 +651,13 @@ export default function OtInvoicesPage() {
           badge={data ? String(data.perSaleReconciliation?.length ?? 0) : '—'}
         />
         <TabButton
+          active={activeTab === 'non_rx_reconciliation'}
+          onClick={() => setActiveTab('non_rx_reconciliation')}
+          icon={<SlidersHorizontal className="h-4 w-4" />}
+          label="Non-Rx reconciliation"
+          badge={data ? String(data.nonRxReconciliation?.length ?? 0) : '—'}
+        />
+        <TabButton
           active={activeTab === 'pricing_catalog'}
           onClick={() => setActiveTab('pricing_catalog')}
           icon={<BookOpen className="h-4 w-4" />}
@@ -606,9 +692,16 @@ export default function OtInvoicesPage() {
               label="Cash collected (net)"
               value={centsToDisplay(data.paymentsCollectedNetCents ?? 0)}
               subvalue={
-                (data.refundsTotalCents ?? 0) > 0
-                  ? `${centsToDisplay(data.paymentsCollectedGrossCents ?? 0)} gross − ${centsToDisplay(data.refundsTotalCents ?? 0)} refunds`
-                  : `${data.paymentCollections?.length ?? 0} Payment rows · All payments tab`
+                /**
+                 * Show the disposition breakdown when we have non-Rx rows so admins
+                 * can sanity-check why "All payments" doesn't match "Orders":
+                 *   N Rx + M non-Rx + R refunds = total Payment rows
+                 */
+                (data.nonRxReconciliation?.length ?? 0) > 0
+                  ? `${data.pharmacy.orderCount} Rx + ${data.nonRxReconciliation?.length ?? 0} non-Rx + ${data.refundLineItems?.length ?? 0} refunds`
+                  : (data.refundsTotalCents ?? 0) > 0
+                    ? `${centsToDisplay(data.paymentsCollectedGrossCents ?? 0)} gross − ${centsToDisplay(data.refundsTotalCents ?? 0)} refunds`
+                    : `${data.paymentCollections?.length ?? 0} Payment rows · All payments tab`
               }
               bg="bg-teal-50"
             />
@@ -719,7 +812,7 @@ export default function OtInvoicesPage() {
              * "Export tab CSV" only applies to tabs that have a backing CSV generator.
              * Manual reconciliation has its own branded PDF download in the editor itself.
              */}
-            {activeTab !== 'manual_reconciliation' && (
+            {activeTab !== 'manual_reconciliation' && activeTab !== 'non_rx_reconciliation' && (
               <button
                 type="button"
                 onClick={() => handleExport(activeTab, 'csv')}
@@ -823,6 +916,14 @@ export default function OtInvoicesPage() {
               endDate={endDate}
               useRange={useRange}
               seeds={buildAllocationSeedsFromData(data)}
+            />
+          )}
+          {activeTab === 'non_rx_reconciliation' && (
+            <OtNonRxAllocationEditor
+              startDate={startDate}
+              endDate={endDate}
+              useRange={useRange}
+              seeds={buildNonRxSeedsFromData(data)}
             />
           )}
         </>

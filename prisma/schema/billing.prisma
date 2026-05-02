@@ -42,6 +42,11 @@ model Invoice {
   items                   InvoiceItem[] // Structured line items
   reconciliations         PaymentReconciliation[]
   refillQueue             RefillQueue[]
+  /// Logically at-most-one per invoice — uniqueness enforced via
+  /// `OtNonRxAllocationOverride.@@unique([clinicId, dispositionKey])` because
+  /// `dispositionKey` encodes the invoice id. Modeled as a list here only
+  /// because Prisma requires `@unique` on the FK column for 1-1 syntax.
+  otNonRxAllocationOverrides OtNonRxAllocationOverride[] @relation("OtNonRxAllocationOverrideInvoice")
 
   @@index([prescriptionProcessed])
   @@index([clinicId])
@@ -75,6 +80,8 @@ model Payment {
   invoice               Invoice?      @relation(fields: [invoiceId], references: [id])
   patient               Patient       @relation(fields: [patientId], references: [id])
   subscription          Subscription? @relation(fields: [subscriptionId], references: [id])
+  /// Logically at-most-one per payment (see Invoice comment for rationale).
+  otNonRxAllocationOverrides OtNonRxAllocationOverride[] @relation("OtNonRxAllocationOverridePayment")
 
   @@index([clinicId])
   @@index([patientId])
@@ -634,6 +641,68 @@ model OtSaleAllocationOverride {
 
   @@unique([clinicId, orderId])
   @@index([clinicId, status])
+}
+
+// ==========================================================================
+// OT (Overtime) Manual Reconciliation — Non-Rx Allocation Override
+// ==========================================================================
+// Mirror of `OtSaleAllocationOverride` for charges that are NOT pharmacy Rx
+// orders (bloodwork / consults / packages / standalone Stripe charges).
+// Keyed by a composite `dispositionKey` (`inv:<invoiceId>` | `pay:<paymentId>`)
+// so an override row exists per non-Rx invoice when there is one and per
+// payment when the charge is invoice-less.
+//
+// Reuses `OtSaleAllocationOverrideStatus` (DRAFT | FINALIZED) and the same
+// `overridePayload` JSON snapshot shape (validated via Zod in the API layer).
+//
+// Refunds: rows are NEVER created for fully-refunded payments. Partially-
+// refunded payments produce a row whose `patientGrossCents` is net of the
+// refund (handled in the service layer, not at the schema level).
+//
+// Multi-tenant: `clinicId` is denormalized for fast clinic-scoped queries and
+// cross-tenant defense in the API write path.
+// ==========================================================================
+
+model OtNonRxAllocationOverride {
+  id                 Int                            @id @default(autoincrement())
+  createdAt          DateTime                       @default(now())
+  updatedAt          DateTime                       @updatedAt
+  clinicId           Int
+  /// Materialized composite key: 'inv:<invoiceId>' | 'pay:<paymentId>'.
+  /// Drives upsert idempotency from the editor and PDF rendering.
+  dispositionKey     String
+  /// Set when the override is keyed off a non-Rx invoice. Mutually exclusive
+  /// with `paymentId` — one of the two is non-null, never both, never neither.
+  /// Enforced in the API write path; also re-checked at SQL level via the
+  /// uniqueness constraint on `(clinicId, dispositionKey)` (see migration).
+  invoiceId          Int?
+  /// Set when the override is keyed off a standalone (invoice-less) Payment.
+  paymentId          Int?
+  /// Snapshot of the classified charge kind at edit time. Mirrors the value
+  /// computed by `classifyOtNonPharmacyChargeLine` and stored on the payload.
+  chargeKind         OtNonRxChargeKind
+  /// Full snapshot — same shape as Rx overrides + `chargeKind` field.
+  /// Shape enforced via Zod in the API layer.
+  overridePayload    Json
+  status             OtSaleAllocationOverrideStatus @default(DRAFT)
+  lastEditedByUserId Int?
+  finalizedAt        DateTime?
+
+  clinic       Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  invoice      Invoice? @relation("OtNonRxAllocationOverrideInvoice", fields: [invoiceId], references: [id], onDelete: SetNull)
+  payment      Payment? @relation("OtNonRxAllocationOverridePayment", fields: [paymentId], references: [id], onDelete: SetNull)
+  lastEditedBy User?    @relation("OtNonRxAllocationOverrideEditor", fields: [lastEditedByUserId], references: [id])
+
+  @@unique([clinicId, dispositionKey])
+  @@index([clinicId, status])
+  @@index([invoiceId])
+  @@index([paymentId])
+}
+
+enum OtNonRxChargeKind {
+  bloodwork
+  consult
+  other
 }
 
 enum OtSaleAllocationOverrideStatus {

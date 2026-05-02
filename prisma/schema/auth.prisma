@@ -166,6 +166,7 @@ model User {
 
   // OT clinic manual reconciliation overrides (super-admin tool)
   otSaleAllocationOverridesEdited OtSaleAllocationOverride[] @relation("OtSaleAllocationOverrideEditor")
+  otNonRxAllocationOverridesEdited OtNonRxAllocationOverride[] @relation("OtNonRxAllocationOverrideEditor")
 
   // Email System Relations
   emailLogs               EmailLog[]

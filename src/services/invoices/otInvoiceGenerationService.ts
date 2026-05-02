@@ -46,6 +46,10 @@ import {
   type OtAllocationOverrideTotals,
 } from '@/services/invoices/otAllocationOverrideTypes';
 import {
+  buildOtNonRxReconciliation,
+  type OtNonRxReconciliationLine,
+} from '@/services/invoices/otNonRxReconciliationService';
+import {
   findOtPackageMatchByPatientGross,
   OT_PACKAGE_TIER_LABELS,
 } from '@/lib/invoices/ot-package-catalog';
@@ -437,7 +441,18 @@ export interface OtDailyInvoices {
   nonRxChargeLineItems: OtNonRxChargeLineItem[];
   /** Count of period `Payment` rows whose `invoiceId` is one of those non-Rx invoices we loaded. */
   nonRxExplainedPaymentCount: number;
+  /**
+   * One editable disposition row per non-Rx charge in the period. Built from
+   * `paymentCollections` minus fully-refunded payments and minus payments
+   * already attributed to pharmacy COGS. Sales-rep commission and manager
+   * override columns are pre-filled from the `SalesRepCommissionEvent` ledger
+   * when the row is keyed off an invoice (admin can override per-row in the
+   * editor). Sums into the period grand total alongside `perSaleReconciliation`.
+   */
+  nonRxReconciliation: OtNonRxReconciliationLine[];
 }
+
+export type { OtNonRxReconciliationLine };
 
 export interface OtNonRxChargeLineItem {
   invoiceDbId: number;
@@ -1269,7 +1284,29 @@ export async function generateOtDailyInvoices(
         .filter((x): x is number => x != null)
     ),
   ];
-  const salesRepLookup = await loadOtSalesRepCommissionLookup(clinicId, invoiceDbIdsForCommissions);
+  /**
+   * Non-Rx invoice ids that may also have sales-rep commissions in the ledger
+   * (per stakeholder Q3: ledger lookup applies to non-Rx invoices the same way
+   * as Rx, and admin can manually override per row in the editor). Computed
+   * here so the lookup is one round-trip for both Rx and non-Rx.
+   */
+  const rxInvoiceDbIdsForCogsSet = new Set(invoiceDbIdsForCommissions);
+  const nonRxInvoiceDbIdsForCommissions = [
+    ...new Set(
+      paymentCollections
+        .filter((p) => !p.isFullyRefunded)
+        .map((p) => p.invoiceId)
+        .filter((id): id is number => id != null && !rxInvoiceDbIdsForCogsSet.has(id))
+    ),
+  ];
+  const allInvoiceDbIdsForCommissions = [
+    ...invoiceDbIdsForCommissions,
+    ...nonRxInvoiceDbIdsForCommissions,
+  ];
+  const salesRepLookup = await loadOtSalesRepCommissionLookup(
+    clinicId,
+    allInvoiceDbIdsForCommissions
+  );
 
   let paymentNetByInvoiceId = new Map<number, number>();
   let stripeCustomerNameByInvoiceId = new Map<number, string>();
@@ -1773,6 +1810,94 @@ export async function generateOtDailyInvoices(
     });
   }
 
+  // -------------------------------------------------------------------------
+  // Non-Rx disposition rows
+  // -------------------------------------------------------------------------
+  // Build one editable row per non-Rx disposition unit (invoice or standalone
+  // payment), then enrich each row with sales-rep / manager-override data from
+  // the same `salesRepLookup` used by Rx so non-Rx commissions inherit the
+  // ledger automatically (per stakeholder Q3). Admin can manually override
+  // per-row in the editor (Phase 5).
+  // -------------------------------------------------------------------------
+  const nonRxReconciliation = buildOtNonRxReconciliation({
+    paymentCollections,
+    nonRxChargeLineItems,
+    invoiceDbIdsUsedForCogs,
+  }).map((row) => {
+    /** Only invoice-keyed rows can resolve a Stripe invoice id for the ledger. */
+    if (row.dispositionType !== 'invoice' || row.invoiceDbId == null) {
+      return row;
+    }
+    const stripeInvId = salesRepLookup.stripeByInvoiceDbId.get(row.invoiceDbId) ?? null;
+    const comm = stripeInvId
+      ? (salesRepLookup.commissionByStripeObjectId.get(stripeInvId) ?? null)
+      : null;
+    if (!comm) return row;
+    const repName =
+      salesRepLookup.repLabelById.get(comm.salesRepId) ?? `User #${comm.salesRepId}`;
+    const ov = salesRepLookup.overrideBySourceEventId.get(comm.id);
+    const salesRepCommissionCents = comm.commissionAmountCents;
+    const managerOverrideTotalCents = ov?.totalCents ?? 0;
+    const totalDeductionsCents =
+      row.merchantProcessingCents +
+      row.platformCompensationCents +
+      salesRepCommissionCents +
+      managerOverrideTotalCents;
+    return {
+      ...row,
+      salesRepId: comm.salesRepId,
+      salesRepName: repName,
+      salesRepCommissionCents,
+      managerOverrideTotalCents,
+      managerOverrideSummary: ov?.summary ?? null,
+      totalDeductionsCents,
+      clinicNetPayoutCents: row.patientGrossCents - totalDeductionsCents,
+    };
+  });
+
+  /**
+   * Roll non-Rx contributions into the period totals.
+   *
+   * Critically, we do **not** add `nonRxRow.merchantProcessingCents +
+   * platformCompensationCents` to the grand total here, because when
+   * `feesUseCashCollectedBasis` is true (the default at OT) those fees were
+   * already computed against `paymentsCollectedNetCents`, which already
+   * includes the non-Rx payments. Adding the per-row merchant/platform on top
+   * would double-count them.
+   *
+   * Sales-rep commissions and manager overrides DO need to be added — the Rx
+   * loop above only summed `perSaleReconciliation` rows, so non-Rx commissions
+   * are missing from `salesRepCommissionTotalCents` until we add them here.
+   */
+  const nonRxSalesRepCommissionTotalCents = nonRxReconciliation.reduce(
+    (s, r) => s + r.salesRepCommissionCents,
+    0
+  );
+  const nonRxManagerOverrideTotalCents = nonRxReconciliation.reduce(
+    (s, r) => s + r.managerOverrideTotalCents,
+    0
+  );
+
+  const combinedSalesRepCommissionTotalCents =
+    salesRepCommissionTotalCents + nonRxSalesRepCommissionTotalCents;
+  const combinedManagerOverrideTotalCents =
+    managerOverrideTotalCents + nonRxManagerOverrideTotalCents;
+  const combinedGrandTotal =
+    grandTotal + nonRxSalesRepCommissionTotalCents + nonRxManagerOverrideTotalCents;
+  const combinedClinicNetPayoutCents = grossForFeeDisplay - combinedGrandTotal;
+
+  logger.info('OT invoice generation: non-Rx reconciliation built', {
+    clinicId,
+    date,
+    endDate: endDate ?? date,
+    nonRxRows: nonRxReconciliation.length,
+    bloodworkCount: nonRxReconciliation.filter((r) => r.chargeKind === 'bloodwork').length,
+    consultCount: nonRxReconciliation.filter((r) => r.chargeKind === 'consult').length,
+    otherCount: nonRxReconciliation.filter((r) => r.chargeKind === 'other').length,
+    nonRxSalesRepCommissionTotalCents,
+    nonRxManagerOverrideTotalCents,
+  });
+
   const nowIso = new Date().toISOString();
 
   return {
@@ -1832,10 +1957,10 @@ export async function generateOtDailyInvoices(
       feeCents: platformFee,
       invoiceCount: platformInvoiceCount,
     },
-    grandTotalCents: grandTotal,
-    clinicNetPayoutCents,
-    salesRepCommissionTotalCents,
-    managerOverrideTotalCents,
+    grandTotalCents: combinedGrandTotal,
+    clinicNetPayoutCents: combinedClinicNetPayoutCents,
+    salesRepCommissionTotalCents: combinedSalesRepCommissionTotalCents,
+    managerOverrideTotalCents: combinedManagerOverrideTotalCents,
     perSaleReconciliation,
     paymentCollections,
     paymentsCollectedNetCents,
@@ -1847,6 +1972,7 @@ export async function generateOtDailyInvoices(
     paymentsWithoutPharmacyCogs,
     nonRxChargeLineItems,
     nonRxExplainedPaymentCount,
+    nonRxReconciliation,
   };
 }
 
@@ -2704,6 +2830,11 @@ export function buildDefaultOverridePayload(
       line.salesRepId != null && line.salesRepCommissionCents > 0
         ? line.salesRepCommissionCents
         : null,
+    /**
+     * `buildDefaultOverridePayload` is the Rx default builder; non-Rx rows go
+     * through `buildDefaultNonRxOverridePayload` and carry their own chargeKind.
+     */
+    chargeKind: null,
   };
 }
 
@@ -2716,6 +2847,26 @@ export interface OtCustomReconciliationLine {
   productDescription: string | null;
   stripePaymentIntentId: string | null;
   /** Snapshot status — DRAFT (saved in editor), FINALIZED (locked), or null (computed-only, never edited). */
+  overrideStatus: OtAllocationOverrideStatus | null;
+  overrideUpdatedAt: string | null;
+  overrideLastEditedByUserId: number | null;
+  payload: OtAllocationOverridePayload;
+  totals: OtAllocationOverrideTotals;
+}
+
+/**
+ * Same shape as `OtCustomReconciliationLine` but keyed by `dispositionKey`
+ * instead of `orderId`, with the chargeKind tag carried alongside. Renders
+ * in the PDF as the "Non-Rx allocations" section.
+ */
+export interface OtCustomNonRxReconciliationLine {
+  dispositionKey: string;
+  invoiceDbId: number | null;
+  paymentId: number | null;
+  chargeKind: 'bloodwork' | 'consult' | 'other';
+  paidAt: string | null;
+  patientName: string;
+  productDescription: string | null;
   overrideStatus: OtAllocationOverrideStatus | null;
   overrideUpdatedAt: string | null;
   overrideLastEditedByUserId: number | null;
@@ -2757,8 +2908,19 @@ export interface OtAllocationOverrideMeta {
  */
 export function applyOtAllocationOverrides(
   data: OtDailyInvoices,
-  overridesByOrderId: Map<number, OtAllocationOverrideMeta>
-): { lines: OtCustomReconciliationLine[]; totals: OtCustomReconciliationGrandTotals } {
+  overridesByOrderId: Map<number, OtAllocationOverrideMeta>,
+  /**
+   * Optional non-Rx overrides keyed by `dispositionKey`. When omitted (or empty),
+   * non-Rx rows seed from `data.nonRxReconciliation` defaults — same UX as
+   * "computed-only" Rx rows. Existing callers passing only the first two args
+   * stay byte-compatible.
+   */
+  nonRxOverridesByKey: Map<string, OtAllocationOverrideMeta> = new Map()
+): {
+  lines: OtCustomReconciliationLine[];
+  nonRxLines: OtCustomNonRxReconciliationLine[];
+  totals: OtCustomReconciliationGrandTotals;
+} {
   const lines: OtCustomReconciliationLine[] = data.perSaleReconciliation.map((sale) => {
     const meta = overridesByOrderId.get(sale.orderId) ?? null;
     const payload = meta?.payload ?? buildDefaultOverridePayload(sale, data.pharmacy.lineItems);
@@ -2778,7 +2940,69 @@ export function applyOtAllocationOverrides(
     };
   });
 
-  const totals: OtCustomReconciliationGrandTotals = lines.reduce(
+  /**
+   * Non-Rx lines: seeded from the period's non-Rx rows, overlayed by any
+   * saved overrides keyed by dispositionKey. The default payload mirrors the
+   * UI seed builder (`buildNonRxSeedsFromData` on the page) so the PDF and
+   * the editor always agree on the starting numbers.
+   */
+  const nonRxLines: OtCustomNonRxReconciliationLine[] = (data.nonRxReconciliation ?? []).map(
+    (row) => {
+      const meta = nonRxOverridesByKey.get(row.dispositionKey) ?? null;
+      const payload: OtAllocationOverridePayload = meta?.payload ?? {
+        meds: [],
+        shippingCents: row.shippingCents,
+        trtTelehealthCents: row.trtTelehealthCents,
+        doctorRxFeeCents: row.doctorApprovalCents,
+        fulfillmentFeesCents: row.fulfillmentFeesCents,
+        customLineItems: [],
+        notes: null,
+        patientGrossCents: row.patientGrossCents,
+        salesRepId: row.salesRepId,
+        salesRepName: row.salesRepName,
+        salesRepCommissionCentsOverride:
+          row.salesRepId != null && row.salesRepCommissionCents > 0
+            ? row.salesRepCommissionCents
+            : null,
+        chargeKind: row.chargeKind,
+      };
+      const totals = computeOtAllocationOverrideTotals(payload);
+      return {
+        dispositionKey: row.dispositionKey,
+        invoiceDbId: row.invoiceDbId,
+        paymentId: row.paymentId,
+        chargeKind: row.chargeKind,
+        paidAt: row.paidAt,
+        patientName: row.patientName,
+        productDescription: row.productDescription,
+        overrideStatus: meta?.status ?? null,
+        overrideUpdatedAt: meta?.updatedAt ?? null,
+        overrideLastEditedByUserId: meta?.lastEditedByUserId ?? null,
+        payload,
+        totals,
+      };
+    }
+  );
+
+  const initial: OtCustomReconciliationGrandTotals = {
+    saleCount: 0,
+    draftCount: 0,
+    finalizedCount: 0,
+    computedCount: 0,
+    patientGrossCents: 0,
+    medicationsCents: 0,
+    shippingCents: 0,
+    trtTelehealthCents: 0,
+    doctorRxFeeCents: 0,
+    fulfillmentFeesCents: 0,
+    customLineItemsCents: 0,
+    salesRepCommissionCents: 0,
+    totalDeductionsCents: 0,
+    netToOtClinicCents: 0,
+  };
+
+  /** Combined Rx + non-Rx grand totals — what the PDF prints. */
+  const totals: OtCustomReconciliationGrandTotals = [...lines, ...nonRxLines].reduce(
     (acc, l) => {
       acc.saleCount += 1;
       if (l.overrideStatus === 'DRAFT') acc.draftCount += 1;
@@ -2796,25 +3020,10 @@ export function applyOtAllocationOverrides(
       acc.netToOtClinicCents += l.totals.netToOtClinicCents;
       return acc;
     },
-    {
-      saleCount: 0,
-      draftCount: 0,
-      finalizedCount: 0,
-      computedCount: 0,
-      patientGrossCents: 0,
-      medicationsCents: 0,
-      shippingCents: 0,
-      trtTelehealthCents: 0,
-      doctorRxFeeCents: 0,
-      fulfillmentFeesCents: 0,
-      customLineItemsCents: 0,
-      salesRepCommissionCents: 0,
-      totalDeductionsCents: 0,
-      netToOtClinicCents: 0,
-    }
+    initial
   );
 
-  return { lines, totals };
+  return { lines, nonRxLines, totals };
 }
 
 /**
@@ -2831,7 +3040,12 @@ export function applyOtAllocationOverrides(
  */
 export async function generateOtCustomReconciliationPDF(
   data: OtDailyInvoices,
-  reconciliation: { lines: OtCustomReconciliationLine[]; totals: OtCustomReconciliationGrandTotals }
+  reconciliation: {
+    lines: OtCustomReconciliationLine[];
+    /** Optional: non-Rx allocation rows. Rendered as a secondary section. */
+    nonRxLines?: OtCustomNonRxReconciliationLine[];
+    totals: OtCustomReconciliationGrandTotals;
+  }
 ): Promise<Uint8Array> {
   const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
   const doc = await PDFDocument.create();
@@ -3085,6 +3299,137 @@ export async function generateOtCustomReconciliationPDF(
       y -= 14;
     }
     y -= 6;
+  }
+
+  // ---- NON-RX ALLOCATIONS SECTION ----------------------------------------
+  // Rendered as a secondary section after Rx so the Rx layout stays first
+  // (most reviewers focus on Rx); contributes to the same grand total which
+  // is already summed in `reconciliation.totals`. Each row is tagged with
+  // its chargeKind in the header band.
+  // -----------------------------------------------------------------------
+  const nonRxLines = reconciliation.nonRxLines ?? [];
+  if (nonRxLines.length > 0) {
+    need(28);
+    y -= 6;
+    drawText('NON-RX ALLOCATIONS', M, 10, fontBold, green);
+    y -= 16;
+    for (const sale of nonRxLines) {
+      const lineCount = sale.payload.meds.length + sale.payload.customLineItems.length + 4;
+      const notesH = sale.payload.notes ? 22 : 0;
+      const blockH = 24 + 13 * (lineCount + 2) + 28 + notesH + 8;
+      need(blockH);
+
+      const statusBg =
+        sale.overrideStatus === 'FINALIZED'
+          ? finalizedBg
+          : sale.overrideStatus === 'DRAFT'
+            ? draftBg
+            : greenBg;
+      page.drawRectangle({ x: M, y: y - 18, width: TW, height: 22, color: statusBg });
+      drawText(sale.patientName, M + 6, 10, fontBold);
+      const paidLbl = sale.paidAt
+        ? new Date(sale.paidAt).toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true,
+            timeZone: 'America/New_York',
+          })
+        : '—';
+      drawText(paidLbl, M + 200, 8.5, font, mid);
+      const kindLabel =
+        sale.chargeKind === 'bloodwork'
+          ? 'Bloodwork / labs'
+          : sale.chargeKind === 'consult'
+            ? 'Consult / visit'
+            : 'Other';
+      drawText(`${kindLabel} · ${sale.dispositionKey}`, M + 360, 8.5, font, mid);
+      if (sale.productDescription) {
+        y -= 12;
+        drawText(`Paid for: ${sale.productDescription}`, M + 6, 8, font, mid);
+      }
+      const statusLbl =
+        sale.overrideStatus === 'FINALIZED'
+          ? 'FINAL'
+          : sale.overrideStatus === 'DRAFT'
+            ? 'DRAFT'
+            : 'COMPUTED';
+      const statusC =
+        sale.overrideStatus === 'FINALIZED'
+          ? green
+          : sale.overrideStatus === 'DRAFT'
+            ? rgb(0.6, 0.42, 0.05)
+            : light;
+      drawText(statusLbl, PW - M - 50, 8.5, fontBold, statusC);
+      y -= 24;
+
+      function lineRow(label: string, amt: number, opts: { sub?: string; muted?: boolean } = {}) {
+        need(13);
+        drawText(label, M + 6, 9, font, opts.muted ? light : dark);
+        if (opts.sub) drawText(opts.sub, M + 280, 8, font, light);
+        drawText(`$${centsToDisplay(amt)}`, PW - M - 90, 9, font, dark);
+        y -= 12;
+      }
+
+      drawText('Patient gross', M + 6, 9, fontBold);
+      drawText(`$${centsToDisplay(sale.payload.patientGrossCents)}`, PW - M - 90, 9, fontBold);
+      y -= 14;
+
+      if (sale.payload.meds.length === 0) {
+        lineRow('Service / cost lines', 0, { muted: true });
+      } else {
+        for (const m of sale.payload.meds) {
+          const sub = `qty ${m.quantity} @ $${centsToDisplay(m.unitPriceCents)}${m.source === 'custom' ? ' (custom)' : ''}`;
+          lineRow(`Service — ${m.name}`, m.lineTotalCents, { sub });
+        }
+      }
+      lineRow('Shipping', sale.payload.shippingCents);
+      lineRow('TRT telehealth', sale.payload.trtTelehealthCents);
+      lineRow('Doctor consult', sale.payload.doctorRxFeeCents);
+      lineRow('Fulfillment fees', sale.payload.fulfillmentFeesCents);
+      for (const c of sale.payload.customLineItems) {
+        lineRow(`Custom — ${c.description}`, c.amountCents);
+      }
+      if (sale.totals.salesRepCommissionCents > 0 && sale.payload.salesRepName) {
+        lineRow(`Sales rep — ${sale.payload.salesRepName}`, sale.totals.salesRepCommissionCents);
+      }
+
+      need(22);
+      page.drawLine({
+        start: { x: M, y: y + 6 },
+        end: { x: PW - M, y: y + 6 },
+        thickness: 0.4,
+        color: rgb(0.88, 0.88, 0.88),
+      });
+      y -= 2;
+      drawText('Total deductions', M + 6, 9.5, fontBold);
+      drawText(`$${centsToDisplay(sale.totals.totalDeductionsCents)}`, PW - M - 90, 9.5, fontBold);
+      y -= 14;
+      const saleNetColor = sale.totals.netToOtClinicCents < 0 ? rose : green;
+      drawText('Net to OT clinic', M + 6, 10, fontBold, saleNetColor);
+      drawText(
+        `$${centsToDisplay(sale.totals.netToOtClinicCents)}`,
+        PW - M - 90,
+        10,
+        fontBold,
+        saleNetColor
+      );
+      y -= 16;
+
+      if (sale.payload.notes) {
+        need(20);
+        drawText('Notes:', M + 6, 7.5, fontBold, mid);
+        const noteText =
+          sale.payload.notes.length > 220
+            ? sale.payload.notes.slice(0, 217) + '...'
+            : sale.payload.notes;
+        drawText(noteText, M + 36, 7.5, font, mid);
+        y -= 14;
+      }
+      y -= 6;
+    }
   }
 
   footer();

@@ -158,7 +158,80 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
     });
   }
 
-  const reconciliation = applyOtAllocationOverrides(data, overridesByOrderId);
+  /**
+   * Pull non-Rx allocation overrides for the same period. Filtered by the
+   * underlying invoice or payment paidAt/createdAt window so a finalized
+   * override on a slightly drifted date still appears in the PDF. Graceful
+   * fallback when the table doesn't exist yet (deploy/migrate window).
+   */
+  const nonRxKeysInPeriod = (data.nonRxReconciliation ?? []).map((r) => r.dispositionKey);
+  const nonRxOverridesByKey = new Map<string, OtAllocationOverrideMeta>();
+  if (nonRxKeysInPeriod.length > 0) {
+    try {
+      const nonRxRows = await basePrisma.otNonRxAllocationOverride.findMany({
+        where: {
+          clinicId: data.pharmacy.clinicId,
+          OR: [
+            { dispositionKey: { in: nonRxKeysInPeriod } },
+            {
+              invoice: {
+                OR: [
+                  { paidAt: { gte: orderStart, lte: orderEnd } },
+                  { createdAt: { gte: orderStart, lte: orderEnd } },
+                ],
+              },
+            },
+            {
+              payment: {
+                OR: [
+                  { paidAt: { gte: orderStart, lte: orderEnd } },
+                  { createdAt: { gte: orderStart, lte: orderEnd } },
+                ],
+              },
+            },
+          ],
+        },
+        select: {
+          dispositionKey: true,
+          overridePayload: true,
+          status: true,
+          updatedAt: true,
+          finalizedAt: true,
+          lastEditedByUserId: true,
+        },
+      });
+      for (const r of nonRxRows) {
+        const parsed = otAllocationOverridePayloadSchema.safeParse(r.overridePayload);
+        if (!parsed.success) {
+          logger.warn(
+            '[OT overrides export] stored non-Rx payload failed schema; skipping override',
+            { dispositionKey: r.dispositionKey, userId: user.id }
+          );
+          continue;
+        }
+        nonRxOverridesByKey.set(r.dispositionKey, {
+          status: r.status,
+          updatedAt: r.updatedAt.toISOString(),
+          lastEditedByUserId: r.lastEditedByUserId,
+          finalizedAt: r.finalizedAt?.toISOString() ?? null,
+          payload: parsed.data,
+        });
+      }
+    } catch (err) {
+      const e = err instanceof Error ? err : new Error(String(err));
+      const code = err instanceof Prisma.PrismaClientKnownRequestError ? err.code : undefined;
+      const isMissingSchema =
+        code === 'P2021' || code === 'P2022' || e.message.includes('does not exist');
+      logger.error('[OT overrides export] non-Rx override load failed', {
+        message: e.message,
+        userId: user.id,
+        gracefulFallback: isMissingSchema,
+      });
+      /** Continue without non-Rx overrides — the PDF still renders Rx + computed-only non-Rx. */
+    }
+  }
+
+  const reconciliation = applyOtAllocationOverrides(data, overridesByOrderId, nonRxOverridesByKey);
   const dateSlug = endDate ? `${date}_${endDate}` : date;
 
   let pdfBytes: Uint8Array;

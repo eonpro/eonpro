@@ -220,6 +220,7 @@ model Clinic {
   retentionOffers      RetentionOffer[]
   scheduledPayments    ScheduledPayment[]
   otSaleAllocationOverrides OtSaleAllocationOverride[]
+  otNonRxAllocationOverrides OtNonRxAllocationOverride[]
 
   // New Affiliate Portal System
   affiliates                Affiliate[]

@@ -43,6 +43,14 @@ export const otAllocationOverrideCustomLineSchema = z.object({
   amountCents: cents,
 });
 
+/**
+ * Snapshot of the classified non-pharmacy charge kind at edit time. Mirrors
+ * the `OtNonRxChargeKind` enum on `OtNonRxAllocationOverride`. Always `null`
+ * for Rx overrides (`OtSaleAllocationOverride`) — the field is optional and
+ * defaults to null to keep existing Rx payloads byte-compatible after parse.
+ */
+export const otNonRxChargeKindSchema = z.enum(['bloodwork', 'consult', 'other']);
+
 export const otAllocationOverridePayloadSchema = z.object({
   meds: z.array(otAllocationOverrideMedLineSchema).max(20),
   shippingCents: cents,
@@ -74,6 +82,13 @@ export const otAllocationOverridePayloadSchema = z.object({
    * the meds list. When set, this replaces the per-line sum.
    */
   salesRepCommissionCentsOverride: cents.nullable().default(null),
+  /**
+   * Non-Rx classification: `'bloodwork' | 'consult' | 'other'` for non-Rx
+   * disposition rows; `null` for Rx rows. Optional + nullable + default-null
+   * so existing Rx payloads written before this field shipped continue to
+   * round-trip with `chargeKind === null`.
+   */
+  chargeKind: otNonRxChargeKindSchema.nullable().optional().default(null),
 });
 
 export const otAllocationOverrideStatusSchema = z.enum(['DRAFT', 'FINALIZED']);
@@ -93,6 +108,7 @@ export type OtAllocationOverrideCustomLine = z.infer<typeof otAllocationOverride
 export type OtAllocationOverridePayload = z.infer<typeof otAllocationOverridePayloadSchema>;
 export type OtAllocationOverrideStatus = z.infer<typeof otAllocationOverrideStatusSchema>;
 export type OtAllocationOverrideUpsertInput = z.infer<typeof otAllocationOverrideUpsertSchema>;
+export type OtNonRxChargeKind = z.infer<typeof otNonRxChargeKindSchema>;
 
 // ---------------------------------------------------------------------------
 // Pure helpers (no I/O — safe to import in client components for live recompute).
