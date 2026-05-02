@@ -173,6 +173,14 @@ export const BASE_PRISMA_ALLOWLIST: readonly string[] = [
   'salesreprefcode',
   'salesrepcommissionplan',
   'salesrepplanassignment',
+  /**
+   * Read-only super-admin lookup for the OT reconciliation report — the
+   * `loadOtPatientSalesRepAssignments` helper needs cross-tenant access
+   * to resolve the rep attached to a patient profile so the editor can
+   * pre-fill it on COMPUTED rows. Caller filters by clinicId in the where
+   * clause.
+   */
+  'patientsalesrepassignment',
   'patientphoto',
   'patientshippingupdate',
   'order',
