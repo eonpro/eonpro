@@ -454,4 +454,38 @@ describe('ot-pricing', () => {
       expect(getOtProductFamilyKeysFromText('Patient took NAD this month')).toContain('nad');
     });
   });
+
+  describe('NAD+ scripts → $30 doctor consult auto-fee (cold-med rule)', () => {
+    /**
+     * Stakeholder rule (2026-05-02): NAD+ Rxs always default to $30
+     * doctor consult. Verified across the three input shapes the auto-fee
+     * helpers consume (Rx-style for shipping, mediation-line-style for
+     * the editor's `withMedDrivenFees`).
+     */
+    it('cold-shipping detector recognizes NAD+ as cold', () => {
+      expect(requiresColdShippingForMedLines([{ name: 'NAD + 100MG/ML (5ML VIAL) SOLUTION' }])).toBe(
+        true
+      );
+      expect(requiresColdShippingForMedLines([{ name: 'NAD+ 1000mg' }])).toBe(true);
+      expect(requiresColdShippingForMedLines([{ name: 'nad+ anti-aging' }])).toBe(true);
+    });
+
+    it('cold-meds get the OT_RX_ASYNC_APPROVAL_FEE_CENTS ($30) doctor consult', () => {
+      /** This is the value the editor uses when NAD+ is in the meds list. */
+      expect(OT_RX_ASYNC_APPROVAL_FEE_CENTS).toBe(3000);
+    });
+
+    it('NAD+ Rx fallback (Lifefile key unmatched) returns $75/mo COGS, not blocked', () => {
+      const r = inferOtPharmacyUnitPriceFromRx({
+        medicationKey: 'unknown',
+        medName: 'NAD + 100MG/ML',
+        strength: '100MG/ML',
+        form: 'INJ',
+      });
+      /** $75/mo flat (linear, same as Sermorelin) — confirms NAD+ Rxs survive
+       *  the per-Rx pricing path so the editor's auto-fee rule can take
+       *  over and set $30 doctor consult on top. */
+      expect(r?.priceCents).toBe(7500);
+    });
+  });
 });

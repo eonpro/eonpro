@@ -222,9 +222,14 @@ function withMedDrivenFees(payload: OtAllocationOverridePayload): OtAllocationOv
   /**
    * Doctor consult auto-rule (per stakeholder direction 2026-05-02):
    *   - cypionate / TRT  → $0 (the $50 lives on TRT telehealth instead)
-   *   - cold meds (NAD+, glutathione, sermorelin, semaglutide, tirzepatide) → $30
+   *   - cold meds (NAD+, glutathione, sermorelin, semaglutide, tirzepatide)
+   *     → $30 (locked in: NAD+ Rxs ALWAYS default to $30 doctor consult)
    *   - empty meds list → $0
    *   - other Rx (enclomiphene, tadalafil, oral peptides) → leave current value
+   *
+   * Auto-update only fires when current value is in
+   * `STANDARD_DOCTOR_CONSULT_PRESETS` so admin's manually-typed custom
+   * amounts don't get clobbered when the meds list changes.
    */
   let expectedDoctorConsult: number | null = null;
   if (payload.meds.length === 0) {
@@ -232,6 +237,7 @@ function withMedDrivenFees(payload: OtAllocationOverridePayload): OtAllocationOv
   } else if (isCypionate) {
     expectedDoctorConsult = 0;
   } else if (isCold) {
+    /** NAD+, glutathione, sermorelin, semaglutide, tirzepatide → $30 doctor. */
     expectedDoctorConsult = OT_RX_ASYNC_APPROVAL_FEE_CENTS;
   }
 
