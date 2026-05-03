@@ -9,6 +9,8 @@
  * Idempotent: upsert by stripeSubscriptionId; duplicate events are safe.
  */
 
+import * as Sentry from '@sentry/nextjs';
+
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { findPatientByEmail } from '@/services/stripe/paymentMatchingService';
@@ -247,26 +249,85 @@ export async function syncSubscriptionFromStripe(
 
   let patientAndClinic = await findPatientByStripeCustomerId(customerId);
 
-  // Email fallback: when stripeCustomerId not linked, resolve by Stripe customer email
+  // Email fallback chain: when stripeCustomerId not linked, try (in order):
+  //   1. customer.email      (Stripe customer's top-level email)
+  //   2. subscription.metadata.email  (e.g. wellmedr-custom-checkout writes this)
+  //   3. customer.metadata.email      (Stripe customer's metadata bag)
+  // Race condition this guards against: Stripe webhook arrives BEFORE the
+  // Airtable webhook has set patient.stripeCustomerId. customer.email may also
+  // be transiently null on freshly-created Stripe customers, hence the metadata
+  // fallbacks. See docs/stripe-payments rule "Never silent-skip Connect events".
+  //
+  // CRITICAL: For Connect events (options.stripeAccountId set) we MUST use the
+  // Stripe Connect Platform client. The EonMeds dedicated client returned by
+  // getStripeClient() throws "Only Stripe Connect platforms can work with
+  // other accounts" on every retrieve() with stripeAccount, which silently
+  // catches as a "warn" log and skips the entire fallback. This was the root
+  // cause of ~9,800 missing WellMedR Subscription rows on 2026-05-02.
   if (!patientAndClinic && customerId) {
     const resolvedClinicId = options?.clinicId;
     try {
-      const { getStripeClient } = await import('@/lib/stripe/config');
-      const stripe = getStripeClient();
+      let stripe: Stripe | null = null;
+      if (options?.stripeAccountId) {
+        // Connect event: use the Connect platform client (NOT the EonMeds dedicated client).
+        const { getStripeForPlatform } = await import('@/lib/stripe/connect');
+        stripe = getStripeForPlatform().stripe;
+      } else {
+        // Platform-direct event: use the standard Stripe client.
+        const { getStripeClient } = await import('@/lib/stripe/config');
+        stripe = getStripeClient();
+      }
       if (stripe) {
         const requestOpts: Stripe.RequestOptions | undefined = options?.stripeAccountId
           ? { stripeAccount: options.stripeAccountId }
           : undefined;
         const customer = await stripe.customers.retrieve(customerId, {}, requestOpts);
-        if (customer && !customer.deleted && 'email' in customer && customer.email) {
-          const email = customer.email.trim().toLowerCase();
+
+        // Build ordered candidate-email list, de-duplicated (case-insensitive).
+        const candidateEmails: string[] = [];
+        const seen = new Set<string>();
+        const pushCandidate = (raw: unknown): void => {
+          if (typeof raw !== 'string') return;
+          const trimmed = raw.trim().toLowerCase();
+          if (!trimmed || seen.has(trimmed)) return;
+          seen.add(trimmed);
+          candidateEmails.push(trimmed);
+        };
+
+        if (customer && !customer.deleted) {
+          if ('email' in customer) pushCandidate(customer.email);
+          const customerMetaEmail = (customer as Stripe.Customer).metadata?.email;
+          pushCandidate(customerMetaEmail);
+        }
+        const subMetaEmail = stripeSubscription.metadata?.email;
+        pushCandidate(subMetaEmail);
+        // Try subscription metadata BEFORE customer metadata only when we
+        // already had customer.email; if customer.email was missing entirely,
+        // sub-metadata is the more reliable source written at checkout time.
+        // Re-order so customer.email > sub.metadata.email > customer.metadata.email.
+        // (pushCandidate above already preserves first-seen order.)
+
+        for (const email of candidateEmails) {
           const patient = await findPatientByEmail(email, resolvedClinicId || undefined);
           if (patient && patient.clinicId) {
-            // Link stripeCustomerId so future events use the fast path
-            await prisma.patient.update({
-              where: { id: patient.id },
-              data: { stripeCustomerId: customerId },
-            });
+            // Link stripeCustomerId so future events use the fast path.
+            // Wrapped in its own try/catch so a unique-conflict on stripeCustomerId
+            // (e.g. another patient already owns it) doesn't drop the resolution.
+            try {
+              await prisma.patient.update({
+                where: { id: patient.id },
+                data: { stripeCustomerId: customerId },
+              });
+            } catch (linkErr) {
+              logger.warn(
+                '[SubscriptionSync] Could not link stripeCustomerId (non-blocking)',
+                {
+                  stripeSubscriptionId,
+                  patientId: patient.id,
+                  error: linkErr instanceof Error ? linkErr.message : 'Unknown',
+                }
+              );
+            }
             patientAndClinic = { patientId: patient.id, clinicId: patient.clinicId };
             logger.info(
               '[SubscriptionSync] Matched patient by email fallback, linked stripeCustomerId',
@@ -274,8 +335,14 @@ export async function syncSubscriptionFromStripe(
                 stripeSubscriptionId,
                 patientId: patient.id,
                 clinicId: patient.clinicId,
+                emailSource: email === (customer && !customer.deleted && 'email' in customer ? (customer.email || '').trim().toLowerCase() : '')
+                  ? 'customer.email'
+                  : email === (subMetaEmail || '').toString().trim().toLowerCase()
+                    ? 'subscription.metadata.email'
+                    : 'customer.metadata.email',
               }
             );
+            break;
           }
         }
       }
@@ -288,13 +355,43 @@ export async function syncSubscriptionFromStripe(
   }
 
   if (!patientAndClinic) {
-    logger.info(
-      '[SubscriptionSync] No patient linked to Stripe customer (fast path + email fallback exhausted)',
-      {
-        stripeSubscriptionId,
-        stripeCustomerId: customerId,
+    // Tripwire (per .cursor/rules/07-stripe-payments): when a Connect event
+    // (event.account set → options.stripeAccountId present) silently drops a
+    // tenant-data write, log at error and emit Sentry so the next leak is
+    // visible immediately. Returning success:true keeps the webhook 200 to
+    // Stripe (no retry-storm); the safety-net cron picks it up within 48h.
+    const isConnectEvent = !!options?.stripeAccountId;
+    const skipContext = {
+      stripeSubscriptionId,
+      stripeCustomerId: customerId,
+      stripeAccountId: options?.stripeAccountId,
+      clinicId: options?.clinicId,
+    };
+
+    if (isConnectEvent) {
+      logger.error(
+        '[SubscriptionSync] REGRESSION: Connect subscription event silent-skip — patient resolution exhausted',
+        skipContext
+      );
+      try {
+        Sentry.captureMessage('Connect subscription event silent-skip (patient resolution exhausted)', {
+          level: 'error',
+          tags: {
+            component: 'subscription-sync-service',
+            regression: 'connect-subscription-silent-skip',
+          },
+          extra: skipContext,
+        });
+      } catch {
+        // Sentry may not be initialized in some environments; do not crash.
       }
-    );
+    } else {
+      logger.info(
+        '[SubscriptionSync] No patient linked to Stripe customer (fast path + email fallback exhausted)',
+        skipContext
+      );
+    }
+
     return { success: true, skipped: true, reason: 'No patient linked to Stripe customer' };
   }
 
