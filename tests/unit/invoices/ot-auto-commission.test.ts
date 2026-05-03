@@ -58,6 +58,7 @@ function basePayload(over: Partial<OtAllocationOverridePayload> = {}): OtAllocat
     salesRepCommissionCentsOverride: null,
     chargeKind: null,
     commissionRateBps: null,
+    prescribingProviderName: null,
     ...over,
   } as OtAllocationOverridePayload;
 }
@@ -97,6 +98,7 @@ function makeSale(over: Partial<OtPerSaleReconciliationLine> = {}): OtPerSaleRec
     isRebill: false,
     isBloodworkOnly: false,
     invoiceLineItems: [],
+    prescribingProviderName: null,
     ...over,
   };
 }
@@ -284,36 +286,95 @@ describe('Auto manager override — Antonio Escobar 1% on non-excluded reps', ()
   });
 });
 
-describe('Auto doctor payout — Sergio Naccarato $35 TRT / $10 per Rx', () => {
-  it('TRT telehealth sale → $35 (covers TRT visit + bundled Rx)', () => {
-    const p = basePayload({ trtTelehealthCents: 5000 });
+describe('Auto doctor payout — TRT always Sergio Naccarato; per-Rx follows actual prescriber', () => {
+  it('TRT telehealth sale → $35 to Sergio (always — only Sergio runs TRT visits)', () => {
+    /**
+     * Per stakeholder rule (2026-05-02): the $35 TRT visit fee always
+     * pays Sergio Naccarato regardless of which provider is on the
+     * Lifefile order. Sergio is the only doctor running TRT visits, so
+     * even if the order's `provider` is someone else (e.g. a covering
+     * provider who signed the Rx), the visit fee still goes to Sergio.
+     */
+    const p = basePayload({
+      trtTelehealthCents: 5000,
+      prescribingProviderName: 'Cruz, Victor',
+    });
     const r = getOtDoctorPayoutForSale(p);
     expect(r.amountCents).toBe(3500);
     expect(r.doctorName).toBe('Naccarato, Sergio');
   });
 
-  it('non-TRT Rx sale → $10 once (single Rx even with multi-med package)', () => {
-    /** TRT Plus has 3 meds but only 1 prescription. Even without a TRT visit,
-     *  the doctor payout is $10 (per-Rx flat, not per-med). */
+  it('non-TRT Rx sale → $10 to the actual prescriber (Victor Cruz, not Sergio)', () => {
+    /**
+     * Reproduces the bug reported on 2026-05-02 (Anthony Golden / Order
+     * #16503 / Enclomiphene): the patient's Rx history shows Victor Cruz
+     * as the provider but the OT report was crediting Sergio Naccarato
+     * with the $10. Fee should follow the actual prescriber.
+     */
     const p = basePayload({
       trtTelehealthCents: 0,
+      prescribingProviderName: 'Cruz, Victor',
+      meds: [
+        { medicationKey: null, name: 'Enclomiphene', strength: '25 mg', vialSize: 'CAP', quantity: 1, unitPriceCents: 13_500, lineTotalCents: 13_500, source: 'custom', commissionRateBps: null },
+      ],
+    });
+    const r = getOtDoctorPayoutForSale(p);
+    expect(r.amountCents).toBe(1000);
+    expect(r.doctorName).toBe('Cruz, Victor');
+  });
+
+  it('non-TRT Rx sale, multi-med package → $10 once to the actual prescriber', () => {
+    /**
+     * TRT Plus has 3 meds but only 1 prescription. Per-Rx flat fee, not
+     * per-med, paid to whoever wrote the script.
+     */
+    const p = basePayload({
+      trtTelehealthCents: 0,
+      prescribingProviderName: 'Smith, Alice',
       meds: [
         { medicationKey: null, name: 'Cypionate', strength: '', vialSize: '', quantity: 1, unitPriceCents: 2500, lineTotalCents: 2500, source: 'custom', commissionRateBps: null },
         { medicationKey: null, name: 'Enclomiphene', strength: '', vialSize: '', quantity: 1, unitPriceCents: 1800, lineTotalCents: 1800, source: 'custom', commissionRateBps: null },
         { medicationKey: null, name: 'Anastrozole', strength: '', vialSize: '', quantity: 1, unitPriceCents: 1200, lineTotalCents: 1200, source: 'custom', commissionRateBps: null },
       ],
     });
-    expect(getOtDoctorPayoutForSale(p).amountCents).toBe(1000);
+    const r = getOtDoctorPayoutForSale(p);
+    expect(r.amountCents).toBe(1000);
+    expect(r.doctorName).toBe('Smith, Alice');
   });
 
-  it('non-Rx-only sale (bloodwork, no meds) → $0', () => {
-    const p = basePayload({ trtTelehealthCents: 0, meds: [] });
-    expect(getOtDoctorPayoutForSale(p).amountCents).toBe(0);
+  it('non-TRT Rx sale with no prescriber name → $0 (no one to pay)', () => {
+    /**
+     * Defensive: if the upstream service couldn't resolve the order's
+     * provider (e.g. legacy data, dosespot sync miss), pay $0 rather
+     * than mis-attribute. Surfaces a payroll gap that admin can fix.
+     */
+    const p = basePayload({
+      trtTelehealthCents: 0,
+      prescribingProviderName: null,
+      meds: [
+        { medicationKey: null, name: 'Sermorelin', strength: '', vialSize: '', quantity: 1, unitPriceCents: 5000, lineTotalCents: 5000, source: 'custom', commissionRateBps: null },
+      ],
+    });
+    const r = getOtDoctorPayoutForSale(p);
+    expect(r.amountCents).toBe(0);
+    expect(r.doctorName).toBeNull();
   });
 
-  it('TRT + Rx → $35 (TRT wins; no double-pay)', () => {
-    const p = basePayload({ trtTelehealthCents: 5000 });
-    expect(getOtDoctorPayoutForSale(p).amountCents).toBe(3500);
+  it('non-Rx-only sale (bloodwork, no meds) → $0; doctor name null', () => {
+    const p = basePayload({ trtTelehealthCents: 0, meds: [], prescribingProviderName: 'Cruz, Victor' });
+    const r = getOtDoctorPayoutForSale(p);
+    expect(r.amountCents).toBe(0);
+    expect(r.doctorName).toBeNull();
+  });
+
+  it('TRT + Rx → $35 to Sergio (TRT wins; no double-pay even when prescriber is someone else)', () => {
+    const p = basePayload({
+      trtTelehealthCents: 5000,
+      prescribingProviderName: 'Cruz, Victor',
+    });
+    const r = getOtDoctorPayoutForSale(p);
+    expect(r.amountCents).toBe(3500);
+    expect(r.doctorName).toBe('Naccarato, Sergio');
   });
 
   it('totals expose doctorPayoutCents but DO NOT add it to totalDeductionsCents (info-only)', () => {
@@ -371,6 +432,50 @@ describe('buildDefaultOverridePayload — auto rate by isRebill', () => {
     const payload = buildDefaultOverridePayload(sale, []);
     expect(payload.salesRepId).toBe(42);
     expect(payload.salesRepName).toBe('Smith, Bob');
+  });
+
+  it('carries prescribingProviderName through so the doctor payout follows the actual writer', () => {
+    /**
+     * Lock in the data flow that fixes the Anthony Golden bug
+     * (2026-05-02): the per-sale line carries the order's provider, the
+     * default builder propagates it onto the payload, and downstream
+     * `getOtDoctorPayoutForSale` uses it for the per-Rx attribution.
+     *
+     * Pass a pharmacy line for the sale's order so the default builder
+     * populates `meds` (otherwise the Rx-fee branch never fires and the
+     * test would degenerate into the no-meds path).
+     */
+    const sale = makeSale({
+      orderId: 16503,
+      prescribingProviderName: 'Cruz, Victor',
+      isRebill: false,
+    });
+    const pharmacyLines = [
+      {
+        orderId: 16503,
+        lifefileOrderId: null,
+        orderDate: sale.orderDate,
+        paidAt: sale.paidAt,
+        patientName: sale.patientName,
+        patientId: 1,
+        providerName: 'Cruz, Victor',
+        providerId: 99,
+        medicationName: 'Enclomiphene Citrate',
+        strength: '25 mg',
+        vialSize: 'CAP',
+        medicationKey: 'enclomiphene-25mg',
+        quantity: 1,
+        unitPriceCents: 13_500,
+        lineTotalCents: 13_500,
+        pricingStatus: 'priced' as const,
+      },
+    ];
+    const payload = buildDefaultOverridePayload(sale, pharmacyLines);
+    expect(payload.prescribingProviderName).toBe('Cruz, Victor');
+    expect(payload.meds.length).toBeGreaterThan(0);
+    const totals = computeOtAllocationOverrideTotals(payload);
+    expect(totals.doctorPayoutDoctorName).toBe('Cruz, Victor');
+    expect(totals.doctorPayoutCents).toBe(1000);
   });
 });
 

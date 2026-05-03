@@ -377,6 +377,16 @@ export interface OtPerSaleReconciliationLine {
   salesRepCommissionCents: number;
   salesRepId: number | null;
   salesRepName: string | null;
+  /**
+   * Snapshot of the Lifefile order's prescribing provider, formatted as
+   * "Last, First". Drives the per-Rx $10 doctor payout — the fee follows
+   * the actual writer (e.g. Victor Cruz on Anthony Golden's Enclomiphene),
+   * not a hard-coded default. Null when the order has no provider record
+   * resolved (legacy data / dosespot sync miss). TRT visit fees ($35) are
+   * unaffected — those always pay Sergio Naccarato regardless of this field.
+   * See `getOtDoctorPayoutForSale` in `otAllocationOverrideTypes.ts`.
+   */
+  prescribingProviderName: string | null;
   /** Sum of `SalesRepOverrideCommissionEvent` tied to that commission (manager / oversight). */
   managerOverrideTotalCents: number;
   /** Short breakdown, e.g. "Doe, Jane: $1.50" — omit PHI. */
@@ -1693,6 +1703,15 @@ export async function generateOtDailyInvoices(
     const providerName = order.provider
       ? `${order.provider.lastName}, ${order.provider.firstName}`
       : `Provider #${order.providerId}`;
+    /**
+     * Strict prescriber name for payroll attribution: null when the
+     * order has no provider record (so we don't credit a synthetic
+     * "Provider #123" placeholder in the doctor payout). Used by the
+     * per-Rx $10 fee — see `OtPerSaleReconciliationLine.prescribingProviderName`.
+     */
+    const prescribingProviderName: string | null = order.provider
+      ? `${order.provider.lastName}, ${order.provider.firstName}`
+      : null;
     const sentAt = order.approvedAt ?? order.createdAt;
     const orderDate = sentAt.toISOString();
     const invMeta = invoiceByOrderId.get(order.id);
@@ -2059,6 +2078,7 @@ export async function generateOtDailyInvoices(
       managerOverrideSummary,
       totalDeductionsCents: totalDeductionsForOrder,
       clinicNetPayoutCents: patientGrossCents - totalDeductionsForOrder,
+      prescribingProviderName,
     });
   }
 
@@ -3281,6 +3301,13 @@ export function buildDefaultOverridePayload(
       salesRepCommissionCentsOverride: null,
       commissionRateBps: line.isRebill ? 100 : 800,
       chargeKind: null,
+      /**
+       * Bloodwork sales have no Rx so the prescriber-driven $10 fee
+       * never fires — but we still carry the order's provider through
+       * for editor display (transparency: "this row's order was
+       * provided by Dr. Cruz, $0 doctor payout").
+       */
+      prescribingProviderName: line.prescribingProviderName ?? null,
     };
   }
 
@@ -3427,6 +3454,13 @@ export function buildDefaultOverridePayload(
      * through `buildDefaultNonRxOverridePayload` and carry their own chargeKind.
      */
     chargeKind: null,
+    /**
+     * Snapshot of who actually wrote the prescription on this Lifefile
+     * order. Drives the per-Rx $10 doctor payout — the fee follows the
+     * actual writer (e.g. Victor Cruz on Anthony Golden's Enclomiphene),
+     * not a hard-coded default. See `getOtDoctorPayoutForSale`.
+     */
+    prescribingProviderName: line.prescribingProviderName ?? null,
   };
 }
 
@@ -3557,6 +3591,12 @@ export function applyOtAllocationOverrides(
       salesRepCommissionCentsOverride: null,
       commissionRateBps: row.isRebill ? 100 : 800,
       chargeKind: row.chargeKind,
+      /**
+       * Non-Rx rows have no prescription, so the per-Rx $10 doctor
+       * payout never fires. Set to null explicitly for schema parity
+       * with Rx payloads.
+       */
+      prescribingProviderName: null,
     };
     return { row, meta, payload };
   });

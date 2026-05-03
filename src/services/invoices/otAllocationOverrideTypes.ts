@@ -99,6 +99,19 @@ export const otAllocationOverridePayloadSchema = z.object({
    * round-trip with `chargeKind === null`.
    */
   chargeKind: otNonRxChargeKindSchema.nullable().optional().default(null),
+  /**
+   * Snapshot of the doctor who actually wrote the prescription on this sale,
+   * formatted as "Last, First" (matches the rep label convention).
+   * Drives the per-Rx $10 doctor payout attribution per stakeholder rule
+   * 2026-05-02: the fee follows the actual prescriber, not a hard-coded
+   * default. TRT visit fees ($35) are unaffected — they always pay Sergio
+   * Naccarato regardless of this field.
+   *
+   * Optional + nullable + default-null for back-compat with overrides saved
+   * before this field shipped. When null on a non-TRT Rx sale, the doctor
+   * payout falls to $0 (rather than mis-attributing to a default doctor).
+   */
+  prescribingProviderName: z.string().trim().max(120).nullable().optional().default(null),
 });
 
 export const otAllocationOverrideStatusSchema = z.enum(['DRAFT', 'FINALIZED']);
@@ -293,57 +306,84 @@ function normalizeRepName(name: string | null | undefined): string {
 // ---------------------------------------------------------------------------
 
 /**
- * Auto-applied doctor payout rule per stakeholder direction (2026-05-02):
+ * Auto-applied doctor payout rules per stakeholder direction (2026-05-02,
+ * refined 2026-05-02 PM after the Anthony Golden / Order #16503 bug):
  *
- *   Sergio Naccarato earns:
- *     • $35 per sale that includes TRT telehealth (covers the visit + any
- *       prescription written that visit)
- *     • $10 per sale that has at least one prescription but no TRT visit
- *     • $0 for non-Rx-only sales (bloodwork, consult, etc.)
+ *   TRT telehealth visit ($35):
+ *     • Always pays Sergio Naccarato — he is the only doctor running TRT
+ *       visits at OT, regardless of which provider's name appears on the
+ *       Lifefile order's Rx (e.g. a covering provider who signed it).
  *
- * **Info-only**: the payout is tracked for paying Sergio but does NOT
+ *   Per-prescription fee ($10):
+ *     • Pays whoever actually wrote the prescription (the Lifefile order's
+ *       `provider`). This is the field surfaced in the patient's
+ *       Prescription History — Victor Cruz, Sergio Naccarato, etc.
+ *     • $10 once per sale, even when the Rx bundles multiple meds (TRT
+ *       Plus → 3 meds, 1 Rx, 1 × $10 fee).
+ *     • Falls to $0 when no prescriber name is available rather than
+ *       mis-attributing to a hard-coded default.
+ *
+ *   Non-Rx-only sale (bloodwork / consult / other):
+ *     • $0; no doctor name attached.
+ *
+ * **Info-only**: the payout is tracked for paying the doctor but does NOT
  * reduce the clinic's net (EONPro covers the doctor fee out of margin).
  * Surfaced on each sale's totals + a DOCTOR PAYOUTS section in the
- * payroll breakdown PDF.
+ * payroll breakdown PDF, grouped per actual doctor.
  */
 export interface OtAutoDoctorPayoutRule {
-  doctorName: string;
+  /** TRT visit fee always pays this doctor regardless of who signed the Rx. */
+  trtVisitDoctorName: string;
   trtTelehealthFeeCents: number;
   perPrescriptionFeeCents: number;
 }
 
 export const OT_AUTO_DOCTOR_PAYOUT: OtAutoDoctorPayoutRule = {
-  doctorName: 'Naccarato, Sergio',
+  trtVisitDoctorName: 'Naccarato, Sergio',
   trtTelehealthFeeCents: 3500,
   perPrescriptionFeeCents: 1000,
 };
 
 /**
  * Compute the doctor's payout for a single sale given its current payload.
- * Returns 0 when the sale has neither a TRT visit nor a prescription
- * (bloodwork / consult / other non-Rx).
+ *
+ * Precedence (per stakeholder rules above):
+ *   1. TRT telehealth on the sale → $35 to `OT_AUTO_DOCTOR_PAYOUT.trtVisitDoctorName`
+ *      (Sergio Naccarato), regardless of `prescribingProviderName`.
+ *   2. Non-TRT Rx with a known prescriber → $10 to that prescriber.
+ *   3. Non-TRT Rx with NO prescriber name → $0, doctorName null (don't
+ *      mis-attribute; admin can fix the upstream provider lookup).
+ *   4. Non-Rx sale (no meds, no TRT) → $0, doctorName null.
  */
 export function getOtDoctorPayoutForSale(
-  payload: Pick<OtAllocationOverridePayload, 'trtTelehealthCents' | 'meds'>
-): { doctorName: string; amountCents: number } {
+  payload: Pick<
+    OtAllocationOverridePayload,
+    'trtTelehealthCents' | 'meds' | 'prescribingProviderName'
+  >
+): { doctorName: string | null; amountCents: number } {
   if (payload.trtTelehealthCents > 0) {
     return {
-      doctorName: OT_AUTO_DOCTOR_PAYOUT.doctorName,
+      doctorName: OT_AUTO_DOCTOR_PAYOUT.trtVisitDoctorName,
       amountCents: OT_AUTO_DOCTOR_PAYOUT.trtTelehealthFeeCents,
     };
   }
   if (payload.meds.length > 0) {
-    /**
-     * Per stakeholder direction: $10 for the prescription (the SALE's
-     * single Rx, even when that Rx bundles multiple meds). Multi-med
-     * packages like TRT Plus pay $10 once, not $10 × meds count.
-     */
+    const prescriber = payload.prescribingProviderName?.trim() || null;
+    if (!prescriber) {
+      /**
+       * No prescriber resolved upstream — pay $0 rather than credit the
+       * wrong doctor. The PDF "DOCTOR PAYOUTS" section will not include
+       * an unattributed line; the row's editor still shows $0 so admin
+       * can fix the order's provider record if needed.
+       */
+      return { doctorName: null, amountCents: 0 };
+    }
     return {
-      doctorName: OT_AUTO_DOCTOR_PAYOUT.doctorName,
+      doctorName: prescriber,
       amountCents: OT_AUTO_DOCTOR_PAYOUT.perPrescriptionFeeCents,
     };
   }
-  return { doctorName: OT_AUTO_DOCTOR_PAYOUT.doctorName, amountCents: 0 };
+  return { doctorName: null, amountCents: 0 };
 }
 
 /**
@@ -459,11 +499,16 @@ export function computeOtAllocationOverrideTotals(
   /**
    * Doctor payout — info-only, NOT added to `totalDeductionsCents`.
    * EONPro pays the doctor out of margin; the clinic's net is unaffected.
+   *
+   * `doctorPayoutDoctorName` is surfaced even when the payout is $0 (e.g.
+   * a non-Rx sale whose order still has a prescriber on file) so the
+   * editor can show the prescriber for transparency. Null only when the
+   * payload genuinely has no doctor to attribute (no TRT, no meds, no
+   * prescriber name resolved upstream).
    */
   const doctorPayout = getOtDoctorPayoutForSale(payload);
   const doctorPayoutCents = doctorPayout.amountCents;
-  const doctorPayoutDoctorName =
-    doctorPayout.amountCents > 0 ? doctorPayout.doctorName : null;
+  const doctorPayoutDoctorName = doctorPayout.doctorName;
   const totalDeductionsCents =
     medicationsCents +
     payload.shippingCents +

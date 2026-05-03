@@ -197,6 +197,15 @@ interface OtPerSaleReconciliationLine {
   managerOverrideSummary?: string | null;
   totalDeductionsCents: number;
   clinicNetPayoutCents: number;
+  /**
+   * Server-derived: snapshot of who actually wrote the prescription on
+   * this Lifefile order, formatted as "Last, First". Drives the per-Rx
+   * $10 doctor payout (the fee follows the actual writer, not a
+   * hard-coded default — see `OT_AUTO_DOCTOR_PAYOUT` in
+   * `otAllocationOverrideTypes.ts`). Optional + nullable so older
+   * cached payloads keep round-tripping.
+   */
+  prescribingProviderName?: string | null;
 }
 
 interface OtPaymentCollectionRow {
@@ -362,6 +371,13 @@ function buildAllocationSeedsFromData(data: OtInvoiceData): OtAllocationEditorPe
         salesRepCommissionCentsOverride: null,
         commissionRateBps: isRebill ? 100 : 800,
         chargeKind: null,
+        /**
+         * Mirror the server's bloodwork branch: carry the order's
+         * provider through for editor display (transparency on $0
+         * doctor-payout rows). The doctor payout itself stays $0
+         * because `meds=[]` and `trtTelehealthCents=0`.
+         */
+        prescribingProviderName: sale.prescribingProviderName ?? null,
       };
       return {
         orderId: sale.orderId,
@@ -494,6 +510,14 @@ function buildAllocationSeedsFromData(data: OtInvoiceData): OtAllocationEditorPe
       commissionRateBps: isRebill ? 100 : 800,
       /** Rx seeds always carry chargeKind=null; non-Rx seeds set their own. */
       chargeKind: null,
+      /**
+       * Snapshot of who actually wrote the Rx on this Lifefile order.
+       * Drives the per-Rx $10 doctor payout — the fee follows the
+       * actual writer (e.g. Victor Cruz on Anthony Golden's
+       * Enclomiphene), not a hard-coded default. TRT visit fees ($35)
+       * still always go to Sergio Naccarato regardless of this field.
+       */
+      prescribingProviderName: sale.prescribingProviderName ?? null,
     };
     return {
       orderId: sale.orderId,
@@ -533,6 +557,12 @@ function buildNonRxSeedsFromData(data: OtInvoiceData): OtNonRxAllocationEditorSe
       salesRepCommissionCentsOverride: null,
       commissionRateBps: isRebill ? 100 : 800,
       chargeKind: r.chargeKind,
+      /**
+       * Non-Rx sales (bloodwork / consult / other) have no prescription,
+       * so the per-Rx $10 doctor payout never fires. Set to null
+       * explicitly so the payload round-trips cleanly through the schema.
+       */
+      prescribingProviderName: null,
     };
     return {
       dispositionKey: r.dispositionKey,
