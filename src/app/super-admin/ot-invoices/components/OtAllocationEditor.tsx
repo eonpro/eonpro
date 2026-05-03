@@ -1984,12 +1984,12 @@ function TotalsPanel({
           bold
           tone={totals.netToOtClinicCents < 0 ? 'negative' : 'positive'}
         />
-        {totals.doctorPayoutDoctorName && (
+        {totals.doctorPayoutCents > 0 && totals.doctorPayoutDoctorName && (
           <>
             <div className="my-1 h-px bg-gray-200" />
             <p
               className="text-[10px] font-medium uppercase tracking-wider text-gray-400"
-              title="Per-Rx $10 follows the actual prescriber (Lifefile order's provider). TRT visit $35 always pays Sergio Naccarato."
+              title="Sergio Naccarato earns $35 per TRT visit and $10 per Rx he wrote. Other prescribers' Rxs do not appear in this report."
             >
               Doctor payout (paid by EONPro · info only)
             </p>
