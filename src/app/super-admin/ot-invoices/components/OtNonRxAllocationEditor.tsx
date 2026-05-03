@@ -348,7 +348,7 @@ export function OtNonRxAllocationEditor({ startDate, endDate, useRange, seeds }:
   const saveRow = useCallback(
     async (seed: OtNonRxAllocationEditorSeed, status: OtAllocationOverrideStatus) => {
       const payload = rowsState[seed.dispositionKey];
-      if (!payload) return;
+      if (!payload) return false;
       setSavingKey(seed.dispositionKey);
       setError(null);
       try {
@@ -387,8 +387,10 @@ export function OtNonRxAllocationEditor({ startDate, endDate, useRange, seeds }:
           [seed.dispositionKey]: deepClonePayload(reconciled),
         }));
         setRowsState((prev) => ({ ...prev, [seed.dispositionKey]: deepClonePayload(reconciled) }));
+        return true;
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Save failed');
+        return false;
       } finally {
         setSavingKey(null);
       }
@@ -556,7 +558,18 @@ export function OtNonRxAllocationEditor({ startDate, endDate, useRange, seeds }:
                 onMutate={(m) => updateRow(seed.dispositionKey, m)}
                 onReset={() => resetRow(seed.dispositionKey)}
                 onSaveDraft={() => saveRow(seed, 'DRAFT')}
-                onFinalize={() => saveRow(seed, 'FINALIZED')}
+                /**
+                 * On finalize: save first, then collapse the row only if the
+                 * save succeeded. Mirrors the Rx editor behavior — finalized
+                 * rows auto-close so the admin's eye snaps to the FINALIZED
+                 * badge instead of the editable form fields.
+                 */
+                onFinalize={async () => {
+                  const ok = await saveRow(seed, 'FINALIZED');
+                  if (ok) {
+                    setExpanded((prev) => ({ ...prev, [seed.dispositionKey]: false }));
+                  }
+                }}
               />
             );
           })
@@ -631,6 +644,7 @@ function NonRxRow({
   onFinalize,
 }: NonRxRowProps) {
   const statusLabel = meta ? meta.status : 'COMPUTED';
+  const isFinalized = meta?.status === 'FINALIZED';
   const statusColor =
     meta?.status === 'FINALIZED'
       ? 'bg-emerald-100 text-emerald-900'
@@ -638,16 +652,26 @@ function NonRxRow({
         ? 'bg-amber-100 text-amber-900'
         : 'bg-gray-100 text-gray-600';
 
+  /**
+   * Card-level visual treatment for FINALIZED rows (per stakeholder rule
+   * 2026-05-02): thick green left border + faint green tint so finalized
+   * rows pop against drafts/computed at a glance. Mirrors the Rx editor.
+   */
+  const cardBorder = isDirty
+    ? 'border-blue-300'
+    : isFinalized
+      ? 'border-emerald-400 border-l-4'
+      : 'border-gray-100';
+  const cardBg = isFinalized && !isDirty ? 'bg-emerald-50/30' : 'bg-white';
+
   return (
     <div
-      className={`rounded-2xl border bg-white shadow-sm transition-colors ${
-        isDirty ? 'border-blue-300' : 'border-gray-100'
-      }`}
+      className={`rounded-2xl border shadow-sm transition-colors ${cardBorder} ${cardBg}`}
     >
       <button
         type="button"
         onClick={onToggleExpand}
-        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-gray-50/60"
+        className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left ${isFinalized && !isDirty ? 'hover:bg-emerald-50/60' : 'hover:bg-gray-50/60'}`}
       >
         <div className="flex min-w-0 items-center gap-3">
           {isExpanded ? (
@@ -677,11 +701,21 @@ function NonRxRow({
               >
                 {seed.isRebill ? 'Rebill · 1%' : 'New · 8%'}
               </span>
-              <span
-                className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${statusColor}`}
-              >
-                {statusLabel}
-              </span>
+              {isFinalized ? (
+                <span
+                  className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm ring-1 ring-emerald-700/30"
+                  title="This row has been finalized and locked-in for the period."
+                >
+                  <CheckCircle2 className="h-3 w-3" />
+                  Finalized
+                </span>
+              ) : (
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${statusColor}`}
+                >
+                  {statusLabel}
+                </span>
+              )}
               {isDirty && (
                 <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-900">
                   Unsaved

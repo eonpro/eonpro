@@ -537,7 +537,7 @@ export function OtAllocationEditor({
   const saveRow = useCallback(
     async (orderId: number, status: OtAllocationOverrideStatus) => {
       const payload = rowsState[orderId];
-      if (!payload) return;
+      if (!payload) return false;
       setSavingOrderId(orderId);
       setError(null);
       try {
@@ -568,8 +568,10 @@ export function OtAllocationEditor({
         }));
         setSavedPayload((prev) => ({ ...prev, [orderId]: deepClonePayload(reconciled) }));
         setRowsState((prev) => ({ ...prev, [orderId]: deepClonePayload(reconciled) }));
+        return true;
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Save failed');
+        return false;
       } finally {
         setSavingOrderId(null);
       }
@@ -786,7 +788,19 @@ export function OtAllocationEditor({
                 onMutate={(m) => updateRow(seed.orderId, m)}
                 onReset={() => resetRowToComputed(seed.orderId)}
                 onSaveDraft={() => saveRow(seed.orderId, 'DRAFT')}
-                onFinalize={() => saveRow(seed.orderId, 'FINALIZED')}
+                /**
+                 * On finalize: save first, then collapse the row only if the
+                 * save succeeded. Stakeholder UX rule (2026-05-02): a
+                 * finalized row's expanded edit form auto-closes so the
+                 * admin's eye snaps to the FINALIZED badge — and any pending
+                 * edits below the fold are committed without confusion.
+                 */
+                onFinalize={async () => {
+                  const ok = await saveRow(seed.orderId, 'FINALIZED');
+                  if (ok) {
+                    setExpanded((prev) => ({ ...prev, [seed.orderId]: false }));
+                  }
+                }}
               />
             );
           })
@@ -876,16 +890,27 @@ function OtAllocationRow({
         ? 'bg-amber-100 text-amber-900'
         : 'bg-gray-100 text-gray-600';
 
+  /**
+   * Card-level visual treatment for FINALIZED rows (per stakeholder rule
+   * 2026-05-02): thick green left border + faint green tint so the row
+   * stands out from drafts/computed at a glance. Dirty (unsaved) wins
+   * over finalized in the border color so admin sees the unsaved warning.
+   */
+  const isFinalized = meta?.status === 'FINALIZED';
+  const cardBorder = isDirty
+    ? 'border-blue-300'
+    : isFinalized
+      ? 'border-emerald-400 border-l-4'
+      : 'border-gray-100';
+  const cardBg = isFinalized && !isDirty ? 'bg-emerald-50/30' : 'bg-white';
   return (
     <div
-      className={`rounded-2xl border bg-white shadow-sm transition-colors ${
-        isDirty ? 'border-blue-300' : 'border-gray-100'
-      }`}
+      className={`rounded-2xl border shadow-sm transition-colors ${cardBorder} ${cardBg}`}
     >
       <button
         type="button"
         onClick={onToggleExpand}
-        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-gray-50/60"
+        className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left ${isFinalized && !isDirty ? 'hover:bg-emerald-50/60' : 'hover:bg-gray-50/60'}`}
       >
         <div className="flex min-w-0 items-center gap-3">
           {isExpanded ? (
@@ -925,9 +950,19 @@ function OtAllocationRow({
             net
           </div>
           <SaleTypeBadge isRebill={seed.isRebill} />
-          <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${statusColor}`}>
-            {statusLabel}
-          </span>
+          {isFinalized ? (
+            <span
+              className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide text-white shadow-sm ring-1 ring-emerald-700/30"
+              title="This row has been finalized and locked-in for the period."
+            >
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Finalized
+            </span>
+          ) : (
+            <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${statusColor}`}>
+              {statusLabel}
+            </span>
+          )}
           {isDirty && (
             <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-900">
               Unsaved
