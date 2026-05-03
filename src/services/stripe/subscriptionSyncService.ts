@@ -52,6 +52,13 @@ function deriveFailedAttempts(latestInvoice: any, ourStatus: string): number {
 export interface SyncSubscriptionResult {
   success: boolean;
   subscriptionId?: number;
+  /**
+   * Patient row id resolved during sync. Surfaced so callers can fire
+   * downstream side-effects keyed on the patient (e.g. portal-invite trigger
+   * from `wellmedr-subscription-sync` cron) without an extra DB roundtrip.
+   * Undefined for skipped/cancel/failure paths where no patient was matched.
+   */
+  patientId?: number;
   skipped?: boolean;
   reason?: string;
   error?: string;
@@ -493,7 +500,11 @@ export async function syncSubscriptionFromStripe(
       status,
     });
 
-    return { success: true, subscriptionId: subscription.id };
+    // patientId surfaced so callers (e.g. wellmedr-subscription-sync cron) can
+    // trigger downstream side-effects keyed on the patient — notably
+    // `triggerPortalInviteOnPayment` for the recovered-after-leak path —
+    // without an extra DB roundtrip.
+    return { success: true, subscriptionId: subscription.id, patientId };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[SubscriptionSync] Failed to upsert subscription', {
@@ -644,7 +655,7 @@ export async function syncSubscriptionFromStripeByEmail(
       status,
     });
 
-    return { success: true, subscriptionId: subscription.id };
+    return { success: true, subscriptionId: subscription.id, patientId: patient.id };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[SubscriptionSync] Failed to upsert subscription (email match)', {

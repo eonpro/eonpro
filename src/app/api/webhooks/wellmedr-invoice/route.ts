@@ -1676,6 +1676,33 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      // Phase 1.1 (2026-05-03): Auto-send patient portal invite.
+      // The Airtable webhook is the canonical "mark invoice PAID" surface for
+      // WellMedR; the parallel Stripe Connect webhook also fires its own invite
+      // via paymentMatchingService, but races with this path and historically
+      // silent-skipped during Connect-customer resolution failures. Calling
+      // here closes the race: every paid WellMedR invoice produces an invite.
+      // `triggerPortalInviteOnPayment` is internally idempotent (skips when an
+      // unused invite for the same trigger already exists, or when the patient
+      // already has portal access), and Phase 2.1 fires Sentry + Slack on
+      // delivery failure. Fully non-blocking — never throws, never blocks the
+      // webhook response.
+      try {
+        const { triggerPortalInviteOnPayment } = await import(
+          '@/lib/portal-invite/service'
+        );
+        await triggerPortalInviteOnPayment(verifiedPatient.id);
+      } catch (inviteErr) {
+        logger.warn(
+          `[WELLMEDR-INVOICE ${requestId}] Portal invite trigger failed (non-fatal)`,
+          {
+            patientId: verifiedPatient.id,
+            invoiceId: invoice.id,
+            error: inviteErr instanceof Error ? inviteErr.message : 'Unknown',
+          }
+        );
+      }
+
       // CRITICAL: Ensure SOAP note exists for paid invoices ready for prescription
       // This ensures clinical documentation is complete before providers prescribe
       let soapNoteId: number | null = null;

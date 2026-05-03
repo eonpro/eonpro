@@ -24,9 +24,11 @@ const mocks = vi.hoisted(() => ({
   loggerWarn: vi.fn(),
   clinicFindFirst: vi.fn(),
   subscriptionFindUnique: vi.fn(),
+  subscriptionFindUniqueAfterReconcile: vi.fn(),
   syncSubscriptionFromStripe: vi.fn(),
   getStripeForClinic: vi.fn(),
   stripeSubscriptionsList: vi.fn(),
+  triggerPortalInviteOnPayment: vi.fn(),
 }));
 
 vi.mock('@/lib/cron/tenant-isolation', () => ({
@@ -61,6 +63,10 @@ vi.mock('@/services/stripe/subscriptionSyncService', () => ({
 
 vi.mock('@/lib/stripe/connect', () => ({
   getStripeForClinic: mocks.getStripeForClinic,
+}));
+
+vi.mock('@/lib/portal-invite/service', () => ({
+  triggerPortalInviteOnPayment: mocks.triggerPortalInviteOnPayment,
 }));
 
 import { GET } from '@/app/api/cron/wellmedr-subscription-sync/route';
@@ -176,5 +182,103 @@ describe('GET /api/cron/wellmedr-subscription-sync', () => {
     const body = await res.json();
     expect(body.success).toBe(false);
     expect(body.error).toMatch(/db down/);
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Phase 1.2 (2026-05-03): Cron must trigger portal-invite for newly
+  // reconciled patients. Without this, the ~9.8K patients backfilled after
+  // the May 2 subscription leak still never receive a portal invite (the
+  // primary Stripe webhook path is what normally fires the trigger; if the
+  // webhook silent-skipped, this cron is the recovery surface).
+  // ──────────────────────────────────────────────────────────────────────────
+  describe('Phase 1.2: portal-invite for reconciled patients', () => {
+    it('triggers portal-invite for the patient behind each reconciled subscription', async () => {
+      const subA = makeStripeSub('sub_reconciled', Date.now() - 3600 * 1000);
+
+      mocks.stripeSubscriptionsList.mockResolvedValueOnce({
+        data: [subA],
+        has_more: false,
+      });
+      mocks.subscriptionFindUnique.mockResolvedValueOnce(null);
+      mocks.syncSubscriptionFromStripe.mockResolvedValueOnce({
+        success: true,
+        subscriptionId: 8888,
+        patientId: 4242,
+      });
+
+      const res = await GET(makeReq());
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.reconciled).toBe(1);
+
+      expect(mocks.triggerPortalInviteOnPayment).toHaveBeenCalledTimes(1);
+      expect(mocks.triggerPortalInviteOnPayment).toHaveBeenCalledWith(4242);
+    });
+
+    it('does NOT trigger portal-invite for already-existing subscriptions', async () => {
+      mocks.stripeSubscriptionsList.mockResolvedValueOnce({
+        data: [makeStripeSub('sub_existing', Date.now() - 1000)],
+        has_more: false,
+      });
+      mocks.subscriptionFindUnique.mockResolvedValueOnce({ id: 5555 });
+
+      await GET(makeReq());
+
+      expect(mocks.triggerPortalInviteOnPayment).not.toHaveBeenCalled();
+    });
+
+    it('does NOT trigger portal-invite when sync skipped (no patient resolved yet)', async () => {
+      mocks.stripeSubscriptionsList.mockResolvedValueOnce({
+        data: [makeStripeSub('sub_stuck', Date.now() - 1000)],
+        has_more: false,
+      });
+      mocks.subscriptionFindUnique.mockResolvedValueOnce(null);
+      mocks.syncSubscriptionFromStripe.mockResolvedValueOnce({
+        success: true,
+        skipped: true,
+        reason: 'No patient linked to Stripe customer',
+      });
+
+      await GET(makeReq());
+
+      expect(mocks.triggerPortalInviteOnPayment).not.toHaveBeenCalled();
+    });
+
+    it('does NOT trigger portal-invite when sync replay-failed', async () => {
+      mocks.stripeSubscriptionsList.mockResolvedValueOnce({
+        data: [makeStripeSub('sub_failed', Date.now() - 1000)],
+        has_more: false,
+      });
+      mocks.subscriptionFindUnique.mockResolvedValueOnce(null);
+      mocks.syncSubscriptionFromStripe.mockResolvedValueOnce({
+        success: false,
+        error: 'Stripe rate limit',
+      });
+
+      await GET(makeReq());
+
+      expect(mocks.triggerPortalInviteOnPayment).not.toHaveBeenCalled();
+    });
+
+    it('does not let portal-invite failure crash the cron run', async () => {
+      mocks.stripeSubscriptionsList.mockResolvedValueOnce({
+        data: [makeStripeSub('sub_crash', Date.now() - 1000)],
+        has_more: false,
+      });
+      mocks.subscriptionFindUnique.mockResolvedValueOnce(null);
+      mocks.syncSubscriptionFromStripe.mockResolvedValueOnce({
+        success: true,
+        subscriptionId: 7777,
+        patientId: 9999,
+      });
+      mocks.triggerPortalInviteOnPayment.mockRejectedValueOnce(
+        new Error('SES outage')
+      );
+
+      const res = await GET(makeReq());
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.reconciled).toBe(1);
+    });
   });
 });
