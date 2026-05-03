@@ -95,8 +95,17 @@ export const MMS_ALLOWED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png'] a
 
 export type MmsAllowedMime = (typeof MMS_ALLOWED_MIME_TYPES)[number];
 
-/** Per-file size cap when delivering as MMS (Twilio US carrier ceiling). */
-export const MMS_MAX_BYTES = 5 * 1024 * 1024;
+/**
+ * Per-file size cap when delivering as MMS.
+ *
+ * NOTE: 10 MB is above Twilio's recommended US-carrier ceiling of 5 MB.
+ * Twilio's API will accept up to 10 MB, but a non-trivial fraction of US
+ * carriers (AT&T / Verizon / T-Mobile) may strip or downscale media above
+ * 5 MB before delivery. We accept this trade-off to give staff more room
+ * to send high-resolution clinical photos; messages that fail at the
+ * carrier are marked FAILED via the existing Twilio webhook path.
+ */
+export const MMS_MAX_BYTES = 10 * 1024 * 1024;
 
 /** Per-message attachment cap on MMS (kept at 5 for parity with web). */
 export const MMS_MAX_PER_MESSAGE = 5;
