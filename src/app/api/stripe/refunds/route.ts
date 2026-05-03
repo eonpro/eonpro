@@ -13,6 +13,7 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { getStripeForClinic } from '@/lib/stripe/connect';
+import { recomputeInvoiceAmountPaid } from '@/services/billing/recomputeInvoiceAmountPaid';
 
 const refundSchema = z.object({
   paymentId: z.number().optional(),
@@ -127,12 +128,14 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
             });
           }
 
-          // Update invoice if exists
+          // Update invoice if exists. Derive `amountPaid` from the canonical
+          // Payment rollup (idempotent) instead of decrementing — see
+          // `recomputeInvoiceAmountPaid` for the why.
           if (invoiceId) {
+            await recomputeInvoiceAmountPaid(invoiceId, tx);
             await tx.invoice.update({
               where: { id: invoiceId },
               data: {
-                amountPaid: { decrement: refundAmount },
                 status: isFullRefund ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
               },
             });
@@ -447,12 +450,14 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
               });
             }
 
-            // Update invoice if exists
+            // Update invoice if exists. Derive `amountPaid` from the canonical
+            // Payment rollup (idempotent against the `charge.refunded` webhook
+            // that Stripe will fire next) — see `recomputeInvoiceAmountPaid`.
             if (invoiceId) {
+              await recomputeInvoiceAmountPaid(invoiceId, tx);
               await tx.invoice.update({
                 where: { id: invoiceId },
                 data: {
-                  amountPaid: { decrement: refundAmount },
                   status: isFullRefund ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
                 },
               });

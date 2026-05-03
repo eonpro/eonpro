@@ -19,6 +19,7 @@
 import { prisma, getClinicContext } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { generatePatientId } from '@/lib/patients';
+import { recomputeInvoiceAmountPaid } from '@/services/billing/recomputeInvoiceAmountPaid';
 import {
   decryptPHI,
   encryptPatientPHI,
@@ -1814,57 +1815,70 @@ export async function handleStripeRefund(
      * For partial refunds Stripe sends `amount_refunded` as the cumulative total, so this
      * write is idempotent across multiple refund events on the same charge — we always
      * overwrite with the latest cumulative total.
+     *
+     * Wrapped in a transaction so the Payment update and the downstream
+     * `recomputeInvoiceAmountPaid` see a consistent Payment state — required
+     * for the recompute to be correct when `Payment.refundedAmount` is read.
      */
-    await prisma.payment.update({
-      where: { id: payment.id },
-      data: {
-        status: newStatus,
-        refundedAmount: refundData.amount,
-        refundedAt: refundData.refundedAt,
-        metadata: {
-          ...((payment.metadata as Record<string, unknown>) || {}),
-          refund: {
-            refundId: refundData.refundId,
-            amount: refundData.amount,
-            reason: refundData.reason,
-            refundedAt: refundData.refundedAt.toISOString(),
-            stripeEventId,
-          },
-        },
-      },
-    });
-
-    // Update invoice status if exists
-    if (payment.invoice) {
-      const invoiceNewStatus = isFullRefund ? 'VOID' : 'PAID'; // Partial refunds keep invoice as PAID
-      const newAmountPaid = payment.invoice.amountPaid - refundData.amount;
-
-      await prisma.invoice.update({
-        where: { id: payment.invoice.id },
+    await prisma.$transaction(async (tx) => {
+      await tx.payment.update({
+        where: { id: payment.id },
         data: {
-          status: invoiceNewStatus as InvoiceStatus,
-          amountPaid: Math.max(0, newAmountPaid),
-          amountDue: isFullRefund ? payment.invoice.amount || 0 : 0,
+          status: newStatus,
+          refundedAmount: refundData.amount,
+          refundedAt: refundData.refundedAt,
           metadata: {
-            ...((payment.invoice.metadata as Record<string, unknown>) || {}),
+            ...((payment.metadata as Record<string, unknown>) || {}),
             refund: {
               refundId: refundData.refundId,
               amount: refundData.amount,
               reason: refundData.reason,
               refundedAt: refundData.refundedAt.toISOString(),
-              isFullRefund,
               stripeEventId,
             },
           },
         },
       });
 
+      // Update invoice status if exists
+      if (payment.invoice) {
+        const invoiceNewStatus = isFullRefund ? 'VOID' : 'PAID'; // Partial refunds keep invoice as PAID
+
+        // Derive `amountPaid` from the canonical Payment rollup. Idempotent
+        // against the manual-refund API path (`POST /api/stripe/refunds`)
+        // that may have already updated this Invoice — see RCA in
+        // `~/.cursor/plans/ot-invoice-3213-rca.md` for the double-decrement
+        // bug this prevents.
+        await recomputeInvoiceAmountPaid(payment.invoice.id, tx);
+
+        await tx.invoice.update({
+          where: { id: payment.invoice.id },
+          data: {
+            status: invoiceNewStatus as InvoiceStatus,
+            amountDue: isFullRefund ? payment.invoice.amount || 0 : 0,
+            metadata: {
+              ...((payment.invoice.metadata as Record<string, unknown>) || {}),
+              refund: {
+                refundId: refundData.refundId,
+                amount: refundData.amount,
+                reason: refundData.reason,
+                refundedAt: refundData.refundedAt.toISOString(),
+                isFullRefund,
+                stripeEventId,
+              },
+            },
+          },
+        });
+      }
+    });
+
+    if (payment.invoice) {
       logger.info('[PaymentMatching] Updated invoice status after refund', {
         invoiceId: payment.invoice.id,
         paymentId: payment.id,
         refundAmount: refundData.amount,
         isFullRefund,
-        newStatus: invoiceNewStatus,
+        newStatus: isFullRefund ? 'VOID' : 'PAID',
       });
 
       return { success: true, invoiceId: payment.invoice.id };
