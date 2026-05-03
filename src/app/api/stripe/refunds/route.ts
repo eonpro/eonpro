@@ -132,7 +132,7 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
           // Payment rollup (idempotent) instead of decrementing — see
           // `recomputeInvoiceAmountPaid` for the why.
           if (invoiceId) {
-            await recomputeInvoiceAmountPaid(invoiceId, tx);
+            await recomputeInvoiceAmountPaid(invoiceId, tx, { caller: 'manual_refund' });
             await tx.invoice.update({
               where: { id: invoiceId },
               data: {
@@ -454,7 +454,7 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
             // Payment rollup (idempotent against the `charge.refunded` webhook
             // that Stripe will fire next) — see `recomputeInvoiceAmountPaid`.
             if (invoiceId) {
-              await recomputeInvoiceAmountPaid(invoiceId, tx);
+              await recomputeInvoiceAmountPaid(invoiceId, tx, { caller: 'manual_refund' });
               await tx.invoice.update({
                 where: { id: invoiceId },
                 data: {

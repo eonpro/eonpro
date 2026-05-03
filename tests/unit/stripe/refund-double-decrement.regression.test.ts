@@ -85,6 +85,7 @@ const { mockPrisma, paymentRowState } = vi.hoisted(() => {
       ),
     },
     invoice: {
+      findUnique: vi.fn(async () => ({ amountPaid: paymentRowState.invoice.amountPaid })),
       update: vi.fn(async (args: { data: Record<string, unknown> }) => {
         if (typeof args.data.amountPaid === 'number') {
           paymentRowState.invoice.amountPaid = args.data.amountPaid;
@@ -109,6 +110,11 @@ vi.mock('@/lib/db', () => ({
 
 vi.mock('@/lib/logger', () => ({
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), security: vi.fn() },
+}));
+
+vi.mock('@/lib/observability/sentry-alerts', () => ({
+  emitWarningAlert: vi.fn(),
+  emitCriticalAlert: vi.fn(),
 }));
 
 import { handleStripeRefund } from '@/services/stripe/paymentMatchingService';

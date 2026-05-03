@@ -18,19 +18,22 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { mockPrisma } = vi.hoisted(() => ({
-  mockPrisma: {
+const { mockPrisma } = vi.hoisted(() => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const obj: any = {
     payment: {
       findMany: vi.fn(),
     },
     invoice: {
-      update: vi.fn(),
-      findUnique: vi.fn(),
+      update: vi.fn(async () => ({})),
+      // Default findUnique returns 0 for previousAmountPaid; specific tests
+      // override via mockResolvedValueOnce when they care about delta/Sentry.
+      findUnique: vi.fn(async () => ({ amountPaid: 0 })),
     },
-    $transaction: vi.fn(async (fn: (client: unknown) => unknown) => fn(mockPrisma)),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } as any,
-}));
+  };
+  obj.$transaction = vi.fn(async (fn: (client: unknown) => unknown) => fn(obj));
+  return { mockPrisma: obj };
+});
 
 vi.mock('@/lib/db', () => ({
   prisma: mockPrisma,
@@ -46,6 +49,15 @@ vi.mock('@/lib/logger', () => ({
     error: vi.fn(),
     security: vi.fn(),
   },
+}));
+
+const { mockEmitWarningAlert } = vi.hoisted(() => ({
+  mockEmitWarningAlert: vi.fn(),
+}));
+
+vi.mock('@/lib/observability/sentry-alerts', () => ({
+  emitWarningAlert: mockEmitWarningAlert,
+  emitCriticalAlert: vi.fn(),
 }));
 
 import { recomputeInvoiceAmountPaid } from '@/services/billing/recomputeInvoiceAmountPaid';
@@ -195,6 +207,123 @@ describe('recomputeInvoiceAmountPaid — single canonical source of truth for In
     // Both writes wrote the SAME value — that's the whole point of idempotency.
     expect(mockPrisma.invoice.update.mock.calls[0][0].data.amountPaid).toBe(44900);
     expect(mockPrisma.invoice.update.mock.calls[1][0].data.amountPaid).toBe(44900);
+  });
+});
+
+describe('Sentry tripwire on drift correction', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockPrisma.invoice.update.mockResolvedValue({});
+    mockPrisma.invoice.findUnique.mockResolvedValue({ amountPaid: 0 });
+    mockEmitWarningAlert.mockReset();
+  });
+
+  it('does NOT fire when caller=webhook and value already correct (no drift)', async () => {
+    setPayments([
+      { id: 1, invoiceId: 1, amount: 64900, refundedAmount: 0, status: 'SUCCEEDED' },
+    ]);
+    mockPrisma.invoice.findUnique.mockResolvedValue({ amountPaid: 64900 });
+
+    await recomputeInvoiceAmountPaid(1, mockPrisma, { caller: 'webhook' });
+
+    expect(mockEmitWarningAlert).not.toHaveBeenCalled();
+  });
+
+  it('does NOT fire when delta is within $1 (DRIFT_TRIPWIRE_CENTS noise floor)', async () => {
+    setPayments([
+      { id: 1, invoiceId: 1, amount: 64950, refundedAmount: 0, status: 'SUCCEEDED' },
+    ]);
+    mockPrisma.invoice.findUnique.mockResolvedValue({ amountPaid: 64900 }); // 50¢ drift
+
+    await recomputeInvoiceAmountPaid(1, mockPrisma, { caller: 'webhook' });
+
+    expect(mockEmitWarningAlert).not.toHaveBeenCalled();
+  });
+
+  it('FIRES when caller=webhook and we found > $1 of drift (regression signal)', async () => {
+    // Simulates the exact production regression: webhook arrives, helper
+    // recomputes, finds Invoice.amountPaid was wrong by $200 — that means
+    // the upstream pipeline drifted and the tripwire should page on-call.
+    setPayments([
+      { id: 4929, invoiceId: 19036, amount: 64900, refundedAmount: 20000, status: 'PARTIALLY_REFUNDED' },
+    ]);
+    mockPrisma.invoice.findUnique.mockResolvedValue({ amountPaid: 24900 }); // the corrupt $249 value
+
+    const result = await recomputeInvoiceAmountPaid(19036, mockPrisma, { caller: 'webhook' });
+
+    expect(result.previousAmountPaid).toBe(24900);
+    expect(result.newAmountPaid).toBe(44900);
+    expect(result.delta).toBe(20000);
+    expect(mockEmitWarningAlert).toHaveBeenCalledTimes(1);
+    const [title, details] = mockEmitWarningAlert.mock.calls[0];
+    expect(title).toContain('Invoice.amountPaid drift');
+    expect(details).toMatchObject({
+      regression: 'ot-refund-double-decrement',
+      invoiceId: 19036,
+      caller: 'webhook',
+      previousAmountPaid_cents: 24900,
+      newAmountPaid_cents: 44900,
+      delta_cents: 20000,
+    });
+  });
+
+  it('FIRES when caller=manual_refund and we found > $1 of drift', async () => {
+    setPayments([
+      { id: 1, invoiceId: 1, amount: 100000, refundedAmount: 0, status: 'SUCCEEDED' },
+    ]);
+    mockPrisma.invoice.findUnique.mockResolvedValue({ amountPaid: 50000 });
+
+    await recomputeInvoiceAmountPaid(1, mockPrisma, { caller: 'manual_refund' });
+
+    expect(mockEmitWarningAlert).toHaveBeenCalledTimes(1);
+    expect(mockEmitWarningAlert.mock.calls[0][1]).toMatchObject({ caller: 'manual_refund' });
+  });
+
+  it('does NOT fire when caller=backfill (operator script EXPECTS drift)', async () => {
+    // Backfill scripts are explicitly correcting historical drift; firing
+    // a Sentry warning for every backfilled row would flood the on-call
+    // channel with noise.
+    setPayments([
+      { id: 1, invoiceId: 1, amount: 100000, refundedAmount: 0, status: 'SUCCEEDED' },
+    ]);
+    mockPrisma.invoice.findUnique.mockResolvedValue({ amountPaid: 50000 });
+
+    await recomputeInvoiceAmountPaid(1, mockPrisma, { caller: 'backfill' });
+
+    expect(mockEmitWarningAlert).not.toHaveBeenCalled();
+  });
+
+  it('does NOT fire when caller is omitted (defensive default for unknown callers)', async () => {
+    // The current behavior is: only known live-pipeline callers fire the
+    // tripwire. If a caller forgets to pass `caller`, we err on the side of
+    // silence to avoid false-positive pages. (If you want a louder default
+    // later, change `isLivePipeline` in the helper.)
+    setPayments([
+      { id: 1, invoiceId: 1, amount: 100000, refundedAmount: 0, status: 'SUCCEEDED' },
+    ]);
+    mockPrisma.invoice.findUnique.mockResolvedValue({ amountPaid: 50000 });
+
+    await recomputeInvoiceAmountPaid(1, mockPrisma);
+
+    expect(mockEmitWarningAlert).not.toHaveBeenCalled();
+  });
+
+  it('still writes Invoice.amountPaid even when the tripwire throws (observability is non-fatal)', async () => {
+    // If Sentry is mis-configured or the SDK throws, the refund path must
+    // still complete. The data correctness invariant takes precedence over
+    // the alerting signal.
+    mockEmitWarningAlert.mockImplementation(() => {
+      throw new Error('Sentry SDK boom');
+    });
+    setPayments([
+      { id: 1, invoiceId: 1, amount: 100000, refundedAmount: 0, status: 'SUCCEEDED' },
+    ]);
+    mockPrisma.invoice.findUnique.mockResolvedValue({ amountPaid: 0 });
+
+    const result = await recomputeInvoiceAmountPaid(1, mockPrisma, { caller: 'webhook' });
+
+    expect(result.newAmountPaid).toBe(100000);
+    expect(mockPrisma.invoice.update).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -283,8 +283,12 @@ async function main() {
           }
 
           // Recompute from current Payment state (idempotent; same logic
-          // the live pipeline now uses).
-          const result = await recomputeInvoiceAmountPaid(c.invoiceId, tx);
+          // the live pipeline now uses). Pass `caller: 'backfill'` to
+          // suppress the Sentry tripwire — backfills EXPECT to find drift
+          // by definition.
+          const result = await recomputeInvoiceAmountPaid(c.invoiceId, tx, {
+            caller: 'backfill',
+          });
 
           if (inv.amountPaid === result.newAmountPaid) {
             alreadyCorrect += 1;

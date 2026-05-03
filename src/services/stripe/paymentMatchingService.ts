@@ -1849,7 +1849,7 @@ export async function handleStripeRefund(
         // that may have already updated this Invoice — see RCA in
         // `~/.cursor/plans/ot-invoice-3213-rca.md` for the double-decrement
         // bug this prevents.
-        await recomputeInvoiceAmountPaid(payment.invoice.id, tx);
+        await recomputeInvoiceAmountPaid(payment.invoice.id, tx, { caller: 'webhook' });
 
         await tx.invoice.update({
           where: { id: payment.invoice.id },

@@ -64,6 +64,7 @@
  */
 
 import type { Prisma, PaymentStatus } from '@prisma/client';
+import { emitWarningAlert } from '@/lib/observability/sentry-alerts';
 
 /** Payment statuses that count toward `Invoice.amountPaid`. */
 const SETTLED_STATUSES: PaymentStatus[] = [
@@ -72,14 +73,31 @@ const SETTLED_STATUSES: PaymentStatus[] = [
   'REFUNDED',
 ];
 
+/**
+ * Drift threshold for the Sentry tripwire. If the helper finds the live
+ * `Invoice.amountPaid` is more than this many cents away from the canonical
+ * Payment rollup AND the caller is the live refund pipeline (not a backfill
+ * script), we emit `Sentry.captureMessage(level: 'warning')` with a
+ * `regression: 'ot-refund-double-decrement'` tag so on-call gets paged
+ * before the discrepancy compounds.
+ *
+ * 100 cents ($1) is large enough to ignore floating-point noise from any
+ * future decimal arithmetic but tight enough to catch real drift.
+ */
+const DRIFT_TRIPWIRE_CENTS = 100;
+
 export interface RecomputeInvoiceAmountPaidResult {
   invoiceId: number;
   /** Sum of `Payment.amount` for settled payments. */
   paymentGross: number;
   /** Sum of `COALESCE(Payment.refundedAmount, 0)` for settled payments. */
   paymentRefunded: number;
+  /** The value `Invoice.amountPaid` held BEFORE this call. */
+  previousAmountPaid: number;
   /** The value written to `Invoice.amountPaid`. Always `>= 0`. */
   newAmountPaid: number;
+  /** Signed: `newAmountPaid - previousAmountPaid`. */
+  delta: number;
   /** Number of settled Payment rows that contributed. */
   paymentCount: number;
 }
@@ -92,20 +110,53 @@ export interface RecomputeInvoiceAmountPaidResult {
  */
 type RecomputeClient = Pick<Prisma.TransactionClient, 'payment' | 'invoice'>;
 
+export interface RecomputeOptions {
+  /**
+   * Where this call came from — used to suppress the Sentry tripwire when
+   * the caller is a known backfill script that EXPECTS to find drift.
+   *
+   *   'webhook'        — Stripe charge.refunded handler
+   *   'manual_refund'  — POST /api/stripe/refunds (button click)
+   *   'backfill'       — operator script (no tripwire)
+   *
+   * Defaults to undefined, which means the tripwire WILL fire on drift —
+   * conservative default for callers who forget to set it.
+   */
+  caller?: 'webhook' | 'manual_refund' | 'backfill';
+}
+
 /**
  * Recompute `Invoice.amountPaid` from the canonical `Payment` rollup and
  * write it back. Idempotent.
+ *
+ * Sentry tripwire: when the caller is the live refund pipeline (`webhook`
+ * or `manual_refund`), if the helper finds `Invoice.amountPaid` differs
+ * from the recomputed value by more than `DRIFT_TRIPWIRE_CENTS`, emit a
+ * Sentry warning. That signals the upstream refund pipeline broke again —
+ * a self-correcting recompute should never find pre-existing drift on the
+ * live path.
  *
  * @param invoiceId  The Invoice to recompute.
  * @param tx         A Prisma transaction client (preferred) or the top-level
  *                   client. When called from the manual-refund API or the
  *                   `charge.refunded` webhook, this MUST be the same `tx`
  *                   that just updated the Payment row.
+ * @param opts       Optional metadata. Set `caller: 'backfill'` from operator
+ *                   scripts to suppress the tripwire (backfills EXPECT drift).
  */
 export async function recomputeInvoiceAmountPaid(
   invoiceId: number,
-  tx: RecomputeClient
+  tx: RecomputeClient,
+  opts?: RecomputeOptions
 ): Promise<RecomputeInvoiceAmountPaidResult> {
+  // Read current Invoice.amountPaid first so we can detect drift. Use the
+  // same transaction so the read is consistent with the subsequent write.
+  const currentInvoice = await tx.invoice.findUnique({
+    where: { id: invoiceId },
+    select: { amountPaid: true },
+  });
+  const previousAmountPaid = currentInvoice?.amountPaid ?? 0;
+
   const payments = await tx.payment.findMany({
     where: {
       invoiceId,
@@ -127,17 +178,42 @@ export async function recomputeInvoiceAmountPaid(
   // Floor at 0. Negative values would only happen with corrupt data
   // (refundedAmount > amount) and are never the right thing to persist.
   const newAmountPaid = Math.max(0, paymentGross - paymentRefunded);
+  const delta = newAmountPaid - previousAmountPaid;
 
   await tx.invoice.update({
     where: { id: invoiceId },
     data: { amountPaid: newAmountPaid },
   });
 
+  // Tripwire — see the doc on DRIFT_TRIPWIRE_CENTS for the rationale.
+  // Only fires for live-pipeline callers; backfill scripts expect drift.
+  const caller = opts?.caller;
+  const isLivePipeline = caller === 'webhook' || caller === 'manual_refund';
+  if (isLivePipeline && Math.abs(delta) > DRIFT_TRIPWIRE_CENTS) {
+    try {
+      emitWarningAlert('Invoice.amountPaid drift corrected by recomputeInvoiceAmountPaid', {
+        regression: 'ot-refund-double-decrement',
+        invoiceId,
+        caller,
+        previousAmountPaid_cents: previousAmountPaid,
+        newAmountPaid_cents: newAmountPaid,
+        delta_cents: delta,
+        paymentGross_cents: paymentGross,
+        paymentRefunded_cents: paymentRefunded,
+        paymentCount: payments.length,
+      });
+    } catch {
+      // Don't let observability throws break the refund flow.
+    }
+  }
+
   return {
     invoiceId,
     paymentGross,
     paymentRefunded,
+    previousAmountPaid,
     newAmountPaid,
+    delta,
     paymentCount: payments.length,
   };
 }
