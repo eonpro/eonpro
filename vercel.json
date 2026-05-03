@@ -37,6 +37,7 @@
     {"path": "/api/cron/addon-invoice-sync", "schedule": "0 */3 * * *"},
     {"path": "/api/cron/wellmedr-renewal-invoice-sync", "schedule": "15 * * * *"},
     {"path": "/api/cron/wellmedr-subscription-sync", "schedule": "25 * * * *"},
+    {"path": "/api/cron/ot-invoice-reconciliation", "schedule": "35 * * * *"},
     {"path": "/api/cron/addon-unmatched-digest", "schedule": "30 13 * * *"},
     {"path": "/api/cron/process-scheduled-payments", "schedule": "*/30 * * * *"}
   ]

@@ -34,7 +34,13 @@
  */
 
 import * as dotenv from 'dotenv';
-import { prisma } from '../src/lib/db';
+// Operator script: uses basePrisma (the unscoped client) because it filters
+// by clinic via an explicit WHERE clause and runs outside of any request /
+// auth-middleware context. The tenant-context guard added later to `prisma`
+// blocked operator usage of this script with "Tenant context is required
+// for payment" — which is the right guard for request handlers but the
+// wrong guard for batch backfills initiated from the CLI.
+import { basePrisma as prisma } from '../src/lib/db';
 
 dotenv.config({ path: '.env.production.local' });
 dotenv.config({ path: '.env.local' });
