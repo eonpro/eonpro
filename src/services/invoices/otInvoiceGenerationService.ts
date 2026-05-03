@@ -16,6 +16,7 @@ import { basePrisma } from '@/lib/db';
 import { decryptPHI } from '@/lib/security/phi-encryption';
 import { logger } from '@/lib/logger';
 import { midnightInTz } from '@/lib/utils/timezone';
+import { COMMISSION_ELIGIBLE_ROLES } from '@/lib/constants/commission-eligible-roles';
 import {
   OT_CLINIC_SUBDOMAIN,
   OT_FULFILLMENT_FEE_PER_OTHER_LINE_CENTS,
@@ -506,7 +507,7 @@ export interface OtNonRxChargeLineItem {
   chargeKind: OtNonPharmacyChargeKind;
 }
 
-interface RawInvoiceLine {
+export interface RawInvoiceLine {
   description?: string;
   amount?: number;
   quantity?: number;
@@ -813,26 +814,45 @@ async function loadOtPatientPurchaseHistory(
 
     /** Drug families + chargeKinds from Stripe invoice line items. */
     const lines = parseInvoiceLineItemsJson(inv.lineItems);
+    let nonEmptyLineCount = 0;
+    let bloodworkLineCount = 0;
     for (const li of lines) {
       const desc = li.description?.trim() ?? '';
       if (li.stripeProductId) stripeProductIds.add(li.stripeProductId);
       if (li.stripePriceId) stripePriceIds.add(li.stripePriceId);
       if (desc) {
+        nonEmptyLineCount += 1;
         for (const fam of getOtProductFamilyKeysFromText(desc)) {
           productFamilies.add(fam);
         }
         const amt = typeof li.amount === 'number' ? li.amount : 0;
         const kind = classifyOtNonPharmacyChargeLine(desc, amt);
         chargeKinds.add(kind);
+        if (kind === 'bloodwork') bloodworkLineCount += 1;
       }
     }
+
+    /**
+     * Symmetric phantom-Rx guard (mirrors `buildOtCurrentSaleSignature`'s
+     * `isBloodworkOnly` branch — see 2026-05-03 stakeholder rule on the
+     * Schultz · Inv 19039 row): when every classified line on a
+     * historical paid invoice was bloodwork, that invoice's order shell
+     * may carry a phantom Rx (e.g. "Rupa Panel") that polluted the
+     * signature with `'rx'`. Skip the Rx loop in that case so prior
+     * bloodwork purchases never falsely match a future Rx sale. We treat
+     * the historical invoice as bloodwork-only when at least one
+     * description-bearing line existed AND every such line was
+     * classified `bloodwork`.
+     */
+    const historyIsBloodworkOnly =
+      nonEmptyLineCount > 0 && bloodworkLineCount === nonEmptyLineCount;
 
     /**
      * Drug families from the order's Rx list — covers cases where the
      * invoice line description is generic (e.g. "Quarterly subscription")
      * but the actual Rx data names the drug.
      */
-    if (inv.orderId != null) {
+    if (inv.orderId != null && !historyIsBloodworkOnly) {
       const rxs = rxsByOrderId.get(inv.orderId) ?? [];
       for (const rx of rxs) {
         for (const fam of getOtProductFamilyKeysFromText(`${rx.medName} ${rx.medicationKey}`)) {
@@ -860,10 +880,22 @@ async function loadOtPatientPurchaseHistory(
  * Build the signature for the *current* sale — same shape as a history entry,
  * derived from the current Rx list + invoice line items. Used to compare
  * against prior history for rebill detection.
+ *
+ * `isBloodworkOnly` (per stakeholder direction 2026-05-03 — Schultz · Inv
+ * 19039): when every paid invoice line classifies as bloodwork, the
+ * Lifefile order shell often carries a *phantom* Rx (e.g. "Rupa Panel")
+ * that has nothing to do with prescriptions. Adding `'rx'` to the
+ * signature in that case incorrectly intersects with prior real Rx
+ * purchases and flips a first-ever bloodwork sale into "Rebill · 1%".
+ * When `isBloodworkOnly === true`, the Rx list is dropped from the
+ * signature entirely — the paid invoice lines are the source of truth,
+ * matching how every other downstream classifier (`buildDefaultOverridePayload`,
+ * `OT_BLOODWORK_DOCTOR_FEE_CENTS`) already treats these sales.
  */
-function buildOtCurrentSaleSignature(args: {
+export function buildOtCurrentSaleSignature(args: {
   rxs: ReadonlyArray<{ medName: string; medicationKey: string }>;
   invoiceLines: ReadonlyArray<RawInvoiceLine>;
+  isBloodworkOnly: boolean;
 }): {
   productFamilies: Set<string>;
   stripeProductIds: Set<string>;
@@ -874,12 +906,14 @@ function buildOtCurrentSaleSignature(args: {
   const stripeProductIds = new Set<string>();
   const stripePriceIds = new Set<string>();
   const chargeKinds = new Set<'rx' | 'bloodwork' | 'consult' | 'other'>();
-  for (const rx of args.rxs) {
-    for (const fam of getOtProductFamilyKeysFromText(`${rx.medName} ${rx.medicationKey}`)) {
-      productFamilies.add(fam);
+  if (!args.isBloodworkOnly) {
+    for (const rx of args.rxs) {
+      for (const fam of getOtProductFamilyKeysFromText(`${rx.medName} ${rx.medicationKey}`)) {
+        productFamilies.add(fam);
+      }
     }
+    if (args.rxs.length > 0) chargeKinds.add('rx');
   }
-  if (args.rxs.length > 0) chargeKinds.add('rx');
   for (const li of args.invoiceLines) {
     if (li.stripeProductId) stripeProductIds.add(li.stripeProductId);
     if (li.stripePriceId) stripePriceIds.add(li.stripePriceId);
@@ -905,7 +939,7 @@ function buildOtCurrentSaleSignature(args: {
  * family, every future purchase of that family is a rebill (per
  * stakeholder rule 2026-05-02).
  */
-function isOtRebillPurchase(
+export function isOtRebillPurchase(
   history: ReadonlyArray<OtPatientPurchaseSignature>,
   current: {
     invoiceId: number | null;
@@ -990,6 +1024,137 @@ async function loadOtPatientSalesRepAssignments(
     });
   }
   return map;
+}
+
+/**
+ * Per-invoice / per-payment actor-attribution loader.
+ *
+ * The OT super-admin reconciliation editor's rep-resolution chain falls
+ * back from the `SalesRepCommissionEvent` ledger to the patient profile's
+ * `PatientSalesRepAssignment`. That misses sales where:
+ *
+ *   - The webhook commission service skipped (e.g. patient hadn't been
+ *     claimed yet at webhook delivery time).
+ *   - The sale predates the auto-attribution feature (2026-05-03).
+ *
+ * Route handlers now stamp the logged-in actor on `Payment.metadata.actorUserId`
+ * and `Invoice.metadata.actorUserId` at creation. This loader recovers
+ * those stamps, validates them against `COMMISSION_ELIGIBLE_ROLES`, and
+ * exposes them as a per-invoice / per-payment lookup so the OT editor can
+ * surface the rep without depending on the legacy assignment table.
+ *
+ * Returns two maps keyed by:
+ *   - invoiceDbId → `{ salesRepId, salesRepName }` (preferred — the
+ *     invoice metadata stamp survives even if the Payment row is later
+ *     refunded / merged.)
+ *   - paymentId → `{ salesRepId, salesRepName }` (covers the
+ *     standalone-payment rows in the non-Rx loop where there's no Stripe
+ *     invoice id at all).
+ *
+ * Skips actor users whose role isn't in `COMMISSION_ELIGIBLE_ROLES` or
+ * who aren't `status='ACTIVE'` — matches the gating in
+ * `processPaymentForSalesRepCommission`.
+ */
+export async function loadOtActorAttributions(
+  invoiceDbIds: number[],
+  paymentIds: number[]
+): Promise<{
+  byInvoiceDbId: Map<number, { salesRepId: number; salesRepName: string }>;
+  byPaymentId: Map<number, { salesRepId: number; salesRepName: string }>;
+}> {
+  const byInvoiceDbId = new Map<number, { salesRepId: number; salesRepName: string }>();
+  const byPaymentId = new Map<number, { salesRepId: number; salesRepName: string }>();
+  if (invoiceDbIds.length === 0 && paymentIds.length === 0) {
+    return { byInvoiceDbId, byPaymentId };
+  }
+
+  /**
+   * Defensive: each `findMany` call returns `[]` when the input id list
+   * is empty, AND falls back to `[]` when the underlying mock/test
+   * runner returns `undefined` (existing OT invoice generation tests
+   * chain `mockResolvedValueOnce` and exhaust the queue — without this
+   * guard a freshly-added find would throw `not iterable`).
+   */
+  const [invoicesRaw, paymentsRaw] = await Promise.all([
+    invoiceDbIds.length > 0
+      ? basePrisma.invoice.findMany({
+          where: { id: { in: invoiceDbIds } },
+          select: { id: true, metadata: true },
+        })
+      : Promise.resolve([] as Array<{ id: number; metadata: unknown }>),
+    paymentIds.length > 0
+      ? basePrisma.payment.findMany({
+          where: { id: { in: paymentIds } },
+          select: { id: true, metadata: true, invoiceId: true },
+        })
+      : Promise.resolve(
+          [] as Array<{ id: number; metadata: unknown; invoiceId: number | null }>
+        ),
+  ]);
+  const invoices = Array.isArray(invoicesRaw) ? invoicesRaw : [];
+  const payments = Array.isArray(paymentsRaw) ? paymentsRaw : [];
+
+  const candidateUserIds = new Set<number>();
+  type InvoiceCandidate = { invoiceDbId: number; userId: number };
+  type PaymentCandidate = { paymentId: number; userId: number; invoiceDbId: number | null };
+  const invoiceCandidates: InvoiceCandidate[] = [];
+  const paymentCandidates: PaymentCandidate[] = [];
+
+  for (const inv of invoices) {
+    const md = (inv.metadata as Record<string, unknown> | null) ?? null;
+    const v = md ? md.actorUserId : null;
+    const uid = typeof v === 'number' ? v : typeof v === 'string' ? parseInt(v, 10) : null;
+    if (uid != null && Number.isFinite(uid) && uid > 0) {
+      invoiceCandidates.push({ invoiceDbId: inv.id, userId: uid });
+      candidateUserIds.add(uid);
+    }
+  }
+  for (const pay of payments) {
+    const md = (pay.metadata as Record<string, unknown> | null) ?? null;
+    const v = md ? md.actorUserId : null;
+    const uid = typeof v === 'number' ? v : typeof v === 'string' ? parseInt(v, 10) : null;
+    if (uid != null && Number.isFinite(uid) && uid > 0) {
+      paymentCandidates.push({ paymentId: pay.id, userId: uid, invoiceDbId: pay.invoiceId });
+      candidateUserIds.add(uid);
+    }
+  }
+
+  if (candidateUserIds.size === 0) return { byInvoiceDbId, byPaymentId };
+
+  const eligibleUsersRaw = await basePrisma.user.findMany({
+    where: {
+      id: { in: [...candidateUserIds] },
+      role: { in: [...COMMISSION_ELIGIBLE_ROLES] },
+      status: 'ACTIVE',
+    },
+    select: { id: true, firstName: true, lastName: true },
+  });
+  const eligibleUsers = Array.isArray(eligibleUsersRaw) ? eligibleUsersRaw : [];
+  const eligibleLabelById = new Map(
+    eligibleUsers.map((u) => [u.id, `${u.lastName}, ${u.firstName}`])
+  );
+
+  for (const c of invoiceCandidates) {
+    const label = eligibleLabelById.get(c.userId);
+    if (!label) continue;
+    /** Last-write-wins is fine; invoiceDbId is unique. */
+    byInvoiceDbId.set(c.invoiceDbId, { salesRepId: c.userId, salesRepName: label });
+  }
+  for (const c of paymentCandidates) {
+    const label = eligibleLabelById.get(c.userId);
+    if (!label) continue;
+    byPaymentId.set(c.paymentId, { salesRepId: c.userId, salesRepName: label });
+    /**
+     * If the payment's invoice didn't carry its own actor stamp but the
+     * payment did, populate the invoice-keyed map too so the Rx loop
+     * (which keys on invoiceDbId) picks it up.
+     */
+    if (c.invoiceDbId != null && !byInvoiceDbId.has(c.invoiceDbId)) {
+      byInvoiceDbId.set(c.invoiceDbId, { salesRepId: c.userId, salesRepName: label });
+    }
+  }
+
+  return { byInvoiceDbId, byPaymentId };
 }
 
 /**
@@ -1659,19 +1824,42 @@ export async function generateOtDailyInvoices(
   const allPatientIdsForRepFallback = [
     ...new Set([...patientIdsForDoctorFee, ...patientIdsForNonRx]),
   ];
-  const [paidRxHistoryByPatient, patientSalesRepAssignments, patientPurchaseHistory] =
-    await Promise.all([
-      loadOtPaidPrescriptionInvoicesByPatient(clinicId, patientIdsForDoctorFee),
-      loadOtPatientSalesRepAssignments(clinicId, allPatientIdsForRepFallback),
-      /**
-       * Per-product purchase history used by the rebill detector. Loads
-       * every paid invoice ever for these patients with extracted drug
-       * families + Stripe product IDs + chargeKinds. "Any prior" rule
-       * applies — once a patient has bought Sermorelin once, every future
-       * Sermorelin sale for them is a rebill.
-       */
-      loadOtPatientPurchaseHistory(clinicId, allPatientIdsForRepFallback),
-    ]);
+  /**
+   * Actor-attribution scope (2026-05-03 OT rep attribution): collect the
+   * invoice DB ids and payment ids in the period so the loader can
+   * resolve the rep who clicked "Process Payment" / "Create Invoice" /
+   * "Generate Payment Link" off `Invoice.metadata.actorUserId` /
+   * `Payment.metadata.actorUserId`. Used as the second link in the rep
+   * fallback chain (between the SalesRepCommissionEvent ledger and the
+   * patient profile assignment). See `loadOtActorAttributions`.
+   */
+  const invoiceDbIdsForActorLookup = [
+    ...new Set([
+      ...[...invoiceByOrderId.values()].map((v) => v.invoiceDbId),
+      ...paymentCollections
+        .map((p) => p.invoiceId)
+        .filter((id): id is number => typeof id === 'number'),
+    ]),
+  ];
+  const paymentIdsForActorLookup = paymentCollections.map((p) => p.paymentId);
+  const [
+    paidRxHistoryByPatient,
+    patientSalesRepAssignments,
+    patientPurchaseHistory,
+    actorAttributions,
+  ] = await Promise.all([
+    loadOtPaidPrescriptionInvoicesByPatient(clinicId, patientIdsForDoctorFee),
+    loadOtPatientSalesRepAssignments(clinicId, allPatientIdsForRepFallback),
+    /**
+     * Per-product purchase history used by the rebill detector. Loads
+     * every paid invoice ever for these patients with extracted drug
+     * families + Stripe product IDs + chargeKinds. "Any prior" rule
+     * applies — once a patient has bought Sermorelin once, every future
+     * Sermorelin sale for them is a rebill.
+     */
+    loadOtPatientPurchaseHistory(clinicId, allPatientIdsForRepFallback),
+    loadOtActorAttributions(invoiceDbIdsForActorLookup, paymentIdsForActorLookup),
+  ]);
 
   const pharmacyLineItems: OtPharmacyLineItem[] = [];
   const shippingLineItems: OtShippingLineItem[] = [];
@@ -1918,21 +2106,33 @@ export async function generateOtDailyInvoices(
         : null;
     const salesRepCommissionCents = comm?.commissionAmountCents ?? 0;
     /**
-     * Rep selection fallback chain (per stakeholder direction 2026-05-02):
+     * Rep selection fallback chain (per stakeholder direction 2026-05-02
+     * + 2026-05-03 actor-attribution extension):
      *   1. SalesRepCommissionEvent ledger entry for this Stripe invoice.
-     *   2. Active PatientSalesRepAssignment on the patient profile.
-     *   3. None.
+     *   2. Actor stamped on `Invoice.metadata.actorUserId` /
+     *      `Payment.metadata.actorUserId` at creation (covers webhook
+     *      misses + sales pre-dating the auto-attribution feature).
+     *   3. Active PatientSalesRepAssignment on the patient profile.
+     *   4. None.
      * The commission $ amount itself stays at the ledger value (or 0 when
      * absent) — only the rep identity is fallen-back. The auto-rate logic
      * in `buildDefaultOverridePayload` then computes commission from the
      * payload-level rate × patient gross.
      */
+    const actorFromInvoice =
+      invDbId != null ? (actorAttributions.byInvoiceDbId.get(invDbId) ?? null) : null;
     const fallbackAssignment = patientSalesRepAssignments.get(order.patientId) ?? null;
-    const salesRepId = comm?.salesRepId ?? fallbackAssignment?.salesRepId ?? null;
-    const salesRepName =
-      comm != null && comm.salesRepId === salesRepId
-        ? (salesRepLookup.repLabelById.get(comm.salesRepId) ?? `User #${comm.salesRepId}`)
-        : (fallbackAssignment?.salesRepName ?? null);
+    const salesRepId =
+      comm?.salesRepId ?? actorFromInvoice?.salesRepId ?? fallbackAssignment?.salesRepId ?? null;
+    let salesRepName: string | null;
+    if (comm != null && comm.salesRepId === salesRepId) {
+      salesRepName =
+        salesRepLookup.repLabelById.get(comm.salesRepId) ?? `User #${comm.salesRepId}`;
+    } else if (actorFromInvoice != null && actorFromInvoice.salesRepId === salesRepId) {
+      salesRepName = actorFromInvoice.salesRepName;
+    } else {
+      salesRepName = fallbackAssignment?.salesRepName ?? null;
+    }
     const ov = comm ? salesRepLookup.overrideBySourceEventId.get(comm.id) : undefined;
     const managerOverrideTotalCentsForOrder = ov?.totalCents ?? 0;
     const managerOverrideSummary = ov?.summary ?? null;
@@ -2049,6 +2249,15 @@ export async function generateOtDailyInvoices(
             medicationKey: rx.medicationKey,
           })),
           invoiceLines: currentLines,
+          /**
+           * Phantom-Rx guard (2026-05-03): bloodwork-only sales whose
+           * order shell has phantom Rxs attached (e.g. "Rupa Panel") must
+           * not contribute `'rx'` to the rebill signature. Without this,
+           * a first-ever bloodwork purchase by a patient with prior real
+           * Rx purchases gets mis-classified as "Rebill · 1%". See
+           * comment on `buildOtCurrentSaleSignature`.
+           */
+          isBloodworkOnly,
         });
         return isOtRebillPurchase(history, {
           invoiceId: invMeta?.invoiceDbId ?? null,
@@ -2282,12 +2491,16 @@ export async function generateOtDailyInvoices(
   }).map((row) => {
     /**
      * Resolve the assigned rep using the same fallback chain as the Rx
-     * loop:
+     * loop (per stakeholder direction 2026-05-02 + 2026-05-03 actor
+     * extension):
      *   1. SalesRepCommissionEvent ledger entry for the row's Stripe invoice.
-     *   2. Active PatientSalesRepAssignment on the patient profile.
-     *   3. None.
-     * Standalone (invoice-less) payment rows can't hit the ledger lookup,
-     * so they only ever pick up the patient-assignment fallback.
+     *   2. Actor stamped on `Invoice.metadata.actorUserId` /
+     *      `Payment.metadata.actorUserId` at creation.
+     *   3. Active PatientSalesRepAssignment on the patient profile.
+     *   4. None.
+     * Standalone (invoice-less) payment rows can still hit the actor
+     * fallback through `byPaymentId` even though they have no Stripe
+     * invoice — that's the whole point of the Payment-side stamp.
      */
     const stripeInvId =
       row.invoiceDbId != null
@@ -2296,13 +2509,27 @@ export async function generateOtDailyInvoices(
     const comm = stripeInvId
       ? (salesRepLookup.commissionByStripeObjectId.get(stripeInvId) ?? null)
       : null;
+    const actorFromInvoice =
+      row.invoiceDbId != null
+        ? (actorAttributions.byInvoiceDbId.get(row.invoiceDbId) ?? null)
+        : null;
+    const actorFromPayment =
+      row.paymentId != null ? (actorAttributions.byPaymentId.get(row.paymentId) ?? null) : null;
+    const actor = actorFromInvoice ?? actorFromPayment;
     const fallbackAssignment = patientSalesRepAssignments.get(row.patientId) ?? null;
-    if (!comm && !fallbackAssignment) return row;
+    if (!comm && !actor && !fallbackAssignment) return row;
     const ov = comm ? salesRepLookup.overrideBySourceEventId.get(comm.id) : null;
-    const resolvedSalesRepId = comm?.salesRepId ?? fallbackAssignment?.salesRepId ?? null;
-    const resolvedSalesRepName = comm
-      ? (salesRepLookup.repLabelById.get(comm.salesRepId) ?? `User #${comm.salesRepId}`)
-      : (fallbackAssignment?.salesRepName ?? null);
+    const resolvedSalesRepId =
+      comm?.salesRepId ?? actor?.salesRepId ?? fallbackAssignment?.salesRepId ?? null;
+    let resolvedSalesRepName: string | null;
+    if (comm) {
+      resolvedSalesRepName =
+        salesRepLookup.repLabelById.get(comm.salesRepId) ?? `User #${comm.salesRepId}`;
+    } else if (actor) {
+      resolvedSalesRepName = actor.salesRepName;
+    } else {
+      resolvedSalesRepName = fallbackAssignment?.salesRepName ?? null;
+    }
     /**
      * Only count commission $ from the ledger — PatientSalesRepAssignment
      * is a rep-identity hint, not a commission-event source. The auto-rate

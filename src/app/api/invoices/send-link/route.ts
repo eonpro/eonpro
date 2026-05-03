@@ -104,6 +104,12 @@ async function sendInvoiceLinkHandler(req: NextRequest, user: AuthUser): Promise
           lineItems: validated.lineItems,
           dueInDays: validated.dueInDays,
           autoSend: false,
+          /**
+           * Stamp the rep who clicked "Generate Payment Link" so OT
+           * reconciliation falls back to this id when the commission
+           * ledger has no entry (per 2026-05-03 stakeholder direction).
+           */
+          actorUserId: user.id,
         });
 
         invoice = result.invoice;
@@ -122,6 +128,12 @@ async function sendInvoiceLinkHandler(req: NextRequest, user: AuthUser): Promise
             dueDate: new Date(Date.now() + validated.dueInDays * 24 * 60 * 60 * 1000),
             description: validated.description || 'Medical Services',
             lineItems: validated.lineItems,
+            /**
+             * Demo-mode invoice (Stripe not configured) — still stamp the
+             * actor so OT reconciliation can attribute the sale to the
+             * rep who shared the link (2026-05-03 stakeholder direction).
+             */
+            metadata: { actorUserId: user.id },
           },
         });
 

@@ -43,6 +43,20 @@ export interface SalesRepPaymentEventData {
   itemCount?: number;
   productId?: number;
   productBundleId?: number;
+  /**
+   * Authenticated user that initiated this payment (e.g. the rep who
+   * clicked "Process Payment" / "Create Invoice" / "Generate Payment Link").
+   * Per stakeholder direction 2026-05-03 — see the OT rep attribution
+   * plan and `.cursor/rules/07-stripe-payments.mdc` § rep attribution.
+   *
+   * When omitted, the service tries to recover the actor from
+   * `Payment.metadata.actorUserId` / `Invoice.metadata.actorUserId`
+   * (the route handlers stamp these at creation time so webhook-driven
+   * commission events can attribute the actor without explicit plumbing).
+   */
+  actorUserId?: number;
+  /** Role of `actorUserId` if known. Used to gate commission-eligibility. */
+  actorRole?: string;
 }
 
 export interface SalesRepCommissionResult {
@@ -563,6 +577,8 @@ export async function processPaymentForSalesRepCommission(
     itemCount,
     productId,
     productBundleId,
+    actorUserId: explicitActorUserId,
+    actorRole: explicitActorRole,
   } = data;
 
   try {
@@ -630,17 +646,129 @@ export async function processPaymentForSalesRepCommission(
       }
     }
 
-    // Find the patient's active sales rep assignment
-    const assignment = await prisma.patientSalesRepAssignment.findFirst({
-      where: {
-        patientId,
-        clinicId,
-        isActive: true,
-      },
+    /**
+     * ============================================================
+     * Hybrid actor attribution (2026-05-03 stakeholder direction)
+     * ============================================================
+     *
+     * Resolution chain for `salesRepId`:
+     *   1. Explicit `actorUserId` from caller, if commission-eligible.
+     *   2. `Payment.metadata.actorUserId` (or `Invoice.metadata.actorUserId`)
+     *      stamped by the route handlers — covers webhook-driven calls
+     *      where the actor isn't an arg.
+     *   3. Active `PatientSalesRepAssignment` on the patient profile
+     *      (the legacy fallback chain).
+     *   4. None → skip.
+     *
+     * Side effect: when the actor is commission-eligible AND the patient
+     * has no active assignment, we auto-create
+     * `PatientSalesRepAssignment(actor, isActive=true)` so future
+     * recurring renewals attribute correctly without re-discovery. We
+     * NEVER overwrite an existing assignment (don't steal credit).
+     *
+     * See `.cursor/rules/07-stripe-payments.mdc` § rep attribution.
+     */
+    let resolvedActorUserId: number | null = explicitActorUserId ?? null;
+    let resolvedActorRole: string | null = explicitActorRole ?? null;
+
+    if (resolvedActorUserId == null && stripeObjectId) {
+      try {
+        const candidate = await prisma.payment.findFirst({
+          where: {
+            patientId,
+            OR: [
+              { stripePaymentIntentId: stripeObjectId },
+              { stripeChargeId: stripeObjectId },
+            ],
+          },
+          select: { metadata: true, invoiceId: true },
+          orderBy: { createdAt: 'desc' },
+        });
+        const md = (candidate?.metadata as Record<string, unknown> | null) ?? null;
+        if (md && typeof md.actorUserId === 'number') {
+          resolvedActorUserId = md.actorUserId;
+          if (typeof md.actorRole === 'string') resolvedActorRole = md.actorRole;
+        }
+        if (resolvedActorUserId == null && candidate?.invoiceId) {
+          const inv = await prisma.invoice.findUnique({
+            where: { id: candidate.invoiceId },
+            select: { metadata: true },
+          });
+          const invMd = (inv?.metadata as Record<string, unknown> | null) ?? null;
+          if (invMd && typeof invMd.actorUserId === 'number') {
+            resolvedActorUserId = invMd.actorUserId;
+          }
+        }
+      } catch {
+        /* metadata lookup is best-effort — fall back to assignment chain */
+      }
+    }
+
+    /** Resolve actor's role when only id is known (lookup-from-metadata path). */
+    if (resolvedActorUserId != null && resolvedActorRole == null) {
+      const actor = await prisma.user.findUnique({
+        where: { id: resolvedActorUserId },
+        select: { role: true },
+      });
+      resolvedActorRole = actor?.role ?? null;
+    }
+
+    const actorIsCommissionEligible =
+      resolvedActorUserId != null &&
+      resolvedActorRole != null &&
+      (COMMISSION_ELIGIBLE_ROLES as readonly string[]).includes(resolvedActorRole);
+
+    /**
+     * Existing patient assignment — needed for both branches of the
+     * hybrid policy (we never overwrite when one already exists).
+     */
+    const existingAssignment = await prisma.patientSalesRepAssignment.findFirst({
+      where: { patientId, clinicId, isActive: true },
       select: { salesRepId: true },
     });
 
-    if (!assignment) {
+    let salesRepId: number;
+    if (actorIsCommissionEligible) {
+      salesRepId = resolvedActorUserId as number;
+
+      /**
+       * Auto-claim unassigned patients for the actor going forward.
+       * Skipped when an active assignment already exists — the actor
+       * still earns commission on *this* transaction (per-transaction
+       * attribution), but the patient stays with their existing rep.
+       */
+      if (!existingAssignment) {
+        try {
+          await prisma.patientSalesRepAssignment.create({
+            data: {
+              patientId,
+              clinicId,
+              salesRepId,
+              isActive: true,
+              assignedById: salesRepId,
+            },
+          });
+          logger.info('[SalesRepCommission] Auto-attribution: patient claimed by actor', {
+            patientId,
+            clinicId,
+            salesRepId,
+            stripeEventId,
+          });
+        } catch (e) {
+          /**
+           * Race against another concurrent payment for the same
+           * patient — ignore and continue with this transaction's
+           * attribution. Idempotent at the commission-event level.
+           */
+          logger.debug('[SalesRepCommission] Auto-attribution assignment create raced', {
+            patientId,
+            error: e instanceof Error ? e.message : 'unknown',
+          });
+        }
+      }
+    } else if (existingAssignment) {
+      salesRepId = existingAssignment.salesRepId;
+    } else {
       return {
         success: true,
         skipped: true,
@@ -648,9 +776,7 @@ export async function processPaymentForSalesRepCommission(
       };
     }
 
-    const salesRepId = assignment.salesRepId;
-
-    // Verify the assigned employee is an active user with a commission-eligible role
+    // Verify the resolved employee is an active user with a commission-eligible role.
     const rep = await prisma.user.findFirst({
       where: { id: salesRepId, role: { in: [...COMMISSION_ELIGIBLE_ROLES] }, status: 'ACTIVE' },
       select: { id: true },

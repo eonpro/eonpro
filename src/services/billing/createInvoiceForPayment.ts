@@ -34,6 +34,13 @@ interface CreateInvoiceForPaymentInput {
   planId?: string | null;
   planName?: string | null;
   lineItems?: LineItemInput[];
+  /**
+   * The authenticated user who initiated "Process Payment" (per
+   * 2026-05-03 stakeholder direction). When set and the user is
+   * commission-eligible, downstream OT reconciliation falls back to
+   * this id when the SalesRepCommissionEvent ledger has no entry yet.
+   */
+  actorUserId?: number | null;
 }
 
 /**
@@ -57,6 +64,7 @@ export async function createInvoiceForProcessedPayment(
     planId,
     planName,
     lineItems,
+    actorUserId,
   } = input;
 
   try {
@@ -123,6 +131,7 @@ export async function createInvoiceForProcessedPayment(
               chargeId: stripeChargeId || undefined,
               ...(planId ? { planId } : {}),
               ...(planName ? { planName } : {}),
+              ...(actorUserId != null ? { actorUserId } : {}),
               ...(discountAmount > 0
                 ? {
                     summary: {

@@ -51,6 +51,16 @@ export interface CreateInvoiceOptions {
   autoSend?: boolean;
   metadata?: Record<string, string>;
   orderId?: number;
+  /**
+   * Authenticated user that initiated invoice creation (e.g. the rep who
+   * clicked "Create Invoice" or "Generate Payment Link"). Persisted on
+   * both `stripeInvoice.metadata.actorUserId` and `Invoice.metadata.actorUserId`
+   * so downstream commission/reconciliation flows can attribute the sale
+   * to the actor when the patient has no profile-level sales rep yet.
+   * Per stakeholder direction (2026-05-03) — see Phase 3 of the OT rep
+   * attribution plan and `.cursor/rules/07-stripe-payments.mdc`.
+   */
+  actorUserId?: number;
 }
 
 /**
@@ -153,6 +163,9 @@ export class StripeInvoiceService {
           patientId: options.patientId.toString(),
           ...(clinicId ? { clinicId: clinicId.toString() } : {}),
           orderId: options.orderId?.toString() || '',
+          ...(options.actorUserId != null
+            ? { actorUserId: options.actorUserId.toString() }
+            : {}),
           ...options.metadata,
         } as any,
       },
@@ -202,7 +215,20 @@ export class StripeInvoiceService {
         status: this.mapStripeStatus(finalizedInvoice.status),
         dueDate: finalizedInvoice.due_date ? new Date(finalizedInvoice.due_date * 1000) : undefined,
         lineItems: JSON.parse(JSON.stringify(options.lineItems)),
-        metadata: options.metadata ? JSON.parse(JSON.stringify(options.metadata)) : undefined,
+        metadata: (() => {
+          /**
+           * Merge the caller's metadata with the actor-attribution stamp
+           * so OT reconciliation can fall back to `actorUserId` when the
+           * commission ledger has no entry for this invoice (rep not yet
+           * "claimed" by the patient at the time of webhook delivery).
+           * See `.cursor/rules/07-stripe-payments.mdc` § rep attribution.
+           */
+          const base = options.metadata ? JSON.parse(JSON.stringify(options.metadata)) : {};
+          if (options.actorUserId != null) {
+            base.actorUserId = options.actorUserId;
+          }
+          return Object.keys(base).length > 0 ? base : undefined;
+        })(),
         orderId: options.orderId,
       },
     });

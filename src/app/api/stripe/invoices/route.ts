@@ -538,11 +538,15 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
     try {
       const { StripeInvoiceService } = await import('@/services/stripe/invoiceService');
 
-      // Create invoice with subscription flag — clinicId routes to correct Stripe account
+      // Create invoice with subscription flag — clinicId routes to correct Stripe account.
+      // `actorUserId` (2026-05-03 OT rep attribution) stamps both the Stripe invoice
+      // metadata and the local Invoice row so downstream OT reconciliation can
+      // attribute the sale when the patient has no profile-level rep yet.
       const result = await StripeInvoiceService.createInvoice({
         ...validatedData,
         clinicId: user.clinicId,
         lineItems,
+        actorUserId: user.id,
       } as any);
 
       // Wrap invoice update and invoice items creation in a transaction for atomicity
@@ -620,7 +624,12 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
               status: 'DRAFT',
               dueDate: new Date(Date.now() + (validatedData.dueInDays || 30) * 24 * 60 * 60 * 1000),
               description: validatedData.description || 'Medical Services',
-              metadata: validatedData.metadata || {},
+              /**
+               * Demo-mode invoice creation (Stripe not configured) — still
+               * stamp the actor so OT reconciliation can attribute the
+               * sale. Mirrors the live path's `Invoice.metadata.actorUserId`.
+               */
+              metadata: { ...(validatedData.metadata || {}), actorUserId: user.id },
               lineItems: lineItems,
               createSubscription,
               orderId: validatedData.orderId,

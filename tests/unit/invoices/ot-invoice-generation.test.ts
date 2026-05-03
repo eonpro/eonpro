@@ -230,11 +230,16 @@ describe('generateOtDailyInvoices (mocked DB)', () => {
     expect(data.paymentsCollectedGrossCents).toBe(25_000);
     expect(data.paymentsCollectedNetCents).toBe(25_000);
     /**
-     * payment.findMany is called once for the period rows. The refundedAt lookup
-     * is skipped (no refunded rows). The net-cents-by-invoice lookup is also
-     * skipped because no orders → no invoice ids to net.
+     * payment.findMany is called twice:
+     *   1. period rows (the test fixture wires one row).
+     *   2. actor-attribution loader (`loadOtActorAttributions`,
+     *      added 2026-05-03) — looks up `Payment.metadata.actorUserId`
+     *      for the period's payment ids.
+     * The refundedAt lookup is skipped (no refunded rows) and the
+     * net-cents-by-invoice lookup is skipped (no orders → no invoice ids
+     * to net). If either of those ran the count would jump to 3+.
      */
-    expect(mockBasePrisma.payment.findMany).toHaveBeenCalledTimes(1);
+    expect(mockBasePrisma.payment.findMany).toHaveBeenCalledTimes(2);
   });
 
   it('single Semaglutide sale: pharmacy + premium shipping + sync doctor fee; cash basis fees match 4%/10% of net cash', async () => {
