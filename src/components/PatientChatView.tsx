@@ -245,7 +245,9 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
     if (messageText.length === 0 && readyAttachments.length === 0) return;
 
     // MMS gate: when sending over SMS, every attachment must satisfy
-    // Twilio's stricter US-carrier rules (JPEG/PNG, ≤5 MB). Surface the
+    // Twilio's stricter rules (JPEG/PNG, ≤10 MB — note: above the
+    // recommended 5 MB carrier ceiling, see MMS_MAX_BYTES rationale).
+    // Surface the
     // first violation back to the user with the helper's reason string
     // so they can either remove the offending file or switch channel.
     if (sendViaSms && readyAttachments.length > 0) {
@@ -310,10 +312,7 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
       if (res.ok) {
         setMessages((prev) => prev.map((msg) => (msg.id === tempId ? (data as ChatMessage) : msg)));
 
-        if (
-          (data as { status?: string }).status === 'FAILED' &&
-          sendViaSms
-        ) {
+        if ((data as { status?: string }).status === 'FAILED' && sendViaSms) {
           setError(
             `SMS delivery failed: ${(data as { failureReason?: string }).failureReason || 'Could not send SMS to patient'}`
           );
@@ -339,7 +338,9 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
         const detailString = detailParts.length > 0 ? ` (${detailParts.join('; ')})` : '';
         const baseError = errorPayload.error || `Failed to send message (${res.status})`;
         const fullError =
-          baseError === 'Invalid input' && detailString ? `Invalid input${detailString}` : baseError;
+          baseError === 'Invalid input' && detailString
+            ? `Invalid input${detailString}`
+            : baseError;
         const err = new Error(fullError);
         (err as Error & { httpStatus?: number }).httpStatus = res.status;
         throw err;

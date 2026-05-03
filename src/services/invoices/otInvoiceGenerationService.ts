@@ -53,6 +53,7 @@ import {
   buildOtNonRxReconciliation,
   type OtNonRxReconciliationLine,
 } from '@/services/invoices/otNonRxReconciliationService';
+import { loadOtPaymentNetCentsByInvoiceId as loadOtPaymentNetCentsByInvoiceIdImpl } from '@/services/invoices/loadOtPaymentNetCentsByInvoiceId';
 import {
   findOtPackageMatchByPatientGross,
   findOtPackageMatchForInvoiceLine,
@@ -1156,24 +1157,16 @@ export async function loadOtActorAttributions(
   return { byInvoiceDbId, byPaymentId };
 }
 
-/** Net cents per invoice from Stripe-processed local Payment rows (SUCCEEDED only — widest DB compatibility). */
+/**
+ * Net cents per invoice from local Payment rows. Includes
+ * SUCCEEDED + PARTIALLY_REFUNDED + REFUNDED and subtracts `refundedAmount`
+ * — see `loadOtPaymentNetCentsByInvoiceId` for the full contract and the
+ * RCA / blast-radius docs that motivated the rewrite (B6 + B7).
+ */
 async function loadOtPaymentNetCentsByInvoiceId(
   invoiceDbIds: number[]
 ): Promise<Map<number, number>> {
-  const map = new Map<number, number>();
-  if (invoiceDbIds.length === 0) return map;
-  const payments = await basePrisma.payment.findMany({
-    where: {
-      invoiceId: { in: invoiceDbIds },
-      status: 'SUCCEEDED',
-    },
-    select: { invoiceId: true, amount: true },
-  });
-  for (const p of payments) {
-    if (p.invoiceId == null || p.amount <= 0) continue;
-    map.set(p.invoiceId, (map.get(p.invoiceId) ?? 0) + p.amount);
-  }
-  return map;
+  return loadOtPaymentNetCentsByInvoiceIdImpl(invoiceDbIds, basePrisma);
 }
 
 /** Latest Stripe billing name captured during reconciliation (for profile name sanity check). */

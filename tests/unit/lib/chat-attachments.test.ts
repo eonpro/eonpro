@@ -153,8 +153,10 @@ describe('buildChatAttachmentS3Key', () => {
 });
 
 describe('MMS constants (Twilio carrier limits)', () => {
-  it('caps MMS files at 5 MB (Twilio US ceiling)', () => {
-    expect(MMS_MAX_BYTES).toBe(5 * 1024 * 1024);
+  it('caps MMS files at 10 MB (above Twilio US carrier ceiling — accepted trade-off)', () => {
+    expect(MMS_MAX_BYTES).toBe(10 * 1024 * 1024);
+    // Web channel still has the higher cap; MMS must be strictly lower so
+    // we never let an oversized-for-MMS file silently fan out to SMS.
     expect(MMS_MAX_BYTES).toBeLessThan(CHAT_ATTACHMENT_MAX_BYTES);
   });
 
@@ -220,13 +222,21 @@ describe('isMmsCompatibleAttachment', () => {
     expect(out.ok).toBe(false);
   });
 
-  it('rejects an attachment over 5 MB even if MIME is allowed', () => {
+  it('rejects an attachment over 10 MB even if MIME is allowed', () => {
     const out = isMmsCompatibleAttachment({
       ...baseAttachment,
-      size: 6 * 1024 * 1024,
+      size: 11 * 1024 * 1024,
     });
     expect(out.ok).toBe(false);
-    if (!out.ok) expect(out.reason).toMatch(/5\s*MB/i);
+    if (!out.ok) expect(out.reason).toMatch(/10\s*MB/i);
+  });
+
+  it('accepts an attachment at the new 10 MB ceiling', () => {
+    const out = isMmsCompatibleAttachment({
+      ...baseAttachment,
+      size: 10 * 1024 * 1024,
+    });
+    expect(out.ok).toBe(true);
   });
 
   it('rejects 0 / negative size as malformed', () => {
