@@ -39,8 +39,8 @@ function getArg(name: string, fallback: string): string {
 
 const INVOICE_DB_ID = Number(getArg('invoice', '19036'));
 const ORDER_ID = Number(getArg('order', '16631'));
-const PAYMENT_INTENT_ID = getArg('pi', 'pi_3TOk6oDQIH4O9Fhr05oblLJx');
-const STRIPE_CUSTOMER_ID = getArg('customer', 'cus_T4tVdXBlZbpgQj');
+let PAYMENT_INTENT_ID = getArg('pi', '');
+let STRIPE_CUSTOMER_ID = getArg('customer', '');
 const OT_SUBDOMAIN = 'ot';
 
 function fmt(cents: number | null | undefined): string {
@@ -156,14 +156,16 @@ async function main() {
   console.log(`SUM(InvoiceItem.amount) = ${fmt(itemSum)}`);
 
   // ---------- STEP 4: Payment rows for this invoice + this PI ----------
-  hr(`STEP 4 — Payment rows (invoiceId=${INVOICE_DB_ID} OR pi=${PAYMENT_INTENT_ID})`);
+  hr(`STEP 4 — Payment rows (invoiceId=${INVOICE_DB_ID}${PAYMENT_INTENT_ID ? ` OR pi=${PAYMENT_INTENT_ID}` : ''})`);
   const payments = await basePrisma.payment.findMany({
-    where: {
-      OR: [
-        { invoiceId: INVOICE_DB_ID },
-        { stripePaymentIntentId: PAYMENT_INTENT_ID },
-      ],
-    },
+    where: PAYMENT_INTENT_ID
+      ? {
+          OR: [
+            { invoiceId: INVOICE_DB_ID },
+            { stripePaymentIntentId: PAYMENT_INTENT_ID },
+          ],
+        }
+      : { invoiceId: INVOICE_DB_ID },
     orderBy: { createdAt: 'asc' },
     select: {
       id: true,
@@ -208,6 +210,12 @@ async function main() {
   console.log(`SUM(SUCCEEDED Payment.amount where invoiceId=${INVOICE_DB_ID})         = ${fmt(succeededAmountSum)}`);
   console.log(`SUM(SUCCEEDED Payment.refundedAmount where invoiceId=${INVOICE_DB_ID}) = ${fmt(succeededRefundedSum)}`);
   console.log(`Implied true net (Payment.amount − Payment.refundedAmount)              = ${fmt(succeededAmountSum - succeededRefundedSum)}`);
+
+  // Auto-derive PI/customer from the first Payment row if not supplied via argv.
+  if (!PAYMENT_INTENT_ID && payments.length > 0 && payments[0].stripePaymentIntentId) {
+    PAYMENT_INTENT_ID = payments[0].stripePaymentIntentId;
+    console.log(`(auto-derived PAYMENT_INTENT_ID=${PAYMENT_INTENT_ID} from Payment row)`);
+  }
 
   // ---------- STEP 5: PaymentReconciliation rows ----------
   hr(`STEP 5 — PaymentReconciliation rows`);
