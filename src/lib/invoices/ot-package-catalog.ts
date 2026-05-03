@@ -365,13 +365,20 @@ const BUNDLE_ROWS: OtPackageCatalogRow[] = [
 // ---------------------------------------------------------------------------
 
 const LAB_ROWS: OtPackageCatalogRow[] = [
+  /**
+   * Bloodwork pricing rules (stakeholder direction 2026-05-03):
+   *   - Every bloodwork package has $0 default doctor consult (was $10).
+   *     Bloodwork sales no longer carry a doctor-review fee on the OT side.
+   *   - $0 shipping stays unchanged — specimens go straight to Quest/Labcorp.
+   *   - Bloodwork (Full Panel) cost corrected to $108 (was $118 typo).
+   */
   {
     id: 'bloodwork-enclo-hcg',
     name: 'Bloodwork (Enclomiphene & HCG)',
     category: 'lab',
     retailCentsByTier: { 1: $(100) },
     costCentsByTier: { 1: $(50) },
-    defaultConsultCents: $(10),
+    defaultConsultCents: $(0),
     defaultShippingCents: 0,
   },
   {
@@ -379,22 +386,18 @@ const LAB_ROWS: OtPackageCatalogRow[] = [
     name: 'Bloodwork (Full Panel)',
     category: 'lab',
     retailCentsByTier: { 1: $(200) },
-    costCentsByTier: { 1: $(118) },
-    defaultConsultCents: $(10),
+    /** COGS corrected 2026-05-03: $108 per Full Panel (was $118 typo). */
+    costCentsByTier: { 1: $(108) },
+    defaultConsultCents: $(0),
     defaultShippingCents: 0,
   },
-  /**
-   * Tiered bloodwork panels added 2026-05-02 per OT pricing sheet. All
-   * have $10 doctor consult (per bloodwork rule) and $0 shipping
-   * (specimens go straight to Quest/Labcorp).
-   */
   {
     id: 'bloodwork-minimalist',
     name: 'Bloodwork (Minimalist)',
     category: 'lab',
     retailCentsByTier: { 1: $(250) },
     costCentsByTier: { 1: $(108) },
-    defaultConsultCents: $(10),
+    defaultConsultCents: $(0),
     defaultShippingCents: 0,
   },
   {
@@ -403,7 +406,7 @@ const LAB_ROWS: OtPackageCatalogRow[] = [
     category: 'lab',
     retailCentsByTier: { 1: $(450) },
     costCentsByTier: { 1: $(186) },
-    defaultConsultCents: $(10),
+    defaultConsultCents: $(0),
     defaultShippingCents: 0,
   },
   {
@@ -412,7 +415,7 @@ const LAB_ROWS: OtPackageCatalogRow[] = [
     category: 'lab',
     retailCentsByTier: { 1: $(1000) },
     costCentsByTier: { 1: $(351) },
-    defaultConsultCents: $(10),
+    defaultConsultCents: $(0),
     defaultShippingCents: 0,
   },
   {
@@ -422,7 +425,7 @@ const LAB_ROWS: OtPackageCatalogRow[] = [
     retailCentsByTier: { 1: $(200) },
     /** Pharmacy COGS confirmed 2026-05-02: $109 per Women's Full Panel. */
     costCentsByTier: { 1: $(109) },
-    defaultConsultCents: $(10),
+    defaultConsultCents: $(0),
     defaultShippingCents: 0,
   },
   {
@@ -662,6 +665,8 @@ export const OT_PACKAGE_TIER_LABELS: Record<OtPackageTier, string> = {
 /** Manual-selection chip values (cents) for the editor. */
 export const OT_DOCTOR_CONSULT_CHIPS: Array<{ label: string; cents: number }> = [
   { label: '$0', cents: 0 },
+  /** $5 added 2026-05-03 — the new default for non-Rx ('other') sales. */
+  { label: '$5', cents: 500 },
   { label: '$10', cents: 1000 },
   { label: '$15', cents: 1500 },
   { label: '$30', cents: 3000 },
@@ -824,6 +829,42 @@ export function findOtPackageMatchForInvoiceLine(
           best = { pkg, tier, quote, score };
         }
       }
+    }
+  }
+  return best;
+}
+
+/**
+ * Match a Stripe invoice line description against `category: 'lab'`
+ * packages by name overlap alone — no tier marker, no amount match
+ * required. Always returns the tier-1 quote (the only tier offered for
+ * bloodwork today).
+ *
+ * Why this exists: bloodwork is sold at a flat price per panel regardless
+ * of duration (no "1 month" / "3 month" tiers). The general
+ * `findOtPackageMatchForInvoiceLine` requires either a tier marker or
+ * exact amount match — neither holds for discounted bloodwork sales (e.g.
+ * patient charged $120 for a Full Panel whose retail is $200). This
+ * helper exists so the OT editor's bloodwork-only seed can pre-fill the
+ * medication line at the catalog COGS regardless of what the patient
+ * actually paid. See stakeholder direction 2026-05-03 (Dar/Hyder Inv 18530).
+ */
+export function findOtBloodworkPackageByDescription(
+  description: string
+): OtPackageMatch | null {
+  if (!description || description.trim().length === 0) return null;
+  const queryTokens = tokenizeForMatch(description);
+  if (queryTokens.length === 0) return null;
+  let best: OtPackageMatch | null = null;
+  for (const pkg of OT_PACKAGE_CATALOG) {
+    if (pkg.category !== 'lab') continue;
+    const haystack = tokenizeForMatch(`${pkg.name} ${pkg.subtitle ?? ''}`);
+    const score = tokenOverlapScore(haystack, queryTokens);
+    if (score === 0) continue;
+    const quote = getOtPackageQuoteAtTier(pkg, 1);
+    if (!quote) continue;
+    if (!best || score > best.score) {
+      best = { pkg, tier: 1, quote, score };
     }
   }
   return best;

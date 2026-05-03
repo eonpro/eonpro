@@ -77,12 +77,35 @@ describe('OT_PACKAGE_CATALOG — schema invariants', () => {
 });
 
 describe('OT_DOCTOR_CONSULT_CHIPS / OT_SHIPPING_CHIPS — exact values per pricing sheet spec', () => {
-  it('doctor consult chips include $10 (bloodwork) since 2026-05-02', () => {
-    expect(OT_DOCTOR_CONSULT_CHIPS.map((c) => c.cents)).toEqual([0, 1000, 1500, 3000, 5000]);
+  it('doctor consult chips include $0, $5, $10, $15, $30, $50 (2026-05-03: $5 added for non-Rx default)', () => {
+    expect(OT_DOCTOR_CONSULT_CHIPS.map((c) => c.cents)).toEqual([0, 500, 1000, 1500, 3000, 5000]);
   });
 
   it('shipping chips are exactly $0, $20, $30', () => {
     expect(OT_SHIPPING_CHIPS.map((c) => c.cents)).toEqual([0, 2000, 3000]);
+  });
+});
+
+describe('Bloodwork pricing rules (stakeholder direction 2026-05-03)', () => {
+  it('Bloodwork (Full Panel) cost = $108 (was $118)', () => {
+    const p = getOtPackageById('bloodwork-full-panel');
+    expect(p).toBeDefined();
+    expect(p!.costCentsByTier[1]).toBe(10800);
+  });
+
+  it('every bloodwork package has $0 default doctor consult (was $10)', () => {
+    const bloodworkPackages = OT_PACKAGE_CATALOG.filter((p) => p.category === 'lab');
+    expect(bloodworkPackages.length).toBeGreaterThan(0);
+    for (const p of bloodworkPackages) {
+      expect(p.defaultConsultCents).toBe(0);
+    }
+  });
+
+  it('every bloodwork package keeps $0 default shipping (specimens go to Quest/Labcorp)', () => {
+    const bloodworkPackages = OT_PACKAGE_CATALOG.filter((p) => p.category === 'lab');
+    for (const p of bloodworkPackages) {
+      expect(p.defaultShippingCents).toBe(0);
+    }
   });
 });
 

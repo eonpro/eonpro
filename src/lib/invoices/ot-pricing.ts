@@ -604,11 +604,26 @@ export const OT_FULFILLMENT_FEE_PER_OTHER_LINE_CENTS = 0;
 export const OT_BLOODWORK_STANDARD_FEE_CENTS = 18_000;
 
 /**
- * Standard doctor / Rx fee for a bloodwork-only sale (no shipping, no TRT,
- * no fulfillment — just the lab panel + the doctor's review fee). Per
- * stakeholder direction (2026-05-02): $10 flat for any bloodwork sale.
+ * Doctor / Rx review fee for a bloodwork-only sale.
+ *
+ * History:
+ *   - 2026-05-02: $10 flat for any bloodwork sale.
+ *   - 2026-05-03: dropped to $0 per stakeholder direction. Bloodwork sales
+ *     no longer carry a doctor-review fee on the OT side; the consult work
+ *     is bundled into the lab panel pricing itself.
+ *
+ * Kept as a named export so refactors that reference the constant continue
+ * to compile and so future fee changes have one place to edit.
  */
-export const OT_BLOODWORK_DOCTOR_FEE_CENTS = 1000;
+export const OT_BLOODWORK_DOCTOR_FEE_CENTS = 0;
+
+/**
+ * Default doctor / Rx review fee for a non-Rx, non-bloodwork, non-consult
+ * sale (i.e. `chargeKind === 'other'` — recovery bundles, skin, supplements,
+ * etc.). Per stakeholder direction 2026-05-03: $5 preselected so the OT
+ * editor's row default matches the chip set without admin intervention.
+ */
+export const OT_NON_RX_OTHER_DOCTOR_FEE_CENTS = 500;
 
 /**
  * Drug-family tokens recognized by the rebill detector. Order matters only

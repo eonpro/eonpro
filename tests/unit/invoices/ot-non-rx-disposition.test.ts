@@ -257,7 +257,7 @@ describe('buildOtNonRxReconciliation — per-row defaults', () => {
     expect(rows[0].platformCompensationCents).toBe(900); // 18000 * 0.05 (was 10%)
   });
 
-  it('seeds zero medication/shipping/etc. by default; bloodwork rows get $10 doctor fee', () => {
+  it('seeds zero medication/shipping/etc. by default; bloodwork rows get $0 doctor fee (2026-05-03)', () => {
     const rows = buildOtNonRxReconciliation({
       paymentCollections: [makePayment({ paymentId: 1, invoiceId: 7001 })],
       nonRxChargeLineItems: [makeNonRxLine({ invoiceDbId: 7001 })],
@@ -267,15 +267,39 @@ describe('buildOtNonRxReconciliation — per-row defaults', () => {
     expect(r.medicationsCostCents).toBe(0);
     expect(r.shippingCents).toBe(0);
     expect(r.trtTelehealthCents).toBe(0);
-    /** Bloodwork chargeKind → $10 doctor fee per stakeholder rule (2026-05-02). */
+    /**
+     * Bloodwork chargeKind → $0 doctor fee per stakeholder rule (2026-05-03).
+     * Was $10 from 2026-05-02 to 2026-05-03; explicit zero now: bloodwork
+     * sales no longer carry a doctor-review fee on the OT side.
+     */
     expect(r.chargeKind).toBe('bloodwork');
-    expect(r.doctorApprovalCents).toBe(1000);
+    expect(r.doctorApprovalCents).toBe(0);
     expect(r.fulfillmentFeesCents).toBe(0);
     expect(r.salesRepCommissionCents).toBe(0);
     expect(r.salesRepId).toBeNull();
   });
 
-  it('consult / other chargeKind seeds $0 doctor fee (admin types in)', () => {
+  it('"other" chargeKind seeds $5 doctor fee (2026-05-03 stakeholder rule for non-Rx products)', () => {
+    const rows = buildOtNonRxReconciliation({
+      paymentCollections: [makePayment({ paymentId: 1, invoiceId: 7001 })],
+      nonRxChargeLineItems: [
+        makeNonRxLine({
+          invoiceDbId: 7001,
+          chargeKind: 'other',
+          description: 'Recovery bundle',
+        }),
+      ],
+      invoiceDbIdsUsedForCogs: new Set(),
+    });
+    const r = rows[0];
+    expect(r.chargeKind).toBe('other');
+    /** $5 = 500 cents — the non-Rx default doctor fee. */
+    expect(r.doctorApprovalCents).toBe(500);
+    /** Existing rule preserved: 'other' kind also defaults to $20 shipping. */
+    expect(r.shippingCents).toBe(2000);
+  });
+
+  it('consult chargeKind keeps $0 doctor fee (telehealth visits are billed via TRT line)', () => {
     const rows = buildOtNonRxReconciliation({
       paymentCollections: [makePayment({ paymentId: 1, invoiceId: 7001 })],
       nonRxChargeLineItems: [

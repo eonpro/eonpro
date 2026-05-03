@@ -416,18 +416,26 @@ describe('buildDefaultOverridePayload', () => {
     expect(payload.meds[0].unitPriceCents).toBe(13500);
   });
 
-  it('bloodwork-only sale uses fixed defaults regardless of phantom Rxs on the order', () => {
+  it('bloodwork-only sale auto-prefills bloodwork med line from catalog (Bloodwork Full Panel → $108)', () => {
     /**
-     * Reproduces the exact production scenario: patient paid $120 for
-     * "Bloodwork (Full Panel)" but the Lifefile order has phantom Sermorelin
-     * Rx data attached. With `isBloodworkOnly = true` set by the per-sale
-     * loop (when invoice line items all classify as bloodwork), the editor
-     * seeds bloodwork defaults instead of pulling Sermorelin into meds.
+     * Reproduces the exact production scenario from Dar/Hyder Inv 18530
+     * (2026-05-03 stakeholder request): patient paid $120 for "Bloodwork
+     * (Full Panel)" but the Lifefile order has phantom Sermorelin Rx data
+     * attached. The editor must:
+     *   1. Auto-prefill the bloodwork medication line at the catalog cost
+     *      ($108 — corrected from $118 typo on 2026-05-03).
+     *   2. Default doctor fee to $0 (was $10 from 2026-05-02 to 2026-05-03;
+     *      bloodwork no longer carries a doctor-review fee).
+     *   3. Ignore the phantom Sermorelin Rx — only paid invoice lines
+     *      drive the meds list.
      */
     const sale = makeSale({
       productDescription: 'Bloodwork (Full Panel)',
       patientGrossCents: 12_000,
       isBloodworkOnly: true,
+      invoiceLineItems: [
+        { description: 'Bloodwork (Full Panel)', amountCents: 12_000 },
+      ],
     });
     const phantomSermorelin = makeMed({
       medicationName: 'SERMORELIN ACETATE',
@@ -436,16 +444,39 @@ describe('buildDefaultOverridePayload', () => {
       lineTotalCents: 7500,
     });
     const payload = buildDefaultOverridePayload(sale, [phantomSermorelin]);
-    /** No meds — bloodwork has no pharmacy COGS. */
-    expect(payload.meds).toEqual([]);
+    /** Auto-prefilled from catalog: 1 line at $108. Phantom Sermorelin ignored. */
+    expect(payload.meds).toHaveLength(1);
+    expect(payload.meds[0].name).toBe('Bloodwork (Full Panel)');
+    expect(payload.meds[0].unitPriceCents).toBe(10_800);
+    expect(payload.meds[0].source).toBe('catalog');
     /** No shipping, no TRT, no fulfillment. */
     expect(payload.shippingCents).toBe(0);
     expect(payload.trtTelehealthCents).toBe(0);
     expect(payload.fulfillmentFeesCents).toBe(0);
-    /** $10 doctor / Rx review fee per stakeholder rule. */
-    expect(payload.doctorRxFeeCents).toBe(1000);
+    /** Doctor fee dropped to $0 (2026-05-03). */
+    expect(payload.doctorRxFeeCents).toBe(0);
     /** Patient gross + sales rep settings unchanged. */
     expect(payload.patientGrossCents).toBe(12_000);
+  });
+
+  it('bloodwork-only sale with no matching invoice lines falls back to empty meds (legacy behavior)', () => {
+    /**
+     * Defensive: if the invoice line description doesn't match any catalog
+     * lab package (e.g. a generic "Invoice 1234 (John Doe)" line that the
+     * matcher can't classify), don't auto-fill garbage. The admin can type
+     * the correct line manually.
+     */
+    const sale = makeSale({
+      productDescription: 'Bloodwork (Full Panel)',
+      patientGrossCents: 12_000,
+      isBloodworkOnly: true,
+      invoiceLineItems: [
+        { description: 'Invoice 9999 (Test Patient)', amountCents: 12_000 },
+      ],
+    });
+    const payload = buildDefaultOverridePayload(sale, []);
+    expect(payload.meds).toEqual([]);
+    expect(payload.doctorRxFeeCents).toBe(0);
   });
 });
 
