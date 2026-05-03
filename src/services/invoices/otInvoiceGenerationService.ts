@@ -16,6 +16,7 @@ import { basePrisma } from '@/lib/db';
 import { decryptPHI } from '@/lib/security/phi-encryption';
 import { logger } from '@/lib/logger';
 import { midnightInTz } from '@/lib/utils/timezone';
+import { COMMISSION_ELIGIBLE_ROLES } from '@/lib/constants/commission-eligible-roles';
 import {
   OT_CLINIC_SUBDOMAIN,
   OT_FULFILLMENT_FEE_PER_OTHER_LINE_CENTS,
@@ -1024,6 +1025,137 @@ async function loadOtPatientSalesRepAssignments(
   return map;
 }
 
+/**
+ * Per-invoice / per-payment actor-attribution loader.
+ *
+ * The OT super-admin reconciliation editor's rep-resolution chain falls
+ * back from the `SalesRepCommissionEvent` ledger to the patient profile's
+ * `PatientSalesRepAssignment`. That misses sales where:
+ *
+ *   - The webhook commission service skipped (e.g. patient hadn't been
+ *     claimed yet at webhook delivery time).
+ *   - The sale predates the auto-attribution feature (2026-05-03).
+ *
+ * Route handlers now stamp the logged-in actor on `Payment.metadata.actorUserId`
+ * and `Invoice.metadata.actorUserId` at creation. This loader recovers
+ * those stamps, validates them against `COMMISSION_ELIGIBLE_ROLES`, and
+ * exposes them as a per-invoice / per-payment lookup so the OT editor can
+ * surface the rep without depending on the legacy assignment table.
+ *
+ * Returns two maps keyed by:
+ *   - invoiceDbId → `{ salesRepId, salesRepName }` (preferred — the
+ *     invoice metadata stamp survives even if the Payment row is later
+ *     refunded / merged.)
+ *   - paymentId → `{ salesRepId, salesRepName }` (covers the
+ *     standalone-payment rows in the non-Rx loop where there's no Stripe
+ *     invoice id at all).
+ *
+ * Skips actor users whose role isn't in `COMMISSION_ELIGIBLE_ROLES` or
+ * who aren't `status='ACTIVE'` — matches the gating in
+ * `processPaymentForSalesRepCommission`.
+ */
+export async function loadOtActorAttributions(
+  invoiceDbIds: number[],
+  paymentIds: number[]
+): Promise<{
+  byInvoiceDbId: Map<number, { salesRepId: number; salesRepName: string }>;
+  byPaymentId: Map<number, { salesRepId: number; salesRepName: string }>;
+}> {
+  const byInvoiceDbId = new Map<number, { salesRepId: number; salesRepName: string }>();
+  const byPaymentId = new Map<number, { salesRepId: number; salesRepName: string }>();
+  if (invoiceDbIds.length === 0 && paymentIds.length === 0) {
+    return { byInvoiceDbId, byPaymentId };
+  }
+
+  /**
+   * Defensive: each `findMany` call returns `[]` when the input id list
+   * is empty, AND falls back to `[]` when the underlying mock/test
+   * runner returns `undefined` (existing OT invoice generation tests
+   * chain `mockResolvedValueOnce` and exhaust the queue — without this
+   * guard a freshly-added find would throw `not iterable`).
+   */
+  const [invoicesRaw, paymentsRaw] = await Promise.all([
+    invoiceDbIds.length > 0
+      ? basePrisma.invoice.findMany({
+          where: { id: { in: invoiceDbIds } },
+          select: { id: true, metadata: true },
+        })
+      : Promise.resolve([] as Array<{ id: number; metadata: unknown }>),
+    paymentIds.length > 0
+      ? basePrisma.payment.findMany({
+          where: { id: { in: paymentIds } },
+          select: { id: true, metadata: true, invoiceId: true },
+        })
+      : Promise.resolve(
+          [] as Array<{ id: number; metadata: unknown; invoiceId: number | null }>
+        ),
+  ]);
+  const invoices = Array.isArray(invoicesRaw) ? invoicesRaw : [];
+  const payments = Array.isArray(paymentsRaw) ? paymentsRaw : [];
+
+  const candidateUserIds = new Set<number>();
+  type InvoiceCandidate = { invoiceDbId: number; userId: number };
+  type PaymentCandidate = { paymentId: number; userId: number; invoiceDbId: number | null };
+  const invoiceCandidates: InvoiceCandidate[] = [];
+  const paymentCandidates: PaymentCandidate[] = [];
+
+  for (const inv of invoices) {
+    const md = (inv.metadata as Record<string, unknown> | null) ?? null;
+    const v = md ? md.actorUserId : null;
+    const uid = typeof v === 'number' ? v : typeof v === 'string' ? parseInt(v, 10) : null;
+    if (uid != null && Number.isFinite(uid) && uid > 0) {
+      invoiceCandidates.push({ invoiceDbId: inv.id, userId: uid });
+      candidateUserIds.add(uid);
+    }
+  }
+  for (const pay of payments) {
+    const md = (pay.metadata as Record<string, unknown> | null) ?? null;
+    const v = md ? md.actorUserId : null;
+    const uid = typeof v === 'number' ? v : typeof v === 'string' ? parseInt(v, 10) : null;
+    if (uid != null && Number.isFinite(uid) && uid > 0) {
+      paymentCandidates.push({ paymentId: pay.id, userId: uid, invoiceDbId: pay.invoiceId });
+      candidateUserIds.add(uid);
+    }
+  }
+
+  if (candidateUserIds.size === 0) return { byInvoiceDbId, byPaymentId };
+
+  const eligibleUsersRaw = await basePrisma.user.findMany({
+    where: {
+      id: { in: [...candidateUserIds] },
+      role: { in: [...COMMISSION_ELIGIBLE_ROLES] },
+      status: 'ACTIVE',
+    },
+    select: { id: true, firstName: true, lastName: true },
+  });
+  const eligibleUsers = Array.isArray(eligibleUsersRaw) ? eligibleUsersRaw : [];
+  const eligibleLabelById = new Map(
+    eligibleUsers.map((u) => [u.id, `${u.lastName}, ${u.firstName}`])
+  );
+
+  for (const c of invoiceCandidates) {
+    const label = eligibleLabelById.get(c.userId);
+    if (!label) continue;
+    /** Last-write-wins is fine; invoiceDbId is unique. */
+    byInvoiceDbId.set(c.invoiceDbId, { salesRepId: c.userId, salesRepName: label });
+  }
+  for (const c of paymentCandidates) {
+    const label = eligibleLabelById.get(c.userId);
+    if (!label) continue;
+    byPaymentId.set(c.paymentId, { salesRepId: c.userId, salesRepName: label });
+    /**
+     * If the payment's invoice didn't carry its own actor stamp but the
+     * payment did, populate the invoice-keyed map too so the Rx loop
+     * (which keys on invoiceDbId) picks it up.
+     */
+    if (c.invoiceDbId != null && !byInvoiceDbId.has(c.invoiceDbId)) {
+      byInvoiceDbId.set(c.invoiceDbId, { salesRepId: c.userId, salesRepName: label });
+    }
+  }
+
+  return { byInvoiceDbId, byPaymentId };
+}
+
 /** Net cents per invoice from Stripe-processed local Payment rows (SUCCEEDED only — widest DB compatibility). */
 async function loadOtPaymentNetCentsByInvoiceId(
   invoiceDbIds: number[]
@@ -1699,19 +1831,42 @@ export async function generateOtDailyInvoices(
   const allPatientIdsForRepFallback = [
     ...new Set([...patientIdsForDoctorFee, ...patientIdsForNonRx]),
   ];
-  const [paidRxHistoryByPatient, patientSalesRepAssignments, patientPurchaseHistory] =
-    await Promise.all([
-      loadOtPaidPrescriptionInvoicesByPatient(clinicId, patientIdsForDoctorFee),
-      loadOtPatientSalesRepAssignments(clinicId, allPatientIdsForRepFallback),
-      /**
-       * Per-product purchase history used by the rebill detector. Loads
-       * every paid invoice ever for these patients with extracted drug
-       * families + Stripe product IDs + chargeKinds. "Any prior" rule
-       * applies — once a patient has bought Sermorelin once, every future
-       * Sermorelin sale for them is a rebill.
-       */
-      loadOtPatientPurchaseHistory(clinicId, allPatientIdsForRepFallback),
-    ]);
+  /**
+   * Actor-attribution scope (2026-05-03 OT rep attribution): collect the
+   * invoice DB ids and payment ids in the period so the loader can
+   * resolve the rep who clicked "Process Payment" / "Create Invoice" /
+   * "Generate Payment Link" off `Invoice.metadata.actorUserId` /
+   * `Payment.metadata.actorUserId`. Used as the second link in the rep
+   * fallback chain (between the SalesRepCommissionEvent ledger and the
+   * patient profile assignment). See `loadOtActorAttributions`.
+   */
+  const invoiceDbIdsForActorLookup = [
+    ...new Set([
+      ...[...invoiceByOrderId.values()].map((v) => v.invoiceDbId),
+      ...paymentCollections
+        .map((p) => p.invoiceId)
+        .filter((id): id is number => typeof id === 'number'),
+    ]),
+  ];
+  const paymentIdsForActorLookup = paymentCollections.map((p) => p.paymentId);
+  const [
+    paidRxHistoryByPatient,
+    patientSalesRepAssignments,
+    patientPurchaseHistory,
+    actorAttributions,
+  ] = await Promise.all([
+    loadOtPaidPrescriptionInvoicesByPatient(clinicId, patientIdsForDoctorFee),
+    loadOtPatientSalesRepAssignments(clinicId, allPatientIdsForRepFallback),
+    /**
+     * Per-product purchase history used by the rebill detector. Loads
+     * every paid invoice ever for these patients with extracted drug
+     * families + Stripe product IDs + chargeKinds. "Any prior" rule
+     * applies — once a patient has bought Sermorelin once, every future
+     * Sermorelin sale for them is a rebill.
+     */
+    loadOtPatientPurchaseHistory(clinicId, allPatientIdsForRepFallback),
+    loadOtActorAttributions(invoiceDbIdsForActorLookup, paymentIdsForActorLookup),
+  ]);
 
   const pharmacyLineItems: OtPharmacyLineItem[] = [];
   const shippingLineItems: OtShippingLineItem[] = [];
@@ -1958,21 +2113,33 @@ export async function generateOtDailyInvoices(
         : null;
     const salesRepCommissionCents = comm?.commissionAmountCents ?? 0;
     /**
-     * Rep selection fallback chain (per stakeholder direction 2026-05-02):
+     * Rep selection fallback chain (per stakeholder direction 2026-05-02
+     * + 2026-05-03 actor-attribution extension):
      *   1. SalesRepCommissionEvent ledger entry for this Stripe invoice.
-     *   2. Active PatientSalesRepAssignment on the patient profile.
-     *   3. None.
+     *   2. Actor stamped on `Invoice.metadata.actorUserId` /
+     *      `Payment.metadata.actorUserId` at creation (covers webhook
+     *      misses + sales pre-dating the auto-attribution feature).
+     *   3. Active PatientSalesRepAssignment on the patient profile.
+     *   4. None.
      * The commission $ amount itself stays at the ledger value (or 0 when
      * absent) — only the rep identity is fallen-back. The auto-rate logic
      * in `buildDefaultOverridePayload` then computes commission from the
      * payload-level rate × patient gross.
      */
+    const actorFromInvoice =
+      invDbId != null ? (actorAttributions.byInvoiceDbId.get(invDbId) ?? null) : null;
     const fallbackAssignment = patientSalesRepAssignments.get(order.patientId) ?? null;
-    const salesRepId = comm?.salesRepId ?? fallbackAssignment?.salesRepId ?? null;
-    const salesRepName =
-      comm != null && comm.salesRepId === salesRepId
-        ? (salesRepLookup.repLabelById.get(comm.salesRepId) ?? `User #${comm.salesRepId}`)
-        : (fallbackAssignment?.salesRepName ?? null);
+    const salesRepId =
+      comm?.salesRepId ?? actorFromInvoice?.salesRepId ?? fallbackAssignment?.salesRepId ?? null;
+    let salesRepName: string | null;
+    if (comm != null && comm.salesRepId === salesRepId) {
+      salesRepName =
+        salesRepLookup.repLabelById.get(comm.salesRepId) ?? `User #${comm.salesRepId}`;
+    } else if (actorFromInvoice != null && actorFromInvoice.salesRepId === salesRepId) {
+      salesRepName = actorFromInvoice.salesRepName;
+    } else {
+      salesRepName = fallbackAssignment?.salesRepName ?? null;
+    }
     const ov = comm ? salesRepLookup.overrideBySourceEventId.get(comm.id) : undefined;
     const managerOverrideTotalCentsForOrder = ov?.totalCents ?? 0;
     const managerOverrideSummary = ov?.summary ?? null;
@@ -2331,12 +2498,16 @@ export async function generateOtDailyInvoices(
   }).map((row) => {
     /**
      * Resolve the assigned rep using the same fallback chain as the Rx
-     * loop:
+     * loop (per stakeholder direction 2026-05-02 + 2026-05-03 actor
+     * extension):
      *   1. SalesRepCommissionEvent ledger entry for the row's Stripe invoice.
-     *   2. Active PatientSalesRepAssignment on the patient profile.
-     *   3. None.
-     * Standalone (invoice-less) payment rows can't hit the ledger lookup,
-     * so they only ever pick up the patient-assignment fallback.
+     *   2. Actor stamped on `Invoice.metadata.actorUserId` /
+     *      `Payment.metadata.actorUserId` at creation.
+     *   3. Active PatientSalesRepAssignment on the patient profile.
+     *   4. None.
+     * Standalone (invoice-less) payment rows can still hit the actor
+     * fallback through `byPaymentId` even though they have no Stripe
+     * invoice — that's the whole point of the Payment-side stamp.
      */
     const stripeInvId =
       row.invoiceDbId != null
@@ -2345,13 +2516,27 @@ export async function generateOtDailyInvoices(
     const comm = stripeInvId
       ? (salesRepLookup.commissionByStripeObjectId.get(stripeInvId) ?? null)
       : null;
+    const actorFromInvoice =
+      row.invoiceDbId != null
+        ? (actorAttributions.byInvoiceDbId.get(row.invoiceDbId) ?? null)
+        : null;
+    const actorFromPayment =
+      row.paymentId != null ? (actorAttributions.byPaymentId.get(row.paymentId) ?? null) : null;
+    const actor = actorFromInvoice ?? actorFromPayment;
     const fallbackAssignment = patientSalesRepAssignments.get(row.patientId) ?? null;
-    if (!comm && !fallbackAssignment) return row;
+    if (!comm && !actor && !fallbackAssignment) return row;
     const ov = comm ? salesRepLookup.overrideBySourceEventId.get(comm.id) : null;
-    const resolvedSalesRepId = comm?.salesRepId ?? fallbackAssignment?.salesRepId ?? null;
-    const resolvedSalesRepName = comm
-      ? (salesRepLookup.repLabelById.get(comm.salesRepId) ?? `User #${comm.salesRepId}`)
-      : (fallbackAssignment?.salesRepName ?? null);
+    const resolvedSalesRepId =
+      comm?.salesRepId ?? actor?.salesRepId ?? fallbackAssignment?.salesRepId ?? null;
+    let resolvedSalesRepName: string | null;
+    if (comm) {
+      resolvedSalesRepName =
+        salesRepLookup.repLabelById.get(comm.salesRepId) ?? `User #${comm.salesRepId}`;
+    } else if (actor) {
+      resolvedSalesRepName = actor.salesRepName;
+    } else {
+      resolvedSalesRepName = fallbackAssignment?.salesRepName ?? null;
+    }
     /**
      * Only count commission $ from the ledger — PatientSalesRepAssignment
      * is a rep-identity hint, not a commission-event source. The auto-rate
