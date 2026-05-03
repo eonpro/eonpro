@@ -23,7 +23,13 @@
  * commission service.
  */
 
-import { prisma } from '../src/lib/db';
+// Operator script: uses basePrisma (the unscoped client) because it
+// filters by clinic via an explicit WHERE clause and runs outside any
+// request / auth-middleware context. Same pattern as
+// scripts/backfill-refund-payment-columns.ts — the tenant-context guard
+// added later to `prisma` is correct for request handlers but blocks
+// CLI-initiated batch operations.
+import { basePrisma as prisma } from '../src/lib/db';
 import { logger } from '../src/lib/logger';
 import { processPaymentForSalesRepCommission } from '../src/services/sales-rep/salesRepCommissionService';
 import { alertWarning } from '../src/lib/observability/slack-alerts';
