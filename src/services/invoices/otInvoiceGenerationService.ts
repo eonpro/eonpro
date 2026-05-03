@@ -505,7 +505,7 @@ export interface OtNonRxChargeLineItem {
   chargeKind: OtNonPharmacyChargeKind;
 }
 
-interface RawInvoiceLine {
+export interface RawInvoiceLine {
   description?: string;
   amount?: number;
   quantity?: number;
@@ -812,26 +812,45 @@ async function loadOtPatientPurchaseHistory(
 
     /** Drug families + chargeKinds from Stripe invoice line items. */
     const lines = parseInvoiceLineItemsJson(inv.lineItems);
+    let nonEmptyLineCount = 0;
+    let bloodworkLineCount = 0;
     for (const li of lines) {
       const desc = li.description?.trim() ?? '';
       if (li.stripeProductId) stripeProductIds.add(li.stripeProductId);
       if (li.stripePriceId) stripePriceIds.add(li.stripePriceId);
       if (desc) {
+        nonEmptyLineCount += 1;
         for (const fam of getOtProductFamilyKeysFromText(desc)) {
           productFamilies.add(fam);
         }
         const amt = typeof li.amount === 'number' ? li.amount : 0;
         const kind = classifyOtNonPharmacyChargeLine(desc, amt);
         chargeKinds.add(kind);
+        if (kind === 'bloodwork') bloodworkLineCount += 1;
       }
     }
+
+    /**
+     * Symmetric phantom-Rx guard (mirrors `buildOtCurrentSaleSignature`'s
+     * `isBloodworkOnly` branch — see 2026-05-03 stakeholder rule on the
+     * Schultz · Inv 19039 row): when every classified line on a
+     * historical paid invoice was bloodwork, that invoice's order shell
+     * may carry a phantom Rx (e.g. "Rupa Panel") that polluted the
+     * signature with `'rx'`. Skip the Rx loop in that case so prior
+     * bloodwork purchases never falsely match a future Rx sale. We treat
+     * the historical invoice as bloodwork-only when at least one
+     * description-bearing line existed AND every such line was
+     * classified `bloodwork`.
+     */
+    const historyIsBloodworkOnly =
+      nonEmptyLineCount > 0 && bloodworkLineCount === nonEmptyLineCount;
 
     /**
      * Drug families from the order's Rx list — covers cases where the
      * invoice line description is generic (e.g. "Quarterly subscription")
      * but the actual Rx data names the drug.
      */
-    if (inv.orderId != null) {
+    if (inv.orderId != null && !historyIsBloodworkOnly) {
       const rxs = rxsByOrderId.get(inv.orderId) ?? [];
       for (const rx of rxs) {
         for (const fam of getOtProductFamilyKeysFromText(`${rx.medName} ${rx.medicationKey}`)) {
@@ -859,10 +878,22 @@ async function loadOtPatientPurchaseHistory(
  * Build the signature for the *current* sale — same shape as a history entry,
  * derived from the current Rx list + invoice line items. Used to compare
  * against prior history for rebill detection.
+ *
+ * `isBloodworkOnly` (per stakeholder direction 2026-05-03 — Schultz · Inv
+ * 19039): when every paid invoice line classifies as bloodwork, the
+ * Lifefile order shell often carries a *phantom* Rx (e.g. "Rupa Panel")
+ * that has nothing to do with prescriptions. Adding `'rx'` to the
+ * signature in that case incorrectly intersects with prior real Rx
+ * purchases and flips a first-ever bloodwork sale into "Rebill · 1%".
+ * When `isBloodworkOnly === true`, the Rx list is dropped from the
+ * signature entirely — the paid invoice lines are the source of truth,
+ * matching how every other downstream classifier (`buildDefaultOverridePayload`,
+ * `OT_BLOODWORK_DOCTOR_FEE_CENTS`) already treats these sales.
  */
-function buildOtCurrentSaleSignature(args: {
+export function buildOtCurrentSaleSignature(args: {
   rxs: ReadonlyArray<{ medName: string; medicationKey: string }>;
   invoiceLines: ReadonlyArray<RawInvoiceLine>;
+  isBloodworkOnly: boolean;
 }): {
   productFamilies: Set<string>;
   stripeProductIds: Set<string>;
@@ -873,12 +904,14 @@ function buildOtCurrentSaleSignature(args: {
   const stripeProductIds = new Set<string>();
   const stripePriceIds = new Set<string>();
   const chargeKinds = new Set<'rx' | 'bloodwork' | 'consult' | 'other'>();
-  for (const rx of args.rxs) {
-    for (const fam of getOtProductFamilyKeysFromText(`${rx.medName} ${rx.medicationKey}`)) {
-      productFamilies.add(fam);
+  if (!args.isBloodworkOnly) {
+    for (const rx of args.rxs) {
+      for (const fam of getOtProductFamilyKeysFromText(`${rx.medName} ${rx.medicationKey}`)) {
+        productFamilies.add(fam);
+      }
     }
+    if (args.rxs.length > 0) chargeKinds.add('rx');
   }
-  if (args.rxs.length > 0) chargeKinds.add('rx');
   for (const li of args.invoiceLines) {
     if (li.stripeProductId) stripeProductIds.add(li.stripeProductId);
     if (li.stripePriceId) stripePriceIds.add(li.stripePriceId);
@@ -904,7 +937,7 @@ function buildOtCurrentSaleSignature(args: {
  * family, every future purchase of that family is a rebill (per
  * stakeholder rule 2026-05-02).
  */
-function isOtRebillPurchase(
+export function isOtRebillPurchase(
   history: ReadonlyArray<OtPatientPurchaseSignature>,
   current: {
     invoiceId: number | null;
@@ -2056,6 +2089,15 @@ export async function generateOtDailyInvoices(
             medicationKey: rx.medicationKey,
           })),
           invoiceLines: currentLines,
+          /**
+           * Phantom-Rx guard (2026-05-03): bloodwork-only sales whose
+           * order shell has phantom Rxs attached (e.g. "Rupa Panel") must
+           * not contribute `'rx'` to the rebill signature. Without this,
+           * a first-ever bloodwork purchase by a patient with prior real
+           * Rx purchases gets mis-classified as "Rebill · 1%". See
+           * comment on `buildOtCurrentSaleSignature`.
+           */
+          isBloodworkOnly,
         });
         return isOtRebillPurchase(history, {
           invoiceId: invMeta?.invoiceDbId ?? null,

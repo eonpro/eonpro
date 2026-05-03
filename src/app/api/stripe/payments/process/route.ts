@@ -32,7 +32,22 @@ function isStripePaymentIntentUniqueConstraint(error: unknown): boolean {
   return false;
 }
 
-async function handlePost(request: NextRequest, _user: AuthUser) {
+async function handlePost(request: NextRequest, user: AuthUser) {
+  /**
+   * Auto-attribute the logged-in actor on the resulting Payment / Invoice
+   * (stakeholder direction 2026-05-03 — see Phase 2 of the OT rep
+   * attribution plan and `.cursor/rules/07-stripe-payments.mdc`). Stamping
+   * `actorUserId` on `Payment.metadata` lets the sales-rep commission
+   * service (called later via webhook) discover who closed the sale and
+   * apply the hybrid attribution policy:
+   *   - Patient with no active rep → claim for the actor.
+   *   - Patient with an active rep → don't overwrite, but still
+   *     attribute *this transaction* to the actor.
+   *   - Actor not commission-eligible (or actor IS the patient) → no
+   *     change; existing fallback chain.
+   */
+  const actorUserId = user.id;
+  const actorRole = user.role;
   try {
     const body = await request.json();
     const {
@@ -162,6 +177,8 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
               requiresStripeConfirmation: true,
               subscription: subscriptions[0] || null,
               subscriptions: subscriptions.length > 0 ? subscriptions : null,
+              actorUserId,
+              actorRole,
             } as any,
           },
         });
@@ -253,6 +270,8 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
             usedSavedCard: true,
             idempotencyKey,
             ...(lineItems ? { lineItems } : {}),
+            actorUserId,
+            actorRole,
           } as any,
         },
       });
@@ -615,6 +634,7 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
         planId: subscriptions[0]?.planId,
         planName: subscriptions[0]?.planName,
         lineItems: lineItems || undefined,
+        actorUserId,
       });
 
       if (!invoiceResult) {
@@ -758,6 +778,8 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
           subscriptions: subscriptions.length > 0 ? subscriptions : null,
           newCardFlow: true,
           ...(lineItems ? { lineItems } : {}),
+          actorUserId,
+          actorRole,
         } as any,
       },
     });
