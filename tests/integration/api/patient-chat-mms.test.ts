@@ -4,7 +4,7 @@
  * Targets the SMS+attachments path of `POST /api/patient-chat`. When staff
  * send `channel: 'SMS'` with attachments:
  *   - each attachment is validated against Twilio's MMS allowlist
- *     (JPEG/JPG/PNG only, ≤5 MB)
+ *     (JPEG/JPG/PNG only, ≤10 MB)
  *   - per-attachment violations short-circuit BEFORE the chat row is
  *     created (no half-state)
  *   - on the happy path, `sendSMS` is called with `mediaUrl[]` of 24h
@@ -246,7 +246,7 @@ describe('POST /api/patient-chat — staff outbound MMS (channel=SMS + attachmen
     expect(sendSMSMock).not.toHaveBeenCalled();
   });
 
-  it('rejects images larger than 5 MB even if the MIME is allowed', async () => {
+  it('rejects images larger than 10 MB even if the MIME is allowed', async () => {
     const { POST } = await import('@/app/api/patient-chat/route');
     const res = await POST(
       postReq({
@@ -254,13 +254,13 @@ describe('POST /api/patient-chat — staff outbound MMS (channel=SMS + attachmen
         message: 'big',
         channel: 'SMS',
         attachments: [
-          { s3Key: validPngKey, name: 'huge.png', mime: 'image/png', size: 8 * 1024 * 1024 },
+          { s3Key: validPngKey, name: 'huge.png', mime: 'image/png', size: 12 * 1024 * 1024 },
         ],
       })
     );
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toMatch(/5\s*MB/i);
+    expect(body.error).toMatch(/10\s*MB/i);
     expect(sendSMSMock).not.toHaveBeenCalled();
   });
 
