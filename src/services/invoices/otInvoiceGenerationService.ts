@@ -55,6 +55,7 @@ import {
 } from '@/services/invoices/otNonRxReconciliationService';
 import { loadOtPaymentNetCentsByInvoiceId as loadOtPaymentNetCentsByInvoiceIdImpl } from '@/services/invoices/loadOtPaymentNetCentsByInvoiceId';
 import {
+  findOtBloodworkPackageByDescription,
   findOtPackageMatchByPatientGross,
   findOtPackageMatchForInvoiceLine,
   OT_PACKAGE_TIER_LABELS,
@@ -3501,14 +3502,45 @@ export function buildDefaultOverridePayload(
    */
   /**
    * Bloodwork-only sales (paid invoice line items all classify as bloodwork)
-   * use a fixed default profile per stakeholder direction (2026-05-02):
-   * empty meds list, no shipping, no TRT, no fulfillment, $10 doctor fee.
-   * This applies even when the Lifefile order has a phantom / comp'd Rx
-   * attached — the actual paid invoice is the source of truth.
+   * default to: bloodwork package med line auto-prefilled from the catalog
+   * by description match, no shipping, no TRT, no fulfillment, $0 doctor
+   * fee (per stakeholder direction 2026-05-03 — was $10 from 2026-05-02).
+   *
+   * Auto-prefill: every paid invoice line that matches a `category: 'lab'`
+   * package in `OT_PACKAGE_CATALOG` becomes a med line at the package's
+   * tier-1 cost. So "Bloodwork (Full Panel)" → $108 medication line is
+   * automatically added (was previously empty meds list, forcing admin to
+   * type the cost manually).
+   *
+   * Applies even when the Lifefile order has a phantom / comp'd Rx attached
+   * — the actual paid invoice is the source of truth.
    */
   if (line.isBloodworkOnly) {
+    /**
+     * Match each paid invoice line against bloodwork packages by name overlap
+     * only (no tier marker / amount match required) — see
+     * `findOtBloodworkPackageByDescription`. This auto-prefills "Bloodwork
+     * (Full Panel)" → $108 medication line regardless of what the patient
+     * was actually charged, which matters for discounted bloodwork sales.
+     */
+    const bloodworkMeds: OtAllocationOverridePayload['meds'] = [];
+    for (const li of line.invoiceLineItems ?? []) {
+      const m = findOtBloodworkPackageByDescription(li.description);
+      if (!m) continue;
+      bloodworkMeds.push({
+        medicationKey: null,
+        name: m.pkg.name,
+        strength: m.pkg.subtitle ?? '',
+        vialSize: OT_PACKAGE_TIER_LABELS[m.tier],
+        quantity: 1,
+        unitPriceCents: m.quote.costCents,
+        lineTotalCents: m.quote.costCents,
+        source: 'catalog' as const,
+        commissionRateBps: null,
+      });
+    }
     return {
-      meds: [],
+      meds: bloodworkMeds,
       shippingCents: 0,
       trtTelehealthCents: 0,
       doctorRxFeeCents: OT_BLOODWORK_DOCTOR_FEE_CENTS,
@@ -3522,10 +3554,10 @@ export function buildDefaultOverridePayload(
       commissionRateBps: line.isRebill ? 100 : 800,
       chargeKind: null,
       /**
-       * Bloodwork sales have no Rx so the prescriber-driven $10 fee
-       * never fires — but we still carry the order's provider through
-       * for editor display (transparency: "this row's order was
-       * provided by Dr. Cruz, $0 doctor payout").
+       * Bloodwork sales have no Rx so the prescriber-driven $10 fee never
+       * fires — but we still carry the order's provider through for editor
+       * display (transparency: "this row's order was provided by Dr. Cruz,
+       * $0 doctor payout").
        */
       prescribingProviderName: line.prescribingProviderName ?? null,
     };

@@ -22,6 +22,7 @@
 import {
   OT_BLOODWORK_DOCTOR_FEE_CENTS,
   OT_MERCHANT_PROCESSING_BPS,
+  OT_NON_RX_OTHER_DOCTOR_FEE_CENTS,
   OT_PLATFORM_COMPENSATION_BPS,
   classifyOtNonPharmacyChargeLine,
 } from '@/lib/invoices/ot-pricing';
@@ -188,11 +189,21 @@ function buildLineFromPayments(
     (patientGrossCents * OT_PLATFORM_COMPENSATION_BPS) / 10_000
   );
   /**
-   * Bloodwork sales default to a $10 doctor / Rx review fee per stakeholder
-   * direction (2026-05-02). Consult and 'other' rows still default to $0
-   * — admins type the appropriate fee in the editor.
+   * Doctor / Rx review fee defaults per stakeholder direction:
+   *   - bloodwork → $0 (2026-05-03 update; was $10 from 2026-05-02 — see
+   *                   `OT_BLOODWORK_DOCTOR_FEE_CENTS`)
+   *   - consult   → $0 (telehealth fee already billed separately)
+   *   - other     → $5 (2026-05-03 — non-Rx products carry a flat $5 review
+   *                   fee preselected so the editor row default matches the
+   *                   chip set without admin intervention)
+   * Admin can override per row via the chip set or numeric input.
    */
-  const doctorApprovalCents = chargeKind === 'bloodwork' ? OT_BLOODWORK_DOCTOR_FEE_CENTS : 0;
+  const doctorApprovalCents =
+    chargeKind === 'bloodwork'
+      ? OT_BLOODWORK_DOCTOR_FEE_CENTS
+      : chargeKind === 'other'
+        ? OT_NON_RX_OTHER_DOCTOR_FEE_CENTS
+        : 0;
   /**
    * Shipping defaults per stakeholder direction (2026-05-02):
    *   - bloodwork → $0 (specimens go straight to Quest/Labcorp)

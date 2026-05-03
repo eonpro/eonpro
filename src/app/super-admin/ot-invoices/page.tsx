@@ -39,6 +39,7 @@ import {
 } from '@/app/super-admin/ot-invoices/components/OtNonRxAllocationEditor';
 import type { OtAllocationOverridePayload } from '@/services/invoices/otAllocationOverrideTypes';
 import {
+  findOtBloodworkPackageByDescription,
   findOtPackageMatchByPatientGross,
   findOtPackageMatchForInvoiceLine,
   OT_PACKAGE_TIER_LABELS,
@@ -352,16 +353,35 @@ function buildAllocationSeedsFromData(data: OtInvoiceData): OtAllocationEditorPe
   return sales.map((sale) => {
     const isRebill = !!sale.isRebill;
     /**
-     * Bloodwork-only sales: empty meds, no shipping/TRT/fulfillment, $10
-     * doctor fee. Mirrors `buildDefaultOverridePayload` server-side. This
+     * Bloodwork-only sales: meds list auto-prefilled from the catalog by
+     * description match (e.g. "Bloodwork (Full Panel)" → $108 med line),
+     * no shipping/TRT/fulfillment, $0 doctor fee. Mirrors
+     * `buildDefaultOverridePayload` server-side (per stakeholder direction
+     * 2026-05-03 — was empty meds + $10 doctor fee from 2026-05-02). This
      * fires even when the Lifefile order has phantom Rxs attached.
      */
     if (sale.isBloodworkOnly) {
+      const bloodworkMeds: OtAllocationOverridePayload['meds'] = [];
+      for (const li of sale.invoiceLineItems ?? []) {
+        const m = findOtBloodworkPackageByDescription(li.description);
+        if (!m) continue;
+        bloodworkMeds.push({
+          medicationKey: null,
+          name: m.pkg.name,
+          strength: m.pkg.subtitle ?? '',
+          vialSize: OT_PACKAGE_TIER_LABELS[m.tier],
+          quantity: 1,
+          unitPriceCents: m.quote.costCents,
+          lineTotalCents: m.quote.costCents,
+          source: 'catalog' as const,
+          commissionRateBps: null,
+        });
+      }
       const defaultPayload: OtAllocationOverridePayload = {
-        meds: [],
+        meds: bloodworkMeds,
         shippingCents: 0,
         trtTelehealthCents: 0,
-        doctorRxFeeCents: 1000, // $10 — see OT_BLOODWORK_DOCTOR_FEE_CENTS
+        doctorRxFeeCents: 0, // see OT_BLOODWORK_DOCTOR_FEE_CENTS (2026-05-03 → $0)
         fulfillmentFeesCents: 0,
         customLineItems: [],
         notes: null,
