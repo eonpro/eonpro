@@ -139,6 +139,31 @@ async function reconcileSubscription(
           status: stripeSubscription.status,
         }
       );
+
+      // Phase 1.2 (2026-05-03): For every subscription this cron just recovered
+      // (the primary Stripe webhook missed or silent-skipped), the patient
+      // should also have received a portal invite at original payment time.
+      // Fire the trigger here as the recovery surface. Internally idempotent
+      // (skips when patient already has a User row OR an unused invite for the
+      // same trigger), wrapped to never crash the cron run.
+      const recoveredPatientId = result.syncResult.patientId;
+      if (recoveredPatientId) {
+        try {
+          const { triggerPortalInviteOnPayment } = await import(
+            '@/lib/portal-invite/service'
+          );
+          await triggerPortalInviteOnPayment(recoveredPatientId);
+        } catch (inviteErr) {
+          logger.warn(
+            '[wellmedr-subscription-sync] Portal invite trigger failed (non-fatal)',
+            {
+              stripeSubscriptionId: stripeSubscription.id,
+              patientId: recoveredPatientId,
+              error: inviteErr instanceof Error ? inviteErr.message : 'Unknown',
+            }
+          );
+        }
+      }
       return;
     }
 

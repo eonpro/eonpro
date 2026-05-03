@@ -6,12 +6,14 @@
  */
 
 import crypto from 'crypto';
+import * as Sentry from '@sentry/nextjs';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { sendTemplatedEmail, EmailTemplate } from '@/lib/email';
 import { decryptPatientPHI, DEFAULT_PHI_FIELDS } from '@/lib/security/phi-encryption';
 import { sendSMS, formatPhoneNumber } from '@/lib/integrations/twilio/smsService';
 import { getClinicUrl } from '@/lib/clinic/utils';
+import { alertWarning } from '@/lib/observability/slack-alerts';
 
 const TOKEN_BYTES = 32;
 const INVITE_EXPIRY_DAYS = 7;
@@ -147,6 +149,36 @@ export async function createAndSendPortalInvite(
       };
     }
 
+    // Phase 3.1: Manual resend MUST invalidate any prior unused tokens for this patient
+    // before issuing a new one. Otherwise the patient could click an old link (or worse,
+    // a leaked old link) and bypass the staff-initiated re-issue. Auto-triggers don't
+    // hit this path because of the idempotency check above.
+    if (trigger === 'manual') {
+      try {
+        const invalidated = await prisma.patientPortalInvite.updateMany({
+          where: {
+            patientId,
+            usedAt: null,
+            expiresAt: { gt: new Date() },
+          },
+          data: { usedAt: new Date() },
+        });
+        if (invalidated.count > 0) {
+          logger.info('[PortalInvite] Invalidated prior unused tokens before manual resend', {
+            patientId,
+            invalidatedCount: invalidated.count,
+          });
+        }
+      } catch (invalidateErr) {
+        // Non-fatal: if invalidation fails the new token still works; the old one remains
+        // valid until expiry but is harmless (single-use, expires in 7 days).
+        logger.warn('[PortalInvite] Prior-token invalidation failed (non-fatal)', {
+          patientId,
+          error: invalidateErr instanceof Error ? invalidateErr.message : 'Unknown',
+        });
+      }
+    }
+
     const plainToken = generateToken();
     const tokenHash = hashToken(plainToken);
     const expiresAt = new Date();
@@ -203,6 +235,11 @@ export async function createAndSendPortalInvite(
     const sendEmail = (channel === 'email' || channel === 'both') && !!email;
     const sendSms = (channel === 'sms' || channel === 'both') && !!phone;
 
+    let emailDelivered = false;
+    let smsDelivered = false;
+    let lastEmailError: string | undefined;
+    let lastSmsError: string | undefined;
+
     if (sendEmail) {
       const emailResult = await sendTemplatedEmail({
         to: email,
@@ -215,14 +252,13 @@ export async function createAndSendPortalInvite(
         },
       });
       if (!emailResult.success) {
+        lastEmailError = emailResult.error ?? 'Failed to send email.';
         logger.warn('[PortalInvite] Email send failed', {
           patientId,
-          error: emailResult.error,
+          error: lastEmailError,
         });
-        if (!sendSms) {
-          return { success: false, error: emailResult.error ?? 'Failed to send email.' };
-        }
       } else {
+        emailDelivered = true;
         logger.info('[PortalInvite] Invite email sent', {
           patientId,
           trigger,
@@ -241,14 +277,12 @@ export async function createAndSendPortalInvite(
         templateType: 'PORTAL_INVITE',
       });
       if (!smsResult.success) {
-        const errMsg = smsResult.blocked
-          ? (smsResult.blockReason ?? smsResult.error)
+        lastSmsError = smsResult.blocked
+          ? (smsResult.blockReason ?? smsResult.error ?? 'SMS blocked')
           : (smsResult.error ?? 'SMS send failed');
-        logger.warn('[PortalInvite] SMS send failed', { patientId, error: errMsg });
-        if (!sendEmail) {
-          return { success: false, error: errMsg };
-        }
+        logger.warn('[PortalInvite] SMS send failed', { patientId, error: lastSmsError });
       } else {
+        smsDelivered = true;
         // Record in chat so staff can see the sent invite
         try {
           await prisma.patientChatMessage.create({
@@ -283,6 +317,44 @@ export async function createAndSendPortalInvite(
       }
     }
 
+    // Determine final delivery outcome.
+    // - 'email' or 'sms' channel: success requires that single channel to deliver.
+    // - 'both' channel: success requires AT LEAST ONE channel to deliver.
+    const requiredEmail = channel === 'email';
+    const requiredSms = channel === 'sms';
+    const allDeliveriesFailed =
+      (requiredEmail && !emailDelivered) ||
+      (requiredSms && !smsDelivered) ||
+      (channel === 'both' && !emailDelivered && !smsDelivered);
+
+    if (allDeliveriesFailed) {
+      const aggregateError =
+        channel === 'both'
+          ? `Email: ${lastEmailError ?? 'not attempted'} | SMS: ${lastSmsError ?? 'not attempted'}`
+          : (lastEmailError ?? lastSmsError ?? 'Failed to send invite.');
+
+      // Phase 2.1 tripwire: an automated trigger means a patient just paid (or
+      // ordered) and we owe them a portal invite. If delivery failed AND the
+      // failure is not a known benign skip (e.g. patient has no contact info,
+      // already has portal access — those are surfaced earlier and don't reach
+      // here), page operators so the gap doesn't accumulate silently the way
+      // the WellMedR subscription leak did in May 2026.
+      if (trigger !== 'manual') {
+        emitPortalInviteFailureTripwire({
+          patientId,
+          clinicId: patient.clinicId,
+          trigger,
+          channel,
+          emailDelivered,
+          smsDelivered,
+          lastEmailError,
+          lastSmsError,
+        });
+      }
+
+      return { success: false, error: aggregateError };
+    }
+
     return { success: true, expiresAt };
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
@@ -293,6 +365,71 @@ export async function createAndSendPortalInvite(
     });
     return { success: false, error: message };
   }
+}
+
+/**
+ * Phase 2.1 tripwire helper. Pages operators when an automated portal-invite
+ * delivery fails. Manual triggers are excluded — the operator already sees
+ * the API response. Benign skips ("Patient already has portal access",
+ * "Patient not found", "no email or phone") return early before this point.
+ *
+ * Always non-fatal: Sentry/Slack failures are logged but never re-thrown so
+ * that a degraded observability path can never block the (already-failed)
+ * invite caller.
+ */
+function emitPortalInviteFailureTripwire(ctx: {
+  patientId: number;
+  clinicId: number;
+  trigger: PortalInviteTrigger;
+  channel: PortalInviteChannel;
+  emailDelivered: boolean;
+  smsDelivered: boolean;
+  lastEmailError: string | undefined;
+  lastSmsError: string | undefined;
+}): void {
+  try {
+    Sentry.captureMessage('Portal invite auto-send failed', {
+      level: 'error',
+      tags: {
+        regression: 'portal-invite-auto-send-failed',
+        trigger: ctx.trigger,
+        channel: ctx.channel,
+      },
+      extra: {
+        patientId: ctx.patientId,
+        clinicId: ctx.clinicId,
+        trigger: ctx.trigger,
+        channel: ctx.channel,
+        emailDelivered: ctx.emailDelivered,
+        smsDelivered: ctx.smsDelivered,
+        lastEmailError: ctx.lastEmailError,
+        lastSmsError: ctx.lastSmsError,
+      },
+    });
+  } catch (sentryErr) {
+    logger.warn('[PortalInvite] Sentry tripwire failed (non-fatal)', {
+      patientId: ctx.patientId,
+      error: sentryErr instanceof Error ? sentryErr.message : 'Unknown',
+    });
+  }
+
+  alertWarning(
+    'Patient portal invite auto-send failed',
+    `Trigger: ${ctx.trigger}. Channel: ${ctx.channel}. Patient just paid/ordered but did not receive an invite. Email delivered: ${ctx.emailDelivered}. SMS delivered: ${ctx.smsDelivered}.`,
+    {
+      patientId: ctx.patientId,
+      clinicId: ctx.clinicId,
+      trigger: ctx.trigger,
+      channel: ctx.channel,
+      lastEmailError: ctx.lastEmailError,
+      lastSmsError: ctx.lastSmsError,
+    }
+  ).catch((alertErr) => {
+    logger.warn('[PortalInvite] Slack alert failed (non-fatal)', {
+      patientId: ctx.patientId,
+      error: alertErr instanceof Error ? alertErr.message : 'Unknown',
+    });
+  });
 }
 
 /**
