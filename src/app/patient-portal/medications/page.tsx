@@ -11,6 +11,18 @@ import { safeParseJson } from '@/lib/utils/safe-json';
 import { logger } from '@/lib/logger';
 import { MedicationsPageSkeleton } from '@/components/patient-portal/PortalSkeletons';
 import {
+  isSupplyMedication,
+  isInjectableMedication,
+  getMedicationDisplayName,
+} from '@/lib/utils/rx-sig-parser';
+import {
+  buildDosingSchedule,
+  getCurrentDoseIndex,
+  type DosingSchedulePrescription,
+  type DosingScheduleItem,
+} from '@/lib/utils/buildDosingSchedule';
+import type { MedicationFamily, Cadence } from '@/lib/utils/rx-sig-parser';
+import {
   Pill,
   Clock,
   Calendar,
@@ -87,164 +99,6 @@ interface Reminder {
   isActive: boolean;
 }
 
-function toTitleCase(value: string): string {
-  return value
-    .toLowerCase()
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
-
-function isSupplyMedication(name: string): boolean {
-  const normalized = (name || '').toLowerCase();
-  return (
-    normalized.includes('syringe') ||
-    normalized.includes('alcohol pad') ||
-    normalized.includes('needle') ||
-    normalized.includes('kit')
-  );
-}
-
-function isInjectableMedication(name: string): boolean {
-  const n = (name || '').toLowerCase();
-  return (
-    n.includes('semaglutide') ||
-    n.includes('tirzepatide') ||
-    n.includes('testosterone') ||
-    n.includes('sermorelin') ||
-    n.includes('bpc') ||
-    n.includes('tb-500')
-  );
-}
-
-function parseDoseFromDirections(directions: string): { mg: string; units: string } | null {
-  if (!directions) return null;
-  const match = directions.match(/inject\s+([\d.]+)\s*mg\s*\([^)]*?(\d+)\s*units?\)/i);
-  if (match?.[1] && match?.[2]) return { mg: match[1], units: match[2] };
-  const unitsWithMg = directions.match(/inject\s+(\d+)\s*units?\s*\(([\d.]+)\s*mg\)/i);
-  if (unitsWithMg?.[1] && unitsWithMg?.[2]) return { mg: unitsWithMg[2], units: unitsWithMg[1] };
-  const mgOnly = directions.match(/inject\s+([\d.]+)\s*mg/i);
-  if (mgOnly?.[1]) return { mg: mgOnly[1], units: '' };
-  const unitsOnly = directions.match(/inject\s+(\d+)\s*units?/i);
-  if (unitsOnly?.[1]) return { mg: '', units: unitsOnly[1] };
-  return null;
-}
-
-function reformatDirectionsUnitsFirst(directions: string): string {
-  if (!directions) return directions;
-  return directions.replace(
-    /inject\s+([\d.]+)\s*mg\s*\([^)]*?(\d+)\s*units?\)/gi,
-    (_, mg, units) => `Inject ${units} units (${mg} mg)`
-  );
-}
-
-function rewriteDirectionsForMonth(
-  directions: string,
-  monthLabel: string,
-  weeksInMonth: number
-): string {
-  let d = reformatDirectionsUnitsFirst(directions);
-  d = d.replace(/month\s+\d+(?:\s*[-–]\s*\d+)?:/i, `${monthLabel}:`);
-  d = d.replace(/for\s+\d+\s+weeks/i, `for ${weeksInMonth} weeks`);
-  return d;
-}
-
-// Returns one segment per `Month N:` annotation in the SIG (1+ tags).
-// Returns null when the SIG has no month markers at all so callers can
-// fall back to legacy vial-volume estimation. See rx-sig-parser.ts for
-// the canonical implementation; this duplicate exists for code locality.
-function parseMultiMonthDirections(directions: string): Array<{
-  monthNumber: number;
-  segment: string;
-  dose: { mg: string; units: string } | null;
-  weeks: number;
-}> | null {
-  if (!directions) return null;
-
-  const monthMatches = [...directions.matchAll(/Month\s+(\d+)\s*:/gi)];
-  if (monthMatches.length < 1) return null;
-
-  const uniqueMonths = new Map<number, { index: number; matchLength: number }>();
-  for (const m of monthMatches) {
-    const num = parseInt(m[1]);
-    if (!uniqueMonths.has(num)) {
-      uniqueMonths.set(num, { index: m.index!, matchLength: m[0].length });
-    }
-  }
-
-  if (uniqueMonths.size < 1) return null;
-
-  const sorted = [...uniqueMonths.entries()].sort((a, b) => a[1].index - b[1].index);
-  const results: Array<{
-    monthNumber: number;
-    segment: string;
-    dose: { mg: string; units: string } | null;
-    weeks: number;
-  }> = [];
-
-  for (let i = 0; i < sorted.length; i++) {
-    const [monthNum, { index, matchLength }] = sorted[i];
-    const contentStart = index + matchLength;
-    const contentEnd = i < sorted.length - 1 ? sorted[i + 1][1].index : directions.length;
-
-    let segment = directions.slice(contentStart, contentEnd).trim();
-    segment = segment.replace(/\s*\|\s*$/, '').trim();
-    segment = segment.replace(/^Month\s+\d+\s*:\s*/i, '').trim();
-
-    const dose = parseDoseFromDirections(segment);
-    const weeksMatch = segment.match(/for\s+(\d+)\s+weeks?/i);
-    const weeks = weeksMatch ? parseInt(weeksMatch[1]) : 4;
-
-    results.push({ monthNumber: monthNum, segment, dose, weeks });
-  }
-
-  return results;
-}
-
-function extractMlValue(...inputs: Array<string | null | undefined>): string | null {
-  for (const input of inputs) {
-    if (!input) continue;
-    const match = input.match(/(\d+(?:\.\d+)?)\s*ml/i);
-    if (match?.[1]) return match[1];
-  }
-  return null;
-}
-
-function extractMgValue(...inputs: Array<string | null | undefined>): string | null {
-  for (const input of inputs) {
-    if (!input) continue;
-    const match = input.match(/(\d+(?:\.\d+)?)\s*mg/i);
-    if (match?.[1]) return match[1];
-  }
-  return null;
-}
-
-function getMedicationDisplayName(med: RxMedication): string {
-  const medName = med.name || 'Medication';
-  if (medName.toLowerCase().includes('semaglutide')) {
-    const mg = extractMgValue(med.strength, med.name);
-    const vialMl = extractMlValue(med.quantity, med.name, med.form);
-    if (mg && vialMl) {
-      return `Semaglutide ${mg}mg/1ml (${vialMl}ml)`;
-    }
-    if (mg) return `Semaglutide ${mg}mg/1ml`;
-    if (vialMl) return `Semaglutide (${vialMl}ml)`;
-    return 'Semaglutide';
-  }
-
-  const cleanedName = medName
-    .replace(/\s+/g, ' ')
-    .trim()
-    .replace(/\s+solution\s+\d+mg\/\d+mg\/ml/i, '');
-  const normalizedName = toTitleCase(cleanedName);
-  const normalizedStrength = med.strength ? med.strength.toLowerCase().trim() : '';
-  if (!normalizedStrength || normalizedStrength.startsWith('solution')) {
-    return normalizedName;
-  }
-  return `${normalizedName} ${normalizedStrength}`;
-}
-
 const daysOfWeek = [
   { value: 0, label: 'S', full: 'Sunday' },
   { value: 1, label: 'M', full: 'Monday' },
@@ -254,6 +108,87 @@ const daysOfWeek = [
   { value: 5, label: 'F', full: 'Friday' },
   { value: 6, label: 'S', full: 'Saturday' },
 ];
+
+// Friendly display name per medication family. For GLP-1 we prefer the
+// actual prescribed med name (Semaglutide vs Tirzepatide) when items
+// are available; for the add-ons we use a fixed brand-style label.
+function familyDisplayName(
+  family: MedicationFamily,
+  items: DosingScheduleItem[]
+): string {
+  if (family === 'glp1') return items[0]?.medName ?? 'GLP-1';
+  if (family === 'sermorelin') return 'Sermorelin';
+  if (family === 'nad_plus') return 'NAD+';
+  if (family === 'b12') return 'Cyanocobalamin (B12)';
+  if (family === 'testosterone') return 'Testosterone';
+  if (family === 'bpc') return 'BPC-157';
+  if (family === 'tb500') return 'TB-500';
+  return items[0]?.medName ?? 'Medication';
+}
+
+// Short cadence chip rendered in each family's header.
+function cadenceDisplayLabel(cadence: Cadence, wasInferred: boolean): string {
+  if (wasInferred) return 'Schedule per provider';
+  switch (cadence) {
+    case 'weekly':
+      return 'Weekly';
+    case 'twice-weekly':
+      return 'Twice weekly';
+    case 'thrice-weekly':
+      return '3× per week';
+    case 'daily':
+      return 'Daily';
+    case 'daily-mf':
+      return 'Daily Mon–Fri';
+    case 'every-other-day':
+      return 'Every other day';
+    case 'biweekly':
+      return 'Every 2 weeks';
+    case 'monthly':
+      return 'Monthly';
+    default:
+      return 'Schedule per provider';
+  }
+}
+
+// Phrase used before the dose line ("Inject weekly: 20 units"). Falls
+// back to "Inject" when the cadence is unknown so we never imply a
+// frequency we did not extract from the SIG.
+function cadenceInjectVerb(cadence: Cadence | undefined): string {
+  switch (cadence) {
+    case 'weekly':
+      return 'Inject weekly';
+    case 'twice-weekly':
+      return 'Inject 2× per week';
+    case 'thrice-weekly':
+      return 'Inject 3× per week';
+    case 'daily':
+      return 'Inject daily';
+    case 'daily-mf':
+      return 'Inject Mon–Fri';
+    case 'every-other-day':
+      return 'Inject every other day';
+    case 'biweekly':
+      return 'Inject every 2 weeks';
+    case 'monthly':
+      return 'Inject monthly';
+    default:
+      return 'Inject';
+  }
+}
+
+// Footer label under the "Current" month card.
+function cadenceFooterLabel(
+  cadence: { cadence: Cadence; injectionsPerWeek: number; cadenceWasInferred: boolean } | undefined
+): string {
+  if (!cadence || cadence.cadenceWasInferred) {
+    return 'Schedule per provider';
+  }
+  const n = cadence.injectionsPerWeek;
+  if (n === 1) return '1 injection per week';
+  if (Number.isInteger(n)) return `${n} injections per week`;
+  return `~${n.toFixed(1)} injections per week`;
+}
 
 export default function MedicationsPage() {
   const { t } = usePatientPortalLanguage();
@@ -580,158 +515,53 @@ END:VCALENDAR`;
     return { totalMonths, upcoming, remaining };
   }, [isMultiMonthPlan, billingPlan?.startDate, billingPlan?.interval]);
 
-  const dosingScheduleItems = useMemo(() => {
-    const allOrders = [...prescriptions].sort(
-      (a, b) => new Date(a.prescribedDate).getTime() - new Date(b.prescribedDate).getTime()
-    );
-
-    const items: Array<{
-      monthNumber: number;
-      weekStart: number;
-      weekEnd: number;
-      prescriptionId: number;
-      date: string;
-      medName: string;
-      directions: string;
-      dose: { mg: string; units: string } | null;
-      isTitration: boolean;
-      isSameDose: boolean;
-      status: string;
-      periodStart: Date;
-      periodEnd: Date;
-    }> = [];
-
-    let monthNum = 0;
-    let weekCursor = 1;
-    let prevDoseKey = '';
-    const firstPrescribedDate =
-      allOrders.length > 0 ? new Date(allOrders[0].prescribedDate) : new Date();
-    const WEEKS_PER_MONTH = 4;
-
-    for (const order of allOrders) {
-      const injectableMeds = (order.medications ?? []).filter(
-        (m) => isInjectableMedication(m.name) && !isSupplyMedication(m.name)
-      );
-      if (injectableMeds.length === 0) continue;
-
-      for (const med of injectableMeds) {
-        const medName = getMedicationDisplayName(med);
-        const multiMonthDoses = parseMultiMonthDirections(med.directions);
-
-        // Trust any explicit `Month N:` annotation — even a single one — so
-        // a per-line OT package (e.g. one med line per month) is rendered as
-        // exactly the periods the prescriber wrote, instead of the legacy
-        // vial-volume estimator inventing duplicate months at the start dose.
-        if (multiMonthDoses && multiMonthDoses.length >= 1) {
-          for (const segment of multiMonthDoses) {
-            monthNum++;
-            const weekStart = weekCursor;
-            const weekEnd = weekCursor + segment.weeks - 1;
-
-            const dose = segment.dose;
-            const doseKey = dose ? `${dose.mg}-${dose.units}` : segment.segment;
-            const isTitration = prevDoseKey !== '' && doseKey !== prevDoseKey;
-            const isSameDose = prevDoseKey !== '' && doseKey === prevDoseKey;
-            prevDoseKey = doseKey;
-
-            const periodStart = new Date(firstPrescribedDate);
-            periodStart.setDate(periodStart.getDate() + (weekStart - 1) * 7);
-            const periodEnd = new Date(firstPrescribedDate);
-            periodEnd.setDate(periodEnd.getDate() + weekEnd * 7);
-
-            let displayDir = reformatDirectionsUnitsFirst(segment.segment);
-            displayDir = displayDir.replace(/for\s+\d+\s+weeks?/i, `for ${segment.weeks} weeks`);
-            displayDir = `Month ${monthNum}: ${displayDir}`;
-
-            items.push({
-              monthNumber: monthNum,
-              weekStart,
-              weekEnd,
-              prescriptionId: order.id,
-              date: order.prescribedDate,
-              medName,
-              directions: displayDir,
-              dose,
-              isTitration,
-              isSameDose,
-              status: order.status,
-              periodStart,
-              periodEnd,
-            });
-
-            weekCursor += segment.weeks;
-          }
-        } else {
-          const weeksFromDaysSupply = med.daysSupply > 0 ? Math.round(med.daysSupply / 7) : 0;
-
-          let weeksFromVial = 0;
-          const vialMl = extractMlValue(med.quantity, med.name, med.form);
-          const parsedDose = parseDoseFromDirections(med.directions);
-          if (vialMl && parsedDose?.units) {
-            const mlPerInjection = parseFloat(parsedDose.units) / 100;
-            if (mlPerInjection > 0) {
-              weeksFromVial = Math.floor(parseFloat(vialMl) / mlPerInjection);
-            }
-          }
-
-          const weeksInSupply = Math.max(weeksFromDaysSupply, weeksFromVial) || 4;
-
-          const monthsCovered = Math.max(1, Math.ceil(weeksInSupply / WEEKS_PER_MONTH));
-
-          const dose = parseDoseFromDirections(med.directions);
-          const doseKey = dose ? `${dose.mg}-${dose.units}` : med.directions;
-          const isTitration = prevDoseKey !== '' && doseKey !== prevDoseKey;
-          const isSameDose = prevDoseKey !== '' && doseKey === prevDoseKey;
-          prevDoseKey = doseKey;
-
-          for (let m = 0; m < monthsCovered; m++) {
-            monthNum++;
-            const mWeekStart = weekCursor + m * WEEKS_PER_MONTH;
-            const mWeekEnd = Math.min(
-              mWeekStart + WEEKS_PER_MONTH - 1,
-              weekCursor + weeksInSupply - 1
-            );
-
-            const periodStart = new Date(firstPrescribedDate);
-            periodStart.setDate(periodStart.getDate() + (mWeekStart - 1) * 7);
-            const periodEnd = new Date(firstPrescribedDate);
-            periodEnd.setDate(periodEnd.getDate() + mWeekEnd * 7);
-
-            const monthDirections = rewriteDirectionsForMonth(
-              med.directions,
-              `Month ${monthNum}`,
-              mWeekEnd - mWeekStart + 1
-            );
-
-            items.push({
-              monthNumber: monthNum,
-              weekStart: mWeekStart,
-              weekEnd: mWeekEnd,
-              prescriptionId: order.id,
-              date: order.prescribedDate,
-              medName,
-              directions: monthDirections,
-              dose,
-              isTitration: m === 0 ? isTitration : false,
-              isSameDose: m === 0 ? isSameDose : true,
-              status: order.status,
-              periodStart,
-              periodEnd,
-            });
-          }
-
-          weekCursor += weeksInSupply;
-        }
-      }
-    }
-
-    return items;
-  }, [prescriptions]);
+  const dosingScheduleItems = useMemo(
+    () => buildDosingSchedule(prescriptions as DosingSchedulePrescription[]).items,
+    [prescriptions]
+  );
 
   const now = new Date();
-  const currentDoseIndex = dosingScheduleItems.findIndex(
-    (d) => now >= d.periodStart && now < d.periodEnd
+  const currentDoseIndex = getCurrentDoseIndex(dosingScheduleItems, now);
+
+  // Group dosing items by clinical family so Elite Bundle patients
+  // (Semaglutide + NAD+ + Sermorelin + B12) see one timeline per
+  // medication instead of having add-ons silenced behind the GLP-1.
+  // See `feat/patient-portal-multi-injectable-schedule` and
+  // `.cursor/scratchpad.md` "Patient Portal Multi-Product Injection
+  // Instructions Gap (2026-05-04)" for the full rationale and the
+  // production audit data motivating this change.
+  const dosingScheduleByFamily = useMemo(() => {
+    const groups = new Map<MedicationFamily, DosingScheduleItem[]>();
+    for (const item of dosingScheduleItems) {
+      const list = groups.get(item.family) ?? [];
+      list.push(item);
+      groups.set(item.family, list);
+    }
+    return groups;
+  }, [dosingScheduleItems]);
+
+  const dosingFamilyOrder = useMemo(
+    () => Array.from(dosingScheduleByFamily.keys()),
+    [dosingScheduleByFamily]
   );
+
+  const familyOfCurrentDose: MedicationFamily | null = useMemo(() => {
+    if (currentDoseIndex < 0) return null;
+    const item = dosingScheduleItems[currentDoseIndex];
+    return item?.family ?? null;
+  }, [currentDoseIndex, dosingScheduleItems]);
+
+  const [collapsedFamilies, setCollapsedFamilies] = useState<Set<MedicationFamily>>(
+    new Set()
+  );
+  const toggleFamilyCollapse = useCallback((family: MedicationFamily) => {
+    setCollapsedFamilies((prev) => {
+      const next = new Set(prev);
+      if (next.has(family)) next.delete(family);
+      else next.add(family);
+      return next;
+    });
+  }, []);
 
   const nonInjectableActiveMeds = useMemo(() => {
     const allOrders = [...prescriptions];
@@ -868,7 +698,7 @@ END:VCALENDAR`;
               </div>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-px bg-gray-100 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-px bg-gray-100">
             <div className="bg-white p-3 text-center sm:p-4">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 sm:text-xs">
                 Status
@@ -880,18 +710,8 @@ END:VCALENDAR`;
                 {billingPlan.status}
               </p>
             </div>
-            {billingPlan.nextBillingDate && (
-              <div className="bg-white p-3 text-center sm:p-4">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 sm:text-xs">
-                  Next Billing
-                </p>
-                <p className="mt-0.5 text-xs font-bold text-gray-900 sm:mt-1 sm:text-sm">
-                  {formatDate(billingPlan.nextBillingDate)}
-                </p>
-              </div>
-            )}
             {billingPlan.startDate && (
-              <div className="col-span-2 bg-white p-3 text-center sm:col-span-1 sm:p-4">
+              <div className="bg-white p-3 text-center sm:p-4">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 sm:text-xs">
                   Started
                 </p>
@@ -1082,6 +902,11 @@ END:VCALENDAR`;
             <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
               <Syringe className="h-5 w-5 shrink-0" style={{ color: primaryColor }} />
               <span>Your Dosing Schedule</span>
+              {dosingFamilyOrder.length > 1 && (
+                <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-600">
+                  {dosingFamilyOrder.length} medications
+                </span>
+              )}
             </h2>
             {showDosingSchedule ? (
               <ChevronUp className="h-5 w-5 shrink-0 text-gray-400" />
@@ -1090,163 +915,256 @@ END:VCALENDAR`;
             )}
           </button>
           {showDosingSchedule && (
-            <div className="overflow-hidden rounded-2xl bg-white shadow-lg shadow-gray-200/40">
-              <div
-                className="px-4 py-3 sm:px-5 sm:py-4"
-                style={{ backgroundColor: `${primaryColor}08` }}
-              >
-                <p className="text-xs font-medium text-gray-500 sm:text-sm">
-                  Each month below covers 4 weekly injections at the listed dose. Your provider may
-                  adjust the dose after 4+ weeks based on your progress.
-                </p>
-              </div>
-              <div className="divide-y divide-gray-50">
-                {dosingScheduleItems.map((item, idx) => {
-                  const isCurrent = idx === currentDoseIndex;
-                  const isPast = now >= item.periodEnd;
-                  const isGrayed = currentDoseIndex >= 0 && idx < currentDoseIndex;
-                  return (
-                    <div
-                      key={`${item.prescriptionId}-${item.monthNumber}`}
-                      className="relative flex gap-3 px-4 py-4 sm:gap-4 sm:px-5 sm:py-5"
-                      style={isCurrent ? { backgroundColor: `${primaryColor}10` } : undefined}
+            <div className="space-y-4">
+              {dosingFamilyOrder.map((family) => {
+                const familyItems = dosingScheduleByFamily.get(family) ?? [];
+                if (familyItems.length === 0) return null;
+                const familyName = familyDisplayName(family, familyItems);
+                const cadence = familyItems[0]?.cadence;
+                const cadenceLabel = cadence
+                  ? cadenceDisplayLabel(cadence.cadence, cadence.cadenceWasInferred)
+                  : 'Schedule per provider';
+                const isMulti = dosingFamilyOrder.length > 1;
+                const familyHasCurrent = family === familyOfCurrentDose;
+                // Default collapse rule (only applies when ≥2 families):
+                // expanded by default for the family containing the
+                // current dose; collapsed for the rest. The user's
+                // explicit toggles in `collapsedFamilies` flip the
+                // default for that family.
+                const userToggled = collapsedFamilies.has(family);
+                const defaultCollapsed = isMulti && !familyHasCurrent;
+                const collapsed = userToggled ? !defaultCollapsed : defaultCollapsed;
+
+                // Per-family current/past computation (each family has its
+                // own week-1 anchor at its newest Rx's prescribedDate).
+                const familyCurrentIdx = familyItems.findIndex(
+                  (it) => now >= it.periodStart && now < it.periodEnd
+                );
+
+                return (
+                  <div
+                    key={family}
+                    className="overflow-hidden rounded-2xl bg-white shadow-lg shadow-gray-200/40"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!isMulti) return;
+                        toggleFamilyCollapse(family);
+                      }}
+                      className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left sm:px-5 sm:py-4 ${
+                        isMulti ? 'cursor-pointer' : 'cursor-default'
+                      }`}
+                      style={{ backgroundColor: `${primaryColor}08` }}
+                      aria-expanded={!collapsed}
+                      aria-controls={`dosing-family-${family}`}
                     >
-                      {/* Timeline connector */}
-                      <div className="flex flex-col items-center">
-                        <div
-                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold sm:h-10 sm:w-10 ${
-                            isCurrent
-                              ? 'text-white shadow-md'
-                              : isGrayed
-                                ? 'bg-gray-100 text-gray-400'
-                                : 'bg-gray-100 text-gray-500'
+                      <div className="flex min-w-0 flex-1 items-center gap-2">
+                        <p className="truncate text-sm font-semibold text-gray-900 sm:text-base">
+                          {familyName}
+                        </p>
+                        <span
+                          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold sm:text-xs ${
+                            cadence?.cadenceWasInferred
+                              ? 'bg-amber-50 text-amber-700'
+                              : 'bg-gray-100 text-gray-600'
                           }`}
-                          style={isCurrent ? { backgroundColor: primaryColor } : undefined}
                         >
-                          {item.monthNumber}
-                        </div>
-                        {idx < dosingScheduleItems.length - 1 && (
-                          <div
-                            className={`mt-1 w-0.5 flex-1 ${
-                              isGrayed ? 'bg-gray-200' : 'bg-gray-100'
-                            }`}
-                            style={isCurrent ? { backgroundColor: `${primaryColor}40` } : undefined}
-                          />
+                          {cadenceLabel}
+                        </span>
+                        {familyHasCurrent && (
+                          <span
+                            className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white sm:text-xs"
+                            style={{ backgroundColor: primaryColor }}
+                          >
+                            Current
+                          </span>
                         )}
                       </div>
-
-                      {/* Content */}
-                      <div className="min-w-0 flex-1 pb-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span
-                            className={`text-sm font-semibold sm:text-base ${
-                              isCurrent
-                                ? 'text-gray-900'
-                                : isGrayed
-                                  ? 'text-gray-400'
-                                  : 'text-gray-700'
-                            }`}
-                          >
-                            Month {item.monthNumber}
-                          </span>
-                          <span
-                            className={`text-[10px] font-semibold sm:text-xs ${
-                              isGrayed ? 'text-gray-300' : 'text-gray-400'
-                            }`}
-                          >
-                            Weeks {item.weekStart}&ndash;{item.weekEnd}
-                          </span>
-                          {isCurrent && (
-                            <span
-                              className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white sm:text-xs"
-                              style={{ backgroundColor: primaryColor }}
+                      {isMulti &&
+                        (collapsed ? (
+                          <ChevronDown className="h-4 w-4 shrink-0 text-gray-400" />
+                        ) : (
+                          <ChevronUp className="h-4 w-4 shrink-0 text-gray-400" />
+                        ))}
+                    </button>
+                    {!collapsed && (
+                      <div id={`dosing-family-${family}`} className="divide-y divide-gray-50">
+                        {familyItems.map((item, idxInFamily) => {
+                          const isCurrent = idxInFamily === familyCurrentIdx;
+                          const isPast = now >= item.periodEnd;
+                          const isGrayed =
+                            familyCurrentIdx >= 0 && idxInFamily < familyCurrentIdx;
+                          return (
+                            <div
+                              key={`${item.prescriptionId}-${item.family}-${item.monthNumber}`}
+                              className="relative flex gap-3 px-4 py-4 sm:gap-4 sm:px-5 sm:py-5"
+                              style={
+                                isCurrent ? { backgroundColor: `${primaryColor}10` } : undefined
+                              }
                             >
-                              Current
-                            </span>
-                          )}
-                          {isPast && (
-                            <span className="flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-400 sm:text-xs">
-                              <Check className="h-3 w-3" /> Done
-                            </span>
-                          )}
-                          {item.isTitration && !isPast && (
-                            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-600 sm:text-xs">
-                              Dose increase
-                            </span>
-                          )}
-                          {item.isSameDose && !isPast && !isCurrent && (
-                            <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-500 sm:text-xs">
-                              Dose stays the same
-                            </span>
-                          )}
-                        </div>
-
-                        <p
-                          className={`mt-0.5 text-xs sm:text-sm ${
-                            isGrayed ? 'text-gray-400' : 'text-gray-500'
-                          }`}
-                        >
-                          {item.medName}
-                          <span className="mx-1.5 text-gray-300">&middot;</span>
-                          Prescribed {formatDate(item.date)}
-                        </p>
-
-                        {/* Injection directions */}
-                        <div
-                          className={`mt-2 rounded-xl p-3 ${
-                            isCurrent ? 'border bg-white' : 'bg-gray-50'
-                          }`}
-                          style={isCurrent ? { borderColor: `${primaryColor}30` } : undefined}
-                        >
-                          {item.dose && (item.dose.mg || item.dose.units) ? (
-                            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                              <span
-                                className={`text-xs font-semibold uppercase tracking-wider ${
-                                  isGrayed ? 'text-gray-300' : 'text-gray-400'
-                                }`}
-                              >
-                                Inject weekly:
-                              </span>
-                              {item.dose.units && (
-                                <span
-                                  className={`text-lg font-bold uppercase sm:text-xl ${
-                                    isCurrent ? '' : isGrayed ? 'text-gray-300' : 'text-gray-700'
+                              {/* Timeline connector */}
+                              <div className="flex flex-col items-center">
+                                <div
+                                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold sm:h-10 sm:w-10 ${
+                                    isCurrent
+                                      ? 'text-white shadow-md'
+                                      : isGrayed
+                                        ? 'bg-gray-100 text-gray-400'
+                                        : 'bg-gray-100 text-gray-500'
                                   }`}
-                                  style={isCurrent ? { color: primaryColor } : undefined}
+                                  style={
+                                    isCurrent ? { backgroundColor: primaryColor } : undefined
+                                  }
                                 >
-                                  {item.dose.units} units
-                                </span>
-                              )}
-                              {item.dose.mg && (
-                                <span
-                                  className={`text-sm font-medium ${
-                                    isGrayed ? 'text-gray-300' : 'text-gray-500'
+                                  {item.monthNumber}
+                                </div>
+                                {idxInFamily < familyItems.length - 1 && (
+                                  <div
+                                    className={`mt-1 w-0.5 flex-1 ${
+                                      isGrayed ? 'bg-gray-200' : 'bg-gray-100'
+                                    }`}
+                                    style={
+                                      isCurrent
+                                        ? { backgroundColor: `${primaryColor}40` }
+                                        : undefined
+                                    }
+                                  />
+                                )}
+                              </div>
+
+                              {/* Content */}
+                              <div className="min-w-0 flex-1 pb-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span
+                                    className={`text-sm font-semibold sm:text-base ${
+                                      isCurrent
+                                        ? 'text-gray-900'
+                                        : isGrayed
+                                          ? 'text-gray-400'
+                                          : 'text-gray-700'
+                                    }`}
+                                  >
+                                    Month {item.monthNumber}
+                                  </span>
+                                  <span
+                                    className={`text-[10px] font-semibold sm:text-xs ${
+                                      isGrayed ? 'text-gray-300' : 'text-gray-400'
+                                    }`}
+                                  >
+                                    Weeks {item.weekStart}&ndash;{item.weekEnd}
+                                  </span>
+                                  {isCurrent && (
+                                    <span
+                                      className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white sm:text-xs"
+                                      style={{ backgroundColor: primaryColor }}
+                                    >
+                                      Current
+                                    </span>
+                                  )}
+                                  {isPast && (
+                                    <span className="flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-400 sm:text-xs">
+                                      <Check className="h-3 w-3" /> Done
+                                    </span>
+                                  )}
+                                  {item.isTitration && !isPast && (
+                                    <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-600 sm:text-xs">
+                                      Dose increase
+                                    </span>
+                                  )}
+                                  {item.isSameDose && !isPast && !isCurrent && (
+                                    <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-500 sm:text-xs">
+                                      Dose stays the same
+                                    </span>
+                                  )}
+                                </div>
+
+                                <p
+                                  className={`mt-0.5 text-xs sm:text-sm ${
+                                    isGrayed ? 'text-gray-400' : 'text-gray-500'
                                   }`}
                                 >
-                                  ({item.dose.mg} mg)
-                                </span>
-                              )}
+                                  {item.medName}
+                                  <span className="mx-1.5 text-gray-300">&middot;</span>
+                                  Prescribed {formatDate(item.date)}
+                                </p>
+
+                                {/* Injection directions */}
+                                <div
+                                  className={`mt-2 rounded-xl p-3 ${
+                                    isCurrent ? 'border bg-white' : 'bg-gray-50'
+                                  }`}
+                                  style={
+                                    isCurrent
+                                      ? { borderColor: `${primaryColor}30` }
+                                      : undefined
+                                  }
+                                >
+                                  {item.dose && (item.dose.mg || item.dose.units) ? (
+                                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                                      <span
+                                        className={`text-xs font-semibold uppercase tracking-wider ${
+                                          isGrayed ? 'text-gray-300' : 'text-gray-400'
+                                        }`}
+                                      >
+                                        {cadenceInjectVerb(cadence?.cadence)}:
+                                      </span>
+                                      {item.dose.units && (
+                                        <span
+                                          className={`text-lg font-bold uppercase sm:text-xl ${
+                                            isCurrent
+                                              ? ''
+                                              : isGrayed
+                                                ? 'text-gray-300'
+                                                : 'text-gray-700'
+                                          }`}
+                                          style={
+                                            isCurrent ? { color: primaryColor } : undefined
+                                          }
+                                        >
+                                          {item.dose.units} units
+                                        </span>
+                                      )}
+                                      {item.dose.mg && (
+                                        <span
+                                          className={`text-sm font-medium ${
+                                            isGrayed ? 'text-gray-300' : 'text-gray-500'
+                                          }`}
+                                        >
+                                          ({item.dose.mg} mg)
+                                        </span>
+                                      )}
+                                    </div>
+                                  ) : null}
+                                  <p
+                                    className={`${
+                                      item.dose && (item.dose.mg || item.dose.units)
+                                        ? 'mt-1.5'
+                                        : ''
+                                    } text-xs leading-relaxed sm:text-sm ${
+                                      isGrayed ? 'text-gray-300' : 'text-gray-600'
+                                    }`}
+                                  >
+                                    {item.directions}
+                                  </p>
+                                  {isCurrent && (
+                                    <p className="mt-2 flex items-center gap-1.5 text-[10px] font-medium text-gray-400 sm:text-xs">
+                                      <Calendar className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                                      {cadenceFooterLabel(cadence)}
+                                      &middot; {item.weekEnd - item.weekStart + 1} weeks at this
+                                      dose
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
                             </div>
-                          ) : null}
-                          <p
-                            className={`${item.dose && (item.dose.mg || item.dose.units) ? 'mt-1.5' : ''} text-xs leading-relaxed sm:text-sm ${
-                              isGrayed ? 'text-gray-300' : 'text-gray-600'
-                            }`}
-                          >
-                            {item.directions}
-                          </p>
-                          {isCurrent && (
-                            <p className="mt-2 flex items-center gap-1.5 text-[10px] font-medium text-gray-400 sm:text-xs">
-                              <Calendar className="h-3 w-3 sm:h-3.5 sm:w-3.5" />1 injection per week
-                              &middot; {item.weekEnd - item.weekStart + 1} weeks at this dose
-                            </p>
-                          )}
-                        </div>
+                          );
+                        })}
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

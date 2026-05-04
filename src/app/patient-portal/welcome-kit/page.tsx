@@ -1,13 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useClinicBranding, getContrastTextColor } from '@/lib/contexts/ClinicBrandingContext';
-import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
-import { portalFetch } from '@/lib/api/patient-portal-client';
-import { safeParseJson } from '@/lib/utils/safe-json';
-import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
-import { logger } from '@/lib/logger';
+import { useState, useEffect } from 'react';
 import {
   Play,
   Syringe,
@@ -21,6 +15,18 @@ import {
   ArrowLeft,
   PackageCheck,
 } from 'lucide-react';
+
+import { portalFetch } from '@/lib/api/patient-portal-client';
+import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
+import { useClinicBranding, getContrastTextColor } from '@/lib/contexts/ClinicBrandingContext';
+import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
+import { logger } from '@/lib/logger';
+import {
+  buildDosingSchedule,
+  getCurrentDoseIndex,
+  type DosingSchedulePrescription,
+} from '@/lib/utils/buildDosingSchedule';
+import { safeParseJson } from '@/lib/utils/safe-json';
 
 const INJECTION_VIDEO = {
   en: { id: 'RUxd5uk_lAc', title: 'How to Safely Apply a Semaglutide Injection at Home' },
@@ -57,157 +63,6 @@ interface Prescription {
 // ---------------------------------------------------------------------------
 // Helpers (shared logic with medications page)
 // ---------------------------------------------------------------------------
-
-function toTitleCase(value: string): string {
-  return value
-    .toLowerCase()
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
-    .join(' ');
-}
-
-function isSupplyMedication(name: string): boolean {
-  const n = (name || '').toLowerCase();
-  return (
-    n.includes('syringe') || n.includes('alcohol pad') || n.includes('needle') || n.includes('kit')
-  );
-}
-
-function isInjectableMedication(name: string): boolean {
-  const n = (name || '').toLowerCase();
-  return (
-    n.includes('semaglutide') ||
-    n.includes('tirzepatide') ||
-    n.includes('testosterone') ||
-    n.includes('sermorelin') ||
-    n.includes('bpc') ||
-    n.includes('tb-500')
-  );
-}
-
-function parseDoseFromDirections(directions: string): { mg: string; units: string } | null {
-  if (!directions) return null;
-  const m = directions.match(/inject\s+([\d.]+)\s*mg\s*\([^)]*?(\d+)\s*units?\)/i);
-  if (m?.[1] && m?.[2]) return { mg: m[1], units: m[2] };
-  const unitsWithMg = directions.match(/inject\s+(\d+)\s*units?\s*\(([\d.]+)\s*mg\)/i);
-  if (unitsWithMg?.[1] && unitsWithMg?.[2]) return { mg: unitsWithMg[2], units: unitsWithMg[1] };
-  const mgOnly = directions.match(/inject\s+([\d.]+)\s*mg/i);
-  if (mgOnly?.[1]) return { mg: mgOnly[1], units: '' };
-  const uOnly = directions.match(/inject\s+(\d+)\s*units?/i);
-  if (uOnly?.[1]) return { mg: '', units: uOnly[1] };
-  return null;
-}
-
-function reformatDirectionsUnitsFirst(directions: string): string {
-  if (!directions) return directions;
-  return directions.replace(
-    /inject\s+([\d.]+)\s*mg\s*\([^)]*?(\d+)\s*units?\)/gi,
-    (_, mg, units) => `Inject ${units} units (${mg} mg)`
-  );
-}
-
-function rewriteDirectionsForMonth(
-  directions: string,
-  monthLabel: string,
-  weeksInMonth: number
-): string {
-  let d = reformatDirectionsUnitsFirst(directions);
-  d = d.replace(/month\s+\d+(?:\s*[-–]\s*\d+)?:/i, `${monthLabel}:`);
-  d = d.replace(/for\s+\d+\s+weeks/i, `for ${weeksInMonth} weeks`);
-  return d;
-}
-
-function extractMgValue(...inputs: Array<string | null | undefined>): string | null {
-  for (const input of inputs) {
-    if (!input) continue;
-    const m = input.match(/(\d+(?:\.\d+)?)\s*mg/i);
-    if (m?.[1]) return m[1];
-  }
-  return null;
-}
-
-// Returns one segment per `Month N:` annotation in the SIG (1+ tags).
-// Returns null when the SIG has no month markers at all. Mirrors the
-// canonical implementation in rx-sig-parser.ts.
-function parseMultiMonthDirections(directions: string): Array<{
-  monthNumber: number;
-  segment: string;
-  dose: { mg: string; units: string } | null;
-  weeks: number;
-}> | null {
-  if (!directions) return null;
-
-  const monthMatches = [...directions.matchAll(/Month\s+(\d+)\s*:/gi)];
-  if (monthMatches.length < 1) return null;
-
-  const uniqueMonths = new Map<number, { index: number; matchLength: number }>();
-  for (const m of monthMatches) {
-    const num = parseInt(m[1]);
-    if (!uniqueMonths.has(num)) {
-      uniqueMonths.set(num, { index: m.index!, matchLength: m[0].length });
-    }
-  }
-
-  if (uniqueMonths.size < 1) return null;
-
-  const sorted = [...uniqueMonths.entries()].sort((a, b) => a[1].index - b[1].index);
-  const results: Array<{
-    monthNumber: number;
-    segment: string;
-    dose: { mg: string; units: string } | null;
-    weeks: number;
-  }> = [];
-
-  for (let i = 0; i < sorted.length; i++) {
-    const [monthNum, { index, matchLength }] = sorted[i];
-    const contentStart = index + matchLength;
-    const contentEnd = i < sorted.length - 1 ? sorted[i + 1][1].index : directions.length;
-
-    let segment = directions.slice(contentStart, contentEnd).trim();
-    segment = segment.replace(/\s*\|\s*$/, '').trim();
-    segment = segment.replace(/^Month\s+\d+\s*:\s*/i, '').trim();
-
-    const dose = parseDoseFromDirections(segment);
-    const weeksMatch = segment.match(/for\s+(\d+)\s+weeks?/i);
-    const weeks = weeksMatch ? parseInt(weeksMatch[1]) : 4;
-
-    results.push({ monthNumber: monthNum, segment, dose, weeks });
-  }
-
-  return results;
-}
-
-function extractMlValue(...inputs: Array<string | null | undefined>): string | null {
-  for (const input of inputs) {
-    if (!input) continue;
-    const m = input.match(/(\d+(?:\.\d+)?)\s*ml/i);
-    if (m?.[1]) return m[1];
-  }
-  return null;
-}
-
-function getMedicationDisplayName(med: RxMedication): string {
-  const medName = med.name || 'Medication';
-  if (medName.toLowerCase().includes('semaglutide')) {
-    const mg = extractMgValue(med.strength, med.name);
-    const vialMl = extractMlValue(med.quantity, med.name, med.form);
-    if (mg && vialMl) return `Semaglutide ${mg}mg/1ml (${vialMl}ml)`;
-    if (mg) return `Semaglutide ${mg}mg/1ml`;
-    if (vialMl) return `Semaglutide (${vialMl}ml)`;
-    return 'Semaglutide';
-  }
-  const cleanedName = medName
-    .replace(/\s+/g, ' ')
-    .trim()
-    .replace(/\s+solution\s+\d+mg\/\d+mg\/ml/i, '');
-  const normalized = toTitleCase(cleanedName);
-  const str = med.strength ? med.strength.toLowerCase().trim() : '';
-  if (!str || str.startsWith('solution')) {
-    return normalized;
-  }
-  return `${normalized} ${str}`;
-}
 
 function formatDate(iso: string): string {
   if (!iso) return '—';
@@ -251,144 +106,9 @@ export default function WelcomeKitPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Build dosing schedule from actual prescriptions
-  const dosingItems = (() => {
-    const sorted = [...prescriptions].sort(
-      (a, b) => new Date(a.prescribedDate).getTime() - new Date(b.prescribedDate).getTime()
-    );
-
-    const items: Array<{
-      monthNumber: number;
-      weekStart: number;
-      weekEnd: number;
-      date: string;
-      medName: string;
-      directions: string;
-      dose: { mg: string; units: string } | null;
-      isTitration: boolean;
-      isSameDose: boolean;
-      periodStart: Date;
-      periodEnd: Date;
-    }> = [];
-
-    let monthNum = 0;
-    let weekCursor = 1;
-    let prevDoseKey = '';
-    const firstPrescribedDate = sorted.length > 0 ? new Date(sorted[0].prescribedDate) : new Date();
-    const WEEKS_PER_MONTH = 4;
-
-    for (const order of sorted) {
-      const injectables = (order.medications ?? []).filter(
-        (m) => isInjectableMedication(m.name) && !isSupplyMedication(m.name)
-      );
-      if (injectables.length === 0) continue;
-
-      for (const med of injectables) {
-        const medName = getMedicationDisplayName(med);
-        const multiMonthDoses = parseMultiMonthDirections(med.directions);
-
-        // Trust any explicit `Month N:` annotation — even a single one — so
-        // a per-line OT package is rendered as exactly the periods the
-        // prescriber wrote, not extrapolated by the legacy vial-volume code.
-        if (multiMonthDoses && multiMonthDoses.length >= 1) {
-          for (const segment of multiMonthDoses) {
-            monthNum++;
-            const weekStart = weekCursor;
-            const weekEnd = weekCursor + segment.weeks - 1;
-
-            const dose = segment.dose;
-            const doseKey = dose ? `${dose.mg}-${dose.units}` : segment.segment;
-            const isTitration = prevDoseKey !== '' && doseKey !== prevDoseKey;
-            const isSameDose = prevDoseKey !== '' && doseKey === prevDoseKey;
-            prevDoseKey = doseKey;
-
-            const periodStart = new Date(firstPrescribedDate);
-            periodStart.setDate(periodStart.getDate() + (weekStart - 1) * 7);
-            const periodEnd = new Date(firstPrescribedDate);
-            periodEnd.setDate(periodEnd.getDate() + weekEnd * 7);
-
-            let displayDir = reformatDirectionsUnitsFirst(segment.segment);
-            displayDir = displayDir.replace(/for\s+\d+\s+weeks?/i, `for ${segment.weeks} weeks`);
-            displayDir = `Month ${monthNum}: ${displayDir}`;
-
-            items.push({
-              monthNumber: monthNum,
-              weekStart,
-              weekEnd,
-              date: order.prescribedDate,
-              medName,
-              directions: displayDir,
-              dose,
-              isTitration,
-              isSameDose,
-              periodStart,
-              periodEnd,
-            });
-
-            weekCursor += segment.weeks;
-          }
-        } else {
-          const weeksFromDaysSupply = med.daysSupply > 0 ? Math.round(med.daysSupply / 7) : 0;
-
-          let weeksFromVial = 0;
-          const vialMl = extractMlValue(med.quantity, med.name, med.form);
-          const parsedDose = parseDoseFromDirections(med.directions);
-          if (vialMl && parsedDose?.units) {
-            const mlPerInjection = parseFloat(parsedDose.units) / 100;
-            if (mlPerInjection > 0) {
-              weeksFromVial = Math.floor(parseFloat(vialMl) / mlPerInjection);
-            }
-          }
-
-          const weeks = Math.max(weeksFromDaysSupply, weeksFromVial) || 4;
-          const monthsCovered = Math.max(1, Math.ceil(weeks / WEEKS_PER_MONTH));
-
-          const dose = parseDoseFromDirections(med.directions);
-          const doseKey = dose ? `${dose.mg}-${dose.units}` : med.directions;
-          const isTitration = prevDoseKey !== '' && doseKey !== prevDoseKey;
-          const isSameDose = prevDoseKey !== '' && doseKey === prevDoseKey;
-          prevDoseKey = doseKey;
-
-          for (let m = 0; m < monthsCovered; m++) {
-            monthNum++;
-            const mWeekStart = weekCursor + m * WEEKS_PER_MONTH;
-            const mWeekEnd = Math.min(mWeekStart + WEEKS_PER_MONTH - 1, weekCursor + weeks - 1);
-
-            const periodStart = new Date(firstPrescribedDate);
-            periodStart.setDate(periodStart.getDate() + (mWeekStart - 1) * 7);
-            const periodEnd = new Date(firstPrescribedDate);
-            periodEnd.setDate(periodEnd.getDate() + mWeekEnd * 7);
-
-            const monthDirections = rewriteDirectionsForMonth(
-              med.directions,
-              `Month ${monthNum}`,
-              mWeekEnd - mWeekStart + 1
-            );
-
-            items.push({
-              monthNumber: monthNum,
-              weekStart: mWeekStart,
-              weekEnd: mWeekEnd,
-              date: order.prescribedDate,
-              medName,
-              directions: monthDirections,
-              dose,
-              isTitration: m === 0 ? isTitration : false,
-              isSameDose: m === 0 ? isSameDose : true,
-              periodStart,
-              periodEnd,
-            });
-          }
-
-          weekCursor += weeks;
-        }
-      }
-    }
-    return items;
-  })();
-
+  const dosingItems = buildDosingSchedule(prescriptions as DosingSchedulePrescription[]).items;
   const now = new Date();
-  const currentIdx = dosingItems.findIndex((d) => now >= d.periodStart && now < d.periodEnd);
+  const currentIdx = getCurrentDoseIndex(dosingItems, now);
 
   return (
     <div className="min-h-[100dvh] px-3 py-4 sm:px-4 sm:py-6">
