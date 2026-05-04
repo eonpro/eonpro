@@ -693,8 +693,15 @@ export function getOtProductFamilyKeysFromText(text: string): string[] {
 export type OtNonPharmacyChargeKind = 'bloodwork' | 'consult' | 'other';
 
 /**
- * Classify Stripe invoice lines that are not pharmacy SKU rows (bloodwork, consults, bundles).
- * Amount-only match helps when descriptions are empty in webhook sync.
+ * Classify Stripe invoice lines that are not pharmacy SKU rows (bloodwork,
+ * consults, bundles). Amount-only match helps when descriptions are empty
+ * in webhook sync.
+ *
+ * `blood\s*panel` was added 2026-05-03 (regression: David Quintero Inv
+ * 19339): without it, a Stripe line literally named "Blood Panel" classified
+ * as `'other'`, which made `isBloodworkOnly === false` upstream and caused
+ * the OT super-admin reconciliation editor to pull every phantom Rx from
+ * the Lifefile order shell into the meds list.
  */
 export function classifyOtNonPharmacyChargeLine(
   description: string,
@@ -703,7 +710,7 @@ export function classifyOtNonPharmacyChargeLine(
   const d = description.toLowerCase();
   if (
     amountCents === OT_BLOODWORK_STANDARD_FEE_CENTS ||
-    /\b(blood\s*work|bloodwork|lab\s*panel|quest|labcorp|phlebotom|cmp\b|cbc\b|baseline\s*lab|elite\s*performance\s*panel|full\s*optimization|minimalist\s*panel|womens?\s*(?:full\s*)?panel)\b/i.test(
+    /\b(blood\s*work|bloodwork|blood\s*panel|lab\s*panel|quest|labcorp|phlebotom|cmp\b|cbc\b|baseline\s*lab|elite\s*performance\s*panel|full\s*optimization|minimalist\s*panel|womens?\s*(?:full\s*)?panel)\b/i.test(
       description
     )
   ) {

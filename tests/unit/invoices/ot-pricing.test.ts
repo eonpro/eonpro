@@ -110,6 +110,30 @@ describe('ot-pricing', () => {
     expect(classifyOtNonPharmacyChargeLine('Custom bundle', 99_00)).toBe('other');
   });
 
+  it('classifyOtNonPharmacyChargeLine: "Blood Panel" variants classify as bloodwork (regression: David Quintero Inv 19339)', () => {
+    /**
+     * Without this rule, the OT super-admin reconciliation editor sees
+     * `isBloodworkOnly === false` for sales whose only non-fee invoice
+     * line is the literal string "Blood Panel" — and pulls in every
+     * phantom Rx attached to the Lifefile order shell, defaulting the
+     * row to a $200+ medications cost the patient never paid for.
+     * David Quintero Inv 19339 (2026-04-22) was the trigger: Stripe line
+     * "Blood Panel" $120 became -$211.43 net to clinic with TRT meds
+     * pre-loaded.
+     */
+    expect(classifyOtNonPharmacyChargeLine('Blood Panel', 12_000)).toBe('bloodwork');
+    expect(classifyOtNonPharmacyChargeLine('blood panel', 12_000)).toBe('bloodwork');
+    expect(classifyOtNonPharmacyChargeLine('BLOOD PANEL', 12_000)).toBe('bloodwork');
+    expect(classifyOtNonPharmacyChargeLine('Blood Panel - Full', 12_000)).toBe('bloodwork');
+  });
+
+  it('classifyOtNonPharmacyChargeLine: existing classifications still work', () => {
+    /** Sanity guard: the new "blood panel" rule must not over-match. */
+    expect(classifyOtNonPharmacyChargeLine('Sermorelin Injection', 19_900)).toBe('other');
+    expect(classifyOtNonPharmacyChargeLine('TRT Plus 6 month', 128_500)).toBe('other');
+    expect(classifyOtNonPharmacyChargeLine('Membership renewal', 5000)).toBe('consult');
+  });
+
   it('findPriorPaidOtPrescriptionInvoice picks latest prior by paidAt, tie-break by id', () => {
     const d0 = new Date('2025-01-01T12:00:00Z');
     const d1 = new Date('2025-02-01T12:00:00Z');
