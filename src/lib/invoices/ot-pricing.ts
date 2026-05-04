@@ -383,8 +383,16 @@ export function inferOtPharmacyUnitPriceFromRx(rx: {
   }
   if (blob.includes('tadalafil')) return row(2000, rx.medName, rx.strength, rx.form || '');
   if (blob.includes('anastrozole')) return row(1500, rx.medName, rx.strength, rx.form || '');
-  if (blob.includes('hcg') || blob.includes('gonadotropin'))
-    return row(2500, rx.medName, rx.strength, rx.form || '');
+  /**
+   * HCG / Pregnyl: $240/fill clinic COGS (stakeholder direction
+   * 2026-05-03 — Knowles Inv 19340 regression). Was $25 — wrong by
+   * $215/unit. The package catalog already has HCG at $240 (3-month
+   * fill); this aligns the Rx-loop fallback with that single source
+   * of truth so any HCG sale that doesn't match a catalog tier (e.g.
+   * unusual gross) still resolves to $240.
+   */
+  if (blob.includes('hcg') || blob.includes('pregnyl') || blob.includes('gonadotropin'))
+    return row(24000, rx.medName, rx.strength, rx.form || '');
 
   return undefined;
 }

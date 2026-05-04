@@ -307,6 +307,70 @@ describe('ot-pricing', () => {
     ).toBe(4000);
   });
 
+  it('inferOtPharmacyUnitPriceFromRx: HCG / Pregnyl always cost the clinic $240 (stakeholder direction 2026-05-03)', () => {
+    /**
+     * Regression: Knowles Inv 19340 (Pregnyl 10,000 IU HCG) priced
+     * the medication line at $25 in the Rx loop fallback when the
+     * package matcher missed (e.g. patient gross != catalog tier).
+     * Stakeholder rule: HCG / Pregnyl is $240 to the clinic per fill,
+     * regardless of which code path resolves the price.
+     */
+    expect(
+      inferOtPharmacyUnitPriceFromRx({
+        medicationKey: 'x',
+        medName: 'HCG',
+        strength: '',
+        form: 'INJ',
+      })?.priceCents,
+    ).toBe(24000);
+
+    expect(
+      inferOtPharmacyUnitPriceFromRx({
+        medicationKey: 'x',
+        medName: 'Pregnyl 10,000 IU (HCG)',
+        strength: '10,000 IU',
+        form: 'INJ',
+      })?.priceCents,
+    ).toBe(24000);
+
+    expect(
+      inferOtPharmacyUnitPriceFromRx({
+        medicationKey: 'x',
+        medName: 'Human Chorionic Gonadotropin',
+        strength: '',
+        form: 'INJ',
+      })?.priceCents,
+    ).toBe(24000);
+  });
+
+  it('inferOtPharmacyUnitPriceFromRx: existing meds unchanged (sanity)', () => {
+    /** Defensive: the HCG bump must not perturb other meds. */
+    expect(
+      inferOtPharmacyUnitPriceFromRx({
+        medicationKey: 'x',
+        medName: 'Testosterone Cypionate 200mg/ml',
+        strength: '200mg/ml',
+        form: 'INJ',
+      })?.priceCents,
+    ).toBe(3500);
+    expect(
+      inferOtPharmacyUnitPriceFromRx({
+        medicationKey: 'x',
+        medName: 'Anastrozole 0.25mg',
+        strength: '0.25mg',
+        form: 'CAP',
+      })?.priceCents,
+    ).toBe(1500);
+    expect(
+      inferOtPharmacyUnitPriceFromRx({
+        medicationKey: 'x',
+        medName: 'Tadalafil 5mg',
+        strength: '5mg',
+        form: 'CAP',
+      })?.priceCents,
+    ).toBe(2000);
+  });
+
   it('effectiveOtPharmacyBillQuantity: oral / enclomiphene uses 1 package, not tab count', () => {
     expect(
       effectiveOtPharmacyBillQuantity({
