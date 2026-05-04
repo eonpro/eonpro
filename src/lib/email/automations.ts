@@ -94,33 +94,51 @@ export interface AutomationConfig {
   customSubject?: string;
   recipientType: 'patient' | 'provider' | 'admin' | 'custom';
   customRecipient?: string;
+  /** Optional SMS channel toggle consulted by notification orchestrators. */
+  smsEnabled?: boolean;
+  /** null = platform default; a numeric id = clinic-scoped override. */
+  clinicId?: number | null;
 }
 
-// Default automation configurations
+// Default automation configurations. The `smsEnabled` defaults here deliberately
+// match the seed values in `20260425000000_add_email_automation_config` so the
+// in-memory fallback path behaves the same as the DB-backed path.
 const DEFAULT_AUTOMATIONS: AutomationConfig[] = [
   {
     trigger: AutomationTrigger.PATIENT_WELCOME,
     enabled: true,
     delayMinutes: 0,
     recipientType: 'patient',
+    smsEnabled: true,
   },
   {
     trigger: AutomationTrigger.APPOINTMENT_BOOKED,
     enabled: true,
     delayMinutes: 0,
     recipientType: 'patient',
+    smsEnabled: true,
   },
   {
     trigger: AutomationTrigger.ORDER_CONFIRMED,
     enabled: true,
     delayMinutes: 0,
     recipientType: 'patient',
+    smsEnabled: true,
   },
   {
     trigger: AutomationTrigger.PAYMENT_RECEIVED,
     enabled: true,
     delayMinutes: 0,
     recipientType: 'patient',
+    // Ship SMS disabled by default until legal/compliance approves copy.
+    smsEnabled: false,
+  },
+  {
+    trigger: AutomationTrigger.PRESCRIPTION_READY,
+    enabled: true,
+    delayMinutes: 0,
+    recipientType: 'patient',
+    smsEnabled: true,
   },
   {
     trigger: AutomationTrigger.PASSWORD_RESET,
@@ -128,6 +146,7 @@ const DEFAULT_AUTOMATIONS: AutomationConfig[] = [
     delayMinutes: 0,
     recipientType: 'patient',
     template: EmailTemplate.PASSWORD_RESET,
+    smsEnabled: false,
   },
 ];
 
@@ -153,11 +172,11 @@ export async function triggerAutomation(
   const { trigger, recipientEmail, recipientUserId, clinicId, data, priority } = params;
 
   try {
-    // Get automation config (from database or defaults)
-    const config = await getAutomationConfig(trigger);
+    // Get automation config (clinic-scoped if clinicId provided, then platform default)
+    const config = await getAutomationConfig(trigger, clinicId ?? undefined);
 
     if (!config || !config.enabled) {
-      logger.debug('Automation disabled or not found', { trigger });
+      logger.debug('Automation disabled or not found', { trigger, clinicId });
       return { success: false, error: 'Automation not enabled' };
     }
 
@@ -258,24 +277,87 @@ async function scheduleEmail(
 }
 
 /**
- * Get automation configuration
+ * Get automation configuration for a trigger, optionally scoped to a clinic.
+ *
+ * Resolution order (first match wins):
+ *   1. Clinic-specific row in `EmailAutomation` (if `clinicId` provided).
+ *   2. Platform-default row (clinicId IS NULL) in `EmailAutomation`.
+ *   3. In-memory `DEFAULT_AUTOMATIONS` fallback (used if the DB is unreachable
+ *      or the table has not been seeded yet).
+ *
+ * Exported so shared notification orchestrators can consult toggles directly.
  */
-async function getAutomationConfig(trigger: AutomationTrigger): Promise<AutomationConfig | null> {
-  // Try to get from database first
-  // const dbConfig = await prisma.emailAutomation.findUnique({
-  //   where: { trigger },
-  // });
-  // if (dbConfig) return dbConfig;
-
-  // Fall back to defaults
-  return (
+export async function getAutomationConfig(
+  trigger: AutomationTrigger,
+  clinicId?: number
+): Promise<AutomationConfig | null> {
+  const fallback =
     DEFAULT_AUTOMATIONS.find((a) => a.trigger === trigger) || {
       trigger,
       enabled: true,
       delayMinutes: 0,
       recipientType: 'patient' as const,
+      smsEnabled: true,
+    };
+
+  try {
+    // 1) Clinic-scoped override
+    if (typeof clinicId === 'number') {
+      const clinicRow = await prisma.emailAutomation.findFirst({
+        where: { clinicId, trigger },
+      });
+      if (clinicRow) {
+        return toAutomationConfig(clinicRow, fallback);
+      }
     }
-  );
+
+    // 2) Platform default from DB (seeded via migration)
+    const defaultRow = await prisma.emailAutomation.findFirst({
+      where: { clinicId: null, trigger },
+    });
+    if (defaultRow) {
+      return toAutomationConfig(defaultRow, fallback);
+    }
+  } catch (err) {
+    // DB read failures must never silently disable automations — fall back to
+    // defaults rather than blocking comms when the table is reachable but slow.
+    logger.warn('[getAutomationConfig] DB lookup failed, using defaults', {
+      trigger,
+      clinicId,
+      error: err instanceof Error ? err.message : 'Unknown',
+    });
+  }
+
+  // 3) In-memory fallback
+  return fallback;
+}
+
+/**
+ * Narrow a raw `EmailAutomation` row into the public `AutomationConfig` shape,
+ * preserving the `recipientType`/`template` defaults from the in-memory config.
+ */
+function toAutomationConfig(
+  row: {
+    trigger: string;
+    enabled: boolean;
+    delayMinutes: number;
+    customSubject: string | null;
+    smsEnabled: boolean;
+    clinicId: number | null;
+  },
+  fallback: AutomationConfig
+): AutomationConfig {
+  return {
+    trigger: row.trigger as AutomationTrigger,
+    enabled: row.enabled,
+    delayMinutes: row.delayMinutes,
+    customSubject: row.customSubject ?? undefined,
+    smsEnabled: row.smsEnabled,
+    clinicId: row.clinicId,
+    recipientType: fallback.recipientType,
+    template: fallback.template,
+    customRecipient: fallback.customRecipient,
+  };
 }
 
 /**
@@ -441,30 +523,116 @@ export async function sendPrescriptionReadyEmail(prescription: {
 // ============================================
 
 /**
- * Get all automation configurations
+ * Get all automation configurations (platform defaults merged with optional
+ * clinic overrides). If `clinicId` is provided, overrides for that clinic
+ * replace the platform default in the result list.
  */
-export async function getAllAutomations(): Promise<AutomationConfig[]> {
-  // TODO: Fetch from database merged with defaults
-  return DEFAULT_AUTOMATIONS;
+export async function getAllAutomations(clinicId?: number): Promise<AutomationConfig[]> {
+  const triggers = Object.values(AutomationTrigger);
+  const result: AutomationConfig[] = [];
+
+  try {
+    const rows = await prisma.emailAutomation.findMany({
+      where: {
+        OR: [{ clinicId: null }, ...(typeof clinicId === 'number' ? [{ clinicId }] : [])],
+      },
+    });
+    const clinicRows = new Map<string, typeof rows[number]>();
+    const defaultRows = new Map<string, typeof rows[number]>();
+    for (const row of rows) {
+      if (row.clinicId === null) {
+        defaultRows.set(row.trigger, row);
+      } else if (row.clinicId === clinicId) {
+        clinicRows.set(row.trigger, row);
+      }
+    }
+
+    for (const trigger of triggers) {
+      const fallback =
+        DEFAULT_AUTOMATIONS.find((a) => a.trigger === trigger) || {
+          trigger,
+          enabled: true,
+          delayMinutes: 0,
+          recipientType: 'patient' as const,
+          smsEnabled: true,
+        };
+      const chosen = clinicRows.get(trigger) || defaultRows.get(trigger);
+      result.push(chosen ? toAutomationConfig(chosen, fallback) : fallback);
+    }
+    return result;
+  } catch (err) {
+    logger.warn('[getAllAutomations] DB read failed, returning defaults', {
+      clinicId,
+      error: err instanceof Error ? err.message : 'Unknown',
+    });
+    return DEFAULT_AUTOMATIONS;
+  }
 }
 
 /**
- * Update automation configuration
+ * Upsert an automation configuration. When `clinicId` is omitted the platform
+ * default is updated; when provided a clinic-scoped override is created or
+ * updated, leaving the platform default untouched.
  */
 export async function updateAutomation(
   trigger: AutomationTrigger,
-  config: Partial<AutomationConfig>
+  config: Partial<AutomationConfig>,
+  clinicId?: number
 ): Promise<AutomationConfig> {
-  // TODO: Save to database
-  logger.info('Automation config updated', { trigger, config });
+  const fallback =
+    DEFAULT_AUTOMATIONS.find((a) => a.trigger === trigger) || {
+      trigger,
+      enabled: true,
+      delayMinutes: 0,
+      recipientType: 'patient' as const,
+      smsEnabled: true,
+    };
 
-  return {
-    trigger,
-    enabled: config.enabled ?? true,
-    delayMinutes: config.delayMinutes ?? 0,
-    recipientType: config.recipientType ?? 'patient',
-    ...config,
-  };
+  try {
+    const scopeClinicId = typeof clinicId === 'number' ? clinicId : null;
+    const existing = await prisma.emailAutomation.findFirst({
+      where: { clinicId: scopeClinicId, trigger },
+    });
+
+    const data = {
+      clinicId: scopeClinicId,
+      trigger,
+      enabled: config.enabled ?? existing?.enabled ?? fallback.enabled,
+      delayMinutes: config.delayMinutes ?? existing?.delayMinutes ?? fallback.delayMinutes ?? 0,
+      customSubject:
+        config.customSubject !== undefined ? config.customSubject : existing?.customSubject,
+      smsEnabled:
+        config.smsEnabled ?? existing?.smsEnabled ?? fallback.smsEnabled ?? true,
+    };
+
+    const row = existing
+      ? await prisma.emailAutomation.update({
+          where: { id: existing.id },
+          data,
+        })
+      : await prisma.emailAutomation.create({ data });
+
+    logger.info('Automation config updated', {
+      trigger,
+      clinicId: scopeClinicId,
+      id: row.id,
+      enabled: row.enabled,
+      smsEnabled: row.smsEnabled,
+    });
+    return toAutomationConfig(row, fallback);
+  } catch (err) {
+    logger.error('[updateAutomation] DB write failed', {
+      trigger,
+      clinicId,
+      error: err instanceof Error ? err.message : 'Unknown',
+    });
+    // Return an in-memory merge so callers do not crash on transient DB errors.
+    return {
+      ...fallback,
+      ...config,
+      trigger,
+    };
+  }
 }
 
 /**

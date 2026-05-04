@@ -295,8 +295,9 @@ model Clinic {
   notifications Notification[]
 
   // Email System
-  emailLogs       EmailLog[]
-  scheduledEmails ScheduledEmail[]
+  emailLogs        EmailLog[]
+  scheduledEmails  ScheduledEmail[]
+  emailAutomations EmailAutomation[]
 
   // PLATFORM BILLING: Per-clinic fee configuration and invoicing
   platformFeeConfig          ClinicPlatformFeeConfig?

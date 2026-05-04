@@ -2191,6 +2191,8 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
           select: { id: true, status: true },
         });
         if (alreadyPrescribed) {
+          // Already handled by another provider — skip patient notification to
+          // avoid duplicate messages.
           return NextResponse.json({
             success: true,
             message: 'Refill already marked as processed by another provider',
@@ -2208,6 +2210,44 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
         processedBy: user.email,
         providerId,
       });
+
+      // Patient-facing comms on prescription approval (email + SMS).
+      // Fire-and-forget; shared helper handles PHI decryption, smsConsent, and
+      // per-clinic automation toggles.
+      try {
+        const refillRow = await prisma.refillQueue.findUnique({
+          where: { id: refillId },
+          select: {
+            patientId: true,
+            medicationName: true,
+            medicationStrength: true,
+            planName: true,
+          },
+        });
+        if (refillRow) {
+          const medicationName =
+            [refillRow.medicationName, refillRow.medicationStrength]
+              .filter(Boolean)
+              .join(' ')
+              .trim() ||
+            refillRow.planName ||
+            'your medication';
+          const { notifyPrescriptionReady } = await import('@/lib/notifications');
+          await notifyPrescriptionReady({
+            patientId: refillRow.patientId,
+            prescriptionRef: `refill-${refillId}`,
+            medicationName,
+            source: 'refill',
+            sourceEntityId: refillId,
+            providerId: providerId ?? undefined,
+          });
+        }
+      } catch (notifyErr) {
+        logger.warn('[PRESCRIPTION-QUEUE] notifyPrescriptionReady failed (non-fatal)', {
+          refillId,
+          error: notifyErr instanceof Error ? notifyErr.message : 'Unknown',
+        });
+      }
 
       return NextResponse.json({
         success: true,
@@ -2237,6 +2277,7 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
         select: { id: true, prescriptionProcessedAt: true },
       });
       if (alreadyProcessed) {
+        // Already handled by another provider — skip patient notification.
         return NextResponse.json({
           success: true,
           message: 'Already processed by another provider',
@@ -2259,6 +2300,52 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
       processedBy: user.email,
       providerId,
     });
+
+    // Patient-facing comms on prescription approval (email + SMS).
+    try {
+      const invoiceRow = await prisma.invoice.findUnique({
+        where: { id: invoiceId },
+        select: {
+          patientId: true,
+          description: true,
+          metadata: true,
+          items: {
+            select: { description: true },
+            take: 1,
+          },
+        },
+      });
+      if (invoiceRow) {
+        const meta = (invoiceRow.metadata as Record<string, unknown> | null) || {};
+        const preferredMedication =
+          typeof meta.preferredMedication === 'string' ? meta.preferredMedication : null;
+        const productName = typeof meta.product === 'string' ? meta.product : null;
+        const medicationType =
+          typeof meta.medicationType === 'string' ? meta.medicationType : null;
+        const firstLineItem = invoiceRow.items?.[0]?.description || null;
+        const medicationName =
+          preferredMedication ||
+          [productName, medicationType].filter(Boolean).join(' ').trim() ||
+          firstLineItem ||
+          invoiceRow.description ||
+          'your medication';
+
+        const { notifyPrescriptionReady } = await import('@/lib/notifications');
+        await notifyPrescriptionReady({
+          patientId: invoiceRow.patientId,
+          prescriptionRef: `invoice-${invoiceId}`,
+          medicationName,
+          source: 'invoice',
+          sourceEntityId: invoiceId,
+          providerId: providerId ?? undefined,
+        });
+      }
+    } catch (notifyErr) {
+      logger.warn('[PRESCRIPTION-QUEUE] notifyPrescriptionReady failed (non-fatal)', {
+        invoiceId,
+        error: notifyErr instanceof Error ? notifyErr.message : 'Unknown',
+      });
+    }
 
     return NextResponse.json({
       success: true,

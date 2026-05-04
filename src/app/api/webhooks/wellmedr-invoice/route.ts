@@ -1727,6 +1727,28 @@ export async function POST(req: NextRequest) {
         });
       }
 
+      // Patient-facing comms on payment (portal invite + receipt email + receipt SMS).
+      // Fire-and-forget; the shared orchestrator handles idempotency so we cannot
+      // double-notify a patient whose payment also arrives through the Stripe Connect
+      // webhook path (`payment_intent.succeeded`).
+      try {
+        const { notifyPaymentReceived } = await import('@/lib/notifications');
+        await notifyPaymentReceived({
+          patientId: verifiedPatient.id,
+          invoiceId: invoice.id,
+          amountCents: amountInCents,
+          paymentSource: 'airtable_wellmedr_invoice',
+          invoiceNumber,
+          description: productName,
+        });
+      } catch (notifyErr) {
+        logger.warn(`[WELLMEDR-INVOICE ${requestId}] notifyPaymentReceived failed (non-fatal)`, {
+          patientId: verifiedPatient.id,
+          invoiceId: invoice.id,
+          error: notifyErr instanceof Error ? notifyErr.message : 'Unknown',
+        });
+      }
+
       const duration = Date.now() - startTime;
       logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ SUCCESS in ${duration}ms`, {
         invoiceId: invoice.id,
