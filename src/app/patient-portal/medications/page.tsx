@@ -868,7 +868,7 @@ END:VCALENDAR`;
               </div>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-px bg-gray-100 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-px bg-gray-100">
             <div className="bg-white p-3 text-center sm:p-4">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 sm:text-xs">
                 Status
@@ -880,18 +880,8 @@ END:VCALENDAR`;
                 {billingPlan.status}
               </p>
             </div>
-            {billingPlan.nextBillingDate && (
-              <div className="bg-white p-3 text-center sm:p-4">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 sm:text-xs">
-                  Next Billing
-                </p>
-                <p className="mt-0.5 text-xs font-bold text-gray-900 sm:mt-1 sm:text-sm">
-                  {formatDate(billingPlan.nextBillingDate)}
-                </p>
-              </div>
-            )}
             {billingPlan.startDate && (
-              <div className="col-span-2 bg-white p-3 text-center sm:col-span-1 sm:p-4">
+              <div className="bg-white p-3 text-center sm:p-4">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 sm:text-xs">
                   Started
                 </p>
