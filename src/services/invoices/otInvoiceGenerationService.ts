@@ -993,9 +993,23 @@ async function loadOtPatientSalesRepAssignments(
   const map = new Map<number, { salesRepId: number; salesRepName: string }>();
   if (patientIds.length === 0) return map;
 
+  /**
+   * No `clinicId` filter on the assignment row (2026-05-03 stakeholder
+   * direction — Quintero/Inv 19339 regression). The patient is already
+   * scoped to the OT clinic via `patientIds`, and the
+   * `/admin/sales-rep/sales-tracker` page surfaces ANY active assignment
+   * for the patient regardless of clinicId. The OT editor must agree —
+   * otherwise tracker-assigned reps appeared as "No rep assigned" in the
+   * editor whenever the assignment row's clinicId did not exactly match
+   * the OT clinic id (e.g. legacy assignments created before the clinic
+   * id was migrated).
+   *
+   * `clinicId` parameter is kept on the signature for future use (e.g.
+   * audit logging) but is no longer used in the query.
+   */
+  void clinicId;
   const assignments = await basePrisma.patientSalesRepAssignment.findMany({
     where: {
-      clinicId,
       patientId: { in: patientIds },
       isActive: true,
     },
@@ -1156,6 +1170,89 @@ export async function loadOtActorAttributions(
   }
 
   return { byInvoiceDbId, byPaymentId };
+}
+
+/**
+ * Per-payment lookup of reps assigned via the manual sales tracker
+ * (`/admin/sales-rep/sales-tracker`). Phase 5 of OT rep attribution
+ * (2026-05-03 stakeholder direction — Quintero/Inv 19339).
+ *
+ * Sales tracker dispositions write `salesRepCommissionEvent` rows with:
+ *   `isManual: true`, `metadata: { source: 'sales_tracker', paymentId }`
+ *
+ * The OT editor's existing `loadOtSalesRepCommissionLookup` only finds
+ * events by `stripeObjectId` (covers webhook-driven events). Without this
+ * loader, tracker dispositions for a payment never surface as the rep on
+ * the OT reconciliation row even though they appear correctly in the
+ * sales tracker UI.
+ *
+ * Returns the LATEST event per payment (highest id wins) to handle
+ * re-dispositions where staff change the assigned rep over time.
+ *
+ * Skips events whose metadata.source is not `sales_tracker` so
+ * webhook-driven events (covered by other lookup paths) aren't
+ * double-counted here.
+ */
+export async function loadOtSalesTrackerRepByPaymentId(
+  paymentIds: number[]
+): Promise<Map<number, { salesRepId: number; salesRepName: string }>> {
+  const map = new Map<number, { salesRepId: number; salesRepName: string }>();
+  if (paymentIds.length === 0) return map;
+
+  const events = await basePrisma.salesRepCommissionEvent.findMany({
+    where: {
+      isManual: true,
+      status: { not: 'REVERSED' },
+      OR: paymentIds.map((id) => ({
+        metadata: { path: ['paymentId'], equals: id },
+      })),
+    },
+    /** Latest disposition wins on re-disposition. */
+    orderBy: { id: 'desc' },
+    select: {
+      id: true,
+      salesRepId: true,
+      metadata: true,
+    },
+  });
+
+  /**
+   * First pass: collect (paymentId → salesRepId), keeping only the highest
+   * id per payment (since results are ordered desc, first sighting wins).
+   */
+  const repIdByPaymentId = new Map<number, number>();
+  for (const ev of events) {
+    const md = ev.metadata as Record<string, unknown> | null;
+    if (!md) continue;
+    if (md.source !== 'sales_tracker') continue;
+    const pidRaw = md.paymentId;
+    const pid =
+      typeof pidRaw === 'number'
+        ? pidRaw
+        : typeof pidRaw === 'string'
+          ? parseInt(pidRaw, 10)
+          : null;
+    if (pid == null || !Number.isFinite(pid)) continue;
+    if (repIdByPaymentId.has(pid)) continue; // first (= latest by id) wins
+    repIdByPaymentId.set(pid, ev.salesRepId);
+  }
+
+  if (repIdByPaymentId.size === 0) return map;
+
+  const repIds = [...new Set(repIdByPaymentId.values())];
+  const reps = await basePrisma.user.findMany({
+    where: { id: { in: repIds } },
+    select: { id: true, firstName: true, lastName: true },
+  });
+  const labelById = new Map(reps.map((u) => [u.id, `${u.lastName}, ${u.firstName}`]));
+
+  for (const [pid, repId] of repIdByPaymentId) {
+    map.set(pid, {
+      salesRepId: repId,
+      salesRepName: labelById.get(repId) ?? `User #${repId}`,
+    });
+  }
+  return map;
 }
 
 /**
@@ -1848,6 +1945,7 @@ export async function generateOtDailyInvoices(
     patientSalesRepAssignments,
     patientPurchaseHistory,
     actorAttributions,
+    salesTrackerRepByPaymentId,
   ] = await Promise.all([
     loadOtPaidPrescriptionInvoicesByPatient(clinicId, patientIdsForDoctorFee),
     loadOtPatientSalesRepAssignments(clinicId, allPatientIdsForRepFallback),
@@ -1860,7 +1958,32 @@ export async function generateOtDailyInvoices(
      */
     loadOtPatientPurchaseHistory(clinicId, allPatientIdsForRepFallback),
     loadOtActorAttributions(invoiceDbIdsForActorLookup, paymentIdsForActorLookup),
+    /**
+     * Per-payment lookup of reps assigned via the manual sales tracker
+     * (2026-05-03 stakeholder direction — Quintero/Inv 19339). Used as the
+     * THIRD link in the rep fallback chain — between actor metadata and
+     * the patient profile assignment. See `loadOtSalesTrackerRepByPaymentId`.
+     */
+    loadOtSalesTrackerRepByPaymentId(paymentIdsForActorLookup),
   ]);
+
+  /**
+   * Derived view: sales-tracker rep by invoiceDbId, computed by joining
+   * the per-payment lookup against `paymentCollections` (which has the
+   * invoiceId for each payment). Used by the Rx loop, which keys on
+   * invoiceDbId; the non-Rx loop already has the paymentId in scope.
+   */
+  const salesTrackerRepByInvoiceDbId = new Map<
+    number,
+    { salesRepId: number; salesRepName: string }
+  >();
+  for (const pc of paymentCollections) {
+    if (pc.invoiceId == null) continue;
+    const rep = salesTrackerRepByPaymentId.get(pc.paymentId);
+    if (!rep) continue;
+    if (salesTrackerRepByInvoiceDbId.has(pc.invoiceId)) continue;
+    salesTrackerRepByInvoiceDbId.set(pc.invoiceId, rep);
+  }
 
   const pharmacyLineItems: OtPharmacyLineItem[] = [];
   const shippingLineItems: OtShippingLineItem[] = [];
@@ -2107,14 +2230,16 @@ export async function generateOtDailyInvoices(
         : null;
     const salesRepCommissionCents = comm?.commissionAmountCents ?? 0;
     /**
-     * Rep selection fallback chain (per stakeholder direction 2026-05-02
-     * + 2026-05-03 actor-attribution extension):
+     * Rep selection fallback chain (per stakeholder direction 2026-05-02 +
+     * 2026-05-03 actor-attribution + sales-tracker-fallback extensions):
      *   1. SalesRepCommissionEvent ledger entry for this Stripe invoice.
      *   2. Actor stamped on `Invoice.metadata.actorUserId` /
      *      `Payment.metadata.actorUserId` at creation (covers webhook
      *      misses + sales pre-dating the auto-attribution feature).
-     *   3. Active PatientSalesRepAssignment on the patient profile.
-     *   4. None.
+     *   3. Sales-tracker disposition on this payment (covers manual
+     *      assignments made via /admin/sales-rep/sales-tracker).
+     *   4. Active PatientSalesRepAssignment on the patient profile.
+     *   5. None.
      * The commission $ amount itself stays at the ledger value (or 0 when
      * absent) — only the rep identity is fallen-back. The auto-rate logic
      * in `buildDefaultOverridePayload` then computes commission from the
@@ -2122,15 +2247,23 @@ export async function generateOtDailyInvoices(
      */
     const actorFromInvoice =
       invDbId != null ? (actorAttributions.byInvoiceDbId.get(invDbId) ?? null) : null;
+    const trackerRep =
+      invDbId != null ? (salesTrackerRepByInvoiceDbId.get(invDbId) ?? null) : null;
     const fallbackAssignment = patientSalesRepAssignments.get(order.patientId) ?? null;
     const salesRepId =
-      comm?.salesRepId ?? actorFromInvoice?.salesRepId ?? fallbackAssignment?.salesRepId ?? null;
+      comm?.salesRepId ??
+      actorFromInvoice?.salesRepId ??
+      trackerRep?.salesRepId ??
+      fallbackAssignment?.salesRepId ??
+      null;
     let salesRepName: string | null;
     if (comm != null && comm.salesRepId === salesRepId) {
       salesRepName =
         salesRepLookup.repLabelById.get(comm.salesRepId) ?? `User #${comm.salesRepId}`;
     } else if (actorFromInvoice != null && actorFromInvoice.salesRepId === salesRepId) {
       salesRepName = actorFromInvoice.salesRepName;
+    } else if (trackerRep != null && trackerRep.salesRepId === salesRepId) {
+      salesRepName = trackerRep.salesRepName;
     } else {
       salesRepName = fallbackAssignment?.salesRepName ?? null;
     }
@@ -2493,15 +2626,16 @@ export async function generateOtDailyInvoices(
     /**
      * Resolve the assigned rep using the same fallback chain as the Rx
      * loop (per stakeholder direction 2026-05-02 + 2026-05-03 actor
-     * extension):
+     * + 2026-05-03 sales-tracker extensions):
      *   1. SalesRepCommissionEvent ledger entry for the row's Stripe invoice.
      *   2. Actor stamped on `Invoice.metadata.actorUserId` /
      *      `Payment.metadata.actorUserId` at creation.
-     *   3. Active PatientSalesRepAssignment on the patient profile.
-     *   4. None.
-     * Standalone (invoice-less) payment rows can still hit the actor
-     * fallback through `byPaymentId` even though they have no Stripe
-     * invoice — that's the whole point of the Payment-side stamp.
+     *   3. Sales-tracker disposition on the row's payment.
+     *   4. Active PatientSalesRepAssignment on the patient profile.
+     *   5. None.
+     * Standalone (invoice-less) payment rows can still hit the actor and
+     * sales-tracker fallbacks via the per-payment lookups even though
+     * they have no Stripe invoice — that's the whole point.
      */
     const stripeInvId =
       row.invoiceDbId != null
@@ -2517,17 +2651,25 @@ export async function generateOtDailyInvoices(
     const actorFromPayment =
       row.paymentId != null ? (actorAttributions.byPaymentId.get(row.paymentId) ?? null) : null;
     const actor = actorFromInvoice ?? actorFromPayment;
+    const trackerRep =
+      row.paymentId != null ? (salesTrackerRepByPaymentId.get(row.paymentId) ?? null) : null;
     const fallbackAssignment = patientSalesRepAssignments.get(row.patientId) ?? null;
-    if (!comm && !actor && !fallbackAssignment) return row;
+    if (!comm && !actor && !trackerRep && !fallbackAssignment) return row;
     const ov = comm ? salesRepLookup.overrideBySourceEventId.get(comm.id) : null;
     const resolvedSalesRepId =
-      comm?.salesRepId ?? actor?.salesRepId ?? fallbackAssignment?.salesRepId ?? null;
+      comm?.salesRepId ??
+      actor?.salesRepId ??
+      trackerRep?.salesRepId ??
+      fallbackAssignment?.salesRepId ??
+      null;
     let resolvedSalesRepName: string | null;
     if (comm) {
       resolvedSalesRepName =
         salesRepLookup.repLabelById.get(comm.salesRepId) ?? `User #${comm.salesRepId}`;
     } else if (actor) {
       resolvedSalesRepName = actor.salesRepName;
+    } else if (trackerRep) {
+      resolvedSalesRepName = trackerRep.salesRepName;
     } else {
       resolvedSalesRepName = fallbackAssignment?.salesRepName ?? null;
     }
